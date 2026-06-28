@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SpeedTree 植被生成研究 · Meshova 移植笔记</title>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --panel2:#1c2330; --border:#2d3748;
+    --text:#e6edf3; --muted:#8b97a7; --accent:#7bd88f; --accent2:#4dd0e1;
+    --warn:#ff8a3d; --chip:#21262d; --shadow:rgba(0,0,0,.4); --code:#0b0f14;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:"Segoe UI","Microsoft YaHei",system-ui,sans-serif;line-height:1.6;padding:0 0 80px}
+  header{position:sticky;top:0;z-index:10;background:linear-gradient(180deg,#0d1117 72%,rgba(13,17,23,.85));border-bottom:1px solid var(--border);padding:18px 24px 14px;backdrop-filter:blur(6px)}
+  h1{font-size:23px;font-weight:700;letter-spacing:.5px}
+  h1 span{color:var(--accent)}
+  .sub{color:var(--muted);font-size:13px;margin-top:5px}
+  .nav{margin-top:14px;display:flex;gap:8px;flex-wrap:wrap}
+  .nav a{background:var(--chip);border:1px solid var(--border);color:var(--muted);padding:6px 12px;
+    border-radius:20px;font-size:12.5px;cursor:pointer;transition:.15s;text-decoration:none}
+  .nav a:hover{color:var(--text);border-color:var(--accent)}
+  main{padding:26px 24px;max-width:1180px;margin:0 auto}
+  section{margin-bottom:42px;scroll-margin-top:120px}
+  h2{font-size:18px;color:var(--accent);border-left:3px solid var(--accent);padding-left:11px;margin-bottom:6px}
+  h2 .idx{color:var(--muted);font-weight:400;font-size:14px;margin-right:8px}
+  .lead{color:var(--muted);font-size:13.5px;margin:6px 0 18px 13px;max-width:900px}
+  h3{font-size:15px;color:var(--accent2);margin:22px 0 8px}
+  p{margin:8px 0;font-size:14px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:14px;margin-top:14px}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:11px;padding:15px 17px;box-shadow:0 1px 3px var(--shadow)}
+  .card .nm{font-size:15px;font-weight:600;color:var(--text)}
+  .card .nm .tag{display:inline-block;font-size:10.5px;color:var(--accent);background:rgba(123,216,143,.13);border-radius:5px;padding:1px 7px;margin-left:7px;vertical-align:middle}
+  .card .ds{font-size:13px;color:var(--muted);margin-top:7px}
+  table{width:100%;border-collapse:collapse;margin:14px 0;font-size:13px}
+  th,td{border:1px solid var(--border);padding:8px 11px;text-align:left;vertical-align:top}
+  th{background:var(--panel2);color:var(--accent2);font-weight:600}
+  td code,p code,li code{background:var(--code);color:#9fe6b0;padding:1px 6px;border-radius:4px;font-family:"Consolas",monospace;font-size:12.5px}
+  .map{color:var(--accent);font-weight:600}
+  pre{background:var(--code);border:1px solid var(--border);border-radius:9px;padding:14px 16px;overflow-x:auto;margin:12px 0;font-size:12.8px;line-height:1.55}
+  pre code{font-family:"Consolas",monospace;color:#cfe8d6}
+  .kw{color:#ff8a3d}.fn{color:#4dd0e1}.cm{color:#5d6b7a;font-style:italic}.st{color:#9fe6b0}.nu{color:#d2a8ff}
+  ul{margin:8px 0 8px 22px}li{margin:5px 0;font-size:13.5px}
+  .note{background:var(--panel2);border-left:3px solid var(--warn);border-radius:0 8px 8px 0;padding:11px 15px;margin:14px 0;font-size:13px;color:#e6d7c4}
+  .ok{border-left-color:var(--accent);color:#cfe8d6}
+  .gap{border-left-color:var(--accent2);color:#cfe2e8}
+  footer{text-align:center;color:var(--muted);font-size:12px;margin-top:40px;padding:0 24px;line-height:1.7}
+  .pipeline{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:16px 0}
+  .pipeline .step{background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:9px 13px;font-size:12.5px}
+  .pipeline .step b{color:var(--accent);display:block;font-size:13px;margin-bottom:2px}
+  .pipeline .arr{color:var(--muted);font-size:18px}
+  .badge{font-size:11px;padding:2px 8px;border-radius:5px;margin-left:6px}
+  .b-have{background:rgba(123,216,143,.15);color:var(--accent)}
+  .b-part{background:rgba(255,138,61,.15);color:var(--warn)}
+  .b-new{background:rgba(77,208,225,.15);color:var(--accent2)}
+</style>
+</head>
+<body>
+<header>
+  <h1><span>SpeedTree</span> 植被生成研究 · Meshova 移植笔记</h1>
+  <div class="sub">拆解 SpeedTree 如何程序化生成树/灌木/草 → 映射到 Meshova 现有几何内核 → 给出落地路线</div>
+  <div class="nav">
+    <a href="#overview">总览</a>
+    <a href="#concepts">核心概念</a>
+    <a href="#generators">生成器分层</a>
+    <a href="#algorithms">关键算法</a>
+    <a href="#mapping">Meshova 映射</a>
+    <a href="#wind">风/LOD/卡片</a>
+    <a href="#roadmap">落地路线</a>
+    <a href="#dsl">DSL 示例</a>
+  </div>
+</header>
+<main>
+
+<section id="overview">
+  <h2><span class="idx">00</span>总览：SpeedTree 的本质</h2>
+  <div class="lead">SpeedTree 不是雕模型，而是一套<b>参数化 + 程序化的递归生成器</b>。一棵树 = 一组"生成器(Generator)"按父子层级嵌套，每层用样条(spline)描述骨架、用属性曲线(property curve)沿骨架调制半径/分叉/朝向，再把下一层"种"到上一层的样条上。这套思路和 Meshova 的 <code>curve → sweep → copyToPoints</code> 几乎一一对应。</div>
+  <div class="pipeline">
+    <div class="step"><b>Trunk 主干</b>样条+半径曲线</div><span class="arr">→</span>
+    <div class="step"><b>Branch 枝</b>沿父样条分布</div><span class="arr">→</span>
+    <div class="step"><b>Sub-branch 次枝</b>递归</div><span class="arr">→</span>
+    <div class="step"><b>Leaf 叶/卡片</b>末端散布</div><span class="arr">→</span>
+    <div class="step"><b>Wind 风</b>顶点动画权重</div>
+  </div>
+  <p>核心可迁移的认知有四点：</p>
+  <ul>
+    <li><b>一切是样条</b>：主干、枝、叶柄都是带半径的样条曲线，最终 sweep 成管状网格。</li>
+    <li><b>层级递归</b>：每个生成器把子生成器"实例化"到自己的样条上，参数随父代位置变化（越往末端越细、越密）。</li>
+    <li><b>属性曲线驱动</b>：几乎所有参数（半径、分叉角、长度、卷曲）都不是常数，而是一条 0→1 沿样条的曲线（Meshova 的 <code>Ramp</code> 正好是这个）。</li>
+    <li><b>种子化随机</b>：同一 seed → 同一棵树。这正是 Meshova 的硬约束，天然契合。</li>
+  </ul>
+  <div class="note ok">结论先行：<b>树/灌木的骨架生成 80% 可用现有 API 拼出</b>（curve/helix/sweep/copyToPoints/poissonScatter/ramp）。真正缺的是「递归分支生成器」「叶片卡片(cross-quad/billboard)」「风权重顶点属性」这三块，建议作为 P7「植被」模块新增。</div>
+</section>
+
+<section id="concepts">
+  <h2><span class="idx">01</span>核心概念词典</h2>
+  <div class="lead">读 SpeedTree 文档/教程会反复遇到这些术语，先建立对照表，后面映射才不迷糊。</div>
+  <table>
+    <tr><th>SpeedTree 术语</th><th>含义</th><th>Meshova 对应</th></tr>
+    <tr><td><code>Generator</code></td><td>一个生成节点，负责产出某一层几何（干/枝/叶）并管理子生成器</td><td>一个 build 函数 + 子调用 <span class="b-new">P7 新增</span></td></tr>
+    <tr><td><code>Spline / Skeleton</code></td><td>骨架样条，定义一根枝条的中心线</td><td><code>polyline</code>/<code>bezier</code>/<code>helix</code> <span class="b-have">已有</span></td></tr>
+    <tr><td><code>Property Curve</code></td><td>沿样条 0→1 的属性曲线（半径、角度、长度…）</td><td><code>Ramp</code> + <code>radiusAt</code> 回调 <span class="b-have">已有</span></td></tr>
+    <tr><td><code>Spine / Radius</code></td><td>枝条中心线 + 沿线变化的半径，扫成管</td><td><code>sweep(curve,{radiusAt})</code> <span class="b-have">已有</span></td></tr>
+    <tr><td><code>Frequency</code></td><td>子枝在父枝上的数量</td><td><code>copyToPoints</code> 的 count <span class="b-have">已有</span></td></tr>
+    <tr><td><code>Start / End %</code></td><td>子枝只长在父枝的某一段（如 30%~95%）</td><td>样条参数区间采样 <span class="b-part">部分</span></td></tr>
+    <tr><td><code>Angle / Roll / Pitch</code></td><td>子枝相对父枝的出射角、绕轴旋转、俯仰</td><td><code>quat</code>/<code>mat4</code> + 切线坐标系 <span class="b-have">已有</span></td></tr>
+    <tr><td><code>Phototropism / Gravity</code></td><td>向光性(向上弯)、重力下垂，对样条逐段加偏置</td><td>样条点逐段加向量偏置 <span class="b-part">手写</span></td></tr>
+    <tr><td><code>Gnarl / Noise</code></td><td>沿样条的扭曲/抖动噪声，让枝条不笔直</td><td><code>noise3</code>/<code>fbm3</code> 扰动样条点 <span class="b-have">已有</span></td></tr>
+    <tr><td><code>Leaf / Frond / Billboard</code></td><td>叶片：单卡片、蕨叶带、远景广告牌</td><td>quad 网格 + 散布 <span class="b-new">P7 新增</span></td></tr>
+    <tr><td><code>Wind Weight</code></td><td>顶点权重，控制风摆幅度（根=0，梢=1）</td><td>顶点属性通道(沿样条 t) <span class="b-new">P7 新增</span></td></tr>
+    <tr><td><code>LOD / Cross-section</code></td><td>多分辨率，远处降面/转广告牌</td><td>sweep sides 降级 + 卡片替换 <span class="b-part">部分</span></td></tr>
+  </table>
+</section>
+
+<section id="generators">
+  <h2><span class="idx">02</span>生成器分层：一棵树怎么"长"出来</h2>
+  <div class="lead">SpeedTree 的生成器是一棵树形依赖图。理解这张图，就理解了它整个建模范式——递归地"把子件种到父件的样条上"。</div>
+  <div class="grid">
+    <div class="card"><div class="nm">Trunk 主干生成器 <span class="tag">第0层</span></div><div class="ds">一条从根到顶的主样条。半径沿 t 从粗到细（property curve）。加 gnarl 噪声让它不直。Flare（根部外扩）单独一条曲线。输出 = 一根带锥度的扫掠管。</div></div>
+    <div class="card"><div class="nm">Branch 一级枝 <span class="tag">第1层</span></div><div class="ds">在主干样条 Start%~End% 区间按 Frequency 采样 N 个生长点；每点建一条子样条，出射角 = Angle ± 随机，绕主干 Roll 螺旋分布（黄金角避免重叠）。长度/半径随父代 t 衰减。</div></div>
+    <div class="card"><div class="nm">Sub-branch 二/三级枝 <span class="tag">递归</span></div><div class="ds">对每条一级枝重复同样规则。这就是递归：同一套"沿父样条散布子样条"逻辑，depth+1，参数缩放。通常 2~4 层后停止。</div></div>
+    <div class="card"><div class="nm">Leaf 叶片生成器 <span class="tag">末端</span></div><div class="ds">在最末级枝的末段散布叶卡片/簇。每片是一个 quad（或交叉双 quad），朝向受法线+向上+随机抖动控制。远景用单张 billboard 代替全部叶子。</div></div>
+    <div class="card"><div class="nm">Frond 蕨叶/针叶 <span class="tag">变体</span></div><div class="ds">棕榈/蕨/针叶树用"沿枝条连续生长的叶带"，本质是沿样条 sweep 一个扁平 profile，再贴 alpha 叶纹理。</div></div>
+    <div class="card"><div class="nm">Cap / Root / Knot <span class="tag">细节</span></div><div class="ds">封顶、板根、节疤等局部特征，多为额外散布的小网格或局部 displace。属于锦上添花，初版可跳过。</div></div>
+  </div>
+
+  <h3>灌木与草：同一套生成器的退化形态</h3>
+  <table>
+    <tr><th>类型</th><th>生成器配置</th><th>关键差异</th></tr>
+    <tr><td><b>乔木(Tree)</b></td><td>Trunk + 2~4 层 Branch + Leaf</td><td>有明显主干，半径大，层级深</td></tr>
+    <tr><td><b>灌木(Shrub)</b></td><td>多根细 Trunk(丛生) + 1~2 层 Branch + 密 Leaf</td><td>无单主干，根部多杆丛生，整体偏球状</td></tr>
+    <tr><td><b>草(Grass)</b></td><td>无 Branch，仅"叶片样条"+弯曲</td><td>每根草 = 一条向上弯的窄样条扫掠/卡片，大量 poisson 散布成草地</td></tr>
+    <tr><td><b>藤蔓(Vine)</b></td><td>Trunk 沿附着面爬行 + 稀疏 Leaf</td><td>样条贴附表面，重力/吸附约束</td></tr>
+  </table>
+  <div class="note">关键洞察：<b>草不是"小树"，而是"只有叶层的退化生成器"</b>。所以一套统一的「样条+散布+卡片」生成器，通过参数即可覆盖树/灌木/草，无需三套代码。</div>
+</section>
+
+<section id="algorithms">
+  <h2><span class="idx">03</span>关键算法（可直接复现的部分）</h2>
+  <div class="lead">这些是让植被"长得像真的"的核心数学，全部种子化、无外部依赖，符合 Meshova 决定论约束。</div>
+
+  <h3>① 沿父样条分布子枝（黄金角螺旋）</h3>
+  <p>子枝绕父样条的 roll 角用<b>黄金角 137.5°</b>递增，避免子枝在同一侧堆叠——这是植物叶序(phyllotaxis)的真实规律。沿父样条的位置用 <code>start%~end%</code> 区间均匀或抖动采样。</p>
+  <pre><code><span class="cm">// 第 i 根子枝在父样条上的归一化位置 t 和绕轴角 roll</span>
+<span class="kw">const</span> t    = lerp(startPct, endPct, (i + jitter) / count);
+<span class="kw">const</span> roll = i * <span class="nu">2.399963</span>;  <span class="cm">// 黄金角 (弧度) ≈ 137.5°</span>
+<span class="cm">// 在父样条 t 处取位置 + 切线，建子枝起点坐标系</span>
+<span class="kw">const</span> P = sampleCurve(parent, t);
+<span class="kw">const</span> T = curveTangent(parent, t);
+<span class="kw">const</span> frame = frameFromTangent(T, roll);   <span class="cm">// 切线+roll → 出射坐标系</span></code></pre>
+
+  <h3>② 出射方向：角度 + 向光 + 重力</h3>
+  <p>子枝初始方向 = 父切线绕侧轴旋转 <code>branchAngle</code>；随后沿样条逐段把方向<b>向上(向光性)</b>或<b>向下(重力)</b>插值，得到自然的弯曲。</p>
+  <pre><code><span class="kw">let</span> dir = rotateAround(side, parentTangent, branchAngle);
+<span class="kw">for</span> (<span class="kw">let</span> s = <span class="nu">0</span>; s &lt; segments; s++) {
+  <span class="kw">const</span> up = vec3(<span class="nu">0</span>, <span class="nu">1</span>, <span class="nu">0</span>);
+  dir = normalize(lerp(dir, up,      phototropism * dt)); <span class="cm">// 向光上扬</span>
+  dir = normalize(lerp(dir, NEG_UP,  gravity      * dt)); <span class="cm">// 重力下垂</span>
+  pt  = add(pt, scale(dir, segLen));
+  pt  = add(pt, gnarlNoise(pt, seed));                    <span class="cm">// 扭曲抖动</span>
+  pts.push(pt);
+}</code></pre>
+
+  <h3>③ 半径锥度（property curve）</h3>
+  <p>半径沿样条 t 不是线性，而是一条曲线：根部 flare 外扩、整体向梢部收细、末端尖。用 <code>Ramp</code> 表达最自然。</p>
+  <pre><code><span class="fn">sweep</span>(branchCurve, {
+  sides: <span class="nu">6</span>,
+  radiusAt: (t) =&gt; baseRadius * radiusRamp.<span class="fn">at</span>(t)   <span class="cm">// ramp: 0→1 的锥度曲线</span>
+});</code></pre>
+
+  <h3>④ 叶片朝向（交叉卡片 / billboard）</h3>
+  <p>单叶 = 一个带 alpha 的 quad；为避免从侧面看变成一条线，常用<b>交叉双 quad（cross）</b>或 3 片 60° 互插。朝向由"枝条法线 + 世界向上 + 随机抖动"混合，让叶面大致朝外朝上。</p>
+  <pre><code><span class="kw">const</span> normal = mix(branchNormal, UP, leafUpBias);
+<span class="kw">const</span> yaw    = rng() * TWO_PI;            <span class="cm">// 绕自身轴随机转</span>
+<span class="kw">const</span> quad   = leafQuad(size, normal, yaw); <span class="cm">// 朝向 normal 的卡片</span></code></pre>
+
+  <h3>⑤ 草叶弯曲（单条贝塞尔）</h3>
+  <p>一根草 = 一条 3 点贝塞尔：根部直立，向风/重力方向弯，梢部最弯。窄 profile 扫掠或直接双面 quad 条。大量 <code>poissonScatter</code> 铺成草地，用密度图/噪声控分布。</p>
+  <pre><code><span class="kw">const</span> blade = <span class="fn">bezier</span>(
+  root,                              <span class="cm">// p0 根</span>
+  add(root, vec3(<span class="nu">0</span>, h*<span class="nu">0.6</span>, <span class="nu">0</span>)),    <span class="cm">// p1 控制点</span>
+  add(root, vec3(bend*<span class="nu">0.5</span>, h*<span class="nu">0.9</span>, <span class="nu">0</span>)),
+  add(root, vec3(bend, h, <span class="nu">0</span>)), <span class="nu">6</span>);    <span class="cm">// p3 弯曲的梢</span></code></pre>
+</section>
+
+<section id="mapping">
+  <h2><span class="idx">04</span>Meshova 能力映射：有什么 / 缺什么</h2>
+  <div class="lead">把 SpeedTree 流水线逐段对到 Meshova 现有 <code>SCRIPT_API</code>，标出可直接用、需封装、需新增三档。</div>
+  <table>
+    <tr><th>SpeedTree 步骤</th><th>Meshova 现有能力</th><th>状态</th></tr>
+    <tr><td>主干/枝 中心线</td><td><code>polyline</code> / <code>bezier</code> / <code>helix</code> / <code>smoothCurve</code></td><td><span class="badge b-have">直接可用</span></td></tr>
+    <tr><td>样条扫掠成管 + 锥度</td><td><code>sweep(curve,{sides,radiusAt,caps})</code></td><td><span class="badge b-have">直接可用</span></td></tr>
+    <tr><td>枝沿父样条分布</td><td><code>copyToPoints</code> / <code>instancePlanFromPoints</code></td><td><span class="badge b-part">需"沿曲线采样点+切线"封装</span></td></tr>
+    <tr><td>叶/草 表面散布</td><td><code>poissonScatter</code> / <code>scatterOnSurface</code> / <code>surfacePointCloud</code></td><td><span class="badge b-have">直接可用</span></td></tr>
+    <tr><td>枝条扭曲抖动</td><td><code>noise3</code> / <code>fbm3</code> / <code>displaceByNoise</code></td><td><span class="badge b-have">直接可用</span></td></tr>
+    <tr><td>出射角/朝向变换</td><td><code>quat</code> / <code>mat4</code> / vec3 旋转helper</td><td><span class="badge b-have">直接可用</span></td></tr>
+    <tr><td>属性曲线(半径/角度衰减)</td><td><code>Ramp</code> + <code>radiusAt</code> 回调</td><td><span class="badge b-have">直接可用</span></td></tr>
+    <tr><td>面积加权/密度散布</td><td><code>poissonScatter</code> + field 调密度</td><td><span class="badge b-have">直接可用</span></td></tr>
+    <tr><td><b>递归分支生成器</b></td><td>无统一递归框架（现需手写循环）</td><td><span class="badge b-new">P7 新增 growBranches()</span></td></tr>
+    <tr><td><b>叶卡片 / 交叉 quad</b></td><td>无专用叶片图元</td><td><span class="badge b-new">P7 新增 leafCard()/crossQuad()</span></td></tr>
+    <tr><td><b>沿曲线 frame(切线坐标系)</b></td><td>sweep 内部有，未单独暴露</td><td><span class="badge b-part">抽出 curveFrameAt()</span></td></tr>
+    <tr><td><b>风权重顶点属性</b></td><td>无顶点自定义属性通道</td><td><span class="badge b-new">P7 新增 windWeight 通道</span></td></tr>
+    <tr><td>叶/树皮 PBR 材质</td><td><code>surfacePart</code> + texture 模块(noise/voronoi/ramp)</td><td><span class="badge b-have">直接可用</span></td></tr>
+  </table>
+  <div class="note gap">缺口很集中，就三件：<b>(1) 递归分支生成器</b>（把"沿父样条散布子样条并递归"封成一个函数）、<b>(2) 叶片卡片图元</b>（cross-quad / billboard）、<b>(3) 顶点风权重属性通道</b>。其余全部是现有 API 的组合调用。</div>
+</section>
+
+<section id="wind">
+  <h2><span class="idx">05</span>风 / LOD / 卡片：渲染侧的工程</h2>
+  <div class="lead">这部分是 SpeedTree 商业价值最高、也最"运行时"的部分。Meshova 现阶段（静态截图闭环）可先做"权重数据"，动画留给查看器。</div>
+
+  <h3>风（Wind）</h3>
+  <p>SpeedTree 的风是<b>顶点着色器里的程序化摆动</b>，不改网格拓扑。每个顶点带一个 <b>wind weight ∈ [0,1]</b>（根=0、梢=1，沿样条 t 累积），shader 用 <code>sin(time + phase) * weight * windStrength</code> 偏移顶点。分三层：主干整体摆、枝条次级摆、叶片高频抖。</p>
+  <p>Meshova 落地：生成网格时把 <code>t</code>（沿样条归一化深度）和 <code>branchPhase</code> 写进顶点属性，导出到 <code>ViewerModel</code>。three.js 端写一个简单 wind shader 读这些属性即可。静态截图不需要，但数据要预留。</p>
+
+  <h3>LOD 与卡片(Billboard)</h3>
+  <table>
+    <tr><th>距离</th><th>表现</th><th>Meshova 做法</th></tr>
+    <tr><td>近(LOD0)</td><td>全枝条 sweep + 每片叶 quad</td><td>sweep sides=6~8，叶卡片全量</td></tr>
+    <tr><td>中(LOD1)</td><td>枝降面，叶簇合并成少量大卡片</td><td>sweep sides=3~4，叶片聚成 cluster quad</td></tr>
+    <tr><td>远(LOD2)</td><td>整树→1~2 张交叉广告牌</td><td>预渲染树的 8 方向图集 → cross billboard</td></tr>
+  </table>
+  <div class="note">广告牌(billboard)需要"把树渲染成贴图图集"，这正好能复用 Meshova 已有的 <b>headless 多视角截图管线</b>——把生成的树从 8 个角度截图拼图集，就是远景 imposter。是个很自然的二期增量。</div>
+</section>
+
+<section id="roadmap">
+  <h2><span class="idx">06</span>落地路线：P7「植被」模块建议</h2>
+  <div class="lead">按 Meshova 一贯的"先骨架后细节、能截图即闭环"节奏，分四步增量交付。每步都能产出可在查看器看到的东西。</div>
+  <table>
+    <tr><th>阶段</th><th>交付物</th><th>新增 API</th><th>依赖</th></tr>
+    <tr><td><b>P7.1 样条骨架</b></td><td>能长出一根带锥度、带噪声弯曲的主干</td><td><code>curveFrameAt(curve,t)</code>、<code>gnarlCurve(curve,{seed,amount})</code></td><td>curve/sweep/noise（全有）</td></tr>
+    <tr><td><b>P7.2 递归分支</b></td><td>主干→多级枝的完整骨架树</td><td><code>growBranches(parentCurve,{count,angle,depth,radiusRamp,...})</code></td><td>P7.1 + 黄金角分布</td></tr>
+    <tr><td><b>P7.3 叶片</b></td><td>末端散布叶卡片 → 看起来是棵真树</td><td><code>leafCard(size,normal)</code>、<code>crossQuad()</code>、<code>scatterLeaves(branches,opts)</code></td><td>P7.2 + poissonScatter</td></tr>
+    <tr><td><b>P7.4 灌木/草 + 风数据</b></td><td>参数预设覆盖树/灌木/草；顶点写 wind weight</td><td>预设 <code>treePreset/shrubPreset/grassPreset</code>；顶点属性通道</td><td>P7.3 + 顶点属性扩展</td></tr>
+  </table>
+  <div class="note ok">建议从 <b>P7.2 的 <code>growBranches</code></b> 切入做 MVP——它是整个范式的核心。先用现有 sweep 拼一棵"光杆树"，能在查看器里转着看，再加叶子。其余（板根、节疤、frond、风动画）都属可选增量。</div>
+
+  <h3>与现有架构的接入点</h3>
+  <ul>
+    <li>新建 <code>src/vegetation/</code> 模块，barrel <code>index.ts</code>，由 <code>src/index.ts</code> 再导出（沿用现有约定）。</li>
+    <li>把面向 AI 的函数注册进 <code>src/agent/api.ts</code> 的 <code>SCRIPT_API</code> 和 <code>SCRIPT_API_REFERENCE</code>（保持两者同步，这是硬约定）。</li>
+    <li>叶片/树皮材质走现成 <code>surfacePart</code> + texture 模块，无需新东西。</li>
+    <li>查看器加 <code>tree</code> ProcModel（schema 参数：seed/高度/分叉数/叶密度），滑块实时重建——延续现有程序化编辑器模式。</li>
+    <li>决定论照旧：所有随机走 <code>makeRng(seed).fork()</code> 分流给各层，禁 <code>Math.random</code>。</li>
+  </ul>
+</section>
+
+<section id="dsl">
+  <h2><span class="idx">07</span>目标 DSL：一棵树应该怎么"写"出来</h2>
+  <div class="lead">这是 P7 完成后，AI 脚本生成一棵树的理想样子——纯组合调用，无 import、无 async，符合 Meshova 的 DSL 契约。下面是<b>设计草图</b>（部分函数尚待实现），展示 API 该长什么样。</div>
+  <pre><code><span class="cm">// 一棵橡树 —— P7 目标 DSL（草图，非现可运行）</span>
+<span class="kw">const</span> rng = <span class="fn">makeRng</span>(seed);
+
+<span class="cm">// 1) 主干：直立样条 + gnarl 扭曲 + 根部 flare</span>
+<span class="kw">const</span> trunk = <span class="fn">gnarlCurve</span>(
+  <span class="fn">polyline</span>([vec3(<span class="nu">0</span>,<span class="nu">0</span>,<span class="nu">0</span>), vec3(<span class="nu">0</span>,<span class="nu">4</span>,<span class="nu">0</span>)]),
+  { seed: rng.<span class="fn">int</span>(), amount: <span class="nu">0.15</span> }
+);
+<span class="kw">const</span> trunkMesh = <span class="fn">sweep</span>(trunk, {
+  sides: <span class="nu">8</span>,
+  radiusAt: (t) =&gt; <span class="nu">0.3</span> * (<span class="nu">1</span> - <span class="nu">0.85</span>*t) + (t&lt;<span class="nu">0.1</span> ? <span class="nu">0.1</span>*(<span class="nu">1</span>-t*<span class="nu">10</span>) : <span class="nu">0</span>) <span class="cm">// 锥度+flare</span>
+});
+
+<span class="cm">// 2) 递归分支：沿主干黄金角螺旋散布，3 级递归</span>
+<span class="kw">const</span> branches = <span class="fn">growBranches</span>(trunk, {
+  seed: rng.<span class="fn">int</span>(),
+  count: <span class="nu">7</span>, depth: <span class="nu">3</span>,
+  startPct: <span class="nu">0.35</span>, endPct: <span class="nu">0.95</span>,
+  angle: <span class="nu">50</span>,            <span class="cm">// 出射角(度)</span>
+  phototropism: <span class="nu">0.4</span>,   <span class="cm">// 向上弯强度</span>
+  lengthRamp: <span class="fn">ramp</span>([[<span class="nu">0</span>,<span class="nu">1</span>],[<span class="nu">1</span>,<span class="nu">0.3</span>]]),  <span class="cm">// 越高的枝越短</span>
+  radiusScale: <span class="nu">0.6</span>     <span class="cm">// 每级半径衰减</span>
+});
+
+<span class="cm">// 3) 叶片：在末级枝散布交叉卡片</span>
+<span class="kw">const</span> leaves = <span class="fn">scatterLeaves</span>(branches.<span class="fn">terminal</span>(), {
+  seed: rng.<span class="fn">int</span>(),
+  density: <span class="nu">120</span>, size: <span class="nu">0.18</span>,
+  upBias: <span class="nu">0.5</span>, cross: <span class="kw">true</span>
+});
+
+<span class="cm">// 4) 输出：树干/枝用树皮材质，叶用半透薄叶材质</span>
+<span class="kw">return</span> [
+  <span class="fn">surfacePart</span>(<span class="st">"trunk"</span>, <span class="fn">merge</span>(trunkMesh, branches.<span class="fn">mesh</span>()), <span class="st">"bark"</span>, { roughness: <span class="nu">0.9</span> }),
+  <span class="fn">surfacePart</span>(<span class="st">"leaves"</span>, leaves, <span class="st">"leaf"</span>, { transmission: <span class="nu">0.3</span>, doubleSided: <span class="kw">true</span> })
+];</code></pre>
+  <div class="note">对比可见：<b>现在已能跑的部分</b>是 <code>polyline/sweep/merge/surfacePart</code>；<b>要补的</b>是 <code>gnarlCurve / growBranches / scatterLeaves / leafCard</code>。把这几个补上，AI 就能像写上面这段一样生成无限变体的树。</div>
+</section>
+
+</main>
+<footer>
+  SpeedTree 为 IDV/Unity 商业产品，此文档基于公开教程与文档对其<b>生成范式与算法思路</b>的研究整理，用于指导 Meshova 自研植被模块——算法自行重写，不复制任何源码或资产。<br>
+  生成范式 → Meshova 映射 → P7 落地路线 · 仅供内部研究参考。
+</footer>
+</body>
+</html>

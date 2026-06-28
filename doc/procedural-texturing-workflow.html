@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>程序化贴图流水线库 · Meshova</title>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --panel2:#1c2330; --border:#2d3748;
+    --text:#e6edf3; --muted:#8b97a7; --accent:#ff8a3d; --accent2:#4dd0e1;
+    --green:#5ad19a; --red:#ff6b6b; --purple:#b98cff; --chip:#21262d; --shadow:rgba(0,0,0,.4);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:"Segoe UI","Microsoft YaHei",system-ui,sans-serif;line-height:1.6;padding:0 0 80px}
+  header{position:sticky;top:0;z-index:20;background:linear-gradient(180deg,#0d1117 75%,rgba(13,17,23,.9));border-bottom:1px solid var(--border);padding:18px 28px 14px;backdrop-filter:blur(6px)}
+  h1{font-size:23px;font-weight:700;letter-spacing:.4px}
+  h1 span{color:var(--accent)}
+  .sub{color:var(--muted);font-size:13px;margin-top:5px;max-width:920px}
+  .layout{display:flex;max-width:1500px;margin:0 auto}
+  nav{position:sticky;top:96px;align-self:flex-start;width:236px;flex:none;padding:24px 12px 24px 24px;height:calc(100vh - 96px);overflow-y:auto}
+  nav a{display:block;color:var(--muted);text-decoration:none;font-size:13px;padding:6px 10px;border-radius:7px;border-left:2px solid transparent;transition:.15s}
+  nav a:hover{color:var(--text);background:var(--panel)}
+  nav a.sub2{padding-left:22px;font-size:12.3px;color:#6b7585}
+  main{flex:1;padding:24px 32px;min-width:0}
+  section{margin-bottom:44px;scroll-margin-top:110px}
+  h2{font-size:19px;color:var(--accent2);border-left:4px solid var(--accent2);padding-left:12px;margin-bottom:14px}
+  h3{font-size:15.5px;color:var(--accent);margin:22px 0 10px}
+  p{margin:10px 0;color:#d3dbe5}
+  .lead{color:var(--muted);font-size:13.5px;margin-bottom:8px}
+  ul,ol{margin:8px 0 8px 22px}
+  li{margin:6px 0;color:#d3dbe5}
+  code{background:#0a0e14;border:1px solid var(--border);border-radius:5px;padding:1px 6px;font-family:"Cascadia Code",Consolas,monospace;font-size:12.6px;color:var(--accent2)}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:11px;padding:16px 18px;margin:14px 0;box-shadow:0 1px 3px var(--shadow)}
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:13px}
+  th,td{border:1px solid var(--border);padding:9px 12px;text-align:left;vertical-align:top}
+  th{background:var(--panel2);color:var(--accent2);font-weight:600}
+  td code{font-size:12px}
+  .tip{border-left:3px solid var(--green);background:rgba(90,209,154,.07);padding:10px 14px;border-radius:0 8px 8px 0;margin:12px 0}
+  .warn{border-left:3px solid var(--red);background:rgba(255,107,107,.07);padding:10px 14px;border-radius:0 8px 8px 0;margin:12px 0}
+  .note{border-left:3px solid var(--purple);background:rgba(185,140,255,.07);padding:10px 14px;border-radius:0 8px 8px 0;margin:12px 0}
+  .tip b{color:var(--green)}.warn b{color:var(--red)}.note b{color:var(--purple)}
+  .pill{display:inline-block;font-size:11px;background:rgba(255,138,61,.14);color:var(--accent);border-radius:5px;padding:1px 8px;margin:2px 5px 2px 0}
+  .pill.g{background:rgba(90,209,154,.14);color:var(--green)}
+  .pill.r{background:rgba(255,107,107,.14);color:var(--red)}
+  /* pipeline cards */
+  #pl-wrap{display:flex;flex-direction:column;gap:18px}
+  .pl{background:var(--panel);border:1px solid var(--border);border-radius:12px;overflow:hidden;box-shadow:0 1px 4px var(--shadow)}
+  .pl .pl-head{display:flex;align-items:center;gap:12px;padding:14px 18px;background:var(--panel2);border-bottom:1px solid var(--border);flex-wrap:wrap}
+  .pl .pl-id{font-family:"Cascadia Code",Consolas,monospace;font-size:12px;font-weight:700;color:#161b22;background:var(--accent);border-radius:6px;padding:2px 9px}
+  .pl .pl-name{font-size:16px;font-weight:700;color:var(--text)}
+  .pl .pl-tag{font-size:11.5px;color:var(--muted);margin-left:auto}
+  .pl .pl-body{padding:16px 18px}
+  .pl .pl-sum{color:#d3dbe5;font-size:13.5px;margin-bottom:12px}
+  .steps{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 16px}
+  .steps .st{flex:1;min-width:120px;background:var(--panel2);border:1px solid var(--border);border-radius:9px;padding:9px 11px;position:relative}
+  .steps .st .si{font-size:10.5px;color:var(--accent);font-weight:700}
+  .steps .st .sn{font-size:12.8px;color:var(--text);margin-top:3px}
+  .steps .st .sf{font-size:11px;color:var(--muted);margin-top:4px;font-family:Consolas,monospace}
+  .twocol{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:8px}
+  .twocol .b{background:var(--panel2);border:1px solid var(--border);border-radius:9px;padding:11px 14px}
+  .twocol .b h5{font-size:12.5px;margin-bottom:7px}
+  .twocol .b.fit h5{color:var(--green)}
+  .twocol .b.unfit h5{color:var(--red)}
+  .twocol .b ul{margin:0 0 0 18px}
+  .twocol .b li{font-size:12.5px;margin:4px 0}
+  footer{text-align:center;color:var(--muted);font-size:12px;margin-top:40px;padding:0 24px}
+  @media(max-width:900px){nav{display:none}main{padding:20px}.twocol{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+  <h1>程序化贴图 <span>流水线库</span> · Meshova</h1>
+  <div class="sub">把 SD 式程序化材质拆成多种可命名、可追加的「流水线」。每种流水线带适用范围与禁区，AI 生成贴图前先按材质类别选流水线，再在其参数空间里调。当前收录 9 种(P1~P8 材质流水线 + P9 风格化修饰器)，后续学一种加一条数据即可。</div>
+</header>
+<div class="layout">
+<nav>
+  <a href="#concept">为什么要分流水线</a>
+  <a href="#selector">流水线选择决策表</a>
+  <a href="#ai">AI 选择协议</a>
+  <a href="#lib">流水线库</a>
+  <a href="#P1" class="sub2">P1 · Height-first 做旧</a>
+  <a href="#P2" class="sub2">P2 · 服装花纹 motif</a>
+  <a href="#P3" class="sub2">P3 · Tile 分块拼贴</a>
+  <a href="#P4" class="sub2">P4 · Flow-field 方向场</a>
+  <a href="#P5" class="sub2">P5 · 分层 mask 涂装</a>
+  <a href="#P6" class="sub2">P6 · 透射/介电体积</a>
+  <a href="#P7" class="sub2">P7 · 雪/融雪</a>
+  <a href="#P8" class="sub2">P8 · 特效 VFX</a>
+  <a href="#P9" class="sub2">P9 · 风格化修饰器</a>
+  <a href="#building" class="sub2">（后续追加…）</a>
+  <a href="#howto">如何新增一条流水线</a>
+  <a href="#shared">共用心智模型</a>
+</nav>
+<main>
+<section id="concept">
+  <h2>为什么要分流水线（不是一套打天下）</h2>
+  <p class="lead">不同材质的“结构来源”根本不同，硬套一套流程会做出假东西。</p>
+  <div class="card">
+  <ul>
+    <li><b>硬表面做旧</b>（金属/石头/水泥）：结构来自 height，做旧靠 curvature/AO。&rarr; height-first。</li>
+    <li><b>有机纤维</b>（布料/毛发/皮草）：结构来自方向场 + 各向异性，几乎没有“凸边磨损”。&rarr; 另一套。</li>
+    <li><b>分块拼接</b>（砖/瓷砖/木地板）：核心是 tile 排布 + 每块随机化 + 缝隙，height 是次要。&rarr; 又一套。</li>
+    <li><b>分层涂装</b>（做旧油漆/锈穿/掉漆）：核心是 mask 驱动的多层叠加，按暴露程度逐层剥。&rarr; 再一套。</li>
+  </ul>
+  </div>
+  <div class="note"><b>所以流水线是“可选策略”，不是唯一真理。</b>本页把每种流水线命名、写清适用/禁区，AI 先选对策略，再调参，成品质量远高于无脑套一套。</div>
+</section>
+
+<section id="selector">
+  <h2>流水线选择决策表</h2>
+  <p class="lead">AI / 人按材质类别快速定位用哪条。随库扩充而增长。</p>
+  <table>
+    <tr><th>材质类别 / 关键词</th><th>推荐流水线</th><th>状态</th></tr>
+    <tr><td>生锈金属、石头、水泥、做旧硬表面、岩石</td><td><code>P1</code> Height-first 做旧</td><td><span class="pill g">已收录</span></td></tr>
+    <tr><td>布料花纹:印花/提花织锦/刺绣/烫金/格纹/旧布</td><td><code>P2</code> 服装花纹三层 motif</td><td><span class="pill g">已收录</span></td></tr>
+    <tr><td>砖墙、石墙、鹅卵石、瓷砖、木地板、屋瓦、沥青骨料</td><td><code>P3</code> Tile 分块拼贴</td><td><span class="pill g">已收录</span></td></tr>
+    <tr><td>头发、毛发、皮草、草叶、木年轮、拉丝金属</td><td><code>P4</code> Flow-field 方向场</td><td><span class="pill g">已收录</span></td></tr>
+    <tr><td>掉漆、锈穿、破损墙、多层涂装、风化</td><td><code>P5</code> 分层 mask 涂装/风化</td><td><span class="pill g">已收录</span></td></tr>
+    <tr><td>玻璃、液体、水、冰、宝石、磨砂玻璃、透明塑料</td><td><code>P6</code> 透射/介电体积</td><td><span class="pill g">已收录</span></td></tr>
+    <tr><td>雪、积雪、融雪、霜、湿雪覆盖</td><td><code>P7</code> 雪/融雪湿度联动</td><td><span class="pill g">已收录</span></td></tr>
+    <tr><td>特效:溶解/火焰/能量/flipbook/滚动噪声</td><td><code>P8</code> 特效 VFX 多通道打包</td><td><span class="pill g">已收录</span></td></tr>
+    <tr><td>风格化/手绘/卡通(正交开关,叠在 P1~P6 上)</td><td><code>P9</code> 风格化修饰器</td><td><span class="pill g">修饰器</span></td></tr>
+  </table>
+  <div class="warn"><b>未收录 ≠ 现在做不了。</b>现有内核大多能拼出来，只是还没把“稳定配方 + 适用范围”固化成一条流水线。学到后按本页末尾“如何新增”补进 <code>PIPELINES</code> 即可自动出卡片+决策行。</div>
+</section>
+
+<section id="ai">
+  <h2>AI 选择协议（生成贴图前先选流水线）</h2>
+  <p class="lead">把“选流水线”作为材质生成的第一步，写进 agent 流程与 prompt。</p>
+  <div class="card">
+  <ol>
+    <li><b>分类</b>：VLM / 文本意图 &rarr; 材质大类（硬表面/纤维/分块/涂装/透射）。</li>
+    <li><b>查表选流水线</b>：用决策表拿到 pipeline id；命不中则回退到最接近的 + 标低置信度。</li>
+    <li><b>读该流水线的适用/禁区</b>：禁区命中就换一条，别硬套。</li>
+    <li><b>按该流水线的步骤与参数空间生成</b>：只在它暴露的参数里调，黑盒优化器也在这个空间搜。</li>
+    <li><b>评分回灌</b>：类别匹配 + 粗糙/金属直方图 + 主色，分维度打分（造型优先、材质求类别对）。</li>
+  </ol>
+  </div>
+  <div class="note"><b>落地建议</b>：在 <code>src/agent/api.ts</code> 暴露 <code>pickPipeline(materialClass)</code> 与每条流水线的高层构建函数（如 <code>buildPbrFromHeight</code>），并把决策表 + 各流水线禁区写进 <code>SCRIPT_API_REFERENCE</code>，AI 才会先选后调而非乱拼裸函数。</div>
+</section>
+<section id="lib">
+  <h2>流水线库</h2>
+  <p class="lead">数据驱动渲染：每条流水线是 <code>PIPELINES</code> 里的一个对象，新增即出卡片。</p>
+  <div id="pl-wrap"></div>
+  <div id="building" class="note" style="margin-top:18px"><b>占位</b>：常见 SD 材质类别已基本覆盖。后续如学到新品类(如皮革毛孔、植被地表、屏幕/电路等),按文末「如何新增」补一条 <code>PIPELINES</code> 数据 + 决策表一行即可。<br>注:<code>P9</code> 是正交修饰器,与 P1~P8 叠加使用,不单独作为材质类别选择。</div>
+</section>
+
+<section id="howto">
+  <h2>如何新增一条流水线</h2>
+  <p class="lead">学完一个新 SD 教程后，提炼成一条数据，不用碰 HTML 结构。</p>
+  <div class="card">
+  <p>在本文件 <code>PIPELINES</code> 数组里加一个对象：</p>
+  <ul>
+    <li><code>id</code>：如 <code>P2</code>；<code>name</code>：流水线名；<code>tag</code>：一句话定位。</li>
+    <li><code>summary</code>：它解决什么、核心思路。</li>
+    <li><code>steps</code>：<code>[{i,name,fn}]</code> 有序步骤 + 对应 Meshova 函数。</li>
+    <li><code>fit</code> / <code>unfit</code>：适用范围 与 禁区（最关键，AI 靠这个选）。</li>
+    <li><code>classes</code>：命中的材质关键词（用于决策表）。</li>
+  </ul>
+  <p>同步在“流水线选择决策表”补一行。保持深色风格不变。</p>
+  </div>
+</section>
+
+<section id="shared">
+  <h2>所有流水线共用的心智模型</h2>
+  <p class="lead">无论哪条流水线，底层都是这四类积木 + 三条铁律。</p>
+  <table>
+    <tr><th>积木类别</th><th>作用</th><th>Meshova</th></tr>
+    <tr><td>发生器</td><td>产生底图：噪声/图案/渐变/形状</td><td>patterns / patterns2 / patterns3</td></tr>
+    <tr><td>滤镜</td><td>改造单图：模糊/对比/扭曲/坡度/转法线</td><td>filters · pbr</td></tr>
+    <tr><td>合成</td><td>两图按遮罩混合</td><td>blendTex / minTex / maxTex / blendColor</td></tr>
+    <tr><td>转换</td><td>平铺/通道打包</td><td>tiling · makeTile / tileSampler</td></tr>
+  </table>
+  <div class="tip"><b>三条铁律（跨流水线通用）：</b>① 确定性——禁 <code>Math.random</code>/<code>Date.now</code>，走 <code>makeRng().fork()</code>。② 无缝——周期实现或过 <code>makeTile</code>。③ 物理——出口过 <code>validateMaterial</code>，材质只求类别对、不做像素复刻。</div>
+</section>
+</main>
+</div>
+<footer>
+  程序化材质流水线库 · 方法论级别归纳并映射到 Meshova <code>src/texture/</code> 内核；具体节点行为以软件版本为准。<br>
+  注：未直接读取 B 站视频内容，P1 为通用方法论归纳；后续流水线随学习追加。
+</footer>
+<script>
+const PIPELINES = [
+  {
+    id: "P1",
+    name: "Height-first 通用做旧流水线",
+    tag: "硬表面 · 结构进 height、做旧靠 curvature/AO",
+    classes: "生锈金属 / 石头 / 水泥 / 岩石 / 做旧硬表面",
+    summary: "把所有结构(大形+中频+高频)加权叠加进一张 height 灰度图作为唯一“真相”，normal/ao/curvature 全部从它派生，再用 curvature(凸边磨损)+AO(凹处积灰)生成做旧遮罩，最后用遮罩在 干净色/磨损色/积灰色 之间混合上色。通道天然一致，做旧跟着真实几何走。",
+    steps: [
+      {i:"1 底层结构", name:"大形分块", fn:"voronoi / brick / shape"},
+      {i:"2 中频", name:"肌理起伏", fn:"fbm / multiFractal"},
+      {i:"3 高频", name:"颗粒微观", fn:"noisePattern → normal"},
+      {i:"4 height", name:"加权叠加为唯一源", fn:"blend / sum"},
+      {i:"5 派生", name:"法线+AO+曲率", fn:"heightToNormal / aoFromHeight / curvature"},
+      {i:"6 遮罩", name:"凸边磨损+凹处积灰", fn:"curvature + aoFromHeight"},
+      {i:"7 上色", name:"遮罩混合多套色/糙", fn:"blendColor"},
+      {i:"8 输出", name:"组装+物理校验", fn:"materialFromFields / validateMaterial"}
+    ],
+    fit: [
+      "金属、石头、水泥、混凝土、岩石等硬表面",
+      "需要边缘磨损、凹陷积灰、风化痕迹的做旧效果",
+      "结构能用一张高度图表达的材质"
+    ],
+    unfit: [
+      "布料/毛发/皮草——结构来自方向场，无凸边磨损，套此流程会很假",
+      "玻璃/液体——核心是透射/折射，应走 surface.ts 介电流水线",
+      "强分块拼贴(砖墙/地板)——主体是 tile 排布与每块随机化，height 只是辅助",
+      "纯平整光滑塑料——没有结构可进 height，直接常量 PBR 即可"
+    ]
+  },
+  {
+    id: "P2",
+    name: "服装花纹三层 motif 流水线",
+    tag: "纺织 · 三层尺度(花纹/编织/纤维) + motif mask 驱动多通道",
+    classes: "布料 / 印花 / 提花织锦 / 刺绣 / 烫金金线 / 格纹条纹 / 旧布",
+    summary: "服装花纹不是一张位图。拆成三层尺度——花纹(低频 motif) + 编织(中频 weave) + 纤维(高频 fiber)，缺一层就假。装饰图案先做黑白 motif mask，同一 mask 同时驱动 baseColor/roughness/height/AO(通道联动)；花纹靠 tileSampler 重复错位、靠 directional warp 贴住织物流向避免贴纸感。工艺类型(印花/提花/刺绣/烫金)决定 motif 进哪个通道、进多深。布料 metallic 默认 0，仅金线 mask 局部开。",
+    steps: [
+      {i:"1 语义拆解", name:"布料/纹样/重复/工艺/配色", fn:"VLM / 文本 → 参数(非位图)"},
+      {i:"2 织物底纹", name:"经纬细线+拉伸噪声", fn:"stripes / wave / anisotropicFbm"},
+      {i:"3 motif mask", name:"花纹黑白遮罩", fn:"shape / star / dots + histogramScan"},
+      {i:"4 重复错位", name:"格子重复/偏移/旋转", fn:"tileSampler (可平铺 seed)"},
+      {i:"5 方向变形", name:"低频场扰动贴流向", fn:"warp (低频, 大花纹轻扰)"},
+      {i:"6 高度分层", name:"布纹微/花纹中/刺绣高", fn:"blendTex / bevel / emboss"},
+      {i:"7 通道联动", name:"同源 mask 驱动色/糙/高/AO", fn:"blendColor / heightToNormal / aoFromHeight"},
+      {i:"8 输出", name:"组装+物理校验+无缝", fn:"materialFromFields / validateMaterial / makeTile"}
+    ],
+    fit: [
+      "织物类:印花布、提花/织锦、刺绣、烫金金线、格纹条纹、旧布磨损",
+      "需要规律可识别花纹 + 可平铺连续纹样的表面",
+      "材质有明确三层尺度(图案/编织/纤维)的纺织品"
+    ],
+    unfit: [
+      "硬表面做旧(金属/石头)——无织物流向与三层尺度，走 P1",
+      "把服装大褶皱烘进平铺材质——大褶皱属几何或局部 mask，平铺只放微褶+布纹",
+      "直接图生贴图 / 从 baseColor 猜 normal / roughness 用独立噪声——三大反模式，破坏可编辑与通道联动",
+      "无限制 warp——过强毁花纹识别;大花纹轻扰、高频纤维可强扰"
+    ]
+  },
+  {
+    id: "P3",
+    name: "Tile 分块拼贴流水线",
+    tag: "分块 · cell id mask 驱动 per-cell 随机 + 缝隙/倒角",
+    classes: "砖墙 / 石墙 / 鹅卵石 / 瓷砖 / 木地板 / 屋瓦 / 沥青骨料",
+    summary: "把表面切成离散单元(砖/石/瓦)。先排布生成 cell id mask，再用 floodFillRandom 给每块独立的高度/颜色/旋转/粗糙度，bevel 做倒角边，缝隙(mortar)作为分离层单独控制。破损与脏污作为上层 mask 叠加。风格化强化大色块与明确边缘，写实强化小裂纹与污渍。",
+    steps: [
+      {i:"1 排布", name:"砖/瓦/石分块", fn:"brick / tileSampler"},
+      {i:"2 cell id", name:"标记每块编号", fn:"labelComponents"},
+      {i:"3 per-cell 随机", name:"每块独立高/色/转/糙", fn:"floodFillRandom / floodFillGradient"},
+      {i:"4 倒角边", name:"块边缘斜切", fn:"bevel / distanceField"},
+      {i:"5 缝隙层", name:"砂浆/沟缝分离", fn:"mortar mask (threshold)"},
+      {i:"6 破损脏污", name:"边角破损+污渍", fn:"damage noise + curvature"},
+      {i:"7 通道联动", name:"height 派生 + mask 驱动色/糙", fn:"heightToNormal / aoFromHeight / blendColor"},
+      {i:"8 输出", name:"组装+校验+无缝", fn:"materialFromFields / validateMaterial / makeTile"}
+    ],
+    fit: [
+      "规则/半规则分块表面:砖墙、石墙、鹅卵石、瓷砖、木地板、屋瓦",
+      "需要每块单元独立变化(高度/颜色/旋转)的材质",
+      "有明确缝隙(砂浆/沟缝)结构的拼贴表面"
+    ],
+    unfit: [
+      "连续无分块的有机表面——走 P1(纯 height 做旧)",
+      "织物花纹/印花刺绣——走 P2(motif 三层)",
+      "方向性纤维(头发/木年轮)——走 P4(方向场)",
+      "把大形全靠噪声糊出来——会丢掉分块逻辑与缝隙,失去拼贴感"
+    ]
+  }
+  // __MORE_PIPELINES__
+  ,{
+    id: "P4",
+    name: "Flow-field 方向场流水线",
+    tag: "各向异性 · 方向场驱动股/丝/纹，根梢渐变",
+    classes: "头发 / 毛发 / 皮草 / 草叶 / 木年轮 / 拉丝金属 / 刺绣线",
+    summary: "结构核心不是高度而是方向。先建 flow field(方向场)，沿方向分层生成:粗股定走向→中束控发缕→细丝给毛丝/纤维。各向异性噪声沿流向拉伸，颜色按根部→梢部渐变。height/alpha/normal 全部从同一方向场派生，保证发丝/纤维走向一致而非随机线。",
+    steps: [
+      {i:"1 方向场", name:"flow field 定走向", fn:"角度场 / vector warp"},
+      {i:"2 粗股", name:"大尺度束带", fn:"沿场 stripes / bands"},
+      {i:"3 细丝", name:"各向异性纤维", fn:"anisotropic fbm (拉伸 UV)"},
+      {i:"4 根梢渐变", name:"根→梢颜色/明度", fn:"gradient along strand"},
+      {i:"5 高度/alpha", name:"丝高度与透明拆分", fn:"height + alpha split"},
+      {i:"6 法线合成", name:"沿流向法线", fn:"heightToNormal / normalCombine"},
+      {i:"7 通道联动", name:"方向场驱动糙/色", fn:"blendColor (各向异性高光)"},
+      {i:"8 输出", name:"组装+校验", fn:"materialFromFields / validateMaterial"}
+    ],
+    fit: [
+      "方向性纤维:头发、毛发、皮草、草叶",
+      "有明确流向的材质:木年轮、拉丝/丝绸、刷漆方向",
+      "需要根梢渐变 + 各向异性高光的表面"
+    ],
+    unfit: [
+      "无方向的硬表面做旧——走 P1",
+      "规则分块拼贴(砖/瓦)——走 P3",
+      "法线做太硬——头发/草会变成塑料沟槽,需限幅",
+      "用随机线代替方向场——失去束感与走向一致性,假"
+    ]
+  }
+  ,{
+    id: "P5",
+    name: "分层 mask 涂装/风化流水线",
+    tag: "材质层栈 · mask 逐层暴露(面层→底层→破损)",
+    classes: "破损墙 / 掉漆 / 锈穿 / 多层涂装 / 风化 / 旧物做旧",
+    summary: "把材质看成自上而下的多层栈:面层(油漆/灰泥)→中间层(底漆/基材)→底层(锈/裸金属/混凝土)。每层有独立 baseColor/roughness/metalness。用 mask 控制每层暴露程度——边缘、凸起、刮擦处先剥到下层。mask 来源 curvature/height/噪声，层与层物理互斥(锈区 metalness 归零)。",
+    steps: [
+      {i:"1 层定义", name:"自上而下材质层栈", fn:"层数组(各层独立 PBR)"},
+      {i:"2 各层底图", name:"每层色/糙/金属", fn:"metalBase / dielectricBase"},
+      {i:"3 暴露 mask", name:"边缘/凸起/刮擦露下层", fn:"curvature + noise + threshold"},
+      {i:"4 逐层叠加", name:"按 mask 自上而下剥", fn:"blendTex / blendColor 链式"},
+      {i:"5 互斥约束", name:"锈区金属归零等", fn:"metalness split"},
+      {i:"6 高度联动", name:"剥落处下凹/积灰", fn:"height blend + aoFromHeight"},
+      {i:"7 派生", name:"法线/AO", fn:"heightToNormal / aoFromHeight"},
+      {i:"8 输出", name:"组装+物理校验", fn:"materialFromFields / validateMaterial"}
+    ],
+    fit: [
+      "多层涂装做旧:掉漆、剥落、锈穿、风化",
+      "破损墙(面层/底层/裸基材/裂缝多图层)",
+      "需要‘按暴露程度逐层剥’逻辑的旧物"
+    ],
+    unfit: [
+      "单层干净材质——直接 P1 或常量 PBR,不必分层",
+      "织物花纹——走 P2",
+      "把所有层用一张噪声混合——丢掉层间互斥(会出现金属上长不合理的锈)",
+      "mask 用纯随机噪声——剥落位置应跟 curvature/几何走,否则假"
+    ]
+  }
+  ,{
+    id: "P6",
+    name: "透射/介电体积流水线",
+    tag: "透明 · 物理标量主导(transmission/ior/吸收)，结构进体积而非 height",
+    classes: "玻璃 / 液体 / 水 / 冰 / 宝石 / 磨砂玻璃 / 透明塑料",
+    summary: "透明材质和不透明表面是两套逻辑。主体不是 baseColor/height，而是物理标量:transmission(透射)、ior(折射率)、thickness(体积厚度)、attenuationColor+attenuationDistance(Beer-Lambert 吸收着色)、dispersion(色散)。表面只给极低 roughness 的微扰;真正的‘内容’是体积特征——气泡、内部裂纹、流痕、磨砂——作为局部 mask 改 roughness/法线，不动大形 height。走 surface.ts 的 SurfacePhysical，渲染映射到 three MeshPhysicalMaterial。",
+    steps: [
+      {i:"1 选介电类型", name:"玻璃/液体/冰/宝石", fn:"glass / liquid / water / ice / gem"},
+      {i:"2 物理标量", name:"透射+折射率+厚度", fn:"transmission / ior / thickness"},
+      {i:"3 吸收着色", name:"Beer-Lambert 体积色", fn:"attenuationColor / attenuationDistance"},
+      {i:"4 表面微糙", name:"极低 roughness 微扰", fn:"roughness 微噪 (磨砂则整体抬)"},
+      {i:"5 体积特征", name:"气泡/裂纹/流痕 mask", fn:"voronoi / fbm → 局部 roughness+normal"},
+      {i:"6 色散/虹彩", name:"宝石色散、油膜虹彩", fn:"dispersion / iridescence"},
+      {i:"7 法线", name:"仅表面微扰,不做大形", fn:"heightToNormal (浅, 限幅)"},
+      {i:"8 输出", name:"SurfaceMaterial + 透明标记", fn:"makeSurface (transparent:true)"}
+    ],
+    fit: [
+      "透明/半透明:玻璃、液体、水、冰、宝石、磨砂玻璃、透明塑料",
+      "需要折射、体积吸收着色、色散的材质",
+      "结构主要在体积内部(气泡/裂纹)而非表面起伏"
+    ],
+    unfit: [
+      "不透明材质——transmission=0 时本流水线退化,应走 P1~P5",
+      "把折射效果烘进 baseColor——透射/吸收是物理标量,不是贴图",
+      "用大 height 起伏当玻璃结构——玻璃几乎无表面大形,法线要浅且限幅",
+      "金属——金属无透射,metallic 与 transmission 互斥"
+    ]
+  }
+  ,{
+    id: "P7",
+    name: "雪/融雪湿度联动流水线",
+    tag: "积雪 · 软高度 + 高糙 + 融雪湿度 mask 降糙",
+    classes: "雪 / 积雪 / 融雪 / 霜 / 湿雪覆盖",
+    summary: "雪不是石头。底是低频软噪声 height(柔和起伏，法线浅，硬了就像石头)，整体高 roughness。融雪靠湿度 mask:低洼/受热处 wetness 上升，局部把 roughness 拉低、baseColor 压暗、轻微透射，形成湿亮反差。可作覆盖层叠在任意底材上(屋顶/地面积雪)，用坡度+朝向 mask 控制哪里积雪。",
+    steps: [
+      {i:"1 软底", name:"低频柔和起伏", fn:"fbm (低频, 软)"},
+      {i:"2 高糙基线", name:"整体高 roughness", fn:"roughness ≈ 0.8~0.95"},
+      {i:"3 积雪 mask", name:"坡度/朝向控覆盖", fn:"selectByAttr / slope mask"},
+      {i:"4 湿度 mask", name:"低洼/受热融化", fn:"height 阈值 + fbm"},
+      {i:"5 湿区联动", name:"降糙+压暗+微透射", fn:"blend roughness / baseColor"},
+      {i:"6 颗粒微闪", name:"晶体微高光(可选)", fn:"whiteNoise → roughness 微扰"},
+      {i:"7 法线", name:"浅法线,限幅", fn:"heightToNormal (浅)"},
+      {i:"8 输出", name:"组装+校验", fn:"materialFromFields / validateMaterial"}
+    ],
+    fit: [
+      "积雪、新雪、融雪、霜、湿雪覆盖",
+      "作为覆盖层叠在底材上(屋顶/地面/物体积雪)",
+      "需要湿干反差(融雪亮、干雪哑)的表面"
+    ],
+    unfit: [
+      "冰/透明冰层——走 P6(透射体积),雪是不透明散射",
+      "法线做太硬——雪会变成白石头,必须浅且限幅",
+      "全图均匀无湿度变化——少了融雪 mask 就死板",
+      "硬表面做旧——走 P1"
+    ]
+  }
+  ,{
+    id: "P8",
+    name: "特效 VFX 多通道打包流水线",
+    tag: "VFX · 输出可动画 mask 与 RGBA 打包，非完整 PBR",
+    classes: "特效贴图 / 溶解 / 火焰 / 能量 / flipbook / 滚动噪声",
+    summary: "特效贴图目标不是物理 PBR，而是给 shader 喂可动画的控制图。重点是 RGBA 通道打包:不同通道塞噪声流场、梯度、溶解边缘、alpha，shader 用 UV 滚动/flipbook 驱动动画。强调梯度与溶解边缘的可控性，而非粗糙度细节。输出多通道 mask，可不走完整 PBR 校验。",
+    steps: [
+      {i:"1 定通道用途", name:"R/G/B/A 各塞什么", fn:"通道规划(流场/梯度/溶解/alpha)"},
+      {i:"2 噪声流场", name:"可滚动基底", fn:"fbm / multiFractal (周期可平铺)"},
+      {i:"3 梯度遮罩", name:"径向/线性渐变", fn:"radialGradient / gradient"},
+      {i:"4 溶解边缘", name:"阈值化软边", fn:"threshold (软度参数)"},
+      {i:"5 打包 RGBA", name:"多图合一通道", fn:"mergeChannels"},
+      {i:"6 动画参数", name:"滚动/flipbook 暴露", fn:"scroll/flipbook params"},
+      {i:"7 平铺校验", name:"可滚动必须无缝", fn:"makeTile"},
+      {i:"8 输出", name:"多通道 mask(非PBR)", fn:"exportPBR / 自定义打包"}
+    ],
+    fit: [
+      "特效:溶解、火焰、能量、烟雾流动、动态遮罩",
+      "需要 RGBA 通道打包给 shader 的控制图",
+      "flipbook / UV 滚动 / scroll 动画驱动纹理"
+    ],
+    unfit: [
+      "静态物理表面——走 P1~P6,VFX 不追物理正确",
+      "强行套 validateMaterial——VFX 通道不一定满足 PBR 物理约束",
+      "可滚动纹理不做无缝——滚动时接缝会闪",
+      "把动画逻辑烘进静态贴图——动画应由 shader 参数驱动"
+    ]
+  }
+  ,{
+    id: "P9",
+    name: "风格化修饰器(正交开关)",
+    tag: "正交 · 非材质类别,叠加在 P1~P6 之上切换写实/风格化",
+    classes: "风格化 / 手绘感 / 卡通 / Ghibli · 可叠加于任意材质流水线",
+    summary: "这不是按材质选的独立流水线，而是一个正交维度:同一材质(砖/木/金属)的节点链相似，但写实与风格化在频率、色阶、边缘、AO 上完全不同。作为 style 开关(realistic/stylized)叠加在 P1~P6 之上:风格化时压低高频噪声、减少色阶(ramp 分层)、强化明确边缘与大色块、限制微噪与 AO 强度，追求轮廓可读而非照片级细节。",
+    steps: [
+      {i:"1 选基础流水线", name:"先按材质选 P1~P6", fn:"pickPipeline"},
+      {i:"2 频率压制", name:"砍高频真实噪声", fn:"降 octaves / 提 blur"},
+      {i:"3 色阶量化", name:"渐变改阶梯分层", fn:"ramp (少量 stops)"},
+      {i:"4 边缘强化", name:"明确轮廓+宽边", fn:"bevel / edgeDetect 加描边"},
+      {i:"5 AO/微噪限幅", name:"减弱细节,保大形", fn:"clamp AO / 限微噪"},
+      {i:"6 手绘色", name:"gradientMap 分层上色", fn:"gradientMap"},
+      {i:"7 通道一致", name:"保持联动不打架", fn:"沿用基础流水线派生"},
+      {i:"8 输出", name:"同材质双变体", fn:"realistic / stylized 稳定输出"}
+    ],
+    fit: [
+      "需要 realistic/stylized 双风格的同一材质",
+      "手绘感、卡通、Ghibli 风等强可读轮廓需求",
+      "叠加在 P1~P6 任意流水线之上作为风格开关"
+    ],
+    unfit: [
+      "当成独立材质类别选——它是修饰器,必须配合某条基础流水线",
+      "风格化还堆高频真实噪声——自相矛盾,糊掉轮廓",
+      "色阶过多——失去风格化的色块感",
+      "纯写实需求——直接用基础流水线,不开此开关"
+    ]
+  }
+];
+
+function el(tag, cls, html){ const e=document.createElement(tag); if(cls)e.className=cls; if(html!=null)e.innerHTML=html; return e; }
+
+function renderPipelines(){
+  const wrap = document.getElementById("pl-wrap");
+  PIPELINES.forEach(function(p){
+    const card = el("div","pl"); card.id = p.id;
+    const head = el("div","pl-head");
+    head.appendChild(el("span","pl-id",p.id));
+    head.appendChild(el("span","pl-name",p.name));
+    head.appendChild(el("span","pl-tag",p.tag));
+    card.appendChild(head);
+    const body = el("div","pl-body");
+    body.appendChild(el("div","pl-sum",p.summary));
+    const steps = el("div","steps");
+    p.steps.forEach(function(s){
+      const st = el("div","st");
+      st.appendChild(el("div","si",s.i));
+      st.appendChild(el("div","sn",s.name));
+      st.appendChild(el("div","sf",s.fn));
+      steps.appendChild(st);
+    });
+    body.appendChild(steps);
+    const two = el("div","twocol");
+    const fit = el("div","b fit"); fit.appendChild(el("h5",null,"✅ 适用范围"));
+    const ulf = el("ul"); p.fit.forEach(function(x){ulf.appendChild(el("li",null,x));}); fit.appendChild(ulf);
+    const un = el("div","b unfit"); un.appendChild(el("h5",null,"⚠️ 禁区 / 换流水线"));
+    const ulu = el("ul"); p.unfit.forEach(function(x){ulu.appendChild(el("li",null,x));}); un.appendChild(ulu);
+    two.appendChild(fit); two.appendChild(un);
+    body.appendChild(two);
+    card.appendChild(body);
+    wrap.appendChild(card);
+  });
+}
+renderPipelines();
+
+const links=[].slice.call(document.querySelectorAll('nav a'));
+const secs=links.map(function(a){var h=a.getAttribute('href');return h&&h[0]==='#'?document.querySelector(h):null;});
+const obs=new IntersectionObserver(function(es){
+  es.forEach(function(e){if(e.isIntersecting){
+    links.forEach(function(l){l.style.cssText='';});
+    const i=secs.indexOf(e.target);
+    if(i>=0){links[i].style.cssText='color:var(--accent);background:var(--panel);border-left-color:var(--accent)';}
+  }});
+},{rootMargin:'-100px 0px -70% 0px'});
+secs.forEach(function(s){if(s)obs.observe(s);});
+</script>
+</body>
+</html>

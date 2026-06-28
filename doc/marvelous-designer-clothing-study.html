@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Marvelous Designer 衣服生成研究 · Meshova 借鉴清单</title>
+<style>
+  :root{
+    --bg:#0c1117; --panel:#151c25; --panel2:#1d2632; --panel3:#101720;
+    --line:#2b3848; --text:#e8edf3; --muted:#9aa7b6; --accent:#4dd0e1;
+    --accent2:#7ee787; --warn:#f5a65b; --danger:#ff7b72; --purple:#bc8cff;
+    --chip:#233040; --shadow:rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--text);font:14px/1.62 "Segoe UI","Microsoft YaHei",system-ui,sans-serif}
+  a{color:var(--accent);text-decoration:none}
+  a:hover{text-decoration:underline}
+  header{position:sticky;top:0;z-index:8;background:linear-gradient(180deg,#0c1117 76%,rgba(12,17,23,.84));border-bottom:1px solid var(--line);backdrop-filter:blur(8px)}
+  .head{max-width:1320px;margin:0 auto;padding:18px 24px 15px}
+  h1{font-size:24px;margin:0 0 6px;letter-spacing:.1px}
+  h1 span{color:var(--accent)}
+  .sub{color:var(--muted);font-size:13px}
+  .nav{display:flex;gap:8px;flex-wrap:wrap;margin-top:13px}
+  .nav a{color:var(--muted);border:1px solid var(--line);background:var(--chip);border-radius:18px;padding:5px 11px;font-size:12px}
+  .nav a:hover{color:var(--text);border-color:var(--accent);text-decoration:none}
+  main{max-width:1320px;margin:0 auto;padding:24px 24px 72px}
+  section{margin:0 0 34px}
+  h2{font-size:18px;margin:0 0 14px;color:var(--accent);border-left:4px solid var(--accent);padding-left:10px}
+  h3{font-size:15px;margin:20px 0 9px;color:var(--accent2)}
+  h4{font-size:13px;margin:12px 0 6px;color:var(--purple)}
+  p{margin:8px 0}
+  .lead{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--accent2);border-radius:8px;padding:14px 16px;margin:0 0 18px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:12px}
+  .grid.tight{grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:13px 14px;box-shadow:0 1px 3px var(--shadow)}
+  .card strong{color:var(--accent2)}
+  .card .nm{font-size:15px;font-weight:700;color:var(--text);margin-bottom:5px}
+  .card .ds{color:var(--muted);font-size:12.8px}
+  .metric{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:10px;margin:14px 0}
+  .metric .box{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:12px}
+  .num{font-size:22px;color:var(--accent);font-weight:700}
+  .label{font-size:12px;color:var(--muted)}
+  table{width:100%;border-collapse:collapse;background:var(--panel);border:1px solid var(--line);margin:12px 0;font-size:13px}
+  th,td{border:1px solid var(--line);padding:9px 10px;text-align:left;vertical-align:top}
+  th{background:var(--panel2);color:var(--accent);font-weight:600}
+  td:first-child{white-space:nowrap}
+  ul{margin:8px 0 0;padding-left:20px}
+  li{margin:4px 0}
+  code{background:#0a0e13;border:1px solid var(--line);border-radius:5px;padding:1px 5px;color:var(--purple);font-family:Consolas,"JetBrains Mono",monospace;font-size:12px}
+  pre{background:#070b10;border:1px solid var(--line);border-radius:8px;padding:13px 14px;overflow:auto;color:#d6deeb;font:12px/1.52 Consolas,"JetBrains Mono",monospace}
+  .tag{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:1px 8px;margin:0 4px 5px 0;color:var(--muted);font-size:11px}
+  .ok{color:var(--accent2);border-color:rgba(126,231,135,.5)}
+  .warn{color:var(--warn);border-color:rgba(245,166,91,.55)}
+  .high{color:var(--danger);border-color:rgba(255,123,114,.55)}
+  .flow{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px;margin:12px 0}
+  .steps{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  .step{background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:8px 11px;font-size:12px}
+  .arrow{color:var(--muted)}
+  .diagram{background:radial-gradient(circle at 20% 10%,rgba(77,208,225,.14),transparent 28%),var(--panel3);border:1px solid var(--line);border-radius:8px;padding:14px;overflow:hidden}
+  .diagram svg{display:block;width:100%;height:auto}
+  .controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:10px 0 14px}
+  .controls input,.controls select{background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:9px 10px;outline:none}
+  .controls input{flex:1;min-width:220px}
+  .controls input:focus,.controls select:focus{border-color:var(--accent)}
+  .garments{display:grid;grid-template-columns:repeat(auto-fill,minmax(292px,1fr));gap:12px}
+  .garment{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:13px 14px}
+  .garment:hover{border-color:var(--accent)}
+  .garment .top{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+  .garment .name{font-weight:700;font-size:15px;color:var(--text)}
+  .garment .tier{font-size:11px;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:1px 8px;white-space:nowrap}
+  .garment .meta{font-size:12px;color:var(--muted);margin:5px 0 8px}
+  .garment b{color:var(--accent2)}
+  .split{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .warnbox{background:rgba(245,166,91,.08);border:1px solid rgba(245,166,91,.45);border-left:4px solid var(--warn);border-radius:8px;padding:12px 14px}
+  .okbox{background:rgba(126,231,135,.08);border:1px solid rgba(126,231,135,.42);border-left:4px solid var(--accent2);border-radius:8px;padding:12px 14px}
+  .dangerbox{background:rgba(255,123,114,.08);border:1px solid rgba(255,123,114,.42);border-left:4px solid var(--danger);border-radius:8px;padding:12px 14px}
+  .small{color:var(--muted);font-size:12px}
+  details{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:0;margin:9px 0}
+  summary{cursor:pointer;padding:10px 13px;color:var(--accent2);font-weight:600}
+  details .body{border-top:1px solid var(--line);padding:10px 13px}
+  footer{border-top:1px solid var(--line);margin-top:38px;padding-top:14px;color:var(--muted);font-size:12px}
+  @media(max-width:820px){
+    main,.head{padding-left:14px;padding-right:14px}
+    .split{grid-template-columns:1fr}
+    td:first-child{white-space:normal}
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="head">
+    <h1><span>Marvelous Designer</span> 衣服生成研究 · Meshova 借鉴清单</h1>
+    <div class="sub">目标：从 MD 抽象出可程序化的衣服生成内核。重点：常见服装、2D 纸样、缝线图、量体、布料物理、仿真/近似、游戏资产落地。整理日期：2026-06-28。</div>
+    <nav class="nav">
+      <a href="#summary">结论</a>
+      <a href="#workflow">MD 工作流</a>
+      <a href="#model">数据模型</a>
+      <a href="#garments">服装模板库</a>
+      <a href="#physics">物理与近似</a>
+      <a href="#materials">材质</a>
+      <a href="#image">图片输入</a>
+      <a href="#roadmap">Meshova 路线</a>
+      <a href="#sources">资料源</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <section id="summary">
+    <h2>核心结论</h2>
+    <div class="lead">
+      Marvelous Designer 最值得学的不是 UI，也不是专有模板，而是“衣服 = 2D 纸样 + 缝线图 + 人体量体 + 3D 初始摆放 + 布料物理 + 分层约束”。Meshova 若要生成常见衣服，最好先建 <code>pattern-space</code> DSL，再把纸样转成可渲染 mesh；不要一开始直接手写衣服网格。
+    </div>
+    <div class="metric">
+      <div class="box"><div class="num">1</div><div class="label">第一原则：纸样空间生成，比 3D 网格雕刻更稳</div></div>
+      <div class="box"><div class="num">3</div><div class="label">首批模板：T 恤 / 半身裙 / 裤子，对齐 MD Pattern Drafter 支持类别</div></div>
+      <div class="box"><div class="num">5</div><div class="label">最小模块：Panel, Edge, Seam, Measure, Arrangement</div></div>
+      <div class="box"><div class="num">20mm -> 5mm</div><div class="label">MD 粗到细仿真习惯：低分辨率试衣，高分辨率定稿</div></div>
+    </div>
+    <div class="grid">
+      <div class="card"><strong>Meshova 应先做</strong><br>纸样几何、缝线关系、人体量体、模板参数、UV/材质映射。先产静态好看衣服，再考虑真实布料。</div>
+      <div class="card"><strong>Meshova 暂缓做</strong><br>完整工业级 cloth solver、MD 式复杂 UI、真人制版精度、服装生产尺码系统。先服务程序化资产生成。</div>
+      <div class="card"><strong>AI 闭环抓手</strong><br>图片 -> VLM 识别服装类型与特征 -> 选模板 -> 优化参数 -> 多视角截图评分。</div>
+      <div class="card"><strong>最小可展示 demo</strong><br>人体胶囊 avatar + T 恤纸样 + seam graph + 粗 drape mesh + 布料 PBR + 褶皱 normal。</div>
+    </div>
+  </section>
+
+  <section id="workflow">
+    <h2>MD 工作流地图</h2>
+    <div class="flow">
+      <div class="steps">
+        <div class="step">Avatar / 量体</div><div class="arrow">-></div>
+        <div class="step">2D 纸样</div><div class="arrow">-></div>
+        <div class="step">缝线</div><div class="arrow">-></div>
+        <div class="step">3D 摆放</div><div class="arrow">-></div>
+        <div class="step">布料物理</div><div class="arrow">-></div>
+        <div class="step">仿真</div><div class="arrow">-></div>
+        <div class="step">检查 Fit / Stress</div><div class="arrow">-></div>
+        <div class="step">Retopo / UV / 导出</div>
+      </div>
+    </div>
+    <div class="split">
+      <div class="diagram" aria-label="纸样到衣服图示">
+        <svg viewBox="0 0 760 320" role="img">
+          <defs>
+            <marker id="arr" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+              <path d="M0,0 L8,4 L0,8 Z" fill="#9aa7b6"></path>
+            </marker>
+          </defs>
+          <rect x="20" y="26" width="300" height="252" rx="10" fill="#151c25" stroke="#2b3848"></rect>
+          <text x="42" y="56" fill="#4dd0e1" font-size="18" font-family="Segoe UI">2D 纸样空间</text>
+          <path d="M80 92 C65 135 66 215 96 250 L205 250 C235 216 235 135 220 92 C185 108 120 108 80 92 Z" fill="#233040" stroke="#7ee787" stroke-width="3"></path>
+          <path d="M122 98 C132 130 132 205 120 250" fill="none" stroke="#bc8cff" stroke-width="2" stroke-dasharray="6 5"></path>
+          <path d="M182 98 C172 130 172 205 184 250" fill="none" stroke="#bc8cff" stroke-width="2" stroke-dasharray="6 5"></path>
+          <path d="M245 110 C285 120 300 160 286 220 C260 211 238 190 232 152 C230 134 235 120 245 110 Z" fill="#233040" stroke="#7ee787" stroke-width="3"></path>
+          <text x="78" y="284" fill="#9aa7b6" font-size="13" font-family="Segoe UI">Panel + Bezier Edge + Dart</text>
+          <line x1="340" y1="160" x2="430" y2="160" stroke="#9aa7b6" stroke-width="2" marker-end="url(#arr)"></line>
+          <rect x="452" y="26" width="286" height="252" rx="10" fill="#151c25" stroke="#2b3848"></rect>
+          <text x="474" y="56" fill="#4dd0e1" font-size="18" font-family="Segoe UI">3D 衣服空间</text>
+          <ellipse cx="593" cy="260" rx="92" ry="18" fill="#0b1017" stroke="#2b3848"></ellipse>
+          <path d="M570 84 C548 110 542 176 555 235 C572 250 616 250 633 235 C646 176 640 110 618 84 C606 92 582 92 570 84 Z" fill="#233040" stroke="#7ee787" stroke-width="3"></path>
+          <path d="M552 126 C522 132 506 160 510 206 C529 215 548 196 555 155" fill="#233040" stroke="#7ee787" stroke-width="3"></path>
+          <path d="M636 126 C666 132 682 160 678 206 C659 215 640 196 633 155" fill="#233040" stroke="#7ee787" stroke-width="3"></path>
+          <path d="M556 154 C575 165 613 165 632 154" fill="none" stroke="#bc8cff" stroke-width="2" stroke-dasharray="5 4"></path>
+          <path d="M563 220 C586 228 604 228 627 220" fill="none" stroke="#f5a65b" stroke-width="2"></path>
+          <text x="522" y="284" fill="#9aa7b6" font-size="13" font-family="Segoe UI">Stitch + Drape + Wrinkle</text>
+        </svg>
+      </div>
+      <div>
+        <table>
+          <thead><tr><th>MD 概念</th><th>对 Meshova 的抽象</th><th>原因</th></tr></thead>
+          <tbody>
+            <tr><td>Pattern Drafter</td><td>参数化服装模板生成器</td><td>衣服可由量体点和少量风格参数生成。</td></tr>
+            <tr><td>3D Pen / Avatar Line</td><td>在 avatar 表面画 styleline，再展成纸样</td><td>图片/草图输入可以先变成 avatar 上的曲线。</td></tr>
+            <tr><td>Sewing</td><td>缝线图：边到边、多边到一边、方向、缩褶</td><td>衣服拓扑来自缝线，不来自三角面随机拼接。</td></tr>
+            <tr><td>Arrangement Points</td><td>初始摆放场：身体部位锚点、包围体、朝向</td><td>仿真稳定性强依赖初始位置。</td></tr>
+            <tr><td>Particle Distance</td><td>衣服 LOD / solver 分辨率</td><td>快速迭代与高质量输出分离。</td></tr>
+            <tr><td>Fit Maps</td><td>质量评分：拉伸、压力、穿模、松量</td><td>给 AI 闭环可量化反馈。</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <h3>关键学习点</h3>
+    <div class="grid">
+      <div class="card">
+        <div class="nm">纸样优先</div>
+        <div class="ds">MD 新版 Pattern Drafter 允许从服装类型和量体生成可编辑纸样；AI Pattern Drafter 已支持 T-Shirts、Pants、Skirts。Meshova 可从同三类开始。</div>
+      </div>
+      <div class="card">
+        <div class="nm">线驱动剪裁</div>
+        <div class="ds">3D Pen / Avatar Line 能在 avatar 上画线并提取 pattern。Meshova 可把“衣领线、袖窿线、下摆线”作为第一等输入。</div>
+      </div>
+      <div class="card">
+        <div class="nm">缝线是拓扑</div>
+        <div class="ds">Segment / Free / 1:N / M:N sewing 都暗示一个 seam graph。生成衣服时先维护 graph，再生成三角网格。</div>
+      </div>
+      <div class="card">
+        <div class="nm">粗细分阶段</div>
+        <div class="ds">MD 建议制作/试穿阶段用较大 Particle Distance，完成后降到更小值提质。Meshova solver 应支持低分辨率搜索 + 高分辨率烘焙。</div>
+      </div>
+      <div class="card">
+        <div class="nm">分层是硬约束</div>
+        <div class="ds">内搭、外套、口袋、纽扣等需要 layer order。没有层，仿真和投影都会错。</div>
+      </div>
+      <div class="card">
+        <div class="nm">生产资产要 retopo</div>
+        <div class="ds">MD 有 quad remesh / retopology / UV 编辑。Meshova 出游戏资产也要把仿真网格转成稳定拓扑和可控 UV。</div>
+      </div>
+    </div>
+  </section>
+
+  <section id="model">
+    <h2>建议数据模型</h2>
+    <div class="lead">Meshova 可新增 <code>src/clothing/</code> 或 <code>src/garment/</code>。底层不依赖 Three.js，保持纯数据：2D 纸样、缝线、量体、布料参数、生成后的 mesh。</div>
+    <pre>type GarmentTemplate = {
+  id: string
+  family: "top" | "bottom" | "dress" | "outerwear" | "accessory"
+  measures: MeasureBinding[]
+  params: ParamDef[]
+  panels: PanelDef[]
+  seams: SeamDef[]
+  arrangement: ArrangementDef[]
+  layers: LayerDef[]
+  fabric: FabricPhysical
+}
+
+type PanelDef = {
+  id: string
+  mirror?: "left" | "right" | "center"
+  grain: Vec2
+  edges: PatternEdge[]       // line / quadratic / cubic
+  darts?: DartDef[]
+  pleats?: PleatDef[]
+  internalLines?: InternalLineDef[]
+}
+
+type SeamDef = {
+  a: EdgeRef
+  b: EdgeRef
+  direction: "same" | "opposite"
+  ratio?: number             // gathers / easing / 1:N sewing
+  seamAllowance?: number
+  puckering?: number
+}</pre>
+
+    <table>
+      <thead><tr><th>结构</th><th>字段</th><th>实现要点</th></tr></thead>
+      <tbody>
+        <tr><td>Panel</td><td>闭合 2D 曲线、边序、grain、语义标签</td><td>边必须有稳定 ID。后续参数、缝线、UV 都引用边。</td></tr>
+        <tr><td>PatternEdge</td><td>line / Bezier、长度、曲率、局部方向</td><td>支持按边长度、曲率、端点法向改变，贴合 GarmentCode 类模板思想。</td></tr>
+        <tr><td>Seam</td><td>EdgeRef 对、方向、比例、松量、缝份</td><td>允许一对一、一对多、多对多。先支持一对一和一对多。</td></tr>
+        <tr><td>MeasureBinding</td><td>胸围、腰围、臀围、肩宽、袖长等</td><td>参数默认从 avatar 自动量取，可被用户覆盖。</td></tr>
+        <tr><td>Arrangement</td><td>身体部位锚点、包围体、初始旋转、offset</td><td>无 cloth solver 时也可作为 surface wrap 初始位置。</td></tr>
+        <tr><td>Layer</td><td>内外层序、碰撞厚度、临时仿真层</td><td>口袋/外套/内搭必须有。</td></tr>
+        <tr><td>FabricPhysical</td><td>stretch、bend、shear、buckling、density、damping、pressure</td><td>先用于视觉 preset，后用于 XPBD 约束。</td></tr>
+      </tbody>
+    </table>
+
+    <h3>参数规则</h3>
+    <div class="grid">
+      <div class="card"><strong>长度类</strong><br>衣长、袖长、裤长、裙长、领高、帽深。实现：沿边方向或指定 2D 方向伸缩。</div>
+      <div class="card"><strong>围度类</strong><br>胸围、腰围、臀围、腿围、袖口、裤脚。实现：左右对称扩边，保持 seam 对边约束。</div>
+      <div class="card"><strong>曲率类</strong><br>袖窿、领口、腰线、公主线、下摆弧。实现：Bezier 控制点偏移。</div>
+      <div class="card"><strong>结构类</strong><br>开衩、门襟、拼片数、口袋、拉链、纽扣。实现：可选 panel + trim graph。</div>
+      <div class="card"><strong>褶皱类</strong><br>百褶、抽褶、松紧腰、袖口收口。实现：seam ratio + fold lines + wrinkle field。</div>
+      <div class="card"><strong>版型类</strong><br>修身、宽松、oversize、A 字、直筒、阔腿。实现：ease preset 影响多组围度和 flare。</div>
+    </div>
+  </section>
+
+  <section id="garments">
+    <h2>常见服装模板库</h2>
+    <div class="lead">先做“服装族 + 参数化模板”，不是一次性做无限衣服。下面模板按 Meshova 可落地性排序：Tier 1 可做首批 demo，Tier 2 做库扩展，Tier 3 需要更强纸样/仿真/配件系统。</div>
+    <div class="controls">
+      <input id="search" type="text" placeholder="搜索：T 恤 / 裤子 / sleeve / pleat / hood / zipper">
+      <select id="tier">
+        <option value="all">全部难度</option>
+        <option value="1">Tier 1</option>
+        <option value="2">Tier 2</option>
+        <option value="3">Tier 3</option>
+      </select>
+      <span id="count" class="small"></span>
+    </div>
+    <div class="garments" id="garmentList"></div>
+
+    <h3>首批最小模板建议</h3>
+    <table>
+      <thead><tr><th>模板</th><th>最小 panel</th><th>首批参数</th><th>可见效果</th></tr></thead>
+      <tbody>
+        <tr><td>T 恤</td><td>front、back、left sleeve、right sleeve</td><td>chestEase、bodyLength、sleeveLength、neckWidth、hemWidth</td><td>上衣最常见，适合图片输入识别与多材质。</td></tr>
+        <tr><td>半身裙</td><td>front、back、waistband，可选 pleat panels</td><td>waist、hipEase、length、flare、pleatCount</td><td>几何简单，能验证垂坠、褶皱、布料材质。</td></tr>
+        <tr><td>裤子/短裤</td><td>front left/right、back left/right、waistband</td><td>rise、inseam、legOpening、thighEase、waistbandHeight</td><td>验证左右对称、裆部 seam、腿部碰撞。</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="physics">
+    <h2>物理仿真与工程近似</h2>
+    <div class="lead">Meshova 目标是程序化资产生成，不必第一版复刻 MD solver。建议三阶段：先形状近似，再 XPBD，再 WebGPU 加速。</div>
+    <table>
+      <thead><tr><th>阶段</th><th>做法</th><th>能生成</th><th>限制</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>Stage A：无仿真</td>
+          <td>用 avatar 胶囊/截面曲线直接生成衣服壳体，panel 只作为 UV 和 seam 语义。</td>
+          <td>T 恤、背心、裙子、裤子、披风轮廓。</td>
+          <td>褶皱假，垂坠弱，但快、稳定、适合 AI 优化。</td>
+        </tr>
+        <tr>
+          <td>Stage B：启发式 drape</td>
+          <td>panel triangulate -> 投影到 avatar 外侧 -> seam shrink -> 重力下垂 -> wrinkle displacement。</td>
+          <td>宽松袖子、裙摆、裤脚、帽兜、外套下摆。</td>
+          <td>不保证物理正确，但视觉能过 demo。</td>
+        </tr>
+        <tr>
+          <td>Stage C：XPBD cloth</td>
+          <td>stretch / shear / bend / seam / collision / layer / pressure 约束，低分辨率搜索，高分辨率烘焙。</td>
+          <td>自然垂坠、衣摆碰撞、多层衣服、软布料差异。</td>
+          <td>实现成本高，需要稳定碰撞和收敛策略。</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>XPBD 约束清单</h3>
+    <div class="grid tight">
+      <div class="card"><div class="nm">Stretch</div><div class="ds">经向/纬向边长约束，对应 warp/weft 伸缩。</div></div>
+      <div class="card"><div class="nm">Shear</div><div class="ds">三角面斜向剪切约束，控制布料斜向变形。</div></div>
+      <div class="card"><div class="nm">Bend</div><div class="ds">相邻三角二面角约束，控制硬挺/柔软。</div></div>
+      <div class="card"><div class="nm">Seam</div><div class="ds">两条 pattern 边采样点互相拉近，可带 ratio 形成抽褶。</div></div>
+      <div class="card"><div class="nm">Collision</div><div class="ds">avatar 胶囊/SDF 碰撞，外层衣服对内层碰撞。</div></div>
+      <div class="card"><div class="nm">Pressure</div><div class="ds">羽绒、枕状、充气、厚衣服体积感。</div></div>
+      <div class="card"><div class="nm">Pin / Tack</div><div class="ds">固定点、临时缝合、挂点、肩带。</div></div>
+      <div class="card"><div class="nm">Layer</div><div class="ds">内外关系，防止口袋、纽扣、外套进入内层。</div></div>
+    </div>
+
+    <h3>质量评分</h3>
+    <div class="grid">
+      <div class="card"><strong>穿模率</strong><br>衣服顶点在 avatar SDF 内部的比例和最大深度。</div>
+      <div class="card"><strong>拉伸率</strong><br>边长相对 rest length 的百分比，类似 strain map。</div>
+      <div class="card"><strong>压力/紧身</strong><br>碰撞接触密度 + 法向推力近似，帮助判断“穿不了”。</div>
+      <div class="card"><strong>对称误差</strong><br>左右 panel 或渲染剪影的镜像差，适合 T 恤/裤子。</div>
+      <div class="card"><strong>缝线闭合</strong><br>seam pair 采样点距离均值和最大值。</div>
+      <div class="card"><strong>视觉目标</strong><br>多视角 silhouette IoU + VLM 分类一致性 + 关键部位检测。</div>
+    </div>
+  </section>
+
+  <section id="materials">
+    <h2>布料与 PBR 材质</h2>
+    <div class="lead">MD 的物理属性和 Meshova 现有程序化 PBR 可以分两层：<code>FabricPhysical</code> 控制形变，<code>FabricMaterial</code> 控制视觉。两者用同一 preset 名称绑定。</div>
+    <table>
+      <thead><tr><th>MD 学到的参数</th><th>Meshova 字段</th><th>视觉/物理影响</th></tr></thead>
+      <tbody>
+        <tr><td>Stretch Weft/Warp</td><td><code>stretchWeft</code>, <code>stretchWarp</code></td><td>针织、弹力布更容易贴身；非弹力棉布更容易形成紧绷。</td></tr>
+        <tr><td>Shear</td><td><code>shearStiffness</code></td><td>剪切高更容易出硬折，低更软更垂。</td></tr>
+        <tr><td>Bending Weft/Warp</td><td><code>bendWeft</code>, <code>bendWarp</code></td><td>牛仔、皮革硬；丝绸、雪纺软。</td></tr>
+        <tr><td>Buckling Ratio/Stiffness</td><td><code>buckleRatio</code>, <code>buckleStiffness</code></td><td>折角形成阈值和折痕硬度。</td></tr>
+        <tr><td>Density/Weight</td><td><code>density</code></td><td>重布下垂更明显。</td></tr>
+        <tr><td>Pressure</td><td><code>pressure</code></td><td>羽绒服、坐垫、充气衣物。</td></tr>
+        <tr><td>Shrinkage</td><td><code>shrinkWeft</code>, <code>shrinkWarp</code></td><td>水洗缩水、收口、内层贴身。</td></tr>
+        <tr><td>Layer</td><td><code>layerIndex</code></td><td>外套、口袋、装饰件的正确叠放。</td></tr>
+      </tbody>
+    </table>
+
+    <h3>材质 preset 建议</h3>
+    <div class="grid">
+      <div class="card"><strong>Cotton Jersey</strong><br>T 恤、背心。中等粗糙度、细织纹 normal、轻微弹性。</div>
+      <div class="card"><strong>Denim</strong><br>牛仔裤、夹克。高 bend、斜纹 normal、边缘磨损 mask。</div>
+      <div class="card"><strong>Wool</strong><br>大衣、围巾。厚、软、粗纤维，roughness 高。</div>
+      <div class="card"><strong>Leather</strong><br>夹克、腰带。bend 高、normal 细颗粒、roughness 可变。</div>
+      <div class="card"><strong>Silk / Satin</strong><br>裙子、礼服。bend 低、粗糙度低、各向异性高光。</div>
+      <div class="card"><strong>Puffer Nylon</strong><br>羽绒服。pressure + quilt seam + synthetic roughness。</div>
+    </div>
+  </section>
+
+  <section id="image">
+    <h2>图片输入到程序化衣服</h2>
+    <div class="flow">
+      <div class="steps">
+        <div class="step">输入图</div><div class="arrow">-></div>
+        <div class="step">VLM 识别服装族</div><div class="arrow">-></div>
+        <div class="step">解析特征词</div><div class="arrow">-></div>
+        <div class="step">选模板</div><div class="arrow">-></div>
+        <div class="step">初始化参数</div><div class="arrow">-></div>
+        <div class="step">渲染多视角</div><div class="arrow">-></div>
+        <div class="step">评分优化</div><div class="arrow">-></div>
+        <div class="step">导出程序化资产</div>
+      </div>
+    </div>
+    <table>
+      <thead><tr><th>图片特征</th><th>映射到模板参数</th><th>评分方法</th></tr></thead>
+      <tbody>
+        <tr><td>短袖/长袖/无袖</td><td><code>sleeveType</code>, <code>sleeveLength</code>, <code>armholeDepth</code></td><td>VLM 分类 + 肩臂区域剪影。</td></tr>
+        <tr><td>圆领/V 领/高领/翻领</td><td><code>neckShape</code>, <code>neckDepth</code>, <code>collarType</code></td><td>上胸局部轮廓 + 语义分类。</td></tr>
+        <tr><td>紧身/宽松/oversize</td><td><code>easePreset</code>, <code>chestEase</code>, <code>waistEase</code></td><td>人体边界到衣服边界距离。</td></tr>
+        <tr><td>A 字裙/百褶裙/包臀裙</td><td><code>flare</code>, <code>pleatCount</code>, <code>hipEase</code></td><td>正面轮廓斜率 + 下摆宽度。</td></tr>
+        <tr><td>阔腿裤/直筒裤/束脚裤</td><td><code>legOpening</code>, <code>kneeEase</code>, <code>cuffElastic</code></td><td>腿部轮廓宽度曲线。</td></tr>
+        <tr><td>口袋/拉链/纽扣</td><td><code>trims[]</code>, <code>placket</code>, <code>zipperPath</code></td><td>2D 检测框 + VLM 描述。</td></tr>
+        <tr><td>材质：牛仔/皮革/针织/丝绸</td><td><code>fabricPreset</code>, <code>pbrPreset</code></td><td>VLM 粗分类，低置信度回退到 cotton。</td></tr>
+      </tbody>
+    </table>
+    <div class="okbox">对 Meshova 有利：用户已有“造型一致性最高，纹理只求类别对”的策略。衣服生成也应这样：先让 silhouette、衣领、袖子、裤腿对；材质用 preset 防错。</div>
+  </section>
+
+  <section id="roadmap">
+    <h2>Meshova 落地路线</h2>
+    <table>
+      <thead><tr><th>里程碑</th><th>要做</th><th>验收</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>M1：Pattern Core</td>
+          <td>2D panel 曲线、边 ID、Bezier 采样、面积/自交检查、边长约束。</td>
+          <td>能生成 T 恤/裙子/裤子纸样 SVG 或 viewer overlay。</td>
+        </tr>
+        <tr>
+          <td>M2：Seam Graph</td>
+          <td>edge ref、方向、1:N sewing、gather ratio、seam allowance。</td>
+          <td>可显示缝线配对，错误 seam 能报诊断。</td>
+        </tr>
+        <tr>
+          <td>M3：Avatar Measures</td>
+          <td>胶囊人体、胸/腰/臀/肩/臂/腿量取，template 参数绑定。</td>
+          <td>换身材后衣服围度随动。</td>
+        </tr>
+        <tr>
+          <td>M4：Heuristic Drape</td>
+          <td>pattern triangulate、投影壳体、重力下摆、褶皱 displacement、碰撞修正。</td>
+          <td>首批 3 类衣服在 viewer 内可调参数并截图。</td>
+        </tr>
+        <tr>
+          <td>M5：Fabric Presets</td>
+          <td>cotton/denim/wool/leather/silk/nylon physical + PBR 绑定。</td>
+          <td>同一 T 恤换材质能明显改变视觉和形变倾向。</td>
+        </tr>
+        <tr>
+          <td>M6：AI Closed Loop</td>
+          <td>VLM 分类 -> 模板选择 -> 参数优化 -> silhouette/VLM 分数。</td>
+          <td>输入常见服装图，生成同类衣服，袖长/领型/裤型基本对。</td>
+        </tr>
+        <tr>
+          <td>M7：XPBD Solver</td>
+          <td>stretch/shear/bend/seam/collision/layer/pressure，低高分辨率两阶段。</td>
+          <td>宽松裙摆、袖子、外套下摆有可信垂坠。</td>
+        </tr>
+        <tr>
+          <td>M8：Game Mesh Export</td>
+          <td>quad-ish remesh、UV from panels、trim geometry、LOD、OBJ/GLTF。</td>
+          <td>导出可进引擎，材质通道齐，拓扑稳定。</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="split">
+      <div class="okbox">
+        <h3>优先做</h3>
+        <ul>
+          <li><code>pattern.ts</code>：2D 曲线、panel、edge loop、self-intersection。</li>
+          <li><code>seam.ts</code>：缝线图、配对验证、采样点。</li>
+          <li><code>templates/tshirt.ts</code>、<code>skirt.ts</code>、<code>pants.ts</code>。</li>
+          <li><code>avatar/measures.ts</code>：胶囊人体量体。</li>
+          <li><code>drape/heuristic.ts</code>：先出能看的 3D mesh。</li>
+        </ul>
+      </div>
+      <div class="dangerbox">
+        <h3>先别做</h3>
+        <ul>
+          <li>不要照搬 MD 模板、资产、UI、商业库。</li>
+          <li>不要从 Blender/MD GPL/专有代码抄实现。</li>
+          <li>不要第一版追真实制衣生产尺寸。</li>
+          <li>不要一开始做完整复杂外套、正装西装。</li>
+          <li>不要只做 shader 褶皱，缺纸样会导致 AI 不可控。</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section id="details">
+    <h2>细节库：结构件与衣服语义</h2>
+    <details open>
+      <summary>领口 / Collar / Neckline</summary>
+      <div class="body">
+        <table>
+          <tbody>
+            <tr><td>圆领</td><td>前后领口 Bezier，rib collar ring，适合 T 恤。</td></tr>
+            <tr><td>V 领</td><td>前中点下移，领口两侧直线或轻曲线。</td></tr>
+            <tr><td>高领</td><td>neck band panel 高度增加，bend 稍高。</td></tr>
+            <tr><td>翻领</td><td>collar stand + collar flap，需 fold line。</td></tr>
+            <tr><td>帽兜</td><td>左右 hood panel + center seam + face opening，Tier 2。</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </details>
+    <details>
+      <summary>袖子 / Sleeve</summary>
+      <div class="body">
+        <table>
+          <tbody>
+            <tr><td>无袖</td><td>删除 sleeve panel，袖窿边加 binding。</td></tr>
+            <tr><td>短袖</td><td>sleeve cap + sleeve length，袖口围度。</td></tr>
+            <tr><td>长袖</td><td>增加袖长，腕口 cuff，可设宽松。</td></tr>
+            <tr><td>泡泡袖</td><td>sleeve cap gather ratio > 1，袖口收紧。</td></tr>
+            <tr><td>插肩袖</td><td>肩线改为从领口到腋下的斜线，panel 拓扑不同。</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </details>
+    <details>
+      <summary>裤装 / Pants</summary>
+      <div class="body">
+        <table>
+          <tbody>
+            <tr><td>裆部</td><td>front/back crotch curve 是裤子核心，需保持 seam 长度兼容。</td></tr>
+            <tr><td>裤型</td><td>straight/slim/wide/jogger 主要改 thigh/knee/hem 宽度曲线。</td></tr>
+            <tr><td>腰头</td><td>waistband panel 环绕腰部，支持松紧或腰带。</td></tr>
+            <tr><td>口袋</td><td>先做贴袋，再做插袋；贴袋可作为外层 panel。</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </details>
+    <details>
+      <summary>裙装 / Skirt</summary>
+      <div class="body">
+        <table>
+          <tbody>
+            <tr><td>直筒裙</td><td>front/back 简单 panel，hipEase 小，长度可调。</td></tr>
+            <tr><td>A 字裙</td><td>hemWidth > hipWidth，flare 参数明显。</td></tr>
+            <tr><td>百褶裙</td><td>pleatCount、pleatDepth、fold direction，初期可 shader/geometry 假褶。</td></tr>
+            <tr><td>包臀裙</td><td>fit/pressure 要严，容易穿模，需 slit 参数。</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </details>
+    <details>
+      <summary>装饰件 / Trims</summary>
+      <div class="body">
+        <table>
+          <tbody>
+            <tr><td>纽扣</td><td>curve path 上 instancing 小圆柱，buttonhole 对应 internal line。</td></tr>
+            <tr><td>拉链</td><td>zipper tape + teeth instances + slider mesh，沿 seam 或 internal line。</td></tr>
+            <tr><td>明线</td><td>topstitch curve，沿 edge offset 生成细绳/贴图线。</td></tr>
+            <tr><td>抽绳</td><td>curve rope + eyelets，hoodie/裤腰常用。</td></tr>
+            <tr><td>口袋</td><td>patch pocket 是最小实现，welt pocket 后做。</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </details>
+  </section>
+
+  <section id="sources">
+    <h2>资料源</h2>
+    <div class="lead">以下只作为流程与概念参考。不使用 MD 商业资产、模板文件、源代码。Meshova 实现需自研。</div>
+    <table>
+      <thead><tr><th>主题</th><th>来源</th><th>可学点</th></tr></thead>
+      <tbody>
+        <tr><td>Pattern Drafter</td><td><a href="https://support.marvelousdesigner.com/hc/en-us/articles/48920347302297-Pattern-Drafter-Beta">Marvelous Designer Support - Pattern Drafter (Beta)</a></td><td>量体生成纸样；AI 草图生成；支持 T-Shirts、Pants、Skirts。</td></tr>
+        <tr><td>3D Pen / Avatar Line</td><td><a href="https://support.marvelousdesigner.com/hc/en-us/articles/47358252183833-Create-Line-Avatar-3D-Pen-Avatar">Create Line (Avatar) / 3D Pen (Avatar)</a></td><td>在 avatar 上画线并提取纸样。</td></tr>
+        <tr><td>Auto Sewing</td><td><a href="https://support.marvelousdesigner.com/hc/en-us/articles/47358149073305-Auto-Sewing-Ver-2025-0">Auto Sewing (Ver. 2025.0)</a></td><td>根据摆放点自动补缝线；darts/pleats 自动缝合条件。</td></tr>
+        <tr><td>Particle Distance</td><td><a href="https://support.marvelousdesigner.com/hc/en-us/articles/47358268602777-Particle-Distance-Setting">Particle Distance Setting</a></td><td>制作阶段粗网格，完成后细网格；LOD 思路。</td></tr>
+        <tr><td>Fabric Stretch/Shear</td><td><a href="https://support.marvelousdesigner.com/hc/en-us/articles/47358420149017-FABRIC-PHYSICAL-PROPERTIES-Adjust-Stretch-Weft-Warp-Shear">Adjust Stretch-Weft/Warp, Shear</a></td><td>经纬向拉伸和剪切。</td></tr>
+        <tr><td>Fabric Bending</td><td><a href="https://support.marvelousdesigner.com/hc/en-us/articles/47358432358809-FABRIC-PHYSICAL-PROPERTIES-Adjust-Bending-Weft-Warp">Adjust Bending-Weft/Warp</a></td><td>硬挺/垂坠差异。</td></tr>
+        <tr><td>Auto Fitting</td><td><a href="https://support.marvelousdesigner.com/hc/en-us/articles/47358335130649-Auto-Fitting">Auto Fitting</a></td><td>fitting suit、换 avatar、保持拓扑/纹理选项。</td></tr>
+        <tr><td>Layer</td><td><a href="https://support.marvelousdesigner.com/hc/en-us/articles/47358288780441-Use-Layer-Drape-Additional-Garment">Use Layer (Drape Additional Garment)</a></td><td>多层衣服、口袋、外套仿真顺序。</td></tr>
+        <tr><td>Fit Maps</td><td><a href="https://support.marvelousdesigner.com/hc/en-us/articles/47358286228505-Garment-Fit-Maps">Garment Fit Maps</a></td><td>stress / strain / fit / pressure 可视化质量反馈。</td></tr>
+        <tr><td>Retopology</td><td><a href="https://support.marvelousdesigner.com/hc/en-us/articles/47358347315481-Remeshing">Remeshing</a></td><td>生成 aligned quad mesh；游戏资产需要稳定拓扑。</td></tr>
+        <tr><td>UV Editor</td><td><a href="https://support.marvelousdesigner.com/hc/en-us/articles/47358198817689--Mode-UV-EDITOR">UV Editor Mode</a></td><td>纸样天然可映射 UV；背面/侧面 UV 也需处理。</td></tr>
+        <tr><td>Garment dataset</td><td><a href="https://arxiv.org/abs/2109.05633">Generating Datasets of 3D Garments with Sewing Patterns</a></td><td>JSON 式 parametric sewing pattern template；panel、edge、stitch、约束。</td></tr>
+        <tr><td>Made-to-measure dataset</td><td><a href="https://arxiv.org/abs/2405.17609">GarmentCodeData</a></td><td>大规模按身材量体生成衣服；类别覆盖 tops、shirts、dresses、skirts、pants 等。</td></tr>
+        <tr><td>3D 到纸样</td><td><a href="https://arxiv.org/abs/2202.10272">Computational Pattern Making from 3D Garment Models</a></td><td>从 3D 衣服反推纸样时要考虑 seam symmetry、darts、grain、各向异性拉伸。</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <footer>
+    结论：Meshova 的衣服模块应从 pattern DSL 开始。先生成常见衣服的可控结构，再叠加材质、褶皱、仿真和 AI 优化闭环。
+  </footer>
+</main>
+
+<script>
+const GARMENTS = [
+  {tier:1,family:"top",name:"T 恤 / T-Shirt",panels:"front, back, sleeves, neck rib",params:"chestEase, bodyLength, sleeveLength, neckWidth, hemWidth",notes:"最优先。MD Pattern Drafter 已覆盖 T-Shirts；适合验证上衣通路。"},
+  {tier:1,family:"top",name:"背心 / Tank Top",panels:"front, back, binding",params:"strapWidth, armholeDepth, neckDepth, bodyLength",notes:"比 T 恤少 sleeve，可先做。"},
+  {tier:1,family:"bottom",name:"半身裙 / Simple Skirt",panels:"front, back, waistband",params:"waist, hipEase, length, flare",notes:"最容易体现布料下垂和下摆轮廓。"},
+  {tier:1,family:"bottom",name:"短裤 / Shorts",panels:"front legs, back legs, waistband",params:"rise, inseam, legOpening, thighEase",notes:"裤子简化版，验证裆部曲线。"},
+  {tier:1,family:"accessory",name:"披风 / Cape",panels:"single arc panel, collar",params:"radius, openingAngle, collarHeight, closure",notes:"panel 少，适合展示垂坠和风格化。"},
+  {tier:1,family:"accessory",name:"围巾 / Scarf",panels:"rectangle or tapered strip",params:"length, width, thickness, fringe",notes:"可无 avatar 生成，材质展示好。"},
+  {tier:2,family:"bottom",name:"长裤 / Pants",panels:"front L/R, back L/R, waistband",params:"rise, inseam, thighEase, kneeEase, legOpening",notes:"常见但裆部和腿碰撞复杂。"},
+  {tier:2,family:"top",name:"长袖衫 / Long Sleeve",panels:"T-shirt base + long sleeves + cuffs",params:"sleeveLength, wristOpening, cuffHeight, sleeveEase",notes:"从 T 恤扩展。"},
+  {tier:2,family:"dress",name:"连衣裙 / Dress",panels:"bodice front/back, skirt front/back, sleeves optional",params:"waistline, skirtLength, flare, sleeveType",notes:"上衣+裙子组合，模板复用价值高。"},
+  {tier:2,family:"top",name:"卫衣 / Hoodie",panels:"body, sleeves, hood L/R, pocket, cuffs",params:"hoodDepth, pocketSize, ribHeight, drawstring",notes:"配件多，但游戏角色常见。"},
+  {tier:2,family:"outerwear",name:"夹克 / Jacket",panels:"front split, back, sleeves, collar, cuffs",params:"openFront, zipperPath, collarType, hemRib",notes:"需要拉链/开襟/厚度。"},
+  {tier:2,family:"bottom",name:"百褶裙 / Pleated Skirt",panels:"skirt panels + waistband + fold lines",params:"pleatCount, pleatDepth, length, flare",notes:"可先用几何折线假褶。"},
+  {tier:2,family:"accessory",name:"手套 / Gloves",panels:"palm, back, fingers, thumb",params:"fingerLength, palmWidth, cuffLength",notes:"小尺度复杂；可用于非人形配件测试。"},
+  {tier:2,family:"accessory",name:"袜子 / Socks",panels:"tube, toe, heel",params:"calfHeight, ankleFit, toeShape, ribHeight",notes:"贴身，适合无真实 cloth 的壳体生成。"},
+  {tier:3,family:"top",name:"衬衫 / Shirt",panels:"body, yoke, sleeves, collar stand, collar, placket, cuffs",params:"collar, placket, cuff, dart, buttonCount",notes:"结构件多，是成熟模块验收。"},
+  {tier:3,family:"outerwear",name:"西装 / Blazer",panels:"front panels, side panels, back, lapel, collar, sleeves, lining",params:"lapelWidth, waistSuppression, shoulderPad, vent",notes:"需要高级纸样、衬布、垫肩、分层。"},
+  {tier:3,family:"outerwear",name:"大衣 / Coat",panels:"long jacket base, lining, collar, belt, pockets",params:"coatLength, lapel, belt, thickness, hemFlare",notes:"外套体量大，多层和厚布料重要。"},
+  {tier:3,family:"dress",name:"礼服 / Gown",panels:"bodice, multi-panel skirt, train, straps",params:"trainLength, bodiceFit, skirtVolume, fabricFlow",notes:"视觉强，但 solver 要好。"},
+  {tier:3,family:"bottom",name:"工装裤 / Cargo Pants",panels:"pants base + patch pockets + straps",params:"pocketCount, flapSize, kneePanel, cuffElastic",notes:"适合游戏资产，但 trim 多。"},
+  {tier:3,family:"outerwear",name:"羽绒服 / Puffer Jacket",panels:"jacket base + quilt channels + hood optional",params:"pressure, channelCount, puffiness, nylonMaterial",notes:"需要 pressure 或 procedural quilt 几何。"}
+];
+
+function renderGarments(){
+  const q = document.getElementById("search").value.trim().toLowerCase();
+  const tier = document.getElementById("tier").value;
+  const list = document.getElementById("garmentList");
+  const rows = GARMENTS.filter(g => {
+    const text = [g.name,g.family,g.panels,g.params,g.notes].join(" ").toLowerCase();
+    return (tier === "all" || String(g.tier) === tier) && (!q || text.includes(q));
+  });
+  document.getElementById("count").textContent = `${rows.length} / ${GARMENTS.length}`;
+  list.innerHTML = rows.map(g => `
+    <article class="garment">
+      <div class="top"><div class="name">${g.name}</div><div class="tier">Tier ${g.tier}</div></div>
+      <div class="meta">${g.family}</div>
+      <div><b>Panel：</b>${g.panels}</div>
+      <div><b>参数：</b>${g.params}</div>
+      <div class="small">${g.notes}</div>
+    </article>
+  `).join("");
+}
+document.getElementById("search").addEventListener("input", renderGarments);
+document.getElementById("tier").addEventListener("change", renderGarments);
+renderGarments();
+</script>
+</body>
+</html>

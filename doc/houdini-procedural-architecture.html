@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Houdini 程序化建筑建模 · 学习笔记</title>
+<style>
+:root{
+  --bg:#0d1117; --bg2:#11161f; --card:#161c27; --card2:#1b2230;
+  --line:#2a3340; --line2:#39465a;
+  --txt:#e6edf3; --dim:#9aa7b6; --faint:#6b7787;
+  --acc:#5ee0c0; --acc2:#7aa2ff; --warn:#ffb454; --bad:#ff7b72; --good:#7ee787;
+  --gold:#e3b341;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  background:radial-gradient(1200px 600px at 20% -10%,#16202e 0,var(--bg) 60%) fixed;
+  color:var(--txt);
+  font:15px/1.7 -apple-system,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;
+  padding:0 0 80px;
+}
+a{color:var(--acc2);text-decoration:none}
+a:hover{text-decoration:underline}
+.wrap{max-width:1080px;margin:0 auto;padding:0 24px}
+header.hero{
+  padding:56px 24px 40px;
+  border-bottom:1px solid var(--line);
+  background:linear-gradient(180deg,rgba(94,224,192,.06),transparent);
+}
+.hero .wrap{max-width:1080px}
+.kicker{color:var(--acc);font-weight:600;letter-spacing:.18em;font-size:12px;text-transform:uppercase}
+h1{font-size:34px;line-height:1.25;margin:10px 0 14px;font-weight:700}
+h1 .g{background:linear-gradient(90deg,var(--acc),var(--acc2));-webkit-background-clip:text;background-clip:text;color:transparent}
+.lede{color:var(--dim);max-width:760px;font-size:16px}
+.meta-row{margin-top:20px;display:flex;flex-wrap:wrap;gap:10px}
+.chip{
+  background:var(--card);border:1px solid var(--line2);border-radius:999px;
+  padding:5px 14px;font-size:12.5px;color:var(--dim)
+}
+.chip b{color:var(--txt)}
+
+nav.toc{
+  position:sticky;top:0;z-index:20;backdrop-filter:blur(8px);
+  background:rgba(13,17,23,.82);border-bottom:1px solid var(--line);
+  padding:10px 0;
+}
+nav.toc .wrap{display:flex;gap:6px;flex-wrap:wrap}
+nav.toc a{
+  font-size:13px;color:var(--dim);padding:5px 11px;border-radius:7px;
+  border:1px solid transparent
+}
+nav.toc a:hover{color:var(--txt);border-color:var(--line2);background:var(--card);text-decoration:none}
+
+section{padding:42px 0 6px}
+h2{font-size:24px;margin-bottom:6px;display:flex;align-items:center;gap:11px}
+h2 .num{
+  font-size:13px;color:var(--bg);background:var(--acc);
+  width:26px;height:26px;border-radius:7px;display:inline-flex;
+  align-items:center;justify-content:center;font-weight:700
+}
+.sub{color:var(--faint);margin-bottom:22px;font-size:14px}
+h3{font-size:17px;margin:26px 0 10px;color:var(--acc)}
+p{margin:10px 0;color:var(--txt)}
+ul,ol{margin:10px 0 10px 22px}
+li{margin:5px 0}
+code{
+  background:#0a0e14;border:1px solid var(--line);border-radius:5px;
+  padding:1px 6px;font:13px/1.5 "JetBrains Mono",Consolas,monospace;color:var(--acc)
+}
+.card{
+  background:var(--card);border:1px solid var(--line);border-radius:12px;
+  padding:18px 20px;margin:14px 0
+}
+.grid{display:grid;gap:14px}
+.g2{grid-template-columns:repeat(2,1fr)}
+.g3{grid-template-columns:repeat(3,1fr)}
+@media(max-width:760px){.g2,.g3{grid-template-columns:1fr}}
+.callout{
+  border-left:3px solid var(--acc);background:var(--card2);
+  border-radius:0 10px 10px 0;padding:12px 16px;margin:14px 0
+}
+.callout.warn{border-color:var(--warn)}
+.callout.bad{border-color:var(--bad)}
+.callout .t{font-weight:600;margin-bottom:3px}
+.callout.warn .t{color:var(--warn)}
+.callout.bad .t{color:var(--bad)}
+.callout .t.acc{color:var(--acc)}
+
+/* flow / pipeline */
+.flow{display:flex;flex-wrap:wrap;gap:0;align-items:stretch;margin:18px 0}
+.step{
+  flex:1 1 150px;min-width:140px;background:var(--card);border:1px solid var(--line2);
+  border-radius:10px;padding:14px;position:relative;margin:6px
+}
+.step .k{font-size:11px;color:var(--acc);font-weight:700;letter-spacing:.1em}
+.step .h{font-weight:600;margin:4px 0 4px;font-size:15px}
+.step .d{font-size:12.5px;color:var(--dim)}
+.step .nd{font-size:11.5px;color:var(--faint);margin-top:6px}
+.step .nd code{font-size:11px;padding:0 4px}
+
+/* table */
+table{width:100%;border-collapse:collapse;margin:14px 0;font-size:13.5px}
+th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--acc);font-weight:600;border-bottom:1px solid var(--line2);background:var(--bg2)}
+tr:hover td{background:var(--card2)}
+td code{font-size:12px}
+
+/* node tag */
+.tag{display:inline-block;background:#0a0e14;border:1px solid var(--line2);
+  border-radius:6px;padding:1px 8px;font:12px "JetBrains Mono",Consolas,monospace;
+  color:var(--acc2);margin:2px 3px 2px 0}
+
+/* checklist */
+.chk{list-style:none;margin-left:0}
+.chk li{padding-left:26px;position:relative}
+.chk li:before{content:"✓";position:absolute;left:0;color:var(--good);font-weight:700}
+.dont li:before{content:"✕";color:var(--bad)}
+
+/* video list */
+.vid{
+  display:grid;grid-template-columns:1fr auto;gap:6px 16px;
+  background:var(--card);border:1px solid var(--line);border-radius:10px;
+  padding:13px 16px;margin:10px 0;transition:.15s
+}
+.vid:hover{border-color:var(--acc);transform:translateX(2px)}
+.vid .vt{font-weight:600;font-size:14.5px}
+.vid .vt a{color:var(--txt)}
+.vid .vt a:hover{color:var(--acc)}
+.vid .vm{font-size:12px;color:var(--faint);display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+.vid .vm .au{color:var(--dim)}
+.vid .play{color:var(--gold)}
+.vid .badge{
+  font-size:11px;padding:2px 9px;border-radius:6px;align-self:start;white-space:nowrap;
+  border:1px solid var(--line2);color:var(--dim);height:fit-content
+}
+.badge.must{color:var(--good);border-color:#2d4a33;background:#10261a}
+.badge.classic{color:var(--gold);border-color:#4a3d18;background:#241d0d}
+.badge.ue{color:var(--acc2);border-color:#23344f;background:#0e1828}
+.badge.cn{color:var(--warn);border-color:#4a3a1a;background:#241b0c}
+.vfilter{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 16px}
+.vfilter button{
+  background:var(--card);border:1px solid var(--line2);color:var(--dim);
+  border-radius:8px;padding:6px 14px;font-size:13px;cursor:pointer;transition:.15s
+}
+.vfilter button:hover{color:var(--txt);border-color:var(--acc)}
+.vfilter button.on{background:var(--acc);color:var(--bg);border-color:var(--acc);font-weight:600}
+
+footer{margin-top:50px;padding-top:24px;border-top:1px solid var(--line);
+  color:var(--faint);font-size:12.5px}
+.hl{color:var(--acc)}
+.hl2{color:var(--acc2)}
+strong{color:#fff}
+</style>
+</head>
+<body>
+<header class="hero">
+  <div class="wrap">
+    <div class="kicker">Procedural · Architecture · Houdini</div>
+    <h1>Houdini <span class="g">程序化建筑建模</span><br>流程 · 规范 · 细节学习笔记</h1>
+    <p class="lede">基于 B 站建筑类程序化建模教程（《湖边小屋》经典案例、古建/城市/PCG 系列、SideFX Labs Building Generator 等）整理的方法论。重点放在<strong>建筑</strong>：从轮廓曲线到楼层、立面、屋顶、模块装配的完整可重跑流程，以及"为什么程序化"的工程规范。</p>
+    <div class="meta-row">
+      <span class="chip">来源 <b>bilibili 搜索</b>（houdini 程序化建模 / 建筑 / PCG）</span>
+      <span class="chip">精选 <b>23</b> 个建筑向视频</span>
+      <span class="chip">整理日期 <b>2026-06-28</b></span>
+      <span class="chip">视角 <b>程序化 / 脚本化思路</b></span>
+    </div>
+  </div>
+</header>
+
+<nav class="toc"><div class="wrap">
+  <a href="#why">① 为什么程序化</a>
+  <a href="#pipeline">② 建筑主流程</a>
+  <a href="#nodes">③ 核心节点</a>
+  <a href="#detail">④ 各阶段细节</a>
+  <a href="#standard">⑤ 工程规范</a>
+  <a href="#pitfall">⑥ 常见坑</a>
+  <a href="#meshova">⑦ 对 Meshova 的启发</a>
+  <a href="#videos">⑧ 教程清单</a>
+</div></nav>
+
+<main class="wrap">
+<!--SEC-WHY-->
+<section id="why">
+  <h2><span class="num">1</span>为什么用程序化做建筑</h2>
+  <div class="sub">建筑是程序化建模最甜的场景：高度模块化、规则性强、需要批量与可调。</div>
+  <div class="grid g2">
+    <div class="card">
+      <h3 style="margin-top:0">建筑天然适合程序化</h3>
+      <ul>
+        <li><strong>规则性强</strong>：楼层等距重复、立面网格化、门窗按开间排布，全是可参数化的规律。</li>
+        <li><strong>模块化</strong>：墙体、窗、阳台、屋檐、斗拱都是可复用模块，<code>copy to points</code> 一铺就成。</li>
+        <li><strong>需要批量</strong>：一条街、一座城上千栋楼，手 K 不现实，规则生成才划算。</li>
+        <li><strong>反复改</strong>：甲方改层高、改风格，改一个参数全场景重算，这是手工建模给不了的。</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0">核心思想：不是建模，是写"生成规则"</h3>
+      <p>程序化的产物不是一坨网格，而是一套<strong>从输入到模型的规则链</strong>。改输入（轮廓线、层数、随机种子）→ 重跑 → 出新模型。</p>
+      <div class="callout"><div class="t acc">一句话</div>
+      手工建模交付"鱼"，程序化交付"渔"——一个能反复生成鱼的生成器（HDA / 脚本）。</div>
+      <p class="sub" style="margin:8px 0 0">这与 Meshova "输出永远是可重跑脚本，不是烘焙网格" 的核心理念完全一致。</p>
+    </div>
+  </div>
+  <div class="callout warn"><div class="t">两条主流落地路线</div>
+  ①<strong> 纯 Houdini 内</strong>做完整建筑（影视、渲染、破坏，如《湖边小屋》《科幻城市》）。
+  ②<strong> Houdini → UE5 (PCG/HDA)</strong>：Houdini 生成逻辑封装成 HDA 或喂给 UE5 PCG，美术在引擎里实时刷建筑（游戏大世界主流，如沐月、欧酱、wangtaian 的城市系列）。两条路前半段建模思路通用。</div>
+</section>
+
+<section id="pipeline">
+  <h2><span class="num">2</span>建筑程序化主流程</h2>
+  <div class="sub">从一条轮廓线到成品建筑，几乎所有教程都遵循这条"自底向上分层"的管线。</div>
+  <div class="flow">
+    <div class="step"><div class="k">01 INPUT</div><div class="h">基础轮廓</div><div class="d">建筑占地的闭合曲线 / 矩形底面。可手画、可来自 GIS/OSM 矢量。</div><div class="nd"><code>curve</code> <code>primitive</code> <code>OSM</code></div></div>
+    <div class="step"><div class="k">02 MASS</div><div class="h">体块 / 楼层</div><div class="d">轮廓沿 Y 拉伸成体块，按层高切分出 N 个楼层。</div><div class="nd"><code>polyextrude</code> <code>resample</code> <code>for-loop</code></div></div>
+    <div class="step"><div class="k">03 FACADE</div><div class="h">立面分格</div><div class="d">每层墙面按开间细分成"单元格"，每格是一个可放模块的槽位。</div><div class="nd"><code>divide</code> <code>copy to points</code></div></div>
+    <div class="step"><div class="k">04 MODULE</div><div class="h">模块装配</div><div class="d">按规则往槽位放窗/门/墙/阳台模块，转角与边缘特殊处理。</div><div class="nd"><code>copytopoints</code> <code>switch</code> <code>attr</code></div></div>
+    <div class="step"><div class="k">05 ROOF</div><div class="h">屋顶</div><div class="d">顶面轮廓生成坡屋顶/平顶/中式檐口，古建在此做曲面与瓦。</div><div class="nd"><code>PolyExpand2D</code> <code>sweep</code></div></div>
+    <div class="step"><div class="k">06 DETAIL</div><div class="h">细节 / 做旧</div><div class="d">挑檐、栏杆、管线、噪声做旧、随机变体打破规整感。</div><div class="nd"><code>noise</code> <code>scatter</code> <code>rand</code></div></div>
+    <div class="step"><div class="k">07 OUT</div><div class="h">输出 / HDA</div><div class="d">封装参数成 HDA / 导出到引擎，UV、LOD、碰撞一并处理。</div><div class="nd"><code>HDA</code> <code>UV</code> <code>PDG</code></div></div>
+  </div>
+  <div class="callout"><div class="t acc">关键认知：自底向上 + 分层属性驱动</div>
+  每一层都靠<strong>属性</strong>（attribute）传递信息：点上记 <code>floor_id</code>、<code>is_corner</code>、<code>module_type</code>、<code>orient</code>，下游节点只读属性决定放什么、怎么转。属性设计好，整条链就清晰；属性混乱，后面全是 hack。</div>
+</section>
+
+<!--SEC-NODES-->
+<section id="nodes">
+  <h2><span class="num">3</span>建筑必备核心节点</h2>
+  <div class="sub">不求全，只列建筑流程里出镜率最高、必须吃透的那批。</div>
+  <table>
+    <tr><th>节点 / 概念</th><th>作用</th><th>建筑里的典型用法</th></tr>
+    <tr><td><span class="tag">curve / resample</span></td><td>画轮廓、把曲线均匀打点</td><td>建筑底面轮廓；resample 后每个点 = 一个开间槽位</td></tr>
+    <tr><td><span class="tag">polyextrude</span></td><td>面沿法线挤出</td><td>轮廓 → 体块；墙面 → 厚度；窗洞内凹</td></tr>
+    <tr><td><span class="tag">copy to points</span></td><td>把模块复制到每个点上</td><td>立面铺窗、楼层堆叠、栏杆/瓦片阵列（建筑装配的心脏）</td></tr>
+    <tr><td><span class="tag">for-each loop</span></td><td>对每个楼层/每面墙循环处理</td><td>逐层切分、逐面分格、逐栋应用规则</td></tr>
+    <tr><td><span class="tag">attribute wrangle (VEX)</span></td><td>写代码批量算属性</td><td>判转角、定模块类型、控旋转 <code>orient</code>、随机变体</td></tr>
+    <tr><td><span class="tag">group / blast</span></td><td>选面/删面</td><td>选顶面做屋顶、选侧面做立面、删内部面</td></tr>
+    <tr><td><span class="tag">PolyExpand2D</span></td><td>2D 轮廓内缩/外扩</td><td>墙体厚度、屋檐挑出、道路/地块偏移</td></tr>
+    <tr><td><span class="tag">switch / rand</span></td><td>多输入随机选择</td><td>窗户样式随机、楼栋风格切换、打破重复感</td></tr>
+    <tr><td><span class="tag">noise / fbm</span></td><td>程序化噪声</td><td>做旧、墙面起伏、楼栋高度随机分布</td></tr>
+    <tr><td><span class="tag">sweep</span></td><td>截面沿曲线扫掠</td><td>屋脊、檐口线脚、栏杆扶手、管线</td></tr>
+    <tr><td><span class="tag">HDA (Digital Asset)</span></td><td>把网络封装成带参数的资产</td><td>暴露层数/风格/种子等参数，给 UE5 或他人复用</td></tr>
+  </table>
+  <div class="callout"><div class="t acc">VEX 是分水岭</div>
+  纯连节点能做 70% 的建筑，但<strong>转角判断、模块类型分配、精确旋转</strong>这些规则逻辑离开 VEX 就会很笨拙。《湖边小屋》《玩转 VEX》系列反复强调：程序化建模真正的"心法"是<strong>用属性思考 + 用 VEX 写规则</strong>，节点只是容器。矩阵 / 四元数 <code>orient</code> 控制朝向是建筑装配的高频考点。</div>
+</section>
+
+<section id="detail">
+  <h2><span class="num">4</span>各阶段细节要点</h2>
+  <div class="sub">每一步真正容易出问题、教程反复提醒的地方。</div>
+
+  <h3>① 轮廓 & 体块</h3>
+  <ul>
+    <li>轮廓曲线<strong>缠绕方向要统一</strong>（CCW），否则法线朝里、挤出方向反、UV 翻面。</li>
+    <li>resample 的<strong>分段长度即开间模数</strong>。先定模数（如 3m 一开间），再反推分段，立面才对齐。</li>
+    <li>体块阶段先用<strong>包围盒/简模占位</strong>确认比例和层数，别一上来抠细节。</li>
+  </ul>
+
+  <h3>② 楼层切分</h3>
+  <ul>
+    <li>层高用<strong>参数</strong>，不要写死。首层（商业/大堂）常比标准层高，单独处理。</li>
+    <li>每层打上 <code>floor_id</code> 属性，顶层/底层/标准层走不同分支（顶层接屋顶，底层接入口）。</li>
+  </ul>
+
+  <h3>③ 立面分格（最关键）</h3>
+  <ul>
+    <li>把每面墙变成<strong>规则单元格网格</strong>，格心放点，点上记朝向 <code>N</code> / <code>orient</code>。</li>
+    <li><strong>转角处理</strong>是难点：角点要么放专门的转角模块，要么让相邻两面避让，否则模块穿插。用 VEX 判 <code>is_corner</code>。</li>
+    <li>窗墙比、门的位置（一般底层中间）用属性控制，不要硬编码索引。</li>
+  </ul>
+
+  <h3>④ 模块装配</h3>
+  <ul>
+    <li><code>copy to points</code> + <code>orient</code> 四元数让模块对齐墙面法线，这是朝向正确的核心。</li>
+    <li>模块自身建在<strong>统一的局部坐标原点</strong>（如以底边中心为原点），否则复制后到处错位。</li>
+    <li>用 <code>switch</code>+<code>rand(种子)</code> 做样式变体，<strong>种子固定 = 结果可复现</strong>。</li>
+  </ul>
+
+  <h3>⑤ 屋顶（中式/古建尤其重）</h3>
+  <ul>
+    <li>平顶最简单（顶面直接封）。坡屋顶用 <code>PolyExpand2D</code> 做屋脊骨架再起坡。</li>
+    <li>中式檐口要<strong>曲面起翘</strong>，毛球道人方案提到：Houdini 里先做平屋顶逻辑，曲面/起翘放到 UE 二次加工（GPU），分工更稳。</li>
+    <li>瓦片是典型 <code>copy to points</code> 沿屋面阵列；斗拱、瓦当做成可换模块。</li>
+  </ul>
+
+  <h3>⑥ 细节 & 做旧</h3>
+  <ul>
+    <li>规整是程序化的"塑料感"来源。用 <code>noise</code> 给位置/旋转/颜色加<strong>微扰动</strong>打破完美。</li>
+    <li>scatter 撒管线、空调外机、杂物、植被，城市感全靠这层。</li>
+    <li>变体一定走<strong>种子</strong>，不要用 <code>Math.random</code> 式真随机，否则每次重算都变。</li>
+  </ul>
+
+  <h3>⑦ 输出 / 落地</h3>
+  <ul>
+    <li>UV：程序化模型的 UV 要程序化生成（按模块/按面），别指望手摆。</li>
+    <li>到引擎要管 <strong>LOD、碰撞、合批</strong>；UE5 用 PCG/HDA 时注意 WorldPartition 分块。</li>
+    <li>大城市用 <strong>PDG/TOPs</strong> 批处理多栋楼并行烘焙（魔猿、wangtaian 城市流程）。</li>
+  </ul>
+</section>
+
+<!--SEC-STD-->
+<section id="standard">
+  <h2><span class="num">5</span>工程规范（做对的习惯）</h2>
+  <div class="sub">教程里 UP 主反复踩坑后总结的"该这么做"。</div>
+  <div class="grid g2">
+    <div class="card">
+      <h3 style="margin-top:0" class="hl">该做的</h3>
+      <ul class="chk">
+        <li><strong>参数化一切</strong>：层数、层高、开间、风格、种子全部暴露成参数，不写死。</li>
+        <li><strong>用属性驱动</strong>：信息记在点/面属性上，下游只读属性决策，逻辑清晰可追。</li>
+        <li><strong>种子可控</strong>：所有随机走显式种子，保证同输入同输出（可复现）。</li>
+        <li><strong>模块归一化</strong>：每个模块统一局部原点与朝向约定。</li>
+        <li><strong>分层分网络</strong>：体块/立面/屋顶/细节各自子网络，便于调试与复用。</li>
+        <li><strong>命名规范</strong>：节点和属性起可读名字（<code>floor_id</code> 而非 <code>attr1</code>）。</li>
+        <li><strong>先粗后细</strong>：先占位简模确认比例，再逐层加细节。</li>
+        <li><strong>封 HDA</strong>：成熟逻辑封成资产，参数清晰、可给引擎/他人用。</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0" class="hl">该避免的</h3>
+      <ul class="chk dont">
+        <li><strong>硬编码索引</strong>：靠 point 序号 hack，换输入立刻崩。</li>
+        <li><strong>真随机</strong>：用不带种子的随机，结果不可复现。</li>
+        <li><strong>巨型 wrangle</strong>：一个 VEX 节点塞几百行，无法调试。</li>
+        <li><strong>过早抠细节</strong>：比例没定就堆窗台线脚，改一次全废。</li>
+        <li><strong>忽略转角/边界</strong>：只测中间整齐区，转角和收边一看就穿帮。</li>
+        <li><strong>不管法线缠绕</strong>：UV、挤出、着色全错的根源。</li>
+        <li><strong>烘死网格</strong>：交付一坨 mesh 而非生成器，失去程序化全部价值。</li>
+      </ul>
+    </div>
+  </div>
+  <div class="callout"><div class="t acc">命名/属性约定示例</div>
+  楼层 <code>i@floor_id</code>、转角标记 <code>i@is_corner</code>、模块类型 <code>s@module</code>（window/door/wall/balcony）、朝向 <code>p@orient</code>（四元数）、变体种子 <code>i@seed</code>。一套约定贯穿全网络，新人也读得懂。</div>
+</section>
+
+<section id="pitfall">
+  <h2><span class="num">6</span>常见坑速查</h2>
+  <div class="sub">建筑流程里最高频的翻车点。</div>
+  <table>
+    <tr><th>症状</th><th>原因</th><th>修法</th></tr>
+    <tr><td>挤出方向反 / 面黑</td><td>轮廓缠绕方向不一致，法线朝里</td><td>统一 CCW，必要时 <code>reverse</code> 或重算法线</td></tr>
+    <tr><td>模块到处错位</td><td>模块局部原点不统一</td><td>每个模块以底边中心为原点对齐</td></tr>
+    <tr><td>窗户朝向乱转</td><td><code>orient</code> 没按墙面法线算</td><td>VEX 用法线 + up 构造四元数 <code>orient</code></td></tr>
+    <tr><td>转角穿插 / 缺角</td><td>没单独处理角点</td><td>判 <code>is_corner</code>，放转角模块或避让</td></tr>
+    <tr><td>立面对不齐</td><td>resample 模数和模块尺寸不匹配</td><td>先定模数，分段长度=模块宽度</td></tr>
+    <tr><td>每次重算结果都变</td><td>用了真随机</td><td>全部改显式种子</td></tr>
+    <tr><td>UE 里曲面屋顶难做</td><td>Houdini 直接做曲面起翘复杂</td><td>Houdini 出平面逻辑，UE 二次加工曲面</td></tr>
+    <tr><td>改参数全网络重算很慢</td><td>没分块 / 没用 PDG</td><td>子网络缓存 + PDG 并行批处理</td></tr>
+  </table>
+</section>
+
+<!--SEC-MESHOVA-->
+<section id="meshova">
+  <h2><span class="num">7</span>对 Meshova 的启发</h2>
+  <div class="sub">把 Houdini 建筑方法论映射到 Meshova 的脚本化 DSL。</div>
+  <div class="grid g2">
+    <div class="card">
+      <h3 style="margin-top:0">理念高度一致</h3>
+      <ul>
+        <li>Houdini 输出 HDA/网络，Meshova 输出<strong>可重跑脚本</strong>——都是"交付生成器不交付死网格"。</li>
+        <li>Houdini 靠点/面属性驱动，Meshova 已有 <code>coloredPart</code> 按几何字段着色，思路同源，可扩展成<strong>属性驱动装配</strong>。</li>
+        <li>Houdini 强调种子可复现，正是 Meshova 的<strong>硬不变量</strong>（同 seed 同结果）。</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0">可借鉴的 DSL 算子</h3>
+      <ul>
+        <li><code>copyToPoints</code> / <code>InstancePlan</code> 已有 → 建筑模块装配的基石，对齐 Houdini 心脏节点。</li>
+        <li>建议补<strong>立面分格</strong>算子：把一个面拆成 m×n 单元格、格心出点带朝向。</li>
+        <li>建议补<strong>转角/边界标记</strong>字段，配合 <code>selectByAttr</code> 做规则分配。</li>
+        <li>沿曲线 <code>sweep</code> 已有 → 做檐口/栏杆/线脚。</li>
+        <li>AI 脚本可直接写"分层 → 分格 → 按规则放模块"的建筑生成器，正好是 Meshova 闭环的高价值题材。</li>
+      </ul>
+    </div>
+  </div>
+  <div class="callout"><div class="t acc">落地建议</div>
+  做一个 <span class="hl2">building</span> 示例模型：参数 = 楼层数 / 层高 / 开间数 / 窗样式种子。流程严格按本页"分层→分格→装配→屋顶"，用现有 <code>copyToPoints</code> + 字段着色 + 种子 PRNG 实现，正好验证 Meshova 几何核对"规则性建筑"的表达力。</div>
+</section>
+
+<section id="videos">
+  <h2><span class="num">8</span>精选教程清单</h2>
+  <div class="sub">从 bilibili 搜索"houdini 程序化建模/建筑/PCG"中筛出的 23 个建筑向视频，按播放量排序。点标签可筛选。</div>
+  <div class="vfilter">
+    <button class="on" onclick="setF(this,'all')">全部</button>
+    <button onclick="setF(this,'must')">必看入门</button>
+    <button onclick="setF(this,'classic')">经典案例</button>
+    <button onclick="setF(this,'cn')">古建/中式</button>
+    <button onclick="setF(this,'ue')">UE/PCG/城市</button>
+    <button onclick="setF(this,'vex')">VEX 进阶</button>
+  </div>
+  <div id="vidbox"></div>
+  <div class="callout warn" style="margin-top:18px"><div class="t">学习路线建议</div>
+  ①先看 <strong>橘柚的指路 + backye 基础教程</strong>建立框架 → ②啃 <strong>《湖边小屋》拆解</strong>（练属性思维与 VEX 心法）→ ③补 <strong>玩转 VEX</strong>（orient/矩阵/四元数）→ ④按方向选 <strong>古建</strong>（毛球道人/欧酱/星辰）或 <strong>城市/UE PCG</strong>（wangtaian/沐月/魔猿）深入。</div>
+</section>
+
+
+
+
+</main>
+
+<footer><div class="wrap">
+  <p>本页为学习笔记，所有视频版权归原 UP 主所有，链接指向 bilibili.com。算法思路只作公开知识参考，按 Meshova 约定自研重写（MIT，避 GPL）。</p>
+  <p style="margin-top:8px">生成于 <span class="hl">Meshova / doc</span> · 程序化建模学习资料</p>
+</div></footer>
+
+<script>
+const vids=[{"bv": "BV1Ly4y1i7Vx", "title": "【Houdini】萌新的《湖边小屋》教程拆解与实现，殊途同归！", "author": "七里雪凝", "dur": "994:12", "play": 48760, "cat": ["classic", "vex"], "note": "《湖边小屋》两月肝完拆解"}, {"bv": "BV14E411v71V", "title": "【教程解析】up肝完Houdini经典教程《湖边小屋》，来分析并拆解它的步骤，告诉你它究竟是否值得一看（附H17.5版工程文件）", "author": "o橘柚o", "dur": "122:49", "play": 34992, "cat": ["classic"], "note": "《湖边小屋》步骤详解+工程文件"}, {"bv": "BV1LN411973R", "title": "Houdini基础教程（一）程序化建模", "author": "backye", "dur": "225:43", "play": 44443, "cat": ["must"], "note": "系统基础课·适合打底"}, {"bv": "BV1CJ41147bb", "title": "【给萌新】【2020/4/4更新文档】给想入门Houdini程序化建模的你指路~up整理了学习思路，以及一份超详细<从入门到精通>的教程清单", "author": "o橘柚o", "dur": "68:17", "play": 43202, "cat": ["must"], "note": "萌新指路+学习清单"}, {"bv": "BV1z44y1b7rY", "title": "Houdini程序化建模入门案例", "author": "EthanHelloWorld", "dur": "741:45", "play": 35700, "cat": ["must", "classic"], "note": "入门案例长教程"}, {"bv": "BV1J7411i7nz", "title": "【作品】可替换模型的Houdini程序化建筑生成器", "author": "o橘柚o", "dur": "8:34", "play": 30795, "cat": ["ue"], "note": "可替换模型的建筑生成器思路"}, {"bv": "BV1GD4y1T7Sz", "title": "【技术美术】Houdini程序化城市搭建全流程分享", "author": "wangtaian", "dur": "39:39", "play": 22225, "cat": ["ue"], "note": "程序化城市搭建全流程"}, {"bv": "BV1D84y1M7KG", "title": "Houdini for UE 虚幻引擎 程序化生成古建筑【附工程文件】", "author": "猴底泥", "dur": "743:40", "play": 11574, "cat": ["cn", "ue"], "note": "UE古建生成·附工程"}, {"bv": "BV1BCi1B7EZt", "title": "【欧酱Houdini丨4期】_程序化古风建筑建模+AI贴图_技术&美术", "author": "欧酱～", "dur": "7:5", "play": 17263, "cat": ["cn", "ue"], "note": "古风建筑+AI/SD自动贴图"}, {"bv": "BV1cW411x7oF", "title": "【Houdini】程序化城市创建教程 cmiVFX - Houdini XML Procedural Cities", "author": "智伤帝", "dur": "113:52", "play": 7154, "cat": ["ue"], "note": "cmiVFX XML 程序化城市"}, {"bv": "BV1Rr421b7a7", "title": "Houdini模块化古建筑", "author": "毛球道人", "dur": "5:47", "play": 7021, "cat": ["cn"], "note": "模块化古建整套方案"}, {"bv": "BV1vh4y1f7hz", "title": "Houdini程序化屋顶生成演示", "author": "wangtaian", "dur": "3:5", "play": 7516, "cat": ["ue"], "note": "PCG屋顶生成器"}, {"bv": "BV165411S7Va", "title": "UE5+HDA程序化城市生成工具", "author": "骑鱼过海的猫Sophie", "dur": "3:52", "play": 14528, "cat": ["ue"], "note": "HDA程序化城市工具"}, {"bv": "BV1ob411V74P", "title": "Houdini 教程 创建你自己的城市-程序化大楼建模 第二集", "author": "搬运的贝塔", "dur": "62:49", "play": 6048, "cat": ["classic"], "note": "创建你自己的城市·大楼建模"}, {"bv": "BV1Kc411677u", "title": "HOUDINI开放世界城市教程", "author": "VFX-沐月", "dur": "33:58", "play": 11850, "cat": ["ue"], "note": "开放世界城市思路"}, {"bv": "BV154411k7Ho", "title": "【玩转VEX】Houdini中物体旋转的原理+在VEX中使用矩阵和四元数function对物体进行旋转", "author": "o橘柚o", "dur": "114:51", "play": 22593, "cat": ["vex"], "note": "VEX旋转/矩阵/四元数原理"}, {"bv": "BV16q4y1H7cY", "title": "矢量建筑Shp矢量文件 Houdini 建筑 UE4 程序化！", "author": "MiniHoudBoy", "dur": "4:46", "play": 7649, "cat": ["ue"], "note": "GIS/SHP矢量→建筑"}, {"bv": "BV1Kh4y1s7cS", "title": "5公里超大程序化城市生成OSM", "author": "wangtaian", "dur": "3:23", "play": 6648, "cat": ["ue"], "note": "OSM数据5km城市生成"}, {"bv": "BV1M54y1j7j4", "title": "Houdini程序化建模-中国古风建筑", "author": "星辰STARRYMAN", "dur": "7:33", "play": 9697, "cat": ["cn"], "note": "中国古风建筑"}, {"bv": "BV1v14y147nq", "title": "【Houdini程序化建模】如何做一个科幻建筑生成器", "author": "CyberStreamer", "dur": "9:24", "play": 7373, "cat": ["ue"], "note": "科幻建筑生成器"}, {"bv": "BV1Q34y197eq", "title": "上车-影视级Houdini程序化大型城市破坏教程-中文字幕", "author": "CG-BOX", "dur": "10:13", "play": 6935, "cat": ["classic"], "note": "影视级城市破坏·程序建筑"}, {"bv": "BV17Y4y1T7tF", "title": "Houdini制作程序化科幻未来城市", "author": "云桥网络", "dur": "757:0", "play": 8422, "cat": ["classic"], "note": "程序化科幻未来城市长教程"}, {"bv": "BV1hT411u7BT", "title": "Houdini程序化制作DNF里的建筑", "author": "但克尔-丁克逊", "dur": "2:43", "play": 32920, "cat": [], "note": "DNF传统建筑生成器演示"}];
+function render(filter){
+  const box=document.getElementById('vidbox');
+  box.innerHTML='';
+  vids.filter(v=>filter==='all'||v.cat.includes(filter)).forEach(v=>{
+    const el=document.createElement('div');el.className='vid';
+    const badges=v.cat.map(c=>{
+      const map={must:['must','必看'],classic:['classic','经典'],ue:['ue','UE/PCG'],cn:['cn','古建/中式'],city:['','城市'],basic:['','入门'],vex:['','VEX']};
+      const m=map[c];if(!m)return '';
+      return m[0]?`<span class="badge ${m[0]}">${m[1]}</span>`:'';
+    }).join('');
+    el.innerHTML=`<div><div class="vt"><a href="https://www.bilibili.com/video/${v.bv}" target="_blank" rel="noopener">${v.title}</a></div>
+      <div class="vm"><span class="au">UP · ${v.author}</span><span>时长 ${v.dur}</span><span class="play">▶ ${(v.play/10000).toFixed(1)}万</span><span>${v.note||''}</span></div></div>
+      <div>${badges}</div>`;
+    box.appendChild(el);
+  });
+}
+function setF(b,f){document.querySelectorAll('.vfilter button').forEach(x=>x.classList.remove('on'));b.classList.add('on');render(f);}
+window.addEventListener('DOMContentLoaded',()=>render('all'));
+</script>
+</body>
+
+</html>

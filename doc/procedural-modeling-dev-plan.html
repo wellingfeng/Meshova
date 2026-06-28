@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Web 程序化建模 + 程序化材质 · 开发计划</title>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --panel2:#1c2330; --line:#30363d;
+    --txt:#e6edf3; --mut:#9aa7b4; --acc:#58a6ff; --acc2:#7ee787;
+    --warn:#f0883e; --pink:#ff7b72; --purple:#bc8cff; --code:#0b0f14;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);
+    font:15px/1.7 -apple-system,"Segoe UI",Roboto,"Microsoft YaHei",sans-serif;}
+  .wrap{max-width:1080px;margin:0 auto;padding:48px 28px 96px;}
+  h1{font-size:30px;margin:0 0 6px;letter-spacing:.5px;}
+  h2{font-size:21px;margin:48px 0 14px;padding-left:12px;
+    border-left:4px solid var(--acc);}
+  h3{font-size:16px;margin:26px 0 10px;color:var(--acc2);}
+  p{color:var(--txt);margin:10px 0;}
+  .sub{color:var(--mut);font-size:14px;margin:0 0 8px;}
+  .lead{background:var(--panel);border:1px solid var(--line);
+    border-left:4px solid var(--acc2);border-radius:8px;padding:16px 18px;margin:18px 0;}
+  code{background:var(--code);border:1px solid var(--line);border-radius:5px;
+    padding:1px 6px;color:var(--purple);font-family:"JetBrains Mono",Consolas,monospace;font-size:13px;}
+  pre{background:var(--code);border:1px solid var(--line);border-radius:10px;
+    padding:16px;overflow:auto;color:#cdd9e5;font-family:Consolas,monospace;font-size:13px;line-height:1.55;}
+  table{width:100%;border-collapse:collapse;margin:14px 0;font-size:14px;}
+  th,td{border:1px solid var(--line);padding:9px 11px;text-align:left;vertical-align:top;}
+  th{background:var(--panel2);color:var(--acc);font-weight:600;}
+  tr:nth-child(even) td{background:rgba(255,255,255,.015);}
+  ul{margin:8px 0;padding-left:22px;} li{margin:5px 0;}
+  .tag{display:inline-block;font-size:12px;padding:1px 9px;border-radius:20px;
+    border:1px solid var(--line);margin-right:6px;}
+  .t-acc{color:var(--acc);border-color:var(--acc);}
+  .t-ok{color:var(--acc2);border-color:var(--acc2);}
+  .t-warn{color:var(--warn);border-color:var(--warn);}
+  .t-pink{color:var(--pink);border-color:var(--pink);}
+  .arch{background:var(--panel);border:1px solid var(--line);border-radius:10px;
+    padding:22px;margin:18px 0;text-align:center;}
+  .box{display:inline-block;border:1px solid var(--acc);border-radius:8px;
+    padding:8px 16px;margin:6px;background:var(--panel2);color:var(--txt);font-size:13px;}
+  .box.b2{border-color:var(--acc2);} .box.b3{border-color:var(--purple);}
+  .box.b4{border-color:var(--warn);}
+  .arrow{color:var(--mut);font-size:18px;margin:2px 0;}
+  .row{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;}
+  .callout{border-radius:8px;padding:12px 16px;margin:12px 0;border:1px solid var(--line);}
+  .c-warn{border-left:4px solid var(--warn);background:rgba(240,136,62,.06);}
+  .c-key{border-left:4px solid var(--acc2);background:rgba(126,231,135,.05);}
+  footer{margin-top:60px;color:var(--mut);font-size:13px;border-top:1px solid var(--line);padding-top:18px;}
+  .toc{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 20px;margin:22px 0;}
+  .toc a{color:var(--acc);text-decoration:none;margin-right:18px;font-size:13px;}
+  .toc a:hover{text-decoration:underline;}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>Meshova · 开发计划</h1>
+<p class="sub">Web 程序化建模 + 程序化材质 ｜ 脚本化 DSL · WebGPU · headless 截图 · AI 自迭代闭环 ｜ 开源 / 自研重写避 GPL</p>
+
+<div class="toc">
+  <a href="#bg">项目背景</a>
+  <a href="#vision">核心理念</a>
+  <a href="#arch">总体架构</a>
+  <a href="#plan">分阶段计划</a>
+  <a href="#dsl">DSL 设计</a>
+  <a href="#geo">几何函数</a>
+  <a href="#mat">材质 / PBR</a>
+  <a href="#loop">截图闭环</a>
+  <a href="#ms">里程碑</a>
+  <a href="#stack">技术选型</a>
+  <a href="#decisions">关键决策</a>
+</div>
+
+<div class="lead">
+  <strong>一句话定调：</strong>这是一个项目两条产出线。几何与材质<strong>共用同一套内核</strong>（脚本化 DSL + WebGPU + 截图闭环 + AI 编排）。
+  几何先打通验证闭环（P0–P4），材质作为低成本增量挂上去（P5–P7）。先让 AI 自迭代回路在几何上跑活，材质几乎顺水推舟。
+  真正的壁垒不是几何算法数量，而是<strong>「让 AI 一写就对的 TS DSL」</strong>和<strong>「让 AI 看着截图改脚本的自迭代回路」</strong>。
+</div>
+
+<h2 id="bg">项目背景</h2>
+<table>
+  <tr><th>项</th><th>内容</th></tr>
+  <tr><td>项目名</td><td><b>Meshova</b>（mesh + 造词后缀，独特好搜、可发音）</td></tr>
+  <tr><td>定位</td><td>面向 Web 的程序化建模 + 程序化材质库，由 AI 写脚本驱动生成 3D 几何与 PBR 材质</td></tr>
+  <tr><td>性质</td><td>开源（非营利）。作者通过技术顾问 / 外包变现，项目本身作为技术资产与获客名片</td></tr>
+  <tr><td>许可证</td><td>MIT / Apache（宽松，允许他人商用）</td></tr>
+  <tr><td>语言 / 平台</td><td>TypeScript + WebGPU，浏览器与 Node 端 headless 均可运行</td></tr>
+  <tr><td>核心范式</td><td>脚本化（非节点连线）；AI 写受限 TS 脚本调用几何/材质函数库</td></tr>
+  <tr><td>差异化</td><td>headless 截图让 AI 形成「写脚本→渲染→看图自评→改」的视觉自迭代闭环，区别于 text-to-3D 黑盒直出</td></tr>
+  <tr><td>作者背景</td><td>游戏引擎程序员 + 技术美术(TA)，双重背景正好覆盖「几何/渲染实现」与「判断生成对不对」</td></tr>
+  <tr><td>短期范围</td><td>材质只做 PBR 类型；几何与材质共用同一套内核，几何先行</td></tr>
+</table>
+
+<div class="callout c-warn">
+  <b>参考源与合规（重要）：</b>本地 <code>E:\blender_src</code> 是 <b>Blender 官方源码</b>（remote: blender/blender，GPL 协议）。
+  仅可作为<b>算法教科书只读参考</b>——理解某个几何/噪声操作数学上做什么，然后<b>自行重写</b>。
+  <b>严禁拷贝其 C/C++ 代码进 Meshova</b>，否则 GPL 传染会破坏 MIT/Apache 的纯净。
+  几何算法本身（布尔、细分、噪声、voronoi 等）是公开知识，不受 GPL 保护，可放心学其原理。
+</div>
+
+<h2 id="vision">核心理念</h2>
+<h3>为什么脚本化而非节点连线</h3>
+<ul>
+  <li><span class="tag t-ok">可读</span>脚本是 AI 的母语，训练语料 99% 是代码；节点图序列化后又长又绕，AI 要在图结构和语义间反复翻译。</li>
+  <li><span class="tag t-ok">可写</span>控制流（循环/条件/递归/函数）用语言原生语法；节点图表达这些极笨重。</li>
+  <li><span class="tag t-ok">可测</span>diff 友好，改一行就是一行，AI 自我迭代定位精准。</li>
+</ul>
+<h3>三大原则</h3>
+<ul>
+  <li><b>AI 生成「配方」而非「产物」</b>：AI 写脚本调用几何/材质函数，不直出网格或贴图。结果可参数化复改，不是黑盒。</li>
+  <li><b>确定性</b>：seed 化一切随机。同脚本同 seed → 同结果。截图测试与 AI 复现全依赖它。</li>
+  <li><b>视觉反馈闭环</b>：AI 写脚本 → 执行 → 截图 → 多模态自评 → 改。这是当前 text-to-3D 做不到的核心创新。</li>
+</ul>
+<h2 id="arch">总体架构（几何与材质共享内核）</h2>
+<div class="arch">
+  <div class="box b3">AI 编排层 · 写脚本 + 看截图自评 + 改</div>
+  <div class="arrow">▼</div>
+  <div class="row">
+    <div class="box">几何 DSL（TS）<br>box / extrude / subdivide …</div>
+    <div class="box">材质 DSL（TS）<br>noise / voronoi / gradient …</div>
+  </div>
+  <div class="arrow">▼</div>
+  <div class="row">
+    <div class="box b2">几何核 · 索引网格 / half-edge</div>
+    <div class="box b2">纹理核 · 通道缓冲 RGBA / float</div>
+  </div>
+  <div class="arrow">▼</div>
+  <div class="box b4">WebGPU · compute 加速 + 渲染</div>
+  <div class="arrow">▼</div>
+  <div class="box b4">headless 截图 · PNG · 多视角</div>
+</div>
+<div class="callout c-key">
+  <b>关键判断：</b>noise/pattern 函数、沙箱执行、截图闭环、AI 编排，几何与材质 <b>100% 复用</b>。
+  材质独有的只有「纹理核 + PBR 通道 + shader 预览」。所以材质不排在很后面，而是直接搭在已有内核上，增量很小。
+</div>
+
+<h2 id="plan">分阶段开发计划</h2>
+<p class="sub">按依赖排序。验收标准 = 可截图自测的硬指标。</p>
+<table>
+  <tr><th>阶段</th><th>目标</th><th>交付物</th><th>验收（可自测）</th></tr>
+  <tr><td><b>P0</b> 地基</td><td>脚手架 + 沙箱 + 数学库</td><td>TS 项目；Web Worker/VM 沙箱跑 AI 脚本；vec/mat/noise 基础库；确定性随机(seed)</td><td>沙箱安全跑任意脚本、防死循环；同 seed 同结果</td></tr>
+  <tr><td><b>P1</b> 几何核</td><td>网格数据结构 + 渲染</td><td>索引网格（后期升 half-edge）；WebGPU 渲染三角网格</td><td>屏幕能画出一个立方体</td></tr>
+  <tr><td><b>P2</b> 几何 DSL</td><td>10 个核心几何函数</td><td>图元 / transform / extrude / subdivide / boolean / array / scatter / merge / noise 位移 / 属性选择</td><td>手写脚本组合出非平凡模型（如带细节的塔）</td></tr>
+  <tr><td><b>P3</b> 截图闭环</td><td>headless 出图</td><td><code>render(mesh, cam) → PNG</code>；多视角（正/侧/透）+ 线框/实体</td><td>脚本→执行→出 PNG 全自动，无需人</td></tr>
+  <tr><td><b>P4</b> AI 几何闭环</td><td>AI 自迭代</td><td>编排：描述→写脚本→截图→自评→改</td><td>AI 从一句话生成并修正出合格模型</td></tr>
+  <tr><td><b>P5</b> 纹理核 + 材质 DSL</td><td>程序化 PBR</td><td>纹理通道缓冲；noise/voronoi/gradient/fbm/ramp/blend；PBR 通道(baseColor/metallic/roughness/normal/AO/height/emission)</td><td>脚本生成一套 PBR 贴图并导出 PNG 集</td></tr>
+  <tr><td><b>P6</b> 材质预览 + 闭环</td><td>真实感预览</td><td>WebGPU PBR 着色 + IBL；贴图贴到球/方/平面预览；截图</td><td>材质在标准预览球上正确呈现并截图自评</td></tr>
+  <tr><td><b>P7</b> AI 材质闭环</td><td>AI 写材质</td><td>复用 P4 编排，接材质 DSL</td><td>AI 从「生锈金属」生成可用 PBR 并自修正</td></tr>
+  <tr><td><b>P8</b> 垂直品类打深</td><td>选 1 类做到能用</td><td>该品类几何+材质函数补全</td><td>该品类稳定产出可用资产</td></tr>
+</table>
+<h2 id="dsl">DSL 设计（成败关键）</h2>
+<p>核心工作不是「实现多少算法」，而是「把 API 设计得让 AI 一写就对」。几何与材质同一套哲学：</p>
+<ul>
+  <li><b>函数式 / 不可变优先</b>：无隐藏状态，AI 推理无副作用。链式或嵌套二选一，贯彻到底。</li>
+  <li><b>命名即文档</b>：<code>scatterOnSurface(mesh, count, seed)</code> 比 <code>scatter(m,n,s)</code> 对 AI 友好十倍。</li>
+  <li><b>强类型(TS)</b>：类型签名就是给 AI 的 API 契约，大幅降低幻觉；LSP 给 AI 自动补全级约束。</li>
+  <li><b>小而正交的核心集</b>：组合 &gt; 数量。几何 10 个 + 材质 8 个就能跑通全闭环。</li>
+  <li><b>脚本 = 受限 TS</b>：调你的库，别造新语法（AI 没语料）。</li>
+</ul>
+
+<h3>几何脚本示例</h3>
+<pre>const m = extrude(
+  subdivide(box(1, 1, 1), 2),
+  0.2
+);
+const tower = array(m, { count: 8, axis: 'y', step: 1.1 });
+return scatterOnSurface(tower, { count: 40, seed: 7 });</pre>
+
+<h3>材质脚本示例</h3>
+<pre>const rust = blend(
+  metalBase({ roughness: 0.3 }),
+  rustLayer({ scale: 4, seed: 7 }),
+  { mask: fbm({ scale: 8, octaves: 5 }) }
+);
+// 输出: { baseColor, metallic, roughness, normal, ao, height }
+return rust;</pre>
+
+<h2 id="geo">几何核心函数（先实现这 10 个）</h2>
+<table>
+  <tr><th>函数</th><th>作用</th></tr>
+  <tr><td><code>box / sphere / plane</code></td><td>基础图元</td></tr>
+  <tr><td><code>transform</code></td><td>平移 / 旋转 / 缩放</td></tr>
+  <tr><td><code>extrude</code></td><td>挤出面成体</td></tr>
+  <tr><td><code>subdivide</code></td><td>细分网格</td></tr>
+  <tr><td><code>boolean</code></td><td>并 / 交 / 差</td></tr>
+  <tr><td><code>array</code></td><td>线性 / 网格阵列复制</td></tr>
+  <tr><td><code>scatterOnSurface</code></td><td>表面散布实例</td></tr>
+  <tr><td><code>merge</code></td><td>合并多个网格</td></tr>
+  <tr><td><code>displaceByNoise</code></td><td>噪声位移</td></tr>
+  <tr><td><code>selectByAttr</code></td><td>按属性（法线/高度等）选择子集</td></tr>
+</table>
+<h2 id="mat">程序化 PBR 材质（先实现这 8 个）</h2>
+<table>
+  <tr><th>函数</th><th>作用</th></tr>
+  <tr><td><code>noise / fbm</code></td><td>基础噪声 / 分形噪声</td></tr>
+  <tr><td><code>voronoi</code></td><td>细胞 / 裂纹图案</td></tr>
+  <tr><td><code>gradient</code></td><td>线性 / 径向渐变</td></tr>
+  <tr><td><code>ramp</code></td><td>色彩映射（高度场 → 颜色）</td></tr>
+  <tr><td><code>blend / mask</code></td><td>按遮罩混合两层材质</td></tr>
+  <tr><td><code>heightToNormal</code></td><td>高度场求导生成法线</td></tr>
+  <tr><td><code>metalBase / dielectricBase</code></td><td>金属 / 非金属基底</td></tr>
+  <tr><td><code>exportPBR</code></td><td>输出 baseColor/metallic/roughness/normal/AO/height/emission</td></tr>
+</table>
+
+<h3>生成路径（建议混合）</h3>
+<ul>
+  <li><b>GPU 程序化（主路）</b>：纹理函数映射成 WGSL，fragment 或 compute 逐像素算。快、分辨率无关、契合 WebGPU compute。</li>
+  <li><b>CPU 兜底</b>：复杂逻辑或调试时 CPU 算小图。先 CPU 跑通正确性，再 GPU 提速。</li>
+  <li><b>normal/height 自动派生</b>：由 height 场求导生成 normal，减少 AI 负担。</li>
+</ul>
+<div class="callout c-warn">
+  <b>PBR 正确性是 TA 背景的发力点：</b>能量守恒、metallic/roughness 物理范围约束写进类型或运行时校验，挡住 AI 生成的非法值。
+  预览必须用标准 PBR + IBL，否则截图自评失真，AI 会学歪。
+</div>
+
+<h2 id="loop">截图闭环（真正的创新点）</h2>
+<div class="arch">
+  <div class="box b3">AI 写脚本（可写）</div>
+  <div class="arrow">▼ 执行</div>
+  <div class="box b2">求值出几何 / 材质</div>
+  <div class="arrow">▼ 截图</div>
+  <div class="box b4">headless 渲染 PNG（可测）</div>
+  <div class="arrow">▼ 多模态看图</div>
+  <div class="box b3">AI 自评对不对 → 改脚本（可读）</div>
+  <div class="arrow">↺ 回到顶部循环</div>
+</div>
+<ul>
+  <li>提供 <code>render(target, camera) → PNG</code> 的 headless 能力，几何与材质共用。</li>
+  <li>截图支持<b>多视角</b>（正/侧/透视）+ <b>线框/实体</b>切换，给 AI 更多判断信息。</li>
+  <li>这把项目从「又一个 procedural 库」变成「AI 能自迭代的建模系统」——text-to-3D 黑盒直出，AI 看不到也改不动；脚本化+截图让 AI 形成视觉强化回路。</li>
+</ul>
+<h2 id="ms">里程碑（单人 / 业余投入粗粒度）</h2>
+<table>
+  <tr><th>里程碑</th><th>覆盖阶段</th><th>标志</th></tr>
+  <tr><td><b>M1</b></td><td>P0–P3</td><td>手写脚本能建模并自动截图</td></tr>
+  <tr><td><b>M2</b></td><td>P4</td><td>AI 能自迭代造几何（第一个「活」的闭环）</td></tr>
+  <tr><td><b>M3</b></td><td>P5–P7</td><td>AI 能造几何 + PBR 材质</td></tr>
+  <tr><td><b>M4</b></td><td>P8</td><td>一个垂直品类可交付，可作开源首发</td></tr>
+</table>
+<div class="callout c-key">
+  <b>建议 M2 就开源放出</b>（哪怕粗糙）。「AI 看截图改脚本造 3D」这个 demo 本身就是最强的传播点和顾问获客名片。
+</div>
+
+<h2 id="stack">技术选型</h2>
+<table>
+  <tr><th>层</th><th>选型</th><th>说明</th></tr>
+  <tr><td>语言</td><td>TypeScript</td><td>Web 原生、强类型对 AI 友好、生态好</td></tr>
+  <tr><td>脚本表示</td><td>受限 TS（调库）</td><td>不造新语法，复用 AI 已有语料</td></tr>
+  <tr><td>沙箱</td><td>Web Worker / VM</td><td>隔离执行 AI 脚本，防死循环与恶意代码 — 安全底线</td></tr>
+  <tr><td>几何核</td><td>索引网格 → half-edge</td><td>先简单后升级</td></tr>
+  <tr><td>纹理核</td><td>RGBA / float 通道缓冲</td><td>多通道 PBR 输出</td></tr>
+  <tr><td>加速 / 渲染</td><td>WebGPU（compute + render）</td><td>实例化/点云/噪声 compute；PBR + IBL 渲染</td></tr>
+  <tr><td>截图</td><td>WebGPU 离屏 → PNG</td><td>Node 端或浏览器端 headless</td></tr>
+  <tr><td>AI 编排</td><td>LLM 读图/改图 + 多模态自评</td><td>闭环大脑</td></tr>
+  <tr><td>许可证</td><td>MIT / Apache</td><td>自研重写，学 Blender 思路不抄码，保持可被他人商用</td></tr>
+</table>
+
+<h2 id="decisions">几条要钉死的决策</h2>
+<ul>
+  <li><span class="tag t-pink">必守</span><b>几何先行，材质复用</b>：别并行铺两摊。P0–P4 把内核和闭环磨好，P5 起材质增量很小。</li>
+  <li><span class="tag t-pink">必守</span><b>确定性是底线</b>：seed 化一切随机，否则截图测试和 AI 复现全崩。</li>
+  <li><span class="tag t-pink">必守</span><b>沙箱执行</b>：AI 写的脚本必须隔离跑，防死循环/恶意代码。</li>
+  <li><span class="tag t-acc">范式</span><b>脚本=受限 TS 调库</b>，别造 DSL 新语法。</li>
+  <li><span class="tag t-acc">范式</span><b>每个函数自带最小自测脚本 + 基准截图</b>：既是测试，也是喂 AI 的 few-shot 范例库。</li>
+  <li><span class="tag t-acc">范式</span><b>先少后多</b>：10 几何 + 8 材质函数跑通全闭环，胜过堆量。</li>
+  <li><span class="tag t-ok">合规</span>开源用 MIT/Apache，自研重写避 GPL，反而扩大影响力。</li>
+</ul>
+
+<footer>
+  Meshova · 开发计划 ｜ 共享内核 · 几何先行 · 截图闭环为壁垒<br>
+  下一步：确定垂直品类（植被 / 建筑 / 硬表面 / 地形），把 P0–P2 拆成可开工任务清单 + 几何核数据结构 + 函数签名。
+</footer>
+</div>
+</body>
+</html>

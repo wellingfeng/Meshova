@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>B 站 Substance Designer 贴图方法学习汇总</title>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --panel2:#1c2330; --panel3:#111827;
+    --border:#2d3748; --text:#e6edf3; --muted:#93a4b7; --accent:#ffb454;
+    --accent2:#4dd0e1; --good:#7ee787; --warn:#ffa657; --bad:#ff7b72;
+    --chip:#21262d; --shadow:rgba(0,0,0,.36);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    background:var(--bg);color:var(--text);
+    font-family:"Segoe UI","Microsoft YaHei",system-ui,sans-serif;
+    line-height:1.55;padding:0 0 64px;
+  }
+  header{
+    position:sticky;top:0;z-index:10;
+    background:linear-gradient(180deg,#0d1117 72%,rgba(13,17,23,.9));
+    border-bottom:1px solid var(--border);padding:18px 24px 15px;
+    backdrop-filter:blur(7px);
+  }
+  h1{font-size:22px;font-weight:760}
+  h1 span{color:var(--accent)}
+  .sub{color:var(--muted);font-size:13px;margin-top:5px;max-width:1180px}
+  .sub a{color:var(--accent2);text-decoration:none}
+  .controls{margin-top:14px;display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+  #search{
+    flex:1;min-width:240px;background:var(--panel2);border:1px solid var(--border);
+    color:var(--text);padding:10px 14px;border-radius:10px;font-size:14px;outline:none;
+  }
+  #search:focus{border-color:var(--accent)}
+  #count{color:var(--muted);font-size:13px;white-space:nowrap}
+  .cats{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+  .cat{
+    background:var(--chip);border:1px solid var(--border);color:var(--muted);
+    padding:6px 12px;border-radius:20px;font-size:13px;cursor:pointer;transition:.15s;
+  }
+  .cat:hover{color:var(--text);border-color:var(--accent)}
+  .cat.active{background:var(--accent);color:#0d1117;border-color:var(--accent);font-weight:700}
+  main{padding:24px;max-width:1460px;margin:0 auto}
+  .hero{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(290px,.65fr);gap:14px;margin-bottom:22px}
+  .box,.card,.tablebox{
+    background:var(--panel);border:1px solid var(--border);border-radius:10px;
+    box-shadow:0 2px 10px var(--shadow);
+  }
+  .box{padding:16px 18px}
+  .box h2,.group h2{font-size:16px;color:var(--accent2);margin-bottom:8px}
+  .lead{font-size:16px;color:var(--text);max-width:1020px}
+  .lead strong{color:var(--accent)}
+  .chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+  .chip{
+    color:var(--muted);background:var(--chip);border:1px solid var(--border);
+    border-radius:999px;padding:5px 10px;font-size:12px;
+  }
+  .chip.hot{color:#0d1117;background:var(--good);border-color:var(--good);font-weight:700}
+  .mini{color:var(--muted);font-size:12.5px}
+  .metric{display:grid;grid-template-columns:96px 1fr;gap:8px;font-size:13px;margin-top:8px}
+  .metric b{color:var(--accent);font-weight:700}
+  .group{margin:25px 0 34px}
+  .gdesc{color:var(--muted);font-size:13px;margin-bottom:13px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:12px}
+  .card{padding:14px 15px;transition:.15s}
+  .card:hover{border-color:var(--accent);transform:translateY(-2px)}
+  .card h3{font-size:14.5px;color:var(--text);margin-bottom:6px}
+  .tag{
+    display:inline-block;font-size:10.5px;color:var(--warn);background:rgba(255,166,87,.12);
+    border-radius:5px;padding:1px 7px;margin-left:6px;vertical-align:middle;font-weight:600;
+  }
+  .card p,.card li{font-size:12.8px;color:var(--muted)}
+  .card ul{padding-left:17px}
+  .chain{
+    margin:9px 0;padding:9px 10px;border-radius:8px;background:var(--panel3);
+    border:1px solid rgba(77,208,225,.2);color:#c9d7e5;font-size:12.5px;
+  }
+  .map{display:grid;grid-template-columns:84px 1fr;gap:6px;font-size:12.5px;margin-top:8px}
+  .map b{color:var(--good)}
+  .srcs{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}
+  .srcs a{
+    color:var(--accent2);text-decoration:none;background:rgba(77,208,225,.08);
+    border:1px solid rgba(77,208,225,.22);border-radius:999px;padding:3px 8px;font-size:11.5px;
+  }
+  .flow{display:grid;grid-template-columns:repeat(6,minmax(130px,1fr));gap:10px}
+  .step{
+    background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:13px;
+    min-height:116px;
+  }
+  .step b{display:block;color:var(--accent);font-size:13.5px;margin-bottom:6px}
+  .step p{font-size:12.7px;color:var(--muted)}
+  .tablebox{overflow:hidden}
+  table{width:100%;border-collapse:collapse;font-size:12.6px}
+  th,td{border-bottom:1px solid var(--border);padding:10px 11px;text-align:left;vertical-align:top}
+  th{background:var(--panel2);color:var(--accent);font-weight:720}
+  td{color:var(--muted)}
+  td strong{color:var(--text);font-weight:650}
+  tr:hover td{background:rgba(255,180,84,.04)}
+  a{color:var(--accent2)}
+  .prio{display:inline-block;border-radius:5px;padding:1px 7px;font-size:11px;font-weight:700}
+  .p0{color:#0d1117;background:var(--good)}
+  .p1{color:#0d1117;background:var(--accent)}
+  .p2{color:#0d1117;background:var(--warn)}
+  .empty{display:none;text-align:center;color:var(--muted);padding:55px 20px}
+  footer{text-align:center;color:var(--muted);font-size:12px;margin-top:34px;padding:0 24px}
+  mark{background:var(--accent);color:#0d1117;border-radius:3px;padding:0 2px}
+  @media (max-width:980px){
+    .hero{grid-template-columns:1fr}
+    .flow{grid-template-columns:repeat(2,minmax(130px,1fr))}
+  }
+  @media (max-width:620px){
+    header{padding:15px}
+    main{padding:16px}
+    .grid{grid-template-columns:1fr}
+    .flow{grid-template-columns:1fr}
+    th,td{padding:8px}
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1><span>B 站</span> Substance Designer 贴图方法学习汇总</h1>
+  <div class="sub">基于 Bilibili 搜索结果和公开视频元数据整理：系统课 + 节点课 + 材质案例课。目标不是复刻 SD 节点图，而是把高频贴图方法转译为 Meshova 程序化材质生成流程。</div>
+  <div class="controls">
+    <input id="search" type="text" placeholder="搜索：岩石 / 砖墙 / 布料 / 头发 / warp / tileSampler / PBR…" autocomplete="off">
+    <span id="count"></span>
+  </div>
+  <div class="cats" id="cats"></div>
+</header>
+
+<main>
+  <section class="hero">
+    <div class="box">
+      <h2>结论</h2>
+      <p class="lead"><strong>SD 教程共同核心：</strong>先生成可控 height / mask，再从同一套结构派生 baseColor、roughness、normal、AO。好贴图不是“噪声叠噪声”，而是“形状层级 + 破损逻辑 + 通道联动 + 可暴露参数”。</p>
+      <div class="chips">
+        <span class="chip hot">60 条候选教程</span>
+        <span class="chip">30+ 代表来源</span>
+        <span class="chip">16 类贴图方法</span>
+        <span class="chip">Meshova 生成流程建议</span>
+        <span class="chip">不嵌原视频画面</span>
+      </div>
+    </div>
+    <div class="box">
+      <h2>采样范围</h2>
+      <div class="metric"><b>搜索词</b><span>Substance Designer 教程 / 材质 / PBR / 砖墙 / 岩石 / 木头 / 地面 / 布料 / 风格化 / Substance 3D Designer</span></div>
+      <div class="metric"><b>高权重课</b><span>零基础系统课、Daniel Thiger 基础、节点专题、官方入门、材质制作全流程</span></div>
+      <div class="metric"><b>案例材质</b><span>布料、蕾丝、刺绣、岩石、砖墙、木板、道路、水泥、雪、冰、头发、毛发、叶子、特效纹理</span></div>
+      <div class="metric"><b>注意</b><span>B 站部分请求会触发 412；已用可访问公开元数据交叉汇总。</span></div>
+    </div>
+  </section>
+
+  <section class="group searchable" data-cat="流程">
+    <h2>推荐生成流程</h2>
+    <p class="gdesc">Meshova 贴图生成应从“材质类型 preset + 结构图层”开始，不从一张 baseColor 反推全部通道。</p>
+    <div class="flow">
+      <div class="step"><b>1. 结构分类</b><p>识别材质族：岩石、织物、木、砖、道路、雪冰、头发、叶片、特效。决定主生成器。</p></div>
+      <div class="step"><b>2. 大形 height</b><p>Tile / Shape / Voronoi / Wave / FlowField 生成主轮廓。先管读形，不急着上色。</p></div>
+      <div class="step"><b>3. 中频破损</b><p>Directional Warp、Slope Blur、Distance/Bevel、裂缝 mask，打散重复和边缘。</p></div>
+      <div class="step"><b>4. 微细节</b><p>孔洞、颗粒、纤维、划痕、毛刺、污渍。微细节强度独立参数化。</p></div>
+      <div class="step"><b>5. 通道联动</b><p>height 派生 normal/AO/curvature；mask 同时驱动 baseColor、roughness、metalness。</p></div>
+      <div class="step"><b>6. 自动评估</b><p>检查 tiling seam、频谱重复、法线强度、粗糙度范围、VLM 材质语义。</p></div>
+    </div>
+  </section>
+
+  <section class="group">
+    <h2>贴图制作方法</h2>
+    <p class="gdesc">每张卡：从 B 站 SD 教程抽象出的通用 recipe，可直接转成 Meshova preset 或 builder。</p>
+    <div class="grid" id="methodGrid">
+      <article class="card searchable" data-cat="岩石 石材 地形">
+        <h3>岩石 / 崖壁 / 石块 <span class="tag">height first</span></h3>
+        <p>做法：用多尺度 ridged noise / Voronoi 切出岩块，Slope Blur 做侵蚀，Directional Warp 拉断层方向，curvature 取边缘高光与尘土。</p>
+        <div class="chain">ridged fbm → levels → slopeBlur → warp → cracks mask → heightToNormal → AO/curvature → color ramp</div>
+        <div class="map"><b>Meshova</b><span>`ridgedMultiFractal` + `voronoi(f2-f1)` + `slopeBlur` + `warp`；缺口：更强的分层 strata / erosion preset。</span></div>
+        <div class="srcs"><a href="https://www.bilibili.com/video/BV1NX4y1v7tE">岩石思路</a><a href="https://www.bilibili.com/video/BV16f4y1M7su">岩石系列</a><a href="https://www.bilibili.com/video/BV1x341187ti">简易岩壁</a></div>
+      </article>
+
+      <article class="card searchable" data-cat="砖墙 地面 风格化">
+        <h3>砖墙 / 石墙 / 鹅卵石 <span class="tag">tile + mortar</span></h3>
+        <p>先做砖块 id mask，再用随机高度、倒角、边缘破损、砂浆层分离。风格化版本强化大形和色块，写实版本强化小裂纹和污渍。</p>
+        <div class="chain">brick/tileSampler → floodFillRandom → bevel edges → mortar mask → damage noise → color variation</div>
+        <div class="map"><b>Meshova</b><span>`brick`、`tileSampler`、`floodFillRandom`、`bevel` 已有；应补“砖块 id → per-cell params”高级接口。</span></div>
+        <div class="srcs"><a href="https://www.bilibili.com/video/BV16P41157px">风格化砖墙</a><a href="https://www.bilibili.com/video/BV1ct411n7TH">石材砖墙</a><a href="https://www.bilibili.com/video/BV1ZC411z77o">破旧红砖</a><a href="https://www.bilibili.com/video/BV1DD42157oq">破损墙面</a></div>
+      </article>
+
+      <article class="card searchable" data-cat="木材 自然">
+        <h3>木板 / 木纹 / 书架 <span class="tag">wave grain</span></h3>
+        <p>木材不是纯噪声。用 wave / ring 生成年轮方向，用 plank mask 分块，再叠裂缝、划痕、孔洞、边缘磨损。烧焦木板额外用黑化 mask 和炭裂纹。</p>
+        <div class="chain">wave/rings → warp by fbm → plank tile mask → scratches → holes → roughness from grain + wear</div>
+        <div class="map"><b>Meshova</b><span>`wave`、`wood`、`lacqueredWood` 已有；应补 plank generator、年轮 flow distortion、burnt edge mask。</span></div>
+        <div class="srcs"><a href="https://www.bilibili.com/video/BV1pU4y1U7gH">木材纹理</a><a href="https://www.bilibili.com/video/BV1Qi4y1r7Zn">木板材质</a><a href="https://www.bilibili.com/video/BV16V4y1K7HQ">风格化木板</a><a href="https://www.bilibili.com/video/BV1k84y1k7TE">燃烧木板</a></div>
+      </article>
+
+      <article class="card searchable" data-cat="布料 服装">
+        <h3>织物 / 麻布 / 羊毛 <span class="tag">weave field</span></h3>
+        <p>主结构是经纬线交错：两组方向性条纹，交叉处 height 互相压盖，纤维噪声沿线方向拉伸。粗糙度高，法线细节小但密。</p>
+        <div class="chain">stripes X/Y → over-under mask → anisotropic fiber noise → small height → normal detail → high roughness</div>
+        <div class="map"><b>Meshova</b><span>`stripes`、`fabric`、`velvet`、`plushFur` 可用；缺 weave-specific interlace、thread normal combiner。</span></div>
+        <div class="srcs"><a href="https://www.bilibili.com/video/BV11ua6zHE2F">布料大师课</a><a href="https://www.bilibili.com/video/BV15C411h7qo">麻布料</a><a href="https://www.bilibili.com/video/BV1GU4y1p7Zr">织物布</a><a href="https://www.bilibili.com/video/BV1xg4y127x2">羊毛拼接</a></div>
+      </article>
+
+      <article class="card searchable" data-cat="布料 花纹">
+        <h3>蕾丝 / 刺绣 / 服装花纹 <span class="tag">mask mapper</span></h3>
+        <p>用 shape/tile sampler 生成花型 mask，再用 distance / bevel / directional warp 产生线边，刺绣方向来自花瓣局部角度或 flow map。</p>
+        <div class="chain">motif mask → tile sampler → distance/bevel → thread direction map → embroidery height → fabric merge</div>
+        <div class="map"><b>Meshova</b><span>可先做 `patternMask + weaveBase + stitchEmboss` preset。关键是暴露图案密度、线宽、方向、底布强度。</span></div>
+        <div class="srcs"><a href="https://www.bilibili.com/video/BV1vg411M7dH">蕾丝教程</a><a href="https://www.bilibili.com/video/BV11a4y1N7ak">官方蕾丝</a><a href="https://www.bilibili.com/video/BV1hP4y1n7jY">刺绣蕾丝</a><a href="https://www.bilibili.com/video/BV1pZeuzNE3R">花瓣刺绣方向</a></div>
+      </article>
+
+      <article class="card searchable" data-cat="头发 毛发">
+        <h3>头发 / 毛发贴图 <span class="tag">flow strands</span></h3>
+        <p>核心是 strand flow，不是随机线。粗束发片先定走向，中束控制发缕，小束给毛丝；颜色根部到发梢渐变，alpha/height/normal 同源。</p>
+        <div class="chain">flow field → strand bands → fine fibers → root-tip gradient → alpha/height split → normal combine</div>
+        <div class="map"><b>Meshova</b><span>已有拉伸噪声和 fur surface；建议补 `flowStrands(seed, directionMap)`，给发片、毛绒、草叶共用。</span></div>
+        <div class="srcs"><a href="https://www.bilibili.com/video/BV1eP41167U6">毛发贴图</a><a href="https://www.bilibili.com/video/BV1Lf4y167Ak">毛发系列</a><a href="https://www.bilibili.com/video/BV19q4y137Hf">头发制作</a></div>
+      </article>
+
+      <article class="card searchable" data-cat="道路 地面">
+        <h3>道路 / 沥青 / 路线标记 <span class="tag">aggregate</span></h3>
+        <p>沥青由骨料颗粒和沥青胶结层组成。先散点石子，再用细颗粒填充；路线标记作为上层 mask，边缘磨损由噪声和车辙控制。</p>
+        <div class="chain">stone scatter → bitumen base → dust/grime → lane marking mask → edge wear → tire streak roughness</div>
+        <div class="map"><b>Meshova</b><span>`tileSampler` + `voronoi` 可做骨料；应补 asphalt preset、paint marking layer、tire-wear mask。</span></div>
+        <div class="srcs"><a href="https://www.bilibili.com/video/BV1sK411K7SP">道路全流程</a><a href="https://www.bilibili.com/video/BV1ig4y1F7yF">无限 tiling</a></div>
+      </article>
+
+      <article class="card searchable" data-cat="墙面 水泥">
+        <h3>水泥墙 / 混凝土 / 破损墙 <span class="tag">stain layers</span></h3>
+        <p>大面积低频脏污决定观感，小孔洞和裂缝决定真实感。破损墙要分 plaster、base concrete、exposed damage 三层，每层有独立 roughness。</p>
+        <div class="chain">low freq stains → pore noise → crack mask → chipped mask → exposed layer blend → AO darkening</div>
+        <div class="map"><b>Meshova</b><span>`concrete` 已有基础；建议补 damagedWall builder：面层/底层/裂缝/剥落四图层。</span></div>
+        <div class="srcs"><a href="https://www.bilibili.com/video/BV1prdhYrECB">写实水泥墙</a><a href="https://www.bilibili.com/video/BV1DD42157oq">破损墙面</a><a href="https://www.bilibili.com/video/BV1BtB7BrEXc">高级材质实战</a></div>
+      </article>
+
+      <article class="card searchable" data-cat="雪 冰 自然">
+        <h3>雪 / 冰 / 融雪 <span class="tag">layered translucency</span></h3>
+        <p>雪用 soft height + high roughness，融雪用湿润 mask 降 roughness，冰用透明裂纹层和内部气泡。法线不能太硬，否则像石头。</p>
+        <div class="chain">soft noise → melt mask → wet roughness drop → ice cracks → bubbles → shallow normal</div>
+        <div class="map"><b>Meshova</b><span>已有 `ice`、`water`、`frostedGlass`；建议补 snowMelt preset 和 wetness 通道联动。</span></div>
+        <div class="srcs"><a href="https://www.bilibili.com/video/BV1AJ411w7yU">雪花雪景</a><a href="https://www.bilibili.com/video/BV1mk4y157az">幻想冰层</a></div>
+      </article>
+
+      <article class="card searchable" data-cat="自然 叶片">
+        <h3>叶子 / 摄影测量清理 <span class="tag">photo assisted</span></h3>
+        <p>图片不是直接当贴图终点，而是抽 mask：叶脉、边缘、斑点、透明度。程序化层负责变体、tiling、PBR 通道一致性。</p>
+        <div class="chain">photo mask extract → vein distance → color cleanup → translucency/roughness masks → procedural variation</div>
+        <div class="map"><b>Meshova</b><span>未来图片输入流程可借鉴：VLM/分割提语义 mask，程序化 preset 生成可控 PBR。</span></div>
+        <div class="srcs"><a href="https://www.bilibili.com/video/BV1RiWVzBEwo">真实叶子材质</a></div>
+      </article>
+
+      <article class="card searchable" data-cat="特效 VFX">
+        <h3>特效纹理 / 燃烧 / 动态遮罩 <span class="tag">packed channels</span></h3>
+        <p>特效贴图重点是 RGBA 打包和可动画 mask。噪声流动、梯度、溶解边缘、火焰裂纹比静态 PBR 更重要。</p>
+        <div class="chain">noise fields → gradient masks → dissolve edge → channel pack RGBA → flipbook/scroll params</div>
+        <div class="map"><b>Meshova</b><span>可加 effectTexture builder：输出多通道 mask，不一定走完整 PBR。</span></div>
+        <div class="srcs"><a href="https://www.bilibili.com/video/BV1pb4y1i7bD">动态特效贴图</a><a href="https://www.bilibili.com/video/BV1tL2DBMECL">特效纹理</a><a href="https://www.bilibili.com/video/BV1k84y1k7TE">燃烧材质</a></div>
+      </article>
+
+      <article class="card searchable" data-cat="风格化">
+        <h3>风格化材质 / 手绘感 <span class="tag">shape readability</span></h3>
+        <p>减少高频真实噪声，强化大色块、明确边缘、可读轮廓。色彩用 gradient/ramp 分层，不追求照片级粗糙度细节。</p>
+        <div class="chain">simple shape mask → bevel → handpaint ramp → controlled edge wear → limited micro noise</div>
+        <div class="map"><b>Meshova</b><span>加 `style` 参数：realistic/stylized。控制噪声频率、色阶数、边缘宽度、AO 强度。</span></div>
+        <div class="srcs"><a href="https://www.bilibili.com/video/BV16P41157px">风格化砖墙</a><a href="https://www.bilibili.com/video/BV1NV411H77a">手绘/Ghibli</a><a href="https://www.bilibili.com/video/BV1YhCpYAEcL">风格化展示</a></div>
+      </article>
+
+      <article class="card searchable" data-cat="金属 锈蚀">
+        <h3>金属 / 锈蚀 / 划痕 <span class="tag">mask logic</span></h3>
+        <p>金属类关键是 metalness 与 rust/paint mask 互斥。锈蚀通常从边缘、凹坑、污渍区域长出；划痕改变 roughness 和 normal，别只改颜色。</p>
+        <div class="chain">base metal → scratch mask → rust mask from curvature/noise → metalness split → roughness up on rust</div>
+        <div class="map"><b>Meshova</b><span>`rustyMetal`、`brushedMetal` 已有；应补 curvature-driven wear、paint peel、scratch generator。</span></div>
+        <div class="srcs"><a href="https://www.bilibili.com/video/BV1BtB7BrEXc">高级材质实战</a><a href="https://www.bilibili.com/video/BV1yXXSByEGt">TA 视角入门</a></div>
+      </article>
+
+      <article class="card searchable" data-cat="材质链路 PBR">
+        <h3>SD → SP / Blender / 引擎 <span class="tag">export contract</span></h3>
+        <p>教程常见流程：SD 负责可参数化生成，SP/引擎负责模型局部涂抹和最终展示。Meshova 应明确导出契约：通道名、色彩空间、法线方向、强度范围。</p>
+        <div class="chain">generator params → PBR channels → validation → preview scene → export PNG/JSON → downstream material</div>
+        <div class="map"><b>Meshova</b><span>已有 PBR export；应补 material manifest、channel colorspace 标记、normal Y 方向选项。</span></div>
+        <div class="srcs"><a href="https://www.bilibili.com/video/BV1gB4y1q7W2">SD 给 SP 做贴图</a><a href="https://www.bilibili.com/video/BV1E8411j7ft">导入 Blender</a><a href="https://www.bilibili.com/video/BV1ot4y1f7NQ">材质全流程</a></div>
+      </article>
+
+      <article class="card searchable" data-cat="节点 基础">
+        <h3>基础节点体系 <span class="tag">node grammar</span></h3>
+        <p>高频节点不是孤立功能，而是一套语法：shape 产形、transform 变形、blend 合成、histogram 抽 mask、flood fill 做 per-cell 随机、warp 打破机械感。</p>
+        <div class="chain">shape/tile → transform → blend → levels/histogram → flood fill → warp/slope blur → outputs</div>
+        <div class="map"><b>Meshova</b><span>可设计“函数式图层管线”：每层有 `height/mask/color/roughnessContribution`，减少随意贴图拼接。</span></div>
+        <div class="srcs"><a href="https://www.bilibili.com/video/BV1eF411v7rb">常用节点</a><a href="https://www.bilibili.com/video/BV1x3411z7WM">Daniel Thiger 五部曲</a><a href="https://www.bilibili.com/video/BV1kV4y1C7q3">基础教程</a></div>
+      </article>
+
+      <article class="card searchable" data-cat="函数 参数">
+        <h3>函数 / 参数 / 生成器 <span class="tag">procedural API</span></h3>
+        <p>高级教程反复强调暴露参数：seed、scale、density、wear、warp、roughness、palette。函数节点用于复用随机范围、颜色插值和开关逻辑。</p>
+        <div class="chain">param schema → seeded random ranges → reusable subgraph → expose controls → presets → batch variation</div>
+        <div class="map"><b>Meshova</b><span>继续强化 `PRESET_PARAM_SCHEMA`；所有材质 builder 都应有默认参数、范围、语义标签、随机化策略。</span></div>
+        <div class="srcs"><a href="https://www.bilibili.com/video/BV1tL411V7tv">SD Functions</a><a href="https://www.bilibili.com/video/BV1x3411z7WM">参数和生成器</a><a href="https://www.bilibili.com/video/BV1Z14y1S7kv">材质制作思路</a></div>
+      </article>
+    </div>
+  </section>
+
+  <section class="group searchable" data-cat="评估 自动化">
+    <h2>生成流程改进建议</h2>
+    <p class="gdesc">面向 Meshova：让 AI 不是“画贴图”，而是选择 preset、调参数、跑评估、迭代。</p>
+    <div class="tablebox">
+      <table>
+        <thead><tr><th>优先级</th><th>改进点</th><th>原因</th><th>可验证指标</th></tr></thead>
+        <tbody>
+          <tr><td><span class="prio p0">P0</span></td><td><strong>材质族 preset schema</strong></td><td>每类材质的主生成器不同，统一噪声参数不够。</td><td>材质语义分类通过率；参数随机后仍像同类材质。</td></tr>
+          <tr><td><span class="prio p0">P0</span></td><td><strong>height/mask-first 管线</strong></td><td>SD 高质量教程都从 height 和 mask 驱动多通道。</td><td>normal/ao/baseColor/roughness 结构一致，无通道打架。</td></tr>
+          <tr><td><span class="prio p0">P0</span></td><td><strong>tiling 质量检测</strong></td><td>程序化材质最常见失败是接缝和重复 pattern 太明显。</td><td>边界差分、频谱峰值、平移相关性。</td></tr>
+          <tr><td><span class="prio p1">P1</span></td><td><strong>per-cell 随机属性</strong></td><td>砖、瓦、石、鹅卵石、织物花纹都依赖 cell id 随机。</td><td>同 seed 可复现；cell height/color/roughness 可独立扰动。</td></tr>
+          <tr><td><span class="prio p1">P1</span></td><td><strong>warp/slopeBlur preset 化</strong></td><td>大多数自然材质靠变形和侵蚀摆脱机械节点感。</td><td>生成前后重复度下降；轮廓仍保留目标材质形态。</td></tr>
+          <tr><td><span class="prio p1">P1</span></td><td><strong>roughness 规则库</strong></td><td>roughness 不能随便噪声化；湿、锈、布、冰逻辑不同。</td><td>材质族 roughness 范围符合物理常识。</td></tr>
+          <tr><td><span class="prio p1">P1</span></td><td><strong>风格化开关</strong></td><td>写实和风格化材质节点链相似，但频率、色阶、边缘完全不同。</td><td>同材质可输出 realistic/stylized 两种稳定变体。</td></tr>
+          <tr><td><span class="prio p2">P2</span></td><td><strong>图片辅助 mask 提取</strong></td><td>叶片、刺绣、花纹可从图抽结构，但不应直接 bake 成位图终点。</td><td>输入图只影响语义 mask 和参数，输出仍程序化可编辑。</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="group searchable" data-cat="实现 Meshova">
+    <h2>Meshova 可落地 API 草案</h2>
+    <p class="gdesc">不直接照搬 SD 节点名；用程序化材质函数表达同一逻辑。</p>
+    <div class="grid">
+      <article class="card"><h3>`makeLayeredMaterial(layers)`</h3><p>每层提供 `mask / height / color / roughness / metalness`，最终统一合成 PBR。解决“颜色、法线、粗糙度各做各的”。</p></article>
+      <article class="card"><h3>`cellSampler(opts)`</h3><p>`tileSampler` 升级版：返回 cell id、局部 UV、随机属性。砖、石、瓦、刺绣花型共用。</p></article>
+      <article class="card"><h3>`weavePattern(opts)`</h3><p>经纬交错、线程宽度、间距、over-under、纤维噪声。布料/麻布/羊毛/服装底纹共用。</p></article>
+      <article class="card"><h3>`flowStrands(opts)`</h3><p>方向场驱动发丝、毛发、草、刺绣线方向。输出 height、alpha、direction、color ramp。</p></article>
+      <article class="card"><h3>`damageMask(opts)`</h3><p>统一裂缝、剥落、边缘磨损、孔洞。输入 curvature/height/noise，输出多级 mask。</p></article>
+      <article class="card"><h3>`validatePBR(material)` 扩展</h3><p>增加语义范围：布料高 roughness、金属 rust 区 metalness 归零、冰雪 normal 不能过硬。</p></article>
+    </div>
+  </section>
+
+  <section class="group searchable" data-cat="来源">
+    <h2>代表来源索引</h2>
+    <p class="gdesc">以下为本页汇总中主要参考的 B 站公开视频入口。仅记录标题/分 P/简介层面的学习结论，不搬运原视频内容。</p>
+    <div class="tablebox">
+      <table>
+        <thead><tr><th>类型</th><th>来源</th><th>可学习重点</th></tr></thead>
+        <tbody>
+          <tr><td>系统课</td><td><a href="https://www.bilibili.com/video/BV1ki4y1D7K6">CG大魔王W：SD 中文零基础教程</a></td><td>节点入门、TileSampler、Flood Fill、服装花纹系列。</td></tr>
+          <tr><td>系统课</td><td><a href="https://www.bilibili.com/video/BV1eqRGYBEGH">龙哥3D建模：Substance 3D Designer 入门</a></td><td>高度计算、混合节点、2D 变形、完整流程。</td></tr>
+          <tr><td>系统课</td><td><a href="https://www.bilibili.com/video/BV1qdU8BTEhK">官方新手入门完整课程</a></td><td>线程、织物编织、程序化形状、刺绣、自定义形状。</td></tr>
+          <tr><td>节点/方法</td><td><a href="https://www.bilibili.com/video/BV1x3411z7WM">Daniel Thiger 五部曲</a></td><td>模式创建、自然散射、颜色应用、参数生成器。</td></tr>
+          <tr><td>节点/方法</td><td><a href="https://www.bilibili.com/video/BV1eF411v7rb">常用节点</a></td><td>Shape、TileSampler、Flood Fill、ShapeMapper、距离节点。</td></tr>
+          <tr><td>全流程</td><td><a href="https://www.bilibili.com/video/BV1ot4y1f7NQ">材质制作全流程教学</a></td><td>底层原理、基础节点、模板、导出与展示。</td></tr>
+          <tr><td>高阶</td><td><a href="https://www.bilibili.com/video/BV1BtB7BrEXc">高级材质创作实战</a></td><td>悬崖、石头、砂浆、鹅卵石、PBR 通道。</td></tr>
+          <tr><td>布料</td><td><a href="https://www.bilibili.com/video/BV11ua6zHE2F">布料服饰纹理大师课</a></td><td>斜纹、织物、服饰纹理、多天案例。</td></tr>
+          <tr><td>花纹</td><td><a href="https://www.bilibili.com/video/BV1vg411M7dH">蕾丝制作教程</a> / <a href="https://www.bilibili.com/video/BV1pZeuzNE3R">刺绣方向控制</a></td><td>花型 mask、线宽、方向场、刺绣 height。</td></tr>
+          <tr><td>岩石</td><td><a href="https://www.bilibili.com/video/BV1NX4y1v7tE">岩石制作思路总结</a></td><td>少量节点生成多变岩石形体，层级 height。</td></tr>
+          <tr><td>墙面</td><td><a href="https://www.bilibili.com/video/BV16P41157px">风格化砖墙</a> / <a href="https://www.bilibili.com/video/BV1prdhYrECB">写实水泥墙</a></td><td>砖块/砂浆/破损/脏污分层。</td></tr>
+          <tr><td>木材</td><td><a href="https://www.bilibili.com/video/BV1pU4y1U7gH">木材纹理</a> / <a href="https://www.bilibili.com/video/BV1k84y1k7TE">燃烧材质</a></td><td>年轮、木板、划痕、孔洞、烧焦裂纹。</td></tr>
+          <tr><td>道路</td><td><a href="https://www.bilibili.com/video/BV1sK411K7SP">道路材质全流程</a></td><td>石子、沥青、颜色、roughness、路线标记。</td></tr>
+          <tr><td>头发</td><td><a href="https://www.bilibili.com/video/BV1eP41167U6">毛发贴图全讲解</a> / <a href="https://www.bilibili.com/video/BV19q4y137Hf">头发制作</a></td><td>发丝方向、束感、根梢颜色、法线/alpha。</td></tr>
+          <tr><td>自然</td><td><a href="https://www.bilibili.com/video/BV1AJ411w7yU">雪景贴图</a> / <a href="https://www.bilibili.com/video/BV1mk4y157az">冰层表面</a> / <a href="https://www.bilibili.com/video/BV1RiWVzBEwo">叶子材质</a></td><td>融雪、冰裂、叶脉、半透明感。</td></tr>
+          <tr><td>特效</td><td><a href="https://www.bilibili.com/video/BV1pb4y1i7bD">动态特效贴图</a> / <a href="https://www.bilibili.com/video/BV1tL2DBMECL">特效纹理</a></td><td>RGBA 打包、溶解、滚动噪声、VFX mask。</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <div class="empty" id="empty">没有匹配结果</div>
+</main>
+
+<footer>生成时间：2026-06-28 · 面向 Meshova 程序化材质流程 · 来源为 Bilibili 公开搜索和视频元数据。</footer>
+
+<script>
+const categories = ["全部","流程","节点 基础","函数 参数","布料 服装","布料 花纹","岩石 石材 地形","砖墙 地面 风格化","木材 自然","道路 地面","墙面 水泥","雪 冰 自然","头发 毛发","特效 VFX","评估 自动化","实现 Meshova","来源"];
+const search = document.getElementById("search");
+const cats = document.getElementById("cats");
+const count = document.getElementById("count");
+const empty = document.getElementById("empty");
+let active = "全部";
+
+function norm(s){return (s || "").toLowerCase().replace(/\s+/g," ").trim();}
+function cardText(el){return norm(el.innerText + " " + (el.dataset.cat || ""));}
+function renderCats(){
+  cats.innerHTML = categories.map(c => `<button class="cat ${c===active?"active":""}" data-cat="${c}">${c}</button>`).join("");
+  cats.querySelectorAll(".cat").forEach(btn => {
+    btn.addEventListener("click", () => { active = btn.dataset.cat; renderCats(); filter(); });
+  });
+}
+function matchCat(el){
+  if(active === "全部") return true;
+  return (el.dataset.cat || "").includes(active) || active.split(" ").some(x => (el.dataset.cat || "").includes(x));
+}
+function filter(){
+  const q = norm(search.value);
+  const items = [...document.querySelectorAll(".searchable")];
+  let visible = 0;
+  items.forEach(el => {
+    const ok = matchCat(el) && (!q || cardText(el).includes(q));
+    el.style.display = ok ? "" : "none";
+    if(ok) visible++;
+  });
+  count.textContent = `${visible} / ${items.length}`;
+  empty.style.display = visible ? "none" : "block";
+}
+search.addEventListener("input", filter);
+renderCats();
+filter();
+</script>
+</body>
+</html>

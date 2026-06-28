@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Meshova 函数速查</title>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --panel2:#1c2330; --border:#2d3748;
+    --text:#e6edf3; --muted:#8b97a7; --accent:#7ee787; --accent2:#4dd0e1;
+    --chip:#21262d; --shadow:rgba(0,0,0,.4); --code:#ffa657;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:"Segoe UI","Microsoft YaHei",system-ui,sans-serif;line-height:1.5;padding:0 0 60px}
+  header{position:sticky;top:0;z-index:10;background:linear-gradient(180deg,#0d1117 70%,rgba(13,17,23,.85));border-bottom:1px solid var(--border);padding:18px 24px 14px;backdrop-filter:blur(6px)}
+  h1{font-size:22px;font-weight:700;letter-spacing:.5px}
+  h1 span{color:var(--accent)}
+  .sub{color:var(--muted);font-size:13px;margin-top:4px}
+  .controls{margin-top:14px;display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+  #search{flex:1;min-width:220px;background:var(--panel2);border:1px solid var(--border);color:var(--text);
+    padding:10px 14px;border-radius:10px;font-size:14px;outline:none}
+  #search:focus{border-color:var(--accent)}
+  #count{color:var(--muted);font-size:13px;white-space:nowrap}
+  .cats{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+  .cat{background:var(--chip);border:1px solid var(--border);color:var(--muted);padding:6px 12px;
+    border-radius:20px;font-size:13px;cursor:pointer;transition:.15s;user-select:none}
+  .cat:hover{color:var(--text);border-color:var(--accent)}
+  .cat.active{background:var(--accent);color:#0d1117;border-color:var(--accent);font-weight:600}
+  main{padding:24px;max-width:1400px;margin:0 auto}
+  .group{margin-bottom:34px}
+  .group h2{font-size:16px;color:var(--accent2);border-left:3px solid var(--accent2);
+    padding-left:10px;margin-bottom:4px}
+  .group .gdesc{color:var(--muted);font-size:12.5px;margin:0 0 14px 13px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:13px 15px;
+    transition:.15s;box-shadow:0 1px 3px var(--shadow)}
+  .card:hover{border-color:var(--accent);transform:translateY(-2px)}
+  .card .nm{font-size:14.5px;font-weight:600;color:var(--text);font-family:"Consolas","SF Mono",monospace}
+  .card .tag{display:inline-block;font-size:10.5px;color:var(--accent2);background:rgba(77,208,225,.12);
+    border-radius:5px;padding:1px 7px;margin-left:6px;vertical-align:middle;font-family:system-ui}
+  .card .vex{display:inline-block;font-size:10px;color:var(--code);background:rgba(255,166,87,.12);
+    border-radius:5px;padding:1px 7px;margin-left:6px;vertical-align:middle}
+  .card .sig{font-size:12px;color:var(--code);margin-top:6px;font-family:"Consolas","SF Mono",monospace;
+    word-break:break-word}
+  .card .ds{font-size:12.8px;color:var(--muted);margin-top:6px}
+  .empty{color:var(--muted);text-align:center;padding:60px;font-size:15px}
+  footer{text-align:center;color:var(--muted);font-size:12px;margin-top:30px;padding:0 24px}
+  mark{background:var(--accent);color:#0d1117;border-radius:3px;padding:0 2px}
+</style>
+</head>
+<body>
+<header>
+  <h1><span>Meshova</span> 函数速查</h1>
+  <div class="sub">参照 Houdini VEX 接入的通用函数库 · 模块 + 签名 + 用途 · 支持搜索与分类过滤</div>
+  <div class="controls">
+    <input id="search" type="text" placeholder="搜索函数名 / 用途 / VEX 对应（中英文均可）…" autocomplete="off">
+    <span id="count"></span>
+  </div>
+  <div class="cats" id="cats"></div>
+</header>
+<main id="main"></main>
+<footer>Meshova 内核函数整理，参照 Houdini VEX 通用层重写接入；引擎专属(agent/usd/chop/volume/光照BSDF/几何上下文读写)不接。</footer>
+
+<script>
+const FN = [
+// ===== 标量 Scalar =====
+{cat:"标量 Scalar",nm:"fit",sig:"(x,omin,omax,nmin,nmax)→n",vex:"fit",ds:"区间重映射并钳制到目标范围。程序化调参核心。"},
+{cat:"标量 Scalar",nm:"fit01",sig:"(x,nmin,nmax)→n",vex:"fit01",ds:"把 0..1 映射到目标区间，钳制。"},
+{cat:"标量 Scalar",nm:"fit10",sig:"(x,nmin,nmax)→n",vex:"fit10",ds:"把 1..0 反向映射到目标区间，钳制。"},
+{cat:"标量 Scalar",nm:"fit11",sig:"(x,nmin,nmax)→n",vex:"fit11",ds:"把 -1..1 映射到目标区间，钳制。"},
+{cat:"标量 Scalar",nm:"efit",sig:"(x,omin,omax,nmin,nmax)→n",vex:"efit",ds:"同 fit 但不钳制（外推）。等于 remap。"},
+{cat:"标量 Scalar",nm:"invlerp",sig:"(a,b,v)→t",vex:"invlerp",ds:"lerp 的逆：v 在 [a,b] 中的归一化位置。"},
+{cat:"标量 Scalar",nm:"frac",sig:"(x)→[0,1)",vex:"frac",ds:"小数部分，负数也落在 [0,1)。"},
+{cat:"标量 Scalar",nm:"sign",sig:"(x)→-1|0|1",vex:"sign",ds:"取符号。"},
+{cat:"标量 Scalar",nm:"bias",sig:"(t,b)→n",vex:"—",ds:"Schlick bias，把 t 向 0 或 1 偏移；b=0.5 为恒等。"},
+{cat:"标量 Scalar",nm:"gain",sig:"(t,g)→n",vex:"—",ds:"Schlick gain，绕 0.5 的 S 形对比控制。"},
+{cat:"标量 Scalar",nm:"pulse",sig:"(lo,hi,x,width?)→n",vex:"pulse",ds:"带宽内为 1、两侧平滑衰减的脉冲遮罩。"},
+{cat:"标量 Scalar",nm:"smooth",sig:"(e0,e1,x,rolloff?)→n",vex:"smooth",ds:"带衰减指数的 smoothstep。"},
+{cat:"标量 Scalar",nm:"radians / degrees",sig:"(x)→x",vex:"radians/degrees",ds:"角度弧度互转。"},
+{cat:"标量 Scalar",nm:"solvequadratic",sig:"(a,b,c)→number[]",vex:"solvequadratic",ds:"一元二次实根，升序 0~2 个。"},
+{cat:"标量 Scalar",nm:"solvecubic",sig:"(a,b,c,d)→number[]",vex:"solvecubic",ds:"一元三次实根（Cardano/三角法），含降阶与重根。贝塞尔求根用。"},
+
+// ===== 向量 Vec3 =====
+{cat:"向量 Vec3",nm:"reflect",sig:"(i,n)→Vec3",vex:"reflect",ds:"入射向量沿法线反射。"},
+{cat:"向量 Vec3",nm:"refract",sig:"(i,n,eta)→Vec3",vex:"refract",ds:"按折射率比折射；全内反射返回零向量。"},
+{cat:"向量 Vec3",nm:"project",sig:"(a,b)→Vec3",vex:"—",ds:"a 在 b 上的投影分量。"},
+{cat:"向量 Vec3",nm:"reject",sig:"(a,b)→Vec3",vex:"—",ds:"a 与 b 正交的剩余分量。"},
+{cat:"向量 Vec3",nm:"angleBetween",sig:"(a,b)→rad",vex:"—",ds:"两向量夹角 [0,π]。"},
+{cat:"向量 Vec3",nm:"makeBasis",sig:"(dir)→{x,y,z}",vex:"makebasis",ds:"由方向构造正交基（切线/副切线/法线）。"},
+{cat:"向量 Vec3",nm:"slerpVec3",sig:"(a,b,t)→Vec3",vex:"slerpv",ds:"两方向的球面线性插值。"},
+{cat:"向量 Vec3",nm:"minVec3 / maxVec3",sig:"(a,b)→Vec3",vex:"min/max",ds:"逐分量最小/最大。"},
+{cat:"向量 Vec3",nm:"absVec3",sig:"(a)→Vec3",vex:"abs",ds:"逐分量绝对值。"},
+{cat:"向量 Vec3",nm:"divVec3",sig:"(a,b)→Vec3",vex:"—",ds:"逐分量除法。"},
+{cat:"向量 Vec3",nm:"minComponent / maxComponent",sig:"(a)→n",vex:"—",ds:"最小/最大分量值。"},
+
+// ===== 四元数 Quat =====
+{cat:"四元数 Quat",nm:"fromAxisAngle",sig:"(axis,angle)→Quat",vex:"quaternion",ds:"绕轴旋转构造四元数。"},
+{cat:"四元数 Quat",nm:"qmultiply",sig:"(a,b)→Quat",vex:"qmultiply",ds:"组合旋转（a 在 b 之后）。"},
+{cat:"四元数 Quat",nm:"qinvert",sig:"(q)→Quat",vex:"qinvert",ds:"求逆（非单位也正确）。"},
+{cat:"四元数 Quat",nm:"qrotate",sig:"(q,v)→Vec3",vex:"qrotate",ds:"用四元数旋转向量。"},
+{cat:"四元数 Quat",nm:"qslerp",sig:"(a,b,t)→Quat",vex:"slerp",ds:"最短弧球面插值，骨骼/朝向过渡。"},
+{cat:"四元数 Quat",nm:"fromEuler",sig:"(rx,ry,rz,order?)→Quat",vex:"eulertoquaternion",ds:"欧拉角转四元数。"},
+{cat:"四元数 Quat",nm:"toEuler",sig:"(q)→Vec3",vex:"quaterniontoeuler",ds:"四元数转 XYZ 欧拉角。"},
+{cat:"四元数 Quat",nm:"dihedral",sig:"(from,to)→Quat",vex:"dihedral",ds:"把一个方向旋到另一个方向；处理反平行。贴合表面法线放置部件用。"},
+{cat:"四元数 Quat",nm:"quatToMat4",sig:"(q)→Mat4",vex:"—",ds:"四元数转列主序旋转矩阵。"},
+
+// ===== 颜色 Color =====
+{cat:"颜色 Color",nm:"hsvToRgb",sig:"(h,s,v)→RGB",vex:"hsvtorgb",ds:"HSV 转线性 RGB；按色相写调色板。"},
+{cat:"颜色 Color",nm:"rgbToHsv",sig:"(r,g,b)→[h,s,v]",vex:"rgbtohsv",ds:"线性 RGB 转 HSV。"},
+{cat:"颜色 Color",nm:"blackbody",sig:"(kelvin)→RGB",vex:"blackbody",ds:"黑体辐射色温转 RGB；发光体物理可信配色。"},
+{cat:"颜色 Color",nm:"relativeLuminance",sig:"(r,g,b)→n",vex:"luminance",ds:"Rec.709 相对亮度（线性 0..1）。"},
+{cat:"颜色 Color",nm:"linearToSrgb / srgbToLinear",sig:"(c)→c",vex:"—",ds:"线性与 sRGB 伽马互转（逐通道）。"},
+{cat:"颜色 Color",nm:"hueShift",sig:"(color,delta)→RGB",vex:"—",ds:"在 HSV 空间按圈数偏移色相。"},
+{cat:"颜色 Color",nm:"adjustHsv",sig:"(color,satMul,valMul)→RGB",vex:"—",ds:"调整饱和度与明度。"},
+{cat:"颜色 Color",nm:"lerpColor",sig:"(a,b,t)→RGB",vex:"—",ds:"逐通道颜色插值。"},
+
+// ===== 噪声 Noise =====
+{cat:"噪声 Noise",nm:"cellNoise2 / cellNoise3",sig:"(x,y[,z],seed)→[0,1)",vex:"cellnoise",ds:"每格常量随机值；ID 遮罩与随机着色。"},
+{cat:"噪声 Noise",nm:"worley2 / worley3",sig:"(x,y[,z],seed,jitter)→{f1,f2,id}",vex:"wnoise",ds:"细胞噪声，返回 F1/F2 距离与格 id；石块/皮革/裂纹。"},
+{cat:"噪声 Noise",nm:"pnoise2",sig:"(noise,x,y,px,py)→[-1,1]",vex:"pnoise",ds:"周期噪声，按整数周期无缝平铺。"},
+{cat:"噪声 Noise",nm:"curlNoise2 / curlNoise3",sig:"(noise,x,y[,z],eps?)→Vec",vex:"curlnoise",ds:"无散度流场；旋涡/流动位移不增不减体积。"},
+{cat:"噪声 Noise",nm:"flowNoise2",sig:"(noise,x,y,t)→[-1,1]",vex:"flownoise",ds:"随流动参数旋转梯度的演化噪声，旋涡动画感。"},
+{cat:"噪声 Noise",nm:"anisoNoise2",sig:"(noise,x,y,angle,aniso)→[-1,1]",vex:"gxnoise",ds:"各向异性拉伸噪声；刷漆/木纹/毛流方向感。"},
+{cat:"噪声 Noise",nm:"warpedNoise2",sig:"(noise,x,y,warp?)→[-1,1]",vex:"—",ds:"域扭曲 fbm；云/大理石有机纹理。"},
+
+// ===== 几何查询 Query =====
+{cat:"几何查询 Query",nm:"closestPointOnMesh",sig:"(mesh,p)→ClosestPoint",vex:"minpos/xyzdist",ds:"网格最近点（位置/prim/uv/距离）。图片逼近模型几何 loss。"},
+{cat:"几何查询 Query",nm:"xyzdist",sig:"(mesh,p)→n",vex:"xyzdist",ds:"点到网格表面的距离。"},
+{cat:"几何查询 Query",nm:"minpos",sig:"(mesh,p)→Vec3",vex:"minpos",ds:"网格表面上最近的位置。"},
+{cat:"几何查询 Query",nm:"nearpoint",sig:"(mesh,p)→index",vex:"nearpoint",ds:"最近的网格顶点索引。"},
+{cat:"几何查询 Query",nm:"closestPointOnTriangle",sig:"(p,a,b,c)→{position,u,v}",vex:"primuv",ds:"点到单三角的最近点（Ericson 区域判定）。"},
+{cat:"几何查询 Query",nm:"closestPointOnSegment",sig:"(p,a,b)→Vec3",vex:"distance_pointsegment",ds:"点到线段最近点，端点钳制。"},
+{cat:"几何查询 Query",nm:"distancePointLine",sig:"(p,a,b)→n",vex:"distance_pointline",ds:"点到无限直线的距离。"},
+{cat:"几何查询 Query",nm:"rayTriangle",sig:"(o,dir,a,b,c)→{t,u,v}|null",vex:"intersect",ds:"Möller–Trumbore 射线/三角相交（双面）。"},
+{cat:"几何查询 Query",nm:"rayMesh",sig:"(mesh,o,dir)→RayHit|null",vex:"intersect",ds:"射线对网格的最近正向命中。"},
+{cat:"几何查询 Query",nm:"countRayHits",sig:"(mesh,o,dir)→n",vex:"—",ds:"统计正向命中数；内外判定与 winding 基元。"},
+{cat:"几何查询 Query",nm:"isPointInside",sig:"(mesh,p)→bool",vex:"windingnumber",ds:"点在网格内外（奇偶+三向投票防边缘擦碰）。"},
+{cat:"几何查询 Query",nm:"primuvVec3",sig:"(mesh,attr,prim,u,v)→Vec3",vex:"primuv",ds:"按 uv 在三角内插值任意逐顶点属性。"},
+{cat:"几何查询 Query",nm:"sampleNormalAt",sig:"(mesh,p)→Vec3",vex:"—",ds:"最近点处的插值法线。"},
+
+// ===== 曲线 Ramp =====
+{cat:"曲线 Ramp",nm:"scalarRamp",sig:"(stops,{interp})→(t)→n",vex:"chramp",ds:"标量渐变曲线，支持 linear/smooth/spline/constant。"},
+{cat:"曲线 Ramp",nm:"vectorRamp",sig:"(stops,{interp})→(t)→Vec3",vex:"chramp",ds:"向量/颜色渐变曲线，逐分量插值。"},
+{cat:"曲线 Ramp",nm:"interp: spline",sig:"Catmull-Rom",vex:"chramp",ds:"经过控制点的平滑样条插值模式。"},
+{cat:"曲线 Ramp",nm:"interp: constant",sig:"step/hold",vex:"chramp",ds:"阶梯保持前一段值。"},
+{cat:"曲线 Ramp",nm:"rampF",sig:"(input,stops,opts)→ScalarField",vex:"—",ds:"把标量 ramp 接入网格 Field 系统。"},
+
+// ===== 网格 Mesh =====
+{cat:"网格 Mesh",nm:"computeNormals",sig:"(mesh,cuspAngleDeg)→Mesh",vex:"computenormal",ds:"按角度阈值生成硬/软边：先空间 fuse 共点再按法线夹角分组。0°全平面，180°全平滑。"},
+{cat:"网格 Mesh",nm:"recomputeNormals",sig:"(mesh)→Mesh",vex:"computenormal",ds:"面积加权平均的软法线（不增顶点）。"},
+];
+
+const CAT_DESC = {
+  "标量 Scalar":"区间重映射、偏置/增益、脉冲与多项式求根，程序化调参与曲线求值的基础。",
+  "向量 Vec3":"反射/折射、投影、正交基与方向插值，几何与着色向量运算。",
+  "四元数 Quat":"无万向锁的旋转表示：构造、组合、求逆、旋转向量、球面插值、欧拉互转、方向贴合。",
+  "颜色 Color":"色彩空间转换：HSV、黑体色温、sRGB 伽马，按色相/色温驱动程序化调色。",
+  "噪声 Noise":"细胞/周期/旋度/流向/各向异性/域扭曲噪声，有机表面与可平铺贴图的纹理来源。",
+  "几何查询 Query":"网格最近点、表面距离、射线相交、点内外判定与属性插值，图片逼近模型的几何约束。",
+  "曲线 Ramp":"参照 Houdini chramp 的多段渐变曲线，一个归一化值驱动多参数。",
+  "网格 Mesh":"法线重算与按角度阈值的硬/软边分组。"
+};
+
+const $ = s => document.querySelector(s);
+let activeCat = "全部";
+let kw = "";
+
+function esc(s){return s.replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));}
+function hl(s,k){
+  if(!k) return esc(s);
+  const i = s.toLowerCase().indexOf(k.toLowerCase());
+  if(i<0) return esc(s);
+  return esc(s.slice(0,i))+"<mark>"+esc(s.slice(i,i+k.length))+"</mark>"+esc(s.slice(i+k.length));
+}
+
+function buildCats(){
+  const cats = ["全部", ...new Set(FN.map(n=>n.cat))];
+  $("#cats").innerHTML = cats.map(c=>
+    `<span class="cat${c===activeCat?' active':''}" data-c="${c}">${c}<\/span>`).join("");
+  $("#cats").querySelectorAll(".cat").forEach(el=>{
+    el.onclick=()=>{activeCat=el.dataset.c;buildCats();render();};
+  });
+}
+
+function render(){
+  const k = kw.trim().toLowerCase();
+  let list = FN.filter(n=>{
+    if(activeCat!=="全部" && n.cat!==activeCat) return false;
+    if(!k) return true;
+    return (n.nm+" "+n.ds+" "+(n.sig||"")+" "+(n.vex||"")).toLowerCase().includes(k);
+  });
+  $("#count").textContent = `共 ${list.length} / ${FN.length} 个函数`;
+  const main = $("#main");
+  if(!list.length){ main.innerHTML='<div class="empty">没有匹配的函数 🔍<\/div>'; return; }
+  const byCat = {};
+  list.forEach(n=>{(byCat[n.cat]=byCat[n.cat]||[]).push(n);});
+  main.innerHTML = Object.keys(byCat).map(cat=>`
+    <section class="group">
+      <h2>${cat} <span style="color:var(--muted);font-size:13px;font-weight:400">(${byCat[cat].length})<\/span><\/h2>
+      ${CAT_DESC[cat]?`<p class="gdesc">${CAT_DESC[cat]}<\/p>`:""}
+      <div class="grid">
+        ${byCat[cat].map(n=>`
+          <div class="card">
+            <div class="nm">${hl(n.nm,kw)}${n.vex&&n.vex!=="—"?`<span class="vex">VEX ${esc(n.vex)}<\/span>`:""}<\/div>
+            ${n.sig?`<div class="sig">${hl(n.sig,kw)}<\/div>`:""}
+            <div class="ds">${hl(n.ds,kw)}<\/div>
+          <\/div>`).join("")}
+      <\/div>
+    <\/section>`).join("");
+}
+
+$("#search").addEventListener("input",e=>{kw=e.target.value;render();});
+buildCats();
+render();
+</script>
+</body>
+</html>
+
+

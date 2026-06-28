@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Maya / 3ds Max / Blender 建模参考 · Meshova 缺口清单</title>
+<style>
+  :root{
+    --bg:#0c1117; --panel:#141b24; --panel2:#1b2532; --panel3:#111821;
+    --line:#2c3745; --text:#e8edf3; --muted:#9aa7b6;
+    --accent:#4dd0e1; --accent2:#7ee787; --warn:#f5a65b; --danger:#ff7b72;
+    --purple:#bc8cff; --chip:#233040; --code:#ffa657;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--text);font:14px/1.62 "Segoe UI","Microsoft YaHei",system-ui,sans-serif}
+  header{position:sticky;top:0;z-index:5;background:linear-gradient(180deg,#0c1117 76%,rgba(12,17,23,.86));border-bottom:1px solid var(--line);backdrop-filter:blur(8px)}
+  .head{max-width:1320px;margin:0 auto;padding:18px 24px 14px}
+  h1{font-size:24px;margin:0 0 6px;letter-spacing:.2px}
+  h1 span{color:var(--accent)}
+  .sub{color:var(--muted);font-size:13px}
+  .nav{display:flex;gap:8px;flex-wrap:wrap;margin-top:13px}
+  .nav a{color:var(--muted);text-decoration:none;border:1px solid var(--line);background:var(--chip);border-radius:18px;padding:5px 11px;font-size:12px}
+  .nav a:hover{color:var(--text);border-color:var(--accent)}
+  main{max-width:1320px;margin:0 auto;padding:24px 24px 72px}
+  section{margin:0 0 34px}
+  h2{font-size:18px;margin:0 0 14px;color:var(--accent);border-left:4px solid var(--accent);padding-left:10px}
+  h3{font-size:15px;margin:20px 0 9px;color:var(--accent2)}
+  p{margin:8px 0;color:var(--text)}
+  a{color:var(--accent)}
+  code{background:#0a0e13;border:1px solid var(--line);border-radius:5px;padding:1px 5px;color:var(--code);font-family:Consolas,"JetBrains Mono",monospace;font-size:12px}
+  .lead{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--accent2);border-radius:8px;padding:14px 16px;margin:0 0 18px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:12px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:13px 14px}
+  .card strong{color:var(--accent2)}
+  .metric{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin:14px 0}
+  .metric .box{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:12px}
+  .num{font-size:22px;color:var(--accent);font-weight:700}
+  .label{font-size:12px;color:var(--muted)}
+  table{width:100%;border-collapse:collapse;background:var(--panel);border:1px solid var(--line);margin:12px 0;font-size:13px}
+  th,td{border:1px solid var(--line);padding:9px 10px;text-align:left;vertical-align:top}
+  th{background:var(--panel2);color:var(--accent);font-weight:600}
+  td:first-child{white-space:nowrap}
+  ul{margin:8px 0 0;padding-left:20px}
+  li{margin:4px 0}
+  .tag{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:1px 8px;margin:0 4px 4px 0;color:var(--muted);font-size:11px}
+  .ok{color:var(--accent2);border-color:rgba(126,231,135,.5)}
+  .warn{color:var(--warn);border-color:rgba(245,166,91,.55)}
+  .high{color:var(--danger);border-color:rgba(255,123,114,.55)}
+  .info{color:var(--accent);border-color:rgba(77,208,225,.55)}
+  .flow{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px;margin:12px 0}
+  .steps{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  .step{background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:8px 11px;font-size:12px}
+  .arrow{color:var(--muted)}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .priority{display:grid;grid-template-columns:minmax(118px,.55fr) 1.45fr 1.35fr;gap:0;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--panel);font-size:13px}
+  .priority div{padding:10px;border-right:1px solid var(--line);border-bottom:1px solid var(--line)}
+  .priority div:nth-child(3n){border-right:0}
+  .priority .hd{background:var(--panel2);color:var(--accent);font-weight:600}
+  .small{color:var(--muted);font-size:12px}
+  .source-list{columns:2;column-gap:28px}
+  .source-list li{break-inside:avoid;margin-bottom:7px}
+  footer{border-top:1px solid var(--line);margin-top:38px;padding-top:14px;color:var(--muted);font-size:12px}
+  @media(max-width:840px){
+    main,.head{padding-left:14px;padding-right:14px}
+    .two{grid-template-columns:1fr}
+    .priority{display:block}
+    .priority div{border-right:0}
+    td:first-child{white-space:normal}
+    .source-list{columns:1}
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="head">
+    <h1><span>DCC 建模参考</span> · Maya / 3ds Max / Blender 给 Meshova 的函数路线</h1>
+    <div class="sub">目标：从主流 DCC 的多边形建模流程中抽取可程序化的 operator contract，不复制实现；对照当前 Meshova 源码能力，列缺口与优先级。</div>
+    <nav class="nav">
+      <a href="#summary">结论</a>
+      <a href="#dcc">DCC 流程</a>
+      <a href="#meshova">Meshova 现状</a>
+      <a href="#gaps">缺口函数</a>
+      <a href="#workflow">流程缺口</a>
+      <a href="#roadmap">优先级</a>
+      <a href="#sources">资料来源</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <section id="summary">
+    <div class="lead">
+      <b>结论：</b>Meshova 当前已有基础图元、变换、CSG、曲线 sweep、Catmull-Clark、字段/ramp、点云、copy-to-points。
+      下一阶段最该补的不是更多随机散布，而是 <b>拓扑编辑层</b>：边/面/边界 loop、edge ring、region selection、inset、bevel/chamfer、bridge、loop cut、knife、solidify、weld/cleanup。
+    </div>
+    <div class="lead" style="border-left-color:var(--accent)">
+      <b>已落地（2026-06）：</b>
+      <b>P0</b> 拓扑内核 <code>src/geometry/topo.ts</code>（<code>toTopo/fromTopo</code>、edge/face 邻接、<code>boundaryLoops</code>、<code>hardEdges</code>、<code>selectFacesByNormal</code>、<code>growSelection/shrinkSelection/selectionBoundary</code>、<code>diagnose</code>、<code>cleanupTopo</code>）。
+      <b>P1</b> 编辑算子 <code>src/geometry/edit.ts</code>（<code>extrudeRegion</code>、<code>insetFaces</code>、<code>bevelEdges</code>、<code>solidify</code>、<code>bridgeLoops</code>）。
+      <b>P2</b> 切割/选择 <code>src/geometry/cut.ts</code>（<code>planeCut</code> 平面切割可保留正/负/双侧并封口、<code>loopCut</code> 插入支撑边环）+ topo 选择语义。
+      <b>P3</b> 造型扩展 <code>src/geometry/shapes.ts</code>（<code>lathe</code>、<code>profileSweep</code>、<code>loft</code>、<code>capsule</code>、<code>roundedBox</code>、<code>rectProfile/lProfile</code>）。
+      <b>P4</b> 程序化工作流 <code>src/agent/opplan.ts</code>（<code>OpPlan</code> 可序列化建模图：节点 op+args+$ref 依赖，<code>evalPlan</code> 拓扑序求值、<code>patchNode</code> 定点改参不重写、<code>parsePlan/serializePlan</code> JSON 往返、<code>describePlan/planNodeStats</code> 供 AI 截图闭环定位"第几步出错"）。
+      全部注册进 <code>SCRIPT_API</code>。测试 <code>edit/shapes/cut/opplan.test.ts</code> 共 46 项全过；demo <code>examples/hard-surface-panel.ts</code>（<code>pnpm hard-surface</code>）、<code>examples/lathe-vase.ts</code>（<code>pnpm lathe-vase</code>）跑通。
+      剩余：knife 任意路径切割、edge slide、多段圆角 bevel profile、OpPlan 接入 Viewer 逐步 debug view + undo/replay。
+    </div>
+    <div class="metric">
+      <div class="box"><div class="num">3</div><div class="label">参考 DCC：Maya / 3ds Max / Blender</div></div>
+      <div class="box"><div class="num">10</div><div class="label">优先补齐的核心建模算子</div></div>
+      <div class="box"><div class="num">P0</div><div class="label">先做 TopoMesh / edge graph</div></div>
+      <div class="box"><div class="num">P1</div><div class="label">再做 bevel + inset + region extrude</div></div>
+    </div>
+    <div class="grid">
+      <div class="card"><strong>Maya 可学</strong><br>Modeling Toolkit 的“选择组件 → 激活工具 → 调整工具参数”流程。对 Meshova 等价于：<code>Selection</code> + <code>OpOptions</code> + 可重放操作历史。</div>
+      <div class="card"><strong>3ds Max 可学</strong><br>Editable Poly 的 sub-object levels 与 modifier stack。对 Meshova 等价于：拓扑域明确、算子可堆叠、每步可序列化。</div>
+      <div class="card"><strong>Blender 可学</strong><br>Mesh Edit + Modifier 的参数细度：bevel width/segments/profile/clamp/harden normals，bridge/loop cut/knife 都有明确拓扑语义。</div>
+      <div class="card"><strong>Meshova 方向</strong><br>不要克隆 DCC UI。抽象成脚本 API：<code>selectEdgesByAngle()</code> → <code>bevelEdges()</code> → <code>solidify()</code> → <code>computeNormals()</code>。</div>
+    </div>
+  </section>
+
+  <section id="dcc">
+    <h2>DCC 建模流程可借鉴点</h2>
+    <table>
+      <tr><th>软件</th><th>典型流程</th><th>核心工具</th><th>给 Meshova 的启发</th></tr>
+      <tr>
+        <td>Autodesk Maya</td>
+        <td>组件模式选择 face/edge/vertex，Modeling Toolkit 中执行 Extrude、Bevel、Bridge、Cut 等工具，工具参数可交互调整。</td>
+        <td><code>Extrude</code>、<code>Bevel</code>、<code>Bridge</code>、<code>Multi-Cut/Cut</code>、<code>Merge</code>、<code>Target Weld</code></td>
+        <td>API 不只要 mesh-in/mesh-out，还要 <code>Selection</code>、工具参数、重复执行、局部坐标、keep faces together。</td>
+      </tr>
+      <tr>
+        <td>Autodesk 3ds Max</td>
+        <td>Editable Poly 按 Vertex/Edge/Border/Polygon/Element 操作；Edit Poly / Modifier Stack 让修改以层级方式保留。</td>
+        <td><code>Extrude</code>、<code>Bevel</code>、<code>Inset</code>、<code>Outline</code>、<code>Chamfer</code>、<code>Connect</code>、<code>Bridge</code></td>
+        <td>Meshova 应有 sub-object domain：顶点、边、边界、面、元素。后续可做 <code>ModifierStack</code> 或 <code>OpPlan</code>。</td>
+      </tr>
+      <tr>
+        <td>Blender</td>
+        <td>Edit Mode 中做 mesh editing；复杂形体常由 edit ops + modifiers 组合，例如 Bevel、Solidify、Mirror、Subdivision。</td>
+        <td><code>Extrude Faces</code>、<code>Inset Faces</code>、<code>Bevel</code>、<code>Bridge Edge Loops</code>、<code>Loop Cut</code>、<code>Knife</code></td>
+        <td>函数签名应暴露 width/segments/profile/clamp/normals/material 等选项；不要只有一个 <code>distance</code>。</td>
+      </tr>
+    </table>
+
+    <h3>共同底层模式</h3>
+    <div class="flow">
+      <div class="steps">
+        <span class="step">组件选择</span><span class="arrow">→</span>
+        <span class="step">拓扑邻接</span><span class="arrow">→</span>
+        <span class="step">局部 frame</span><span class="arrow">→</span>
+        <span class="step">生成新边/面</span><span class="arrow">→</span>
+        <span class="step">法线/UV/材质继承</span><span class="arrow">→</span>
+        <span class="step">cleanup/诊断</span>
+      </div>
+    </div>
+    <p>这些工具表面上是倒角、挤出、切线；底层都要求 mesh 能回答：某条边相邻哪些面、某个 face region 的边界是什么、哪些边形成 loop、哪些点应 weld、哪些新面继承哪个 material slot。</p>
+  </section>
+
+  <section id="meshova">
+    <h2>Meshova 当前能力对照</h2>
+    <table>
+      <tr><th>能力层</th><th>当前已有</th><th>判断</th></tr>
+      <tr>
+        <td>基础图元</td>
+        <td><span class="tag ok">box/sphere/plane</span><span class="tag ok">cylinder/cone/torus/icosphere/circle</span></td>
+        <td>够做 demo。缺 capsule、roundedBox/chamferBox、tube、profile primitive、polygon2D-with-holes。</td>
+      </tr>
+      <tr>
+        <td>变换/合并</td>
+        <td><span class="tag ok">translate/rotate/scale/applyMatrix</span><span class="tag ok">merge</span></td>
+        <td>基础稳定。缺 pivot/local frame、mirror/symmetry、arrayPolar、arrayAlongCurve。</td>
+      </tr>
+      <tr>
+        <td>布尔</td>
+        <td><span class="tag ok">union/subtract/intersect</span></td>
+        <td>已有 BSP CSG。后续需诊断报告：非流形、退化三角、coplanar、开口 mesh。</td>
+      </tr>
+      <tr>
+        <td>曲线/扫掠</td>
+        <td><span class="tag ok">polyline/bezier/helix/smoothCurve/sweep</span></td>
+        <td>当前 sweep 是圆管。缺任意截面 sweep、loft、lathe/revolve、ribbon/surface。</td>
+      </tr>
+      <tr>
+        <td>细分/法线</td>
+        <td><span class="tag ok">subdivide</span><span class="tag ok">catmullClark</span><span class="tag ok">computeNormals(cusp)</span></td>
+        <td>可用。缺 crease/edge weight/support loop、weighted normals、bevel 后 harden normals。</td>
+      </tr>
+      <tr>
+        <td>散布/实例</td>
+        <td><span class="tag ok">surfacePointCloud</span><span class="tag ok">poissonPointCloud</span><span class="tag ok">copyToPoints</span><span class="tag ok">InstancePlan</span></td>
+        <td>Houdini 式点云中间层已补，不再是主缺口。后续补 point/face/edge group 统一模型。</td>
+      </tr>
+      <tr>
+        <td>字段/ramp</td>
+        <td><span class="tag ok">ScalarField/VectorField</span><span class="tag ok">scalarRamp/vectorRamp/rampF</span></td>
+        <td>已接近 DCC 参数曲线。缺 viewer 中 ramp UI、参数 preset 保存。</td>
+      </tr>
+      <tr>
+        <td>拓扑编辑</td>
+        <td><span class="tag warn">extrude(mesh,distance)</span><span class="tag warn">selectByAttr</span></td>
+        <td><b>主缺口。</b>当前 extrude 是逐三角 prism，不是 DCC 的 region extrude/inset/bevel/bridge。</td>
+      </tr>
+    </table>
+  </section>
+
+  <section id="gaps">
+    <h2>缺口函数清单</h2>
+    <h3>P0：拓扑层，所有建模工具的地基</h3>
+    <table>
+      <tr><th>函数 / 类型</th><th>DCC 对应</th><th>用途</th><th>实现备注</th></tr>
+      <tr><td><code>TopoMesh</code></td><td>Editable Poly / BMesh / Maya mesh components</td><td>显式存 vertex/edge/face adjacency。</td><td>Indexed triangle mesh 继续做 render/export 格式；拓扑算子内部转 <code>TopoMesh</code>。</td></tr>
+      <tr><td><code>toTopo(mesh)</code>, <code>fromTopo(topo)</code></td><td>Mesh edit mode</td><td>在可编辑拓扑和三角网格之间转换。</td><td>支持 n-gon/quad 内部表示，输出时再 triangulate。</td></tr>
+      <tr><td><code>boundaryLoops(topo)</code></td><td>Border sub-object / Bridge loops</td><td>找到开口边界，给 bridge/cap/fill 用。</td><td>边只有一个相邻 face 即 border。</td></tr>
+      <tr><td><code>edgeLoops(topo)</code>, <code>edgeRings(topo)</code></td><td>Loop Cut / Connect</td><td>选择连续边环、插入支撑线。</td><td>quad flow 上可靠；tri/ngon 处给 stop/reason。</td></tr>
+      <tr><td><code>weldVertices()</code>, <code>removeDegenerateFaces()</code>, <code>cleanupMesh()</code></td><td>Maya Cleanup / Max Weld</td><td>修掉布尔、切割、导入产生的坏拓扑。</td><td>返回 <code>{mesh,warnings}</code>，方便 AI 判断。</td></tr>
+    </table>
+
+    <h3>P1：硬表面核心算子</h3>
+    <table>
+      <tr><th>函数</th><th>参考工具</th><th>关键参数</th><th>为什么先做</th></tr>
+      <tr>
+        <td><code>bevelEdges(mesh, selection, opts)</code></td>
+        <td>Blender Bevel / Maya Bevel / Max Chamfer</td>
+        <td><code>width</code>, <code>segments</code>, <code>profile</code>, <code>clampOverlap</code>, <code>miter</code>, <code>hardenNormals</code>, <code>material</code></td>
+        <td>硬表面质感核心。没有倒角，机械、建筑、家具都廉价。</td>
+      </tr>
+      <tr>
+        <td><code>insetFaces(mesh, faces, opts)</code></td>
+        <td>Blender Inset Faces / Max Inset</td>
+        <td><code>amount</code>, <code>individual</code>, <code>evenOffset</code>, <code>boundaryOnly</code></td>
+        <td>门窗、面板、按钮、台阶、屋顶边框都需要。</td>
+      </tr>
+      <tr>
+        <td><code>extrudeRegion(mesh, faces, opts)</code></td>
+        <td>Maya Extrude / Blender Extrude Faces / Max Extrude</td>
+        <td><code>distance</code>, <code>direction</code>, <code>localNormal</code>, <code>keepTogether</code>, <code>taper</code>, <code>sideMaterial</code></td>
+        <td>替换当前逐三角 <code>extrude()</code>，获得 DCC 级可控挤出。</td>
+      </tr>
+      <tr>
+        <td><code>bridgeLoops(mesh, loopA, loopB, opts)</code></td>
+        <td>Bridge Edge Loops / Maya Bridge / Max Bridge</td>
+        <td><code>segments</code>, <code>twist</code>, <code>profile</code>, <code>smoothness</code></td>
+        <td>连接管道、孔洞、机械外壳、角色肢体段。</td>
+      </tr>
+      <tr>
+        <td><code>solidify(mesh, opts)</code></td>
+        <td>Blender Solidify / Max Shell</td>
+        <td><code>thickness</code>, <code>offset</code>, <code>evenThickness</code>, <code>rim</code></td>
+        <td>薄片变壳体。衣服、外壳、叶片、金属板必备。</td>
+      </tr>
+    </table>
+
+    <h3>P2：切割、支撑线、选择</h3>
+    <table>
+      <tr><th>函数</th><th>参考工具</th><th>用途</th></tr>
+      <tr><td><code>loopCut(mesh, edgeLoop, opts)</code></td><td>Blender Loop Cut and Slide / Max Connect</td><td>插入支撑线，控制 subdivision 后硬度。</td></tr>
+      <tr><td><code>knifeCut(mesh, path, opts)</code></td><td>Blender Knife / Maya Multi-Cut</td><td>任意路径切面，给造型分割、面板线、局部结构用。</td></tr>
+      <tr><td><code>slideEdges(mesh, edges, amount)</code></td><td>Loop Cut Slide</td><td>沿相邻面滑动新边，保持表面形状。</td></tr>
+      <tr><td><code>selectEdgesByAngle()</code></td><td>硬边选择 / smoothing groups</td><td>一键选择需要 bevel 的硬边。</td></tr>
+      <tr><td><code>growSelection()</code>, <code>shrinkSelection()</code>, <code>selectBoundary()</code></td><td>DCC component selection</td><td>让 AI/脚本用语义选择局部，而非手写 index。</td></tr>
+    </table>
+
+    <h3>P3：造型扩展</h3>
+    <table>
+      <tr><th>函数</th><th>参考工具</th><th>用途</th></tr>
+      <tr><td><code>roundedBox()</code>, <code>capsule()</code>, <code>chamferCylinder()</code></td><td>3ds Max extended primitives / bevel primitives</td><td>常用游戏资产基础形体，减少布尔和手工倒角成本。</td></tr>
+      <tr><td><code>profileSweep(curve, profile)</code></td><td>Sweep / Extrude along path</td><td>电缆、管道、扶手、窗框、装饰线。</td></tr>
+      <tr><td><code>loft(curves)</code>, <code>ribbon(curve)</code></td><td>Loft / Surface</td><td>叶片、花瓣、车身片面、屋顶曲面。</td></tr>
+      <tr><td><code>lathe(profile, opts)</code></td><td>Lathe / Spin / Screw</td><td>瓶子、杯子、轮毂、柱子、旋转体。</td></tr>
+      <tr><td><code>bend()</code>, <code>twist()</code>, <code>taper()</code></td><td>Modifier stack deformers</td><td>用低维参数调整整体轮廓，适合 AI 黑盒优化。</td></tr>
+    </table>
+  </section>
+
+  <section id="workflow">
+    <h2>建模流程缺口</h2>
+    <div class="two">
+      <div class="card">
+        <strong>1. 当前函数像“直接生成最终 mesh”</strong>
+        <p>AI 写代码时只能改数字。DCC 流程更像“选择 → 操作 → 参数 → 历史”。Meshova 需要中间态：<code>Selection</code>、<code>TopoMesh</code>、<code>OpPlan</code>。</p>
+      </div>
+      <div class="card">
+        <strong>2. 当前选择太弱</strong>
+        <p><code>selectByAttr()</code> 可选法线/高度，但不够表达“选硬边”“选边界 loop”“选第 3 层窗户外框”。要补 selection DSL。</p>
+      </div>
+      <div class="card">
+        <strong>3. 当前 extrude 不像 DCC</strong>
+        <p>逐三角挤出会产生每个三角独立小棱柱。DCC 的 region extrude 需要保持连通区域、生成共享 side walls、支持 taper/offset。</p>
+      </div>
+      <div class="card">
+        <strong>4. 缺“可修复失败”的诊断</strong>
+        <p>程序化建模会经常遇到自交、重叠、零面积、非流形。算子应返回 warning，而不是静默生成坏 mesh。</p>
+      </div>
+    </div>
+
+    <h3>建议的数据流</h3>
+    <div class="flow">
+      <div class="steps">
+        <span class="step">Mesh</span><span class="arrow">→</span>
+        <span class="step">TopoMesh</span><span class="arrow">→</span>
+        <span class="step">Selection / Group</span><span class="arrow">→</span>
+        <span class="step">Operator + Options</span><span class="arrow">→</span>
+        <span class="step">Warnings</span><span class="arrow">→</span>
+        <span class="step">Mesh + debug attrs</span>
+      </div>
+    </div>
+    <p>这条链适合代码、Viewer UI、AI agent 共用。Viewer 可以显示 selection/group/warning；AI 可以根据 warning 改参数；最终仍输出普通 <code>Mesh</code>。</p>
+  </section>
+
+  <section id="roadmap">
+    <h2>推荐实现顺序</h2>
+    <div class="priority">
+      <div class="hd">阶段</div><div class="hd">做什么</div><div class="hd">验收 demo</div>
+
+      <div><b>P0</b><br><span class="small">拓扑内核</span></div>
+      <div>新增 <code>TopoMesh</code>、edge/face adjacency、boundary loops、weld/cleanup、selection group。保持 <code>Mesh</code> 作为公开渲染格式。</div>
+      <div>对 box/plane/cylinder 输出边数、边界、edge loop；坏 mesh 能给 warning。</div>
+
+      <div><b>P1</b><br><span class="small">DCC 基础三件套</span></div>
+      <div>实现 <code>extrudeRegion</code>、<code>insetFaces</code>、<code>bevelEdges</code>。先支持 quad/tri 常规场景，复杂 miter 可降级。</div>
+      <div>做一个“硬表面面板盒”：面板 inset、硬边 bevel、局部 extrude，全参数可调。</div>
+
+      <div><b>P2</b><br><span class="small">桥接/切割/支撑线</span></div>
+      <div>实现 <code>bridgeLoops</code>、<code>loopCut</code>、<code>knifeCut</code>、<code>selectEdgesByAngle</code>、<code>slideEdges</code>。</div>
+      <div>做“科幻门/机械外壳”：孔洞 bridge、支撑线、斜切面板。</div>
+
+      <div><b>P3</b><br><span class="small">常用 primitive + modifier</span></div>
+      <div>补 <code>roundedBox</code>、<code>capsule</code>、<code>lathe</code>、<code>profileSweep</code>、<code>loft</code>、<code>solidify</code>、<code>mirror</code>。</div>
+      <div>做“椅子/杯子/轮毂/小建筑”四类 demo，覆盖硬表面、旋转体、壳体、重复结构。</div>
+
+      <div><b>P4</b><br><span class="small">程序化工作流</span></div>
+      <div>把建模步骤序列化为 <code>OpPlan</code>，Viewer 显示每步参数与 debug view。支持 undo/replay/preset。</div>
+      <div>AI 截图闭环能定位“第几步 bevel 太宽/loop cut 太密/窗框太浅”。</div>
+    </div>
+  </section>
+
+  <section>
+    <h2>建议先做的垂直 demo</h2>
+    <table>
+      <tr><th>Demo</th><th>覆盖算子</th><th>价值</th></tr>
+      <tr><td>硬表面工具箱盒</td><td><code>insetFaces</code>、<code>extrudeRegion</code>、<code>bevelEdges</code>、<code>computeNormals</code></td><td>最小闭环。能直接证明 Meshova 从 primitive 拼接升级到 DCC 建模。</td></tr>
+      <tr><td>程序化建筑立面</td><td><code>facadeGrid</code>、<code>insetFaces</code>、<code>array</code>、<code>bevelEdges</code>、<code>solidify</code></td><td>最适合 AI 调参：层数、窗户密度、窗框深度、倒角半径都有语义。</td></tr>
+      <tr><td>机械外壳 / 科幻门</td><td><code>knifeCut</code>、<code>loopCut</code>、<code>bridgeLoops</code>、<code>selectEdgesByAngle</code></td><td>展示拓扑编辑能力，避免只像“图元拼装”。</td></tr>
+      <tr><td>杯子 / 花瓶 / 轮毂</td><td><code>lathe</code>、<code>profileSweep</code>、<code>bevelEdges</code>、<code>solidify</code></td><td>用少量曲线参数生成高质量可识别模型。</td></tr>
+    </table>
+  </section>
+
+  <section id="sources">
+    <h2>资料来源</h2>
+    <p>只学习公开文档中的工具语义和参数设计，不复制 DCC 源码或受限实现。</p>
+    <ul class="source-list">
+      <li>Blender Manual：<a href="https://docs.blender.org/manual/en/latest/modeling/meshes/editing/face/extrude_faces.html">Extrude Faces</a></li>
+      <li>Blender Manual：<a href="https://docs.blender.org/manual/en/latest/modeling/meshes/editing/face/inset_faces.html">Inset Faces</a></li>
+      <li>Blender Manual：<a href="https://docs.blender.org/manual/en/latest/modeling/meshes/editing/edge/bevel.html">Bevel</a></li>
+      <li>Blender Manual：<a href="https://docs.blender.org/manual/en/latest/modeling/meshes/editing/edge/bridge_edge_loops.html">Bridge Edge Loops</a></li>
+      <li>Blender Manual：<a href="https://docs.blender.org/manual/en/latest/modeling/meshes/editing/edge/loopcut_slide.html">Loop Cut and Slide</a></li>
+      <li>Blender Manual：<a href="https://docs.blender.org/manual/en/latest/modeling/meshes/editing/mesh/knife_topology_tool.html">Knife Topology Tool</a></li>
+      <li>Autodesk Maya User's Guide：<a href="https://download.autodesk.com/global/docs/maya2014/en_us/files/ModelingToolkit_extrude.htm">Extrude polygon components with the Modeling Toolkit</a></li>
+      <li>Autodesk Maya User's Guide：<a href="https://download.autodesk.com/global/docs/maya2014/en_us/files/ModelingToolkit_bevel.htm">Bevel polygons with the Modeling Toolkit</a></li>
+      <li>Autodesk Maya User's Guide：<a href="https://download.autodesk.com/global/docs/maya2014/en_us/files/ModelingToolkit_bridge.htm">Bridge polygon components with the Modeling Toolkit</a></li>
+      <li>Autodesk Maya User's Guide：<a href="https://download.autodesk.com/global/docs/maya2014/en_us/files/ModelingToolkit_cut.htm">Cut and slice polygons with the Modeling Toolkit</a></li>
+      <li>Autodesk 3ds Max Reference：<a href="https://download.autodesk.com/us/3dsmax/2012help/files/GUID-FF7D7633-03AD-4427-821A-65F8AC484CD-600.htm">Editable Poly Polygon/Element tools</a></li>
+      <li>Autodesk 3ds Max Reference：<a href="https://download.autodesk.com/us/3dsmax/2012help/files/GUID-2C16FF31-BF20-450F-8163-3362A703760-605.htm">Editable Poly Edge tools</a></li>
+    </ul>
+  </section>
+
+  <footer>
+    生成日期：2026-06-28。对照源码：<code>src/geometry/*</code>、<code>test/procedural-flow.test.ts</code>、<code>doc/houdini-procedural-modeling-study.html</code>。
+  </footer>
+</main>
+</body>
+</html>

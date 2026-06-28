@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>服装花纹纹理生成流程建议</title>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --panel2:#1c2330; --panel3:#111827;
+    --border:#2d3748; --text:#e6edf3; --muted:#93a4b7; --accent:#7ee787;
+    --accent2:#4dd0e1; --warn:#ffa657; --bad:#ff7b72; --chip:#21262d;
+    --shadow:rgba(0,0,0,.36);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    background:var(--bg);color:var(--text);
+    font-family:"Segoe UI","Microsoft YaHei",system-ui,sans-serif;
+    line-height:1.55;padding:0 0 56px;
+  }
+  header{
+    position:sticky;top:0;z-index:10;
+    background:linear-gradient(180deg,#0d1117 72%,rgba(13,17,23,.88));
+    border-bottom:1px solid var(--border);padding:18px 24px 15px;
+    backdrop-filter:blur(7px);
+  }
+  h1{font-size:22px;font-weight:760}
+  h1 span{color:var(--accent)}
+  .sub{color:var(--muted);font-size:13px;margin-top:5px;max-width:1100px}
+  .sub a{color:var(--accent2);text-decoration:none}
+  .controls{margin-top:14px;display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+  #search{
+    flex:1;min-width:230px;background:var(--panel2);border:1px solid var(--border);
+    color:var(--text);padding:10px 14px;border-radius:10px;font-size:14px;outline:none;
+  }
+  #search:focus{border-color:var(--accent)}
+  #count{color:var(--muted);font-size:13px;white-space:nowrap}
+  .cats{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+  .cat{
+    background:var(--chip);border:1px solid var(--border);color:var(--muted);
+    padding:6px 12px;border-radius:20px;font-size:13px;cursor:pointer;transition:.15s;
+  }
+  .cat:hover{color:var(--text);border-color:var(--accent)}
+  .cat.active{background:var(--accent);color:#0d1117;border-color:var(--accent);font-weight:700}
+  main{padding:24px;max-width:1420px;margin:0 auto}
+  .hero{
+    display:grid;grid-template-columns:minmax(0,1.4fr) minmax(280px,.8fr);gap:14px;margin-bottom:22px;
+  }
+  .box{
+    background:var(--panel);border:1px solid var(--border);border-radius:10px;
+    padding:16px 18px;box-shadow:0 2px 10px var(--shadow);
+  }
+  .box h2,.group h2{font-size:16px;color:var(--accent2);margin-bottom:8px}
+  .lead{font-size:16px;color:var(--text);max-width:980px}
+  .lead strong{color:var(--accent)}
+  .chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+  .chip{
+    color:var(--muted);background:var(--chip);border:1px solid var(--border);
+    border-radius:999px;padding:5px 10px;font-size:12px;
+  }
+  .chip.hot{color:#0d1117;background:var(--accent);border-color:var(--accent);font-weight:700}
+  .mini{color:var(--muted);font-size:12.5px}
+  .metric{display:grid;grid-template-columns:88px 1fr;gap:8px;font-size:13px;margin-top:8px}
+  .metric b{color:var(--accent);font-weight:700}
+  .group{margin:24px 0 32px}
+  .gdesc{color:var(--muted);font-size:13px;margin-bottom:13px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+  .card{
+    background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px 15px;
+    box-shadow:0 1px 5px var(--shadow);transition:.15s;
+  }
+  .card:hover{border-color:var(--accent);transform:translateY(-2px)}
+  .card h3{font-size:14.5px;color:var(--text);margin-bottom:6px}
+  .tag{
+    display:inline-block;font-size:10.5px;color:var(--warn);background:rgba(255,166,87,.12);
+    border-radius:5px;padding:1px 7px;margin-left:6px;vertical-align:middle;font-weight:600;
+  }
+  .card p,.card li{font-size:12.8px;color:var(--muted)}
+  .card ul{padding-left:17px}
+  .flow{display:grid;grid-template-columns:repeat(6,minmax(130px,1fr));gap:10px}
+  .step{
+    position:relative;background:var(--panel2);border:1px solid var(--border);
+    border-radius:10px;padding:12px;min-height:112px;
+  }
+  .step b{display:block;color:var(--accent);font-size:13px;margin-bottom:5px}
+  .step p{color:var(--muted);font-size:12.5px}
+  .step:after{
+    content:"";position:absolute;right:-8px;top:46px;width:12px;height:12px;
+    border-top:2px solid var(--accent2);border-right:2px solid var(--accent2);
+    transform:rotate(45deg);background:transparent;
+  }
+  .step:last-child:after{display:none}
+  table{width:100%;border-collapse:collapse;background:var(--panel);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+  th,td{border-bottom:1px solid var(--border);padding:10px 12px;text-align:left;font-size:12.8px;vertical-align:top}
+  th{color:var(--accent);background:var(--panel2);font-weight:700}
+  td{color:var(--muted)}
+  tr:last-child td{border-bottom:none}
+  code{
+    font-family:"Consolas","SF Mono",monospace;color:var(--warn);
+    background:rgba(255,166,87,.11);padding:1px 5px;border-radius:5px;
+  }
+  .priority{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}
+  .prio{border:1px solid var(--border);border-radius:10px;background:var(--panel3);padding:14px}
+  .prio h3{font-size:14px;margin-bottom:7px}
+  .prio[data-rank="0"] h3{color:var(--accent)}
+  .prio[data-rank="1"] h3{color:var(--accent2)}
+  .prio[data-rank="2"] h3{color:var(--warn)}
+  .prio p{font-size:12.8px;color:var(--muted)}
+  .warn{border-color:rgba(255,166,87,.45);background:rgba(255,166,87,.08)}
+  .bad{border-color:rgba(255,123,114,.45);background:rgba(255,123,114,.08)}
+  footer{text-align:center;color:var(--muted);font-size:12px;margin-top:30px;padding:0 24px}
+  .empty{color:var(--muted);text-align:center;padding:54px;font-size:15px}
+  mark{background:var(--accent);color:#0d1117;border-radius:3px;padding:0 2px}
+  @media (max-width:980px){
+    .hero{grid-template-columns:1fr}
+    .flow{grid-template-columns:1fr 1fr}
+    .step:after{display:none}
+  }
+  @media (max-width:620px){
+    header{padding:15px 16px}
+    main{padding:16px}
+    .flow{grid-template-columns:1fr}
+    .grid{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1><span>服装花纹</span> 纹理生成流程建议</h1>
+  <div class="sub">
+    来源：B 站合集《Substance Designer 中文软件零基础新手快速入门教程》P21-P25“SD服装花纹纹理入门教学”。
+    目标：把 SD 节点工作流抽象成 Meshova 可执行的程序化 PBR 贴图流程。
+    <a href="https://www.bilibili.com/video/BV1ki4y1D7K6?p=21" target="_blank" rel="noreferrer">打开原合集</a>
+  </div>
+  <div class="controls">
+    <input id="search" type="text" placeholder="搜索：提花 / 织物 / Tile Sampler / roughness / VLM / 评估…" autocomplete="off">
+    <span id="count"></span>
+  </div>
+  <div class="cats" id="cats"></div>
+</header>
+
+<main>
+  <section class="hero">
+    <div class="box">
+      <h2>核心结论</h2>
+      <p class="lead">
+        服装花纹不要当成一张位图。应拆成 <strong>织物底纹</strong>、<strong>装饰图案 mask</strong>、
+        <strong>变形/重复规则</strong>、<strong>height/normal/roughness 联动</strong> 四层。
+        AI 生成流程也应优化这些参数，而不是直接优化像素。
+      </p>
+      <div class="chips">
+        <span class="chip hot">程序化优先</span>
+        <span class="chip">可平铺</span>
+        <span class="chip">mask 驱动</span>
+        <span class="chip">高度分层</span>
+        <span class="chip">粗糙度相关</span>
+        <span class="chip">VLM 语义校验</span>
+      </div>
+    </div>
+    <div class="box">
+      <h2>学习范围</h2>
+      <div class="metric"><b>P21</b><span>布料底纹、基础条纹、灰度控制。</span></div>
+      <div class="metric"><b>P22</b><span>横竖纤维、编织感、mask 提取。</span></div>
+      <div class="metric"><b>P23</b><span>花纹素材 mask、变形、纹样叠到布面。</span></div>
+      <div class="metric"><b>P24</b><span>完整案例：花纹 + 织物 + 法线 + 粗糙度。</span></div>
+      <div class="metric"><b>P25</b><span>配色、输出通道、最终衣料效果。</span></div>
+      <p class="mini" style="margin-top:10px">已抽关键帧观察；不嵌入原视频画面，避免把教程内容搬进文档。</p>
+    </div>
+  </section>
+
+  <section class="group" data-cat="学习结论">
+    <h2>从教程抽象出的模式</h2>
+    <p class="gdesc">SD 节点名不是重点。重点是图案如何被拆层、重复、扰动、再映射到 PBR 通道。</p>
+    <div class="grid">
+      <article class="card searchable">
+        <h3>织物底纹 <span class="tag">Base weave</span></h3>
+        <p>横向/纵向细线 + 拉伸噪声 + 轻微 warp。底纹负责“布”的频率，不负责大花纹。</p>
+      </article>
+      <article class="card searchable">
+        <h3>花纹 mask <span class="tag">Motif mask</span></h3>
+        <p>花、藤蔓、几何纹先做黑白 mask，再决定它是印花、提花、刺绣还是金线。mask 复用到颜色、高度、粗糙度。</p>
+      </article>
+      <article class="card searchable">
+        <h3>重复与错位 <span class="tag">Tile Sampler</span></h3>
+        <p>图案靠格子重复、偏移、旋转、缩放变化产生“布料纹样”。随机必须可 seed，边界必须可平铺。</p>
+      </article>
+      <article class="card searchable">
+        <h3>方向变形 <span class="tag">Directional Warp</span></h3>
+        <p>花纹不能像贴纸。用低频布纹/褶皱场去扰动 mask，让图案贴住织物流向。</p>
+      </article>
+      <article class="card searchable">
+        <h3>高度混合 <span class="tag">Height Blend</span></h3>
+        <p>布纹微高度、花纹中高度、刺绣/金线高高度分开叠。法线从 height 来，避免 baseColor 硬转 normal。</p>
+      </article>
+      <article class="card searchable">
+        <h3>通道联动 <span class="tag">PBR coherence</span></h3>
+        <p>同一 mask 同时影响 baseColor、roughness、height、AO。否则看起来像彩色图片贴在塑料上。</p>
+      </article>
+    </div>
+  </section>
+
+  <section class="group" data-cat="流程">
+    <h2>推荐生成管线</h2>
+    <p class="gdesc">适合 Meshova：脚本优先、seed 确定、headless 截图迭代。</p>
+    <div class="flow searchable">
+      <div class="step"><b>1. 语义拆解</b><p>VLM/文本：布料类型、纹样家族、重复方式、主辅色、工艺。</p></div>
+      <div class="step"><b>2. 参数草案</b><p>输出参数，不输出位图：密度、方向、warp、motif、height、roughness。</p></div>
+      <div class="step"><b>3. 程序生成</b><p>调用 Meshova texture 函数生成 baseColor/roughness/normal/height。</p></div>
+      <div class="step"><b>4. 材质预览</b><p>球体 + 布料 drape 双预览。只看平面会漏掉法线和高光问题。</p></div>
+      <div class="step"><b>5. 自动评分</b><p>无缝、频谱、语义、PBR 合法性、通道相关性。</p></div>
+      <div class="step"><b>6. 黑盒优化</b><p>优化参数，不优化像素。保留可编辑程序图。</p></div>
+    </div>
+  </section>
+
+  <section class="group" data-cat="参数">
+    <h2>参数 schema 建议</h2>
+    <p class="gdesc">这些参数应暴露给 AI 迭代器。范围可限制，避免生成发散。</p>
+    <table class="searchable">
+      <thead><tr><th>参数组</th><th>字段</th><th>用途</th><th>建议范围</th></tr></thead>
+      <tbody>
+        <tr><td>fabric</td><td><code>weaveType</code>, <code>threadDensityU/V</code>, <code>threadAngle</code></td><td>控制平纹、斜纹、缎纹、针织等底层结构。</td><td>密度 16-160；角度 0-180°。</td></tr>
+        <tr><td>fiber</td><td><code>fiberScale</code>, <code>fiberStretch</code>, <code>fiberNoise</code></td><td>产生布料微纤维，影响 height/roughness。</td><td>stretch U/V 分开；noise 强度 0-0.25。</td></tr>
+        <tr><td>motif</td><td><code>motifFamily</code>, <code>repeatU/V</code>, <code>symmetry</code>, <code>motifScale</code></td><td>花、藤、几何、点阵、条纹、格纹等装饰 mask。</td><td>repeat 1-24；scale 0.15-1.5。</td></tr>
+        <tr><td>distortion</td><td><code>warpScale</code>, <code>warpStrength</code>, <code>warpDirection</code></td><td>让图案跟随织物流向，避免贴纸感。</td><td>strength 0-12 px；低频优先。</td></tr>
+        <tr><td>layering</td><td><code>printDepth</code>, <code>embroideryDepth</code>, <code>edgeBevel</code></td><td>决定印花/提花/刺绣差异。</td><td>印花接近 0；刺绣最高。</td></tr>
+        <tr><td>color</td><td><code>basePalette</code>, <code>motifPalette</code>, <code>colorBleed</code></td><td>颜色只由 mask 和调色板映射，避免直接烘参考图。</td><td>2-5 色；bleed 0-0.2。</td></tr>
+        <tr><td>pbr</td><td><code>roughnessBase</code>, <code>roughnessDelta</code>, <code>normalStrength</code>, <code>metallicMask</code></td><td>通道联动。布料 metallic 默认 0，金线/烫金局部可开。</td><td>roughness 0.55-0.95；normal 0.5-4。</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="group" data-cat="Meshova">
+    <h2>Meshova 落地建议</h2>
+    <p class="gdesc">现有 texture 模块已经覆盖很多 SD 等价能力。补缺点集中在服装纹样 preset 和更强的 motif 布局。</p>
+    <div class="priority">
+      <div class="prio searchable" data-rank="0">
+        <h3>P0：新增 cloth material builder</h3>
+        <p>做 <code>clothWeave()</code>、<code>jacquard()</code>、<code>printedFabric()</code>、<code>embroideredFabric()</code>。输出 <code>MaterialFields</code>，接 <code>materialFromFields</code>。</p>
+      </div>
+      <div class="prio searchable" data-rank="0">
+        <h3>P0：通道相关性约束</h3>
+        <p>同一个 motif mask 驱动 baseColor/roughness/height。加测试：花纹区 roughness/height 差异可解释，metallic 只在金线工艺出现。</p>
+      </div>
+      <div class="prio searchable" data-rank="1">
+        <h3>P1：增强 Tile Sampler</h3>
+        <p>当前已有 <code>tileSampler</code>。建议加 stagger、mirror、brick offset、row/column seed、per-instance mask 输出，支持织锦/壁纸式连续花纹。</p>
+      </div>
+      <div class="prio searchable" data-rank="1">
+        <h3>P1：各向异性噪声</h3>
+        <p>服装纹理常是拉长纤维。新增 <code>anisotropicFbm</code> 或给现有 fBm 包一层旋转/缩放 UV。</p>
+      </div>
+      <div class="prio searchable" data-rank="2">
+        <h3>P2：VLM 参数提取</h3>
+        <p>参考图只做语义拆解：布料类型、花纹类型、重复密度、颜色、工艺。禁止直接把参考图转贴图。</p>
+      </div>
+      <div class="prio searchable" data-rank="2">
+        <h3>P2：评分闭环</h3>
+        <p>截图送 VLM + 本地指标。优化参数，回写 seed 和 schema。失败样例保存到 <code>out/</code>。</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="group" data-cat="材质类型">
+    <h2>工艺类型与通道策略</h2>
+    <p class="gdesc">同样是“花纹”，PBR 策略不同。</p>
+    <div class="grid">
+      <article class="card searchable">
+        <h3>印花布 <span class="tag">Printed</span></h3>
+        <p>花纹主要进 baseColor。height 很低，roughness 小幅变化。边缘可有轻微渗色/褪色。</p>
+      </article>
+      <article class="card searchable">
+        <h3>提花 / 织锦 <span class="tag">Jacquard</span></h3>
+        <p>花纹和底布共享织物方向。motif 改变纱线亮度、粗糙度、微高度，不像油墨盖在上面。</p>
+      </article>
+      <article class="card searchable">
+        <h3>刺绣 <span class="tag">Embroidery</span></h3>
+        <p>motif 高度最高。花纹内部要有独立 thread direction，边缘 bevel 明显，AO 加强。</p>
+      </article>
+      <article class="card searchable">
+        <h3>烫金 / 金线 <span class="tag">Metallic accent</span></h3>
+        <p>base fabric metallic=0。只有金线 mask 局部 metallic=1 或高 F0，roughness 更低，normal 仍保留纤维。</p>
+      </article>
+      <article class="card searchable">
+        <h3>格纹 / 条纹 <span class="tag">Plaid</span></h3>
+        <p>用横竖 stripe field 组合，不用图片。交叉处可颜色叠加，height/roughness 跟随纱线密度。</p>
+      </article>
+      <article class="card searchable">
+        <h3>旧布 / 磨损 <span class="tag">Worn cloth</span></h3>
+        <p>磨损 mask 应受褶皱/边缘/高点影响。污渍、褪色走低频，不破坏基础可平铺。</p>
+      </article>
+    </div>
+  </section>
+
+  <section class="group" data-cat="评估">
+    <h2>自动评估指标</h2>
+    <p class="gdesc">这些指标适合接 Meshova headless 截图闭环。</p>
+    <table class="searchable">
+      <thead><tr><th>指标</th><th>检查什么</th><th>失败信号</th><th>修正参数</th></tr></thead>
+      <tbody>
+        <tr><td>Seam score</td><td>左右/上下边界像素差、法线差、粗糙度差。</td><td>平铺缝明显。</td><td>提高 makeTile band，降低大尺度不连续 warp。</td></tr>
+        <tr><td>Frequency band</td><td>低频花纹、中频编织、高频纤维是否分层。</td><td>全图同频噪声，像脏墙。</td><td>分离 motifScale、threadDensity、fiberScale。</td></tr>
+        <tr><td>Channel coherence</td><td>height/normal/roughness 是否跟 motif mask 相关。</td><td>颜色有花，法线无花；或 roughness 随机。</td><td>用同源 mask 驱动多通道。</td></tr>
+        <tr><td>Material legality</td><td>布料 metallic、roughness、normalStrength 是否物理合理。</td><td>布像金属/塑料。</td><td>metallic 归零，roughness 上调，法线强度限幅。</td></tr>
+        <tr><td>VLM descriptor</td><td>预览图是否被描述成目标布料和目标花纹。</td><td>目标“刺绣”，结果被看成“印花”。</td><td>提高 embroideryDepth、edgeBevel、threadDirection。</td></tr>
+        <tr><td>Readability</td><td>远看仍能认出大花纹，近看有纤维。</td><td>花纹碎、糊、太密。</td><td>降低 repeat，提高 motif contrast，减少 warpStrength。</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="group" data-cat="节点映射">
+    <h2>SD 思路到 Meshova 函数映射</h2>
+    <p class="gdesc">按现有代码命名整理，方便后续实现。</p>
+    <table class="searchable">
+      <thead><tr><th>SD 工作流概念</th><th>Meshova 现有能力</th><th>建议补强</th></tr></thead>
+      <tbody>
+        <tr><td>Shape / Pattern</td><td><code>shape</code>, <code>star</code>, <code>dots</code>, <code>stripes</code>, <code>wave</code></td><td>补 motif library：叶片、藤蔓、花瓣、paisley、传统纹样轮廓。</td></tr>
+        <tr><td>Tile Sampler</td><td><code>tileSampler</code></td><td>补 stagger、mirror、per-instance outputs、tile priority。</td></tr>
+        <tr><td>Directional Warp</td><td><code>warp</code></td><td>补 angle field / vector warp，支持经纬向不同扰动。</td></tr>
+        <tr><td>Histogram / Levels</td><td><code>histogramScan</code>, <code>histogramRange</code>, <code>levels</code>, <code>curve</code></td><td>补 auto levels 和 mask cleanup。</td></tr>
+        <tr><td>Height Blend / Bevel</td><td><code>blendTex</code>, <code>distanceField</code>, <code>bevel</code>, <code>emboss</code></td><td>补 height blend helper：带优先级、范围压缩、边缘过渡。</td></tr>
+        <tr><td>Normal / AO</td><td><code>heightToNormal</code>, <code>normalCombine</code>, <code>aoFromHeight</code></td><td>补 cloth-specific normal clamp，防止纤维变成硬塑料沟槽。</td></tr>
+        <tr><td>Gradient Map / Color</td><td><code>gradientMap</code>, <code>ramp</code>, <code>blendColor</code></td><td>补 palette constraints：主色、辅色、金线色、褪色偏移。</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="group" data-cat="反模式">
+    <h2>反模式</h2>
+    <p class="gdesc">这些会破坏 Meshova “程序化 + 可迭代”的目标。</p>
+    <div class="grid">
+      <article class="card bad searchable">
+        <h3>直接图生贴图</h3>
+        <p>像素看似接近，但不可编辑、不可泛化、不能稳定平铺。只允许参考图做语义和参数提取。</p>
+      </article>
+      <article class="card bad searchable">
+        <h3>从 baseColor 猜 normal</h3>
+        <p>颜色边界不是高度边界。normal 应由 height stack 生成，颜色只是外观层。</p>
+      </article>
+      <article class="card bad searchable">
+        <h3>roughness 独立噪声</h3>
+        <p>粗糙度和纤维/花纹无关时，高光会乱。roughness 应绑定 weave/motif/wear mask。</p>
+      </article>
+      <article class="card warn searchable">
+        <h3>把褶皱烘进平铺材质</h3>
+        <p>服装大褶皱属于几何或局部 mask。平铺材质只放微褶和布纹，避免重复假褶。</p>
+      </article>
+      <article class="card warn searchable">
+        <h3>无限制 warp</h3>
+        <p>warp 过强会毁花纹识别。大花纹轻扰动，高频纤维可强扰动。</p>
+      </article>
+      <article class="card warn searchable">
+        <h3>全图单一尺度</h3>
+        <p>真实布料有三层尺度：图案、编织、纤维。缺一层就假。</p>
+      </article>
+    </div>
+  </section>
+
+  <section class="group" data-cat="实施清单">
+    <h2>下一步实施清单</h2>
+    <p class="gdesc">按收益排序。</p>
+    <table class="searchable">
+      <thead><tr><th>顺序</th><th>任务</th><th>验收</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>加 <code>printedFabric</code> 和 <code>jacquardFabric</code> 两个 preset。</td><td>生成 baseColor/roughness/normal/height，<code>validateMaterial</code> 通过。</td></tr>
+        <tr><td>2</td><td>补 <code>anisotropicFbm</code>，或封装旋转/缩放 UV 的噪声采样。</td><td>能生成横向、纵向、斜向纤维；seed 稳定。</td></tr>
+        <tr><td>3</td><td>增强 <code>tileSampler</code>：stagger/mirror/brick offset。</td><td>能做格纹、提花重复、错列花纹。</td></tr>
+        <tr><td>4</td><td>加 cloth preview：球体 + 布料垂坠 mesh 双视图。</td><td>headless 截图能同时看平铺和衣服表面效果。</td></tr>
+        <tr><td>5</td><td>加评分：seam、frequency、channel coherence、VLM descriptor。</td><td>AI 能自动调参，不靠人工肉眼每次看。</td></tr>
+      </tbody>
+    </table>
+  </section>
+</main>
+
+<footer>
+  参考源：Bilibili BV1ki4y1D7K6 P21-P25；节点概念参考 Substance Designer 常见节点工作流。本文为流程抽象，不复刻教程素材。
+</footer>
+
+<script>
+const catButtons = document.getElementById("cats");
+const search = document.getElementById("search");
+const count = document.getElementById("count");
+const groups = [...document.querySelectorAll(".group")];
+const searchable = [...document.querySelectorAll(".searchable")];
+const cats = ["全部", ...groups.map(g => g.dataset.cat)];
+let active = "全部";
+
+function norm(s){ return (s || "").toLowerCase().trim(); }
+function markText(el, q){
+  if (!el.dataset.raw) el.dataset.raw = el.innerHTML;
+  el.innerHTML = el.dataset.raw;
+  if (!q) return;
+  const safe = q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  el.innerHTML = el.innerHTML.replace(new RegExp(safe, "gi"), m => `<mark>${m}</mark>`);
+}
+function renderCats(){
+  catButtons.innerHTML = cats.map(c => `<button class="cat ${c === active ? "active" : ""}" data-cat="${c}">${c}</button>`).join("");
+  catButtons.querySelectorAll(".cat").forEach(btn => btn.addEventListener("click", () => {
+    active = btn.dataset.cat;
+    renderCats();
+    filter();
+  }));
+}
+function filter(){
+  const q = norm(search.value);
+  let visible = 0;
+  groups.forEach(g => {
+    const catOk = active === "全部" || g.dataset.cat === active;
+    const items = [...g.querySelectorAll(".searchable")];
+    let groupHas = false;
+    items.forEach(it => {
+      const text = norm(it.textContent);
+      const ok = catOk && (!q || text.includes(q));
+      it.style.display = ok ? "" : "none";
+      if (ok) { visible++; groupHas = true; }
+      markText(it, q);
+    });
+    g.style.display = catOk && (!q || groupHas) ? "" : "none";
+  });
+  count.textContent = `显示 ${visible} 项`;
+}
+search.addEventListener("input", filter);
+renderCats();
+filter();
+</script>
+</body>
+</html>

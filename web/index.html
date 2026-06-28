@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Meshova · 查看器</title>
+<style>
+  :root{--bg:#0d1117;--panel:#161b22;--line:#30363d;--txt:#e6edf3;--mut:#9aa7b4;--acc:#58a6ff;--acc2:#7ee787;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{height:100%;background:var(--bg);color:var(--txt);
+    font:14px/1.6 -apple-system,"Segoe UI","Microsoft YaHei",sans-serif;overflow:hidden;}
+  #app{display:flex;flex-direction:column;height:100vh;}
+  /* top toolbar */
+  #bar{display:flex;align-items:center;gap:18px;flex-wrap:wrap;
+    background:var(--panel);border-bottom:1px solid var(--line);padding:8px 14px;}
+  #bar .brand{font-size:15px;font-weight:600;letter-spacing:.5px;margin-right:6px;}
+  #bar .back{color:var(--mut);font-size:13px;text-decoration:none;padding:4px 10px;
+    border:1px solid var(--line);border-radius:6px;}
+  #bar .back:hover{border-color:var(--acc);color:var(--acc);}
+  #bar .seg{display:flex;align-items:center;gap:6px;}
+  #bar .seg > .label{color:var(--mut);font-size:11px;}
+  #main{flex:1;display:flex;min-height:0;}
+  #side{width:210px;flex:0 0 210px;background:var(--panel);border-right:1px solid var(--line);
+    padding:14px;display:flex;flex-direction:column;gap:10px;overflow:auto;}
+  #stage{flex:1;position:relative;min-width:0;}
+  #right{width:250px;flex:0 0 250px;background:var(--panel);border-left:1px solid var(--line);
+    padding:14px;display:flex;flex-direction:column;gap:12px;overflow:auto;}
+  canvas{display:block;width:100%;height:100%;}
+  .label{color:var(--mut);font-size:11px;text-transform:uppercase;letter-spacing:.5px;}
+  select,button{background:#1c2330;color:var(--txt);border:1px solid var(--line);
+    border-radius:6px;padding:6px 9px;font:inherit;cursor:pointer;}
+  button:hover,select:hover{border-color:var(--acc);}
+  button.on{border-color:var(--acc2);color:var(--acc2);}
+  button.mini{padding:4px 8px;font-size:12px;}
+  #parts{display:flex;flex-direction:column;gap:3px;overflow:auto;}
+  .part{display:flex;align-items:center;gap:7px;font-size:12px;cursor:pointer;
+    padding:4px 6px;border-radius:5px;border:1px solid transparent;}
+  .part:hover{background:#1c2330;}
+  .part.sel{border-color:var(--acc2);background:#1c2a22;color:var(--acc2);}
+  .sw{width:11px;height:11px;border-radius:3px;border:1px solid #0008;flex:0 0 auto;}
+  .pgroup{display:flex;flex-direction:column;gap:5px;}
+  .pgroup .row{display:flex;justify-content:space-between;font-size:12px;}
+  .pgroup .row .val{color:var(--acc2);font-variant-numeric:tabular-nums;}
+  .pgroup-title{color:var(--acc);font-size:11px;text-transform:uppercase;letter-spacing:.5px;
+    border-top:1px solid var(--line);padding-top:10px;margin-top:6px;}
+  #matparams{display:flex;flex-direction:column;gap:10px;}
+  input[type=color]{width:42px;height:20px;border:1px solid var(--line);border-radius:4px;background:none;cursor:pointer;padding:0;}
+  input[type=range]{width:100%;accent-color:var(--acc);}
+  #meta{color:var(--mut);font-size:12px;border-top:1px solid var(--line);padding-top:8px;margin-top:auto;}
+  #meta b{color:var(--txt);}
+  #hud{position:absolute;left:12px;bottom:12px;color:var(--mut);font-size:12px;
+    background:#0d1117cc;border:1px solid var(--line);border-radius:6px;padding:5px 9px;pointer-events:none;}
+  #err{position:absolute;inset:0;display:none;align-items:center;justify-content:center;
+    color:#ff7b72;font-size:13px;padding:20px;text-align:center;}
+  #script-panel{position:absolute;top:12px;right:12px;bottom:12px;width:min(720px,calc(100% - 24px));
+    display:none;flex-direction:column;background:#0d1117f2;border:1px solid var(--line);
+    border-radius:8px;box-shadow:0 18px 60px #0009;overflow:hidden;z-index:5;}
+  #script-panel.open{display:flex;}
+  .script-head{display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--line);
+    background:#161b22;padding:8px 10px;}
+  .script-title{font-size:13px;font-weight:600;margin-right:auto;}
+  #script-panel pre{flex:1;overflow:auto;padding:12px;background:#0b0f16;color:#dbe8ff;
+    font:12px/1.55 "Cascadia Code","Consolas","SFMono-Regular",monospace;white-space:pre;}
+  #script-panel code{font:inherit;}
+</style>
+</head>
+<body>
+<div id="app">
+  <header id="bar">
+    <a class="back" href="/web/gallery.html" title="返回模型库">← 模型库</a>
+    <span class="brand">Meshova</span>
+    <div class="seg">
+      <span class="label">环境</span>
+      <select id="env"></select>
+      <input id="envrot" type="range" min="0" max="360" step="5" value="0" title="环境旋转" />
+    </div>
+    <div class="seg">
+      <span class="label">背景</span>
+      <select id="bgmode">
+        <option value="env">环境天空</option>
+        <option value="solid">纯色</option>
+        <option value="gradient">渐变</option>
+        <option value="transparent">透明</option>
+      </select>
+      <input id="bgcolor" type="color" value="#10141c" title="背景色 / 渐变上" />
+      <input id="bgcolor2" type="color" value="#05070b" title="渐变下" />
+    </div>
+    <div class="seg">
+      <span class="label">视角</span>
+      <button data-view="persp" class="mini on">透视</button>
+      <button data-view="front" class="mini">正视</button>
+      <button data-view="side" class="mini">侧视</button>
+      <button data-view="top" class="mini">俯视</button>
+    </div>
+    <div class="seg">
+      <span class="label">显示</span>
+      <button id="wire" class="mini">线框</button>
+      <button id="autorot" class="mini">自转</button>
+      <button id="grid" class="mini on">网格</button>
+      <button id="script-toggle" class="mini" title="查看当前程序化模型与材质脚本">脚本</button>
+      <button id="reset" class="mini">复位</button>
+    </div>
+    <div class="seg">
+      <span class="label">调试视图</span>
+      <select id="debug">
+        <option value="off">关闭（PBR）</option>
+        <option value="toon">卡通 / 二次元</option>
+        <option value="normal">法线</option>
+        <option value="matcap">Matcap 泥膜</option>
+        <option value="depth">深度</option>
+        <option value="ao">环境光遮蔽</option>
+      </select>
+    </div>
+    <div class="seg" id="toon-ctl" style="display:none">
+      <span class="label">卡通</span>
+      <label class="mini" title="色阶分段数">段<input id="toon-steps" type="range" min="2" max="6" step="1" value="4" style="width:60px;vertical-align:middle"></label>
+      <label class="mini" title="描边粗细">边<input id="toon-outline" type="range" min="0" max="0.04" step="0.002" value="0.012" style="width:60px;vertical-align:middle"></label>
+      <input id="toon-color" type="color" value="#12141a" title="描边颜色" style="width:28px;height:22px;vertical-align:middle;padding:0;border:none;background:none">
+    </div>
+    <div class="seg">
+      <span class="label">质感增强</span>
+      <button id="edgewear" class="mini" title="曲率边缘磨损：凸边露金属">边缘磨损</button>
+      <button id="pom" class="mini" title="视差遮蔽：高度图自遮挡深度">视差POM</button>
+      <button id="rim" class="mini" title="菲涅尔边缘光：分离主体与背景">边缘光</button>
+      <button id="fog" class="mini" title="体积雾 + 太阳光束(god rays)">体积雾</button>
+    </div>
+    <div class="seg">
+      <span class="label">地面</span>
+      <select id="floor">
+        <option value="shadow">仅阴影</option>
+        <option value="glossy">光泽</option>
+        <option value="mirror">镜面</option>
+      </select>
+      <button id="dof" class="mini">景深</button>
+    </div>
+    <div class="seg">
+      <span class="label">OpPlan</span>
+      <button id="plan-load" class="mini" title="从剪贴板/输入加载 OpPlan JSON">加载计划</button>
+      <button id="plan-full" class="mini" title="渲染完整计划">完整</button>
+    </div>
+  </header>
+  <div id="main">
+    <aside id="side">
+      <span class="label">部件（点击选中）</span>
+      <div id="parts"></div>
+      <div id="meta"></div>
+      <div id="plan-panel" style="display:none">
+        <span class="label">OpPlan 步骤（点击查看中间态）</span>
+        <div id="plan-steps"></div>
+        <div id="plan-info"></div>
+      </div>
+    </aside>
+    <main id="stage">
+      <div id="hud"></div>
+      <div id="err"></div>
+      <div id="script-panel" aria-hidden="true">
+        <div class="script-head">
+          <span class="script-title">当前程序化脚本</span>
+          <button id="script-copy" class="mini">复制</button>
+          <button id="script-close" class="mini">关闭</button>
+        </div>
+        <pre><code id="script-code"></code></pre>
+      </div>
+    </main>
+    <aside id="right">
+      <span class="label">程序化参数</span>
+      <div id="params"></div>
+      <div id="matparams"></div>
+    </aside>
+  </div>
+</div>
+<script type="importmap">
+{ "imports": {
+  "three": "/web/vendor/three.module.js",
+  "three/addons/": "/web/vendor/addons/"
+} }
+</script>
+<script type="module" src="/web/viewer.js"></script>
+</body>
+</html>

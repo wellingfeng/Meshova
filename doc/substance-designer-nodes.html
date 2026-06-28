@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Substance Designer 节点速查</title>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --panel2:#1c2330; --border:#2d3748;
+    --text:#e6edf3; --muted:#8b97a7; --accent:#ff8a3d; --accent2:#4dd0e1;
+    --chip:#21262d; --shadow:rgba(0,0,0,.4);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:"Segoe UI","Microsoft YaHei",system-ui,sans-serif;line-height:1.5;padding:0 0 60px}
+  header{position:sticky;top:0;z-index:10;background:linear-gradient(180deg,#0d1117 70%,rgba(13,17,23,.85));border-bottom:1px solid var(--border);padding:18px 24px 14px;backdrop-filter:blur(6px)}
+  h1{font-size:22px;font-weight:700;letter-spacing:.5px}
+  h1 span{color:var(--accent)}
+  .sub{color:var(--muted);font-size:13px;margin-top:4px}
+  .controls{margin-top:14px;display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+  #search{flex:1;min-width:220px;background:var(--panel2);border:1px solid var(--border);color:var(--text);
+    padding:10px 14px;border-radius:10px;font-size:14px;outline:none}
+  #search:focus{border-color:var(--accent)}
+  #count{color:var(--muted);font-size:13px;white-space:nowrap}
+  .cats{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+  .cat{background:var(--chip);border:1px solid var(--border);color:var(--muted);padding:6px 12px;
+    border-radius:20px;font-size:13px;cursor:pointer;transition:.15s;user-select:none}
+  .cat:hover{color:var(--text);border-color:var(--accent)}
+  .cat.active{background:var(--accent);color:#161b22;border-color:var(--accent);font-weight:600}
+  main{padding:24px;max-width:1400px;margin:0 auto}
+  .group{margin-bottom:34px}
+  .group h2{font-size:16px;color:var(--accent2);border-left:3px solid var(--accent2);
+    padding-left:10px;margin-bottom:4px}
+  .group .gdesc{color:var(--muted);font-size:12.5px;margin:0 0 14px 13px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:13px 15px;
+    transition:.15s;box-shadow:0 1px 3px var(--shadow)}
+  .card:hover{border-color:var(--accent);transform:translateY(-2px)}
+  .card .nm{font-size:14.5px;font-weight:600;color:var(--text)}
+  .card .tag{display:inline-block;font-size:10.5px;color:var(--accent);background:rgba(255,138,61,.12);
+    border-radius:5px;padding:1px 7px;margin-left:6px;vertical-align:middle}
+  .card .ds{font-size:12.8px;color:var(--muted);margin-top:6px}
+  .empty{color:var(--muted);text-align:center;padding:60px;font-size:15px}
+  footer{text-align:center;color:var(--muted);font-size:12px;margin-top:30px;padding:0 24px}
+  mark{background:var(--accent);color:#161b22;border-radius:3px;padding:0 2px}
+</style>
+</head>
+<body>
+<header>
+  <h1><span>Substance</span> Designer 节点速查</h1>
+  <div class="sub">程序化材质节点库 · 名称 + 分类 + 用途 · 支持搜索与分类过滤</div>
+  <div class="controls">
+    <input id="search" type="text" placeholder="搜索节点名 / 用途关键字（中英文均可）…" autocomplete="off">
+    <span id="count"></span>
+  </div>
+  <div class="cats" id="cats"></div>
+</header>
+<main id="main"></main>
+<footer>数据为常见 Substance Designer 节点整理，供速查参考；实际节点库以软件版本为准。</footer>
+
+<script>
+const NODES = [
+// ===== 噪声 Noises =====
+{cat:"噪声 Noises",nm:"Perlin Noise",ds:"经典梯度噪声，平滑连续的随机灰度，材质细节与扰动的万能底图。"},
+{cat:"噪声 Noises",nm:"Perlin Noise Zoom",ds:"带缩放控制的 Perlin，可调单一频率，常作扰动源。"},
+{cat:"噪声 Noises",nm:"Fractal Sum Noise",alt:"fBm",ds:"多个频率噪声叠加（分形布朗），产生云朵状层次细节。"},
+{cat:"噪声 Noises",nm:"Fractal Sum Base",ds:"分形噪声基础单元，供叠加构建自定义 fBm。"},
+{cat:"噪声 Noises",nm:"Gaussian Noise",ds:"高斯分布白噪声，颗粒均匀，常用作粗糙度/抖动种子。"},
+{cat:"噪声 Noises",nm:"White Noise",ds:"纯随机白噪声，每像素独立，散布与随机化的基础。"},
+{cat:"噪声 Noises",nm:"Cloud 1 / 2 / 3",ds:"不同尺度的云状柔和噪声，做大块斑驳与污渍底色。"},
+{cat:"噪声 Noises",nm:"BnW Spots 1 / 2 / 3",ds:"黑白斑点噪声，颗粒/斑块感，磨损与脏污遮罩常用。"},
+{cat:"噪声 Noises",nm:"Voronoi",ds:"细胞/泰森多边形噪声，石块、皮革、龟裂结构基础。"},
+{cat:"噪声 Noises",nm:"Voronoi Fractal",ds:"多层 Voronoi 叠加，复杂裂纹与细胞分形。"},
+{cat:"噪声 Noises",nm:"Crystal 1 / 2",ds:"晶体状多边形噪声，玻璃、矿物、碎裂面。"},
+{cat:"噪声 Noises",nm:"Cells 1 / 2 / 3 / 4",ds:"细胞噪声变体，气泡、皮肤、有机结构遮罩。"},
+{cat:"噪声 Noises",nm:"Microscope View",ds:"显微镜般的细胞群噪声，有机/生物表面。"},
+{cat:"噪声 Noises",nm:"Liquid",ds:"液体流动状噪声，水渍、油膜、流痕。"},
+{cat:"噪声 Noises",nm:"Clouds",ds:"大尺度云团噪声，天空盒与柔和遮罩。"},
+{cat:"噪声 Noises",nm:"Grunge Map 001–025",ds:"成套灰度做旧贴图集，污渍/划痕/磨损/水渍的现成遮罩库。"},
+{cat:"噪声 Noises",nm:"Dirt 1–5",ds:"灰尘/污垢类噪声集，凹陷积灰与脏污分布。"},
+{cat:"噪声 Noises",nm:"Damas",ds:"水波/大马士革纹理噪声，金属与布料花纹。"},
+{cat:"噪声 Noises",nm:"Messy Fibers 1 / 2 / 3",ds:"凌乱纤维噪声，布料、纸张、毛发底纹。"},
+{cat:"噪声 Noises",nm:"Fluid",ds:"流体湍流噪声，烟雾、流体扰动。"},
+{cat:"噪声 Noises",nm:"Plasma",ds:"等离子彩色波动噪声，能量/特效贴图。"},
+{cat:"噪声 Noises",nm:"Anisotropic Noise",ds:"各向异性拉伸噪声，拉丝金属、毛发方向纹理。"},
+{cat:"噪声 Noises",nm:"Directional Noise 1–5",ds:"带方向性的条纹噪声，木纹、拉丝、流向。"},
+{cat:"噪声 Noises",nm:"Creased",ds:"折痕状噪声，皮革、布料褶皱。"},
+{cat:"噪声 Noises",nm:"Moisture Noise",ds:"湿度斑驳噪声，潮湿与水渍分布。"},
+{cat:"噪声 Noises",nm:"Grunge Galvanic Small",ds:"电镀腐蚀细颗粒噪声，金属表面微观瑕疵。"},
+// ===== 图案 Patterns =====
+{cat:"图案 Patterns",nm:"Shape",ds:"基础形状发生器：方形、圆、三角、贝塞尔等，拼装一切图案的积木。"},
+{cat:"图案 Patterns",nm:"Tile Generator",ds:"最强大的瓦片排布器，把输入图案按行列、随机大小/旋转/颜色铺满画布。"},
+{cat:"图案 Patterns",nm:"Tile Sampler",ds:"Tile Generator 进阶版，支持向量场/遮罩驱动的分布与扰动。"},
+{cat:"图案 Patterns",nm:"Tile Random",ds:"随机瓦片排布，快速生成不规则平铺。"},
+{cat:"图案 Patterns",nm:"Splatter",ds:"沿圆形/路径喷溅式散布图案，飞溅、点缀。"},
+{cat:"图案 Patterns",nm:"Splatter Circular",ds:"环形喷溅分布，齿轮、表盘、放射状布局。"},
+{cat:"图案 Patterns",nm:"Brick Generator",ds:"砖块墙体发生器，可控错缝、缝隙、随机化。"},
+{cat:"图案 Patterns",nm:"Brick Generator Advanced",ds:"高级砖墙，逐排参数、随机种子与磨边控制。"},
+{cat:"图案 Patterns",nm:"Mesh Generator",ds:"网格/格栅图案，金属网、栅栏。"},
+{cat:"图案 Patterns",nm:"Polygon 1 / 2",ds:"多边形发生器，可调边数与圆角。"},
+{cat:"图案 Patterns",nm:"Star",ds:"星形发生器，可调角数。"},
+{cat:"图案 Patterns",nm:"Gradient Linear 1/2/3",ds:"线性渐变，遮罩与高度过渡基础。"},
+{cat:"图案 Patterns",nm:"Gradient Axial / Radial",ds:"轴向/径向渐变，圆形过渡与球面感。"},
+{cat:"图案 Patterns",nm:"Gradient Map",ds:"按灰度查色，把高度/噪声映射为彩色渐变。"},
+{cat:"图案 Patterns",nm:"Shape Splatter",ds:"形状散布器，结合遮罩沿表面分散图案。"},
+{cat:"图案 Patterns",nm:"Shape Splatter Data Extract",ds:"提取散布实例数据（位置/大小），供后续着色。"},
+{cat:"图案 Patterns",nm:"Checker 1",ds:"棋盘格，UV 检查与规则交替图案。"},
+{cat:"图案 Patterns",nm:"Stripes",ds:"条纹发生器，可调宽度与方向。"},
+{cat:"图案 Patterns",nm:"Weave / Weave Generator",ds:"编织图案，布料、藤编、网格织物。"},
+{cat:"图案 Patterns",nm:"Scratches Generator",ds:"划痕发生器，方向/密度可控，做旧磨损。"},
+{cat:"图案 Patterns",nm:"Arc Pavement",ds:"扇形铺路石图案，地砖与拱形排布。"},
+{cat:"图案 Patterns",nm:"Panel / Floor Generator",ds:"地板/面板拼接发生器，木地板、瓷砖布局。"},
+// ===== 生成器 Generators =====
+{cat:"生成器 Generators",nm:"Scales Generator",ds:"鳞片发生器，鱼鳞、龙鳞、屋瓦排布。"},
+{cat:"生成器 Generators",nm:"Stone Generator",ds:"石块发生器，碎石、铺路石、岩石表面。"},
+{cat:"生成器 Generators",nm:"Wood Generator",ds:"木纹发生器，年轮与纹理一体化生成。"},
+{cat:"生成器 Generators",nm:"Fur Generator",ds:"毛发发生器，绒毛、地毯、皮草。"},
+{cat:"生成器 Generators",nm:"Stitch / Stitches",ds:"缝线发生器，沿路径生成线脚，皮革与布料。"},
+{cat:"生成器 Generators",nm:"Leather Generator",ds:"皮革表面发生器，毛孔与褶皱一体。"},
+{cat:"生成器 Generators",nm:"Bricks Generators (各类)",ds:"成套砖墙预设：堆砌、人字、随机错缝。"},
+{cat:"生成器 Generators",nm:"Metal Plate Generator",ds:"金属板发生器，螺钉、铆钉、菱形花纹。"},
+{cat:"生成器 Generators",nm:"Galvanic Metal",ds:"电镀金属表面，腐蚀斑与镀层效果。"},
+{cat:"生成器 Generators",nm:"Concrete Generator",ds:"混凝土表面，气孔、骨料、裂纹。"},
+{cat:"生成器 Generators",nm:"Tile Concrete / Pavement",ds:"水泥砖与铺装地面成品生成。"},
+{cat:"生成器 Generators",nm:"Grass Generator",ds:"草地发生器，叶片散布与方向。"},
+{cat:"生成器 Generators",nm:"Cells / Honeycomb",ds:"蜂窝六边形发生器，规则细胞结构。"},
+// ===== 滤镜 Filters / Adjustments =====
+{cat:"滤镜 Filters / Adjustments",nm:"Blur",ds:"均匀模糊，柔化细节与过渡。"},
+{cat:"滤镜 Filters / Adjustments",nm:"Blur HQ",ds:"高质量高斯模糊，平滑无方块。"},
+{cat:"滤镜 Filters / Adjustments",nm:"Directional Blur",ds:"方向模糊，运动拉伸与拉丝效果。"},
+{cat:"滤镜 Filters / Adjustments",nm:"Slope Blur",ds:"沿坡度模糊，侵蚀、流淌、熔化的核心算子。"},
+{cat:"滤镜 Filters / Adjustments",nm:"Slope Blur Grayscale",ds:"灰度版坡度模糊，做侵蚀与污渍流向。"},
+{cat:"滤镜 Filters / Adjustments",nm:"Bevel",ds:"距离场倒角，从遮罩生成斜边/高度，砖缝凸起。"},
+{cat:"滤镜 Filters / Adjustments",nm:"Distance",ds:"距离场，计算到形状边缘距离，遮罩扩散。"},
+{cat:"滤镜 Filters / Adjustments",nm:"Levels",ds:"色阶，调整输入/输出黑白点与中间调。"},
+{cat:"滤镜 Filters / Adjustments",nm:"Curve",ds:"曲线，自由重映射灰度/颜色响应。"},
+{cat:"滤镜 Filters / Adjustments",nm:"Histogram Scan",ds:"用单滑块阈值化扫描灰度，提取动态遮罩。"},
+{cat:"滤镜 Filters / Adjustments",nm:"Histogram Range / Select / Shift",ds:"基于直方图的范围选择与位移，灰度区间控制。"},
+{cat:"滤镜 Filters / Adjustments",nm:"Auto Levels",ds:"自动归一化灰度到全范围。"},
+{cat:"滤镜 Filters / Adjustments",nm:"Contrast / Luminosity",ds:"对比度与亮度调整。"},
+{cat:"滤镜 Filters / Adjustments",nm:"HSL",ds:"色相/饱和度/明度调整。"},
+{cat:"滤镜 Filters / Adjustments",nm:"Warp",ds:"用灰度图驱动像素扭曲，挤压变形。"},
+{cat:"滤镜 Filters / Adjustments",nm:"Directional Warp",ds:"按方向用强度图扭曲，流淌与拉丝失真。"},
+{cat:"滤镜 Filters / Adjustments",nm:"Vector Warp",ds:"用向量场驱动扭曲，复杂流动变形。"},
+{cat:"滤镜 Filters / Adjustments",nm:"Non Uniform Blur",ds:"用遮罩控制各处模糊强度。"},
+{cat:"滤镜 Filters / Adjustments",nm:"Sharpen",ds:"锐化，强化边缘细节。"},
+{cat:"滤镜 Filters / Adjustments",nm:"Emboss",ds:"浮雕，从灰度生成明暗立体感。"},
+{cat:"滤镜 Filters / Adjustments",nm:"Emboss with Gauss",ds:"高斯浮雕，更柔和的立体效果。"},
+{cat:"滤镜 Filters / Adjustments",nm:"Transformation 2D",ds:"二维变换：平移、旋转、缩放、平铺。"},
+{cat:"滤镜 Filters / Adjustments",nm:"Safe Transform",ds:"无缝平铺安全的变换，避免接缝。"},
+{cat:"滤镜 Filters / Adjustments",nm:"Mirror",ds:"镜像，对称翻转图案。"},
+{cat:"滤镜 Filters / Adjustments",nm:"Tile / Make it Tile",ds:"无缝平铺化，消除贴图接缝。"},
+{cat:"滤镜 Filters / Adjustments",nm:"Make it Tile Patch / Photo",ds:"补丁式/照片式无缝化，处理扫描贴图。"},
+{cat:"滤镜 Filters / Adjustments",nm:"Quantize / Pixel Processor",ds:"量化分级 / 逐像素函数处理。"},
+{cat:"滤镜 Filters / Adjustments",nm:"Pixel Processor",ds:"逐像素自定义函数运算，万能数学滤镜。"},
+{cat:"滤镜 Filters / Adjustments",nm:"Edge Detect",ds:"边缘检测，提取轮廓线。"},
+{cat:"滤镜 Filters / Adjustments",nm:"Highpass / Highpass Grayscale",ds:"高通滤波，去除低频保留细节。"},
+{cat:"滤镜 Filters / Adjustments",nm:"Clamp / Invert",ds:"钳制范围 / 反相。"},
+{cat:"滤镜 Filters / Adjustments",nm:"Floodfill",ds:"漫水填充，给每个独立区域随机颜色/数据，瓦片随机化关键。"},
+{cat:"滤镜 Filters / Adjustments",nm:"Flood Fill to Random Color/Grayscale",ds:"将漫水区域转随机色/灰度，瓦片做旧。"},
+{cat:"滤镜 Filters / Adjustments",nm:"Flood Fill to Gradient / BBox",ds:"漫水区域转渐变/包围盒数据。"},
+{cat:"滤镜 Filters / Adjustments",nm:"Anisotropic Kuwahara",ds:"油画/卡通化各向异性平滑。"},
+{cat:"滤镜 Filters / Adjustments",nm:"Cartoon / Glow",ds:"卡通描边 / 辉光特效。"},
+// ===== 混合与合成 Blending =====
+{cat:"混合与合成 Blending",nm:"Blend",ds:"核心混合节点，30+ 混合模式 + 不透明度 + 遮罩，所有合成的中枢。"},
+{cat:"混合与合成 Blending",nm:"Multi Switch",ds:"多输入选择器，按参数切换激活哪一路输入。"},
+{cat:"混合与合成 Blending",nm:"Switch",ds:"二选一开关，条件切换两路输入。"},
+{cat:"混合与合成 Blending",nm:"Dissolve / Add Sub / Copy",ds:"溶解、加减、覆盖等具体混合算子封装。"},
+{cat:"混合与合成 Blending",nm:"Min / Max",ds:"取最小/最大灰度，遮罩交并运算。"},
+{cat:"混合与合成 Blending",nm:"Blend Switch Grayscale/Color",ds:"灰度/彩色专用混合开关。"},
+{cat:"混合与合成 Blending",nm:"Height Blend",ds:"基于高度的混合，按高度阈值叠材质（地形分层）。"},
+{cat:"混合与合成 Blending",nm:"Multi Material Blend",ds:"多套 PBR 材质按遮罩混合输出。"},
+{cat:"混合与合成 Blending",nm:"Material Blend / Height Material Blend",ds:"整套材质混合，支持高度感知过渡。"},
+{cat:"混合与合成 Blending",nm:"Mask Builder",ds:"遮罩构建器，组合多源生成复杂遮罩。"},
+// ===== 通道与转换 Channels =====
+{cat:"通道与转换 Channels",nm:"Grayscale Conversion",ds:"彩色转灰度，可调通道权重。"},
+{cat:"通道与转换 Channels",nm:"Gradient Map / Gradient Dynamic",ds:"灰度按渐变查色上色。"},
+{cat:"通道与转换 Channels",nm:"RGBA Split",ds:"拆分 RGBA 四通道为独立灰度。"},
+{cat:"通道与转换 Channels",nm:"RGBA Merge",ds:"四路灰度合并为 RGBA。"},
+{cat:"通道与转换 Channels",nm:"Channel Shuffle",ds:"通道重排，交换 R/G/B/A 内容。"},
+{cat:"通道与转换 Channels",nm:"Channels Mixer",ds:"通道混合器，线性组合各通道。"},
+{cat:"通道与转换 Channels",nm:"Color to Mask",ds:"按颜色提取遮罩，ID 图分离。"},
+{cat:"通道与转换 Channels",nm:"HSL Extract / Replace",ds:"提取/替换 HSL 分量。"},
+{cat:"通道与转换 Channels",nm:"Linear / sRGB Convert",ds:"线性与 sRGB 色彩空间转换。"},
+{cat:"通道与转换 Channels",nm:"Uniform Color",ds:"纯色发生器，常作基础底色。"},
+// ===== 法线与几何 Normal / Mesh =====
+{cat:"法线与几何 Normal / Mesh",nm:"Normal",ds:"高度图转法线贴图，控制强度与坐标系（核心算子）。"},
+{cat:"法线与几何 Normal / Mesh",nm:"Normal Sobel",ds:"Sobel 算法版高度转法线，边缘更锐利。"},
+{cat:"法线与几何 Normal / Mesh",nm:"Normal Combine",ds:"合并两张法线贴图（细节叠加到基础法线）。"},
+{cat:"法线与几何 Normal / Mesh",nm:"Normal Blend",ds:"按遮罩混合两张法线。"},
+{cat:"法线与几何 Normal / Mesh",nm:"Normal Invert",ds:"翻转法线 Y 通道（OpenGL/DirectX 转换）。"},
+{cat:"法线与几何 Normal / Mesh",nm:"Normal Intensity / Normalize",ds:"调整法线强度 / 归一化向量。"},
+{cat:"法线与几何 Normal / Mesh",nm:"Normal to Height / Height to Normal",ds:"法线与高度互转。"},
+{cat:"法线与几何 Normal / Mesh",nm:"Normal Color",ds:"用平面法线给斜面着色。"},
+{cat:"法线与几何 Normal / Mesh",nm:"Curvature",ds:"从法线计算曲率（凸凹边缘），磨损遮罩基础。"},
+{cat:"法线与几何 Normal / Mesh",nm:"Curvature Smooth",ds:"平滑曲率，从高度生成柔和曲率图。"},
+{cat:"法线与几何 Normal / Mesh",nm:"Curvature Sobel",ds:"Sobel 曲率，从法线快速取边缘。"},
+{cat:"法线与几何 Normal / Mesh",nm:"Ambient Occlusion (from Normal/Height)",ds:"从法线/高度估算环境光遮蔽。"},
+{cat:"法线与几何 Normal / Mesh",nm:"HBAO",ds:"水平基准环境光遮蔽，质量更高的 AO。"},
+{cat:"法线与几何 Normal / Mesh",nm:"Height to AO",ds:"高度图直接生成 AO。"},
+{cat:"法线与几何 Normal / Mesh",nm:"Vector Morph / Vector Warp",ds:"向量场形变与扭曲。"},
+{cat:"法线与几何 Normal / Mesh",nm:"Height Normal Blender",ds:"高度+法线联合混合，保持一致性。"},
+// ===== PBR 工具 PBR Utilities =====
+{cat:"PBR 工具 PBR Utilities",nm:"BaseColor / Metallic / Roughness Validate",ds:"校验 PBR 通道是否在物理合理范围（亮度/反照率）。"},
+{cat:"PBR 工具 PBR Utilities",nm:"PBR BaseColor / Metallic / Roughness Converter",ds:"金属/高光工作流互转。"},
+{cat:"PBR 工具 PBR Utilities",nm:"Metallic Roughness to Specular Glossiness",ds:"两套 PBR 工作流互转。"},
+{cat:"PBR 工具 PBR Utilities",nm:"Specular Glossiness to Metallic Roughness",ds:"高光光泽转金属粗糙工作流。"},
+{cat:"PBR 工具 PBR Utilities",nm:"Height to Displacement",ds:"高度图转位移贴图。"},
+{cat:"PBR 工具 PBR Utilities",nm:"Roughness/Glossiness Convert",ds:"粗糙度与光泽度互为反相转换。"},
+{cat:"PBR 工具 PBR Utilities",nm:"Dielectric F0",ds:"绝缘体基础反射率计算。"},
+{cat:"PBR 工具 PBR Utilities",nm:"PBR Render (3D View utilities)",ds:"3D 视口 PBR 实时预览相关工具。"},
+{cat:"PBR 工具 PBR Utilities",nm:"Material Color Tag",ds:"为材质打颜色标签，便于 ID 管理。"},
+// ===== Mesh 烘焙 Bakers =====
+{cat:"Mesh 烘焙 Bakers",nm:"Normal Map from Mesh",ds:"从高模烘焙切线空间法线到低模。"},
+{cat:"Mesh 烘焙 Bakers",nm:"World Space Normal",ds:"烘焙世界空间法线。"},
+{cat:"Mesh 烘焙 Bakers",nm:"Ambient Occlusion from Mesh",ds:"从网格烘焙 AO。"},
+{cat:"Mesh 烘焙 Bakers",nm:"Curvature from Mesh",ds:"从网格烘焙曲率，凸边凹边遮罩。"},
+{cat:"Mesh 烘焙 Bakers",nm:"Position",ds:"烘焙世界位置贴图，做基于高度的渐变。"},
+{cat:"Mesh 烘焙 Bakers",nm:"Thickness",ds:"烘焙厚度图，次表面散射与缝隙暗部。"},
+{cat:"Mesh 烘焙 Bakers",nm:"Bent Normals",ds:"烘焙弯曲法线，更准确的遮蔽方向。"},
+{cat:"Mesh 烘焙 Bakers",nm:"Color Map from Mesh",ds:"从高模顶点色/材质烘焙颜色。"},
+{cat:"Mesh 烘焙 Bakers",nm:"Normal Map from Height",ds:"从高度图烘焙法线。"},
+{cat:"Mesh 烘焙 Bakers",nm:"Opacity Mask / Texture from Mesh",ds:"从网格透明/纹理信息烘焙。"},
+{cat:"Mesh 烘焙 Bakers",nm:"Height Map from Mesh",ds:"从高低模差异烘焙高度。"},
+{cat:"Mesh 烘焙 Bakers",nm:"UV to SVG / Convert UV",ds:"UV 布局导出与转换。"},
+{cat:"Mesh 烘焙 Bakers",nm:"Transferred Texture from Mesh",ds:"在高低模间传递贴图。"},
+// ===== 材质滤镜 Material Filters =====
+{cat:"材质滤镜 Material Filters",nm:"Dirt / Grunge",ds:"对整套材质统一叠脏污做旧。"},
+{cat:"材质滤镜 Material Filters",nm:"Moss",ds:"在凹陷与朝上面生成苔藓覆盖。"},
+{cat:"材质滤镜 Material Filters",nm:"Snow Cover",ds:"按朝向/朝上面铺积雪。"},
+{cat:"材质滤镜 Material Filters",nm:"Rust",ds:"沿凹陷与边缘生成锈蚀。"},
+{cat:"材质滤镜 Material Filters",nm:"Water Level",ds:"按高度阈值生成水面/潮湿覆盖。"},
+{cat:"材质滤镜 Material Filters",nm:"Wear & Tear / Edge Wear",ds:"按曲率在凸边生成磨损露底。"},
+{cat:"材质滤镜 Material Filters",nm:"Dust",ds:"在朝上水平面积灰。"},
+{cat:"材质滤镜 Material Filters",nm:"Drip / Leak",ds:"垂直流痕与水渍下淌。"},
+{cat:"材质滤镜 Material Filters",nm:"Material Height Blend",ds:"按高度融合两套材质，自然过渡。"},
+{cat:"材质滤镜 Material Filters",nm:"Smart Material utilities",ds:"智能材质相关的成套处理（来自 Painter 生态）。"},
+{cat:"材质滤镜 Material Filters",nm:"Clouds Overlay / Vignette",ds:"云层覆盖 / 暗角等整体效果。"},
+// ===== FX-Map / 节点级 =====
+{cat:"FX-Map / 节点级",nm:"FX-Map",ds:"基于象限递归的底层图案引擎，Tile/Splatter 等都构建于此，可完全自定义分布。"},
+{cat:"FX-Map / 节点级",nm:"Quadrant",ds:"FX-Map 内的象限分裂节点，递归细分画布。"},
+{cat:"FX-Map / 节点级",nm:"Iterate",ds:"FX-Map 迭代节点，循环生成大量实例。"},
+{cat:"FX-Map / 节点级",nm:"Pass Through",ds:"FX-Map 直通节点，组织图结构。"},
+{cat:"FX-Map / 节点级",nm:"Function Graph (FxFunctions)",ds:"参数函数图，用数学/逻辑驱动任意节点参数实现动态化。"},
+{cat:"FX-Map / 节点级",nm:"Value Processor",ds:"标量/向量值的函数运算节点。"},
+{cat:"FX-Map / 节点级",nm:"Input / Output Node",ds:"图的输入接口与输出贴图通道定义。"},
+{cat:"FX-Map / 节点级",nm:"Bitmap / SVG Resource",ds:"引入位图/矢量资源作为节点输入。"},
+{cat:"FX-Map / 节点级",nm:"Text",ds:"文字发生器，把字符渲染为灰度/形状。"},
+{cat:"FX-Map / 节点级",nm:"Pixel Processor (Function)",ds:"逐像素函数图，最底层的自定义运算节点。"}
+];
+
+const CAT_DESC = {
+  "噪声 Noises":"程序化随机基础。所有材质细节的起点，控制颗粒、斑驳、随机分布。",
+  "图案 Patterns":"规则几何图形发生器，砖墙、瓦片、网格等结构化布局的基础。",
+  "生成器 Generators":"成品级图案/结构发生器，常用于直接生成砖、鳞片、织物等表面。",
+  "滤镜 Filters / Adjustments":"对灰度或彩色图做调整：模糊、对比、色阶、变形、扭曲等。",
+  "混合与合成 Blending":"多输入合成，灰度/通道运算，遮罩组合。",
+  "通道与转换 Channels":"颜色空间、通道拆分合并、灰度彩色互转。",
+  "法线与几何 Normal / Mesh":"法线贴图生成与处理，高度/曲率/AO 等几何衍生贴图。",
+  "PBR 工具 PBR Utilities":"PBR 工作流专用：基础色/金属度/粗糙度校验与转换。",
+  "Mesh 烘焙 Bakers":"从高模/低模烘焙各类贴图：法线、AO、曲率、厚度、位置等。",
+  "材质滤镜 Material Filters":"对整套 PBR 材质统一处理：做旧、磨损、覆盖、调色。",
+  "FX-Map / 节点级":"基于象限递归的底层图案引擎与函数式节点。"
+};
+/*__CATDESC_DONE__*/
+
+const $ = s => document.querySelector(s);
+let activeCat = "全部";
+let kw = "";
+
+function esc(s){return s.replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));}
+function hl(s,k){
+  if(!k) return esc(s);
+  const i = s.toLowerCase().indexOf(k.toLowerCase());
+  if(i<0) return esc(s);
+  return esc(s.slice(0,i))+"<mark>"+esc(s.slice(i,i+k.length))+"</mark>"+esc(s.slice(i+k.length));
+}
+
+function buildCats(){
+  const cats = ["全部", ...new Set(NODES.map(n=>n.cat))];
+  $("#cats").innerHTML = cats.map(c=>
+    `<span class="cat${c===activeCat?' active':''}" data-c="${c}">${c}<\/span>`).join("");
+  $("#cats").querySelectorAll(".cat").forEach(el=>{
+    el.onclick=()=>{activeCat=el.dataset.c;buildCats();render();};
+  });
+}
+
+function render(){
+  const k = kw.trim().toLowerCase();
+  let list = NODES.filter(n=>{
+    if(activeCat!=="全部" && n.cat!==activeCat) return false;
+    if(!k) return true;
+    return (n.nm+" "+n.ds+" "+(n.alt||"")).toLowerCase().includes(k);
+  });
+  $("#count").textContent = `共 ${list.length} / ${NODES.length} 个节点`;
+  const main = $("#main");
+  if(!list.length){ main.innerHTML='<div class="empty">没有匹配的节点 🔍<\/div>'; return; }
+  const byCat = {};
+  list.forEach(n=>{(byCat[n.cat]=byCat[n.cat]||[]).push(n);});
+  main.innerHTML = Object.keys(byCat).map(cat=>`
+    <section class="group">
+      <h2>${cat} <span style="color:var(--muted);font-size:13px;font-weight:400">(${byCat[cat].length})<\/span><\/h2>
+      ${CAT_DESC[cat]?`<p class="gdesc">${CAT_DESC[cat]}<\/p>`:""}
+      <div class="grid">
+        ${byCat[cat].map(n=>`
+          <div class="card">
+            <div class="nm">${hl(n.nm,kw)}${n.alt?`<span class="tag">${n.alt}<\/span>`:""}<\/div>
+            <div class="ds">${hl(n.ds,kw)}<\/div>
+          <\/div>`).join("")}
+      <\/div>
+    <\/section>`).join("");
+}
+
+$("#search").addEventListener("input",e=>{kw=e.target.value;render();});
+buildCats();
+render();
+</script>
+</body>
+</html>

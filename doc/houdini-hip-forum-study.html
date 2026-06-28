@@ -1,0 +1,302 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Houdini HIP 拆解学习报告 · Meshova</title>
+<style>
+:root{--bg:#0d1117;--panel:#161b22;--panel2:#1c2330;--bd:#2b3340;--tx:#e6edf3;--mut:#9aa7b4;--acc:#56d4c4;--acc2:#f0883e;--hi:#ffd54a;--code:#0a0e14;}
+*{box-sizing:border-box}
+body{margin:0;background:linear-gradient(180deg,#0a0d12,#0d1117);color:var(--tx);font:15px/1.65 -apple-system,'Segoe UI',Roboto,'PingFang SC','Microsoft YaHei',sans-serif}
+.wrap{max-width:1180px;margin:0 auto;padding:0 22px 90px}
+header{padding:54px 0 30px;border-bottom:1px solid var(--bd);margin-bottom:34px}
+h1{font-size:30px;margin:0 0 10px;letter-spacing:.5px}
+h1 .tag{font-size:13px;color:var(--acc);border:1px solid var(--acc);padding:2px 9px;border-radius:20px;vertical-align:middle;margin-left:10px}
+.sub{color:var(--mut);font-size:14.5px;max-width:840px}
+.stats{display:flex;gap:14px;flex-wrap:wrap;margin-top:26px}
+.stat{background:var(--panel);border:1px solid var(--bd);border-radius:12px;padding:16px 22px;min-width:120px}
+.stat b{display:block;font-size:27px;color:var(--acc);font-variant-numeric:tabular-nums}
+.stat span{font-size:12.5px;color:var(--mut)}
+h2{font-size:22px;margin:46px 0 8px;padding-top:10px;display:flex;align-items:center;gap:10px}
+h2 .n{font-size:13px;color:var(--bg);background:var(--acc);width:26px;height:26px;border-radius:7px;display:inline-flex;align-items:center;justify-content:center;font-weight:700}
+h3{font-size:16.5px;margin:26px 0 8px;color:var(--hi)}
+.lead{color:var(--mut);margin:6px 0 18px;max-width:900px}
+.card{background:var(--panel);border:1px solid var(--bd);border-radius:12px;padding:20px 22px;margin:14px 0}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:14px}
+.catcard{background:var(--panel);border:1px solid var(--bd);border-radius:12px;padding:16px 18px}
+.catcard h4{margin:0 0 12px;font-size:15px;color:var(--acc)}
+.bar{display:flex;align-items:center;gap:10px;margin:5px 0;font-size:13.5px}
+.bar .nm{flex:0 0 150px;color:var(--tx);font-family:'JetBrains Mono',Consolas,monospace;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bar .track{flex:1;height:7px;background:#0a0e14;border-radius:4px;overflow:hidden}
+.bar .fill{height:100%;background:linear-gradient(90deg,var(--acc),var(--acc2));border-radius:4px}
+.bar .ct{flex:0 0 34px;text-align:right;color:var(--mut);font-variant-numeric:tabular-nums;font-size:12px}
+pre{background:var(--code);border:1px solid var(--bd);border-left:3px solid var(--acc2);border-radius:8px;padding:13px 15px;overflow-x:auto;font:12.5px/1.55 'JetBrains Mono',Consolas,monospace;color:#cdd9e5;margin:8px 0}
+.vex{margin:12px 0}
+.vex .src{font-size:11.5px;color:var(--mut);margin-bottom:3px;font-family:monospace}
+code{background:#0a0e14;padding:1.5px 6px;border-radius:5px;font-family:'JetBrains Mono',Consolas,monospace;font-size:13px;color:var(--acc)}
+.take{border-left:3px solid var(--hi);background:var(--panel2);padding:13px 17px;border-radius:0 8px 8px 0;margin:10px 0}
+.take b{color:var(--hi)}
+table{width:100%;border-collapse:collapse;margin:12px 0;font-size:13.5px}
+th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--bd)}
+th{color:var(--acc);font-weight:600;font-size:12.5px;letter-spacing:.4px}
+td code{font-size:12.5px}
+.pri{display:inline-block;font-size:11px;padding:2px 8px;border-radius:5px;font-weight:600}
+.p-now{background:rgba(86,212,196,.16);color:var(--acc)}
+.p-next{background:rgba(240,136,62,.16);color:var(--acc2)}
+.p-later{background:rgba(154,167,180,.14);color:var(--mut)}
+.files{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px}
+.files span{font-size:11.5px;background:var(--panel2);border:1px solid var(--bd);padding:3px 9px;border-radius:6px;color:var(--mut);font-family:monospace}
+.flow{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:14px 0}
+.flow .step{background:var(--panel2);border:1px solid var(--bd);border-radius:8px;padding:9px 14px;font-size:13.5px}
+.flow .step b{color:var(--acc);display:block;font-size:12px}
+.flow .arr{color:var(--acc2);font-size:18px}
+footer{margin-top:60px;padding-top:24px;border-top:1px solid var(--bd);color:var(--mut);font-size:12.5px}
+a{color:var(--acc)}
+</style></head><body><div class="wrap">
+<header><h1>Houdini HIP 文件拆解学习报告<span class="tag">Meshova 研究</span></h1>
+<p class="sub">从 SideFX 官方论坛真实下载的 46 个 .hip / .hipnc / .hiplc 工程文件，直接解析其内部节点图与 VEX 代码（CPIO/HouNC 容器明文提取），统计专业 TA 实际使用的算子分布与代码模式，提炼出可直接迁移到 Meshova（TS 几何/材质内核 + AI 脚本 DSL）的设计经验。</p>
+<div class="stats">
+<div class="stat"><b>46</b><span>真实工程文件</span></div>
+<div class="stat"><b>3,476</b><span>有效节点实例</span></div>
+<div class="stat"><b>160</b><span>不同算子类型</span></div>
+<div class="stat"><b>40</b><span>提取的 VEX 片段</span></div>
+<div class="stat"><b>10</b><span>归纳维度</span></div>
+</div></header>
+<h2><span class="n">1</span>数据来源与方法</h2>
+<p class="lead">这些不是教程截图，而是工程师真实保存的工作文件。hip 是带头部的归档容器，内部每个节点以 <code>.init</code>（含 <code>type = 算子名</code>）和 <code>.parm</code>（含参数与 VEX 代码字符串）明文存储。解析流程：</p>
+<div class="flow">
+<div class="step"><b>STEP 1</b>下载<br><span style="color:#9aa7b4;font-size:12px">SideFX 论坛附件 hip</span></div>
+<span class="arr">→</span>
+<div class="step"><b>STEP 2</b>解容器<br><span style="color:#9aa7b4;font-size:12px">CPIO/HouNC 明文扫描</span></div>
+<span class="arr">→</span>
+<div class="step"><b>STEP 3</b>抽节点<br><span style="color:#9aa7b4;font-size:12px">type= 行 → 算子统计</span></div>
+<span class="arr">→</span>
+<div class="step"><b>STEP 4</b>抽代码<br><span style="color:#9aa7b4;font-size:12px">wrangle snippet → VEX</span></div>
+<span class="arr">→</span>
+<div class="step"><b>STEP 5</b>归类<br><span style="color:#9aa7b4;font-size:12px">按 Meshova 模块映射</span></div>
+</div>
+<div class="take"><b>给 Meshova 的启发：</b>这套"解析真实工程 → 统计算子频率 → 反推优先级"的方法本身就值得复刻。Meshova 可以反向输出同构的工程文件（脚本即工程），未来也能用同样手段统计 AI 生成脚本里最常用的 API，据此决定哪些函数要优化、要加缓存、要进 SCRIPT_API 第一梯队。</div>
+<h2><span class="n">2</span>算子分布：专业工程实际在用什么</h2>
+<p class="lead">把 160 种算子按 Meshova 模块归类。条形长度=出现实例数（跨 46 个工程累计）。这直接告诉我们：要做"像样"的程序化建模库，哪些算子是刚需。</p>
+<div class="grid">
+<div class="catcard"><h4>造型/Primitives</h4>
+<div class="bar"><span class="nm" title="box">box</span><span class="track"><span class="fill" style="width:65%"></span></span><span class="ct">111</span></div>
+<div class="bar"><span class="nm" title="grid">grid</span><span class="track"><span class="fill" style="width:19%"></span></span><span class="ct">33</span></div>
+<div class="bar"><span class="nm" title="sphere">sphere</span><span class="track"><span class="fill" style="width:15%"></span></span><span class="ct">26</span></div>
+<div class="bar"><span class="nm" title="circle">circle</span><span class="track"><span class="fill" style="width:12%"></span></span><span class="ct">21</span></div>
+<div class="bar"><span class="nm" title="line">line</span><span class="track"><span class="fill" style="width:7%"></span></span><span class="ct">13</span></div>
+<div class="bar"><span class="nm" title="tube">tube</span><span class="track"><span class="fill" style="width:5%"></span></span><span class="ct">10</span></div>
+<div class="bar"><span class="nm" title="curve::2.0">curve::2.0</span><span class="track"><span class="fill" style="width:4%"></span></span><span class="ct">8</span></div>
+</div>
+<div class="catcard"><h4>拓扑算子/Ops</h4>
+<div class="bar"><span class="nm" title="blast">blast</span><span class="track"><span class="fill" style="width:43%"></span></span><span class="ct">74</span></div>
+<div class="bar"><span class="nm" title="polyextrude::2.0">polyextrude::2.0</span><span class="track"><span class="fill" style="width:28%"></span></span><span class="ct">48</span></div>
+<div class="bar"><span class="nm" title="attribdelete">attribdelete</span><span class="track"><span class="fill" style="width:26%"></span></span><span class="ct">44</span></div>
+<div class="bar"><span class="nm" title="clean">clean</span><span class="track"><span class="fill" style="width:17%"></span></span><span class="ct">30</span></div>
+<div class="bar"><span class="nm" title="mirror">mirror</span><span class="track"><span class="fill" style="width:11%"></span></span><span class="ct">19</span></div>
+<div class="bar"><span class="nm" title="edit">edit</span><span class="track"><span class="fill" style="width:8%"></span></span><span class="ct">15</span></div>
+<div class="bar"><span class="nm" title="polysplit::2.0">polysplit::2.0</span><span class="track"><span class="fill" style="width:6%"></span></span><span class="ct">11</span></div>
+<div class="bar"><span class="nm" title="reverse">reverse</span><span class="track"><span class="fill" style="width:6%"></span></span><span class="ct">11</span></div>
+<div class="bar"><span class="nm" title="polybevel::3.0">polybevel::3.0</span><span class="track"><span class="fill" style="width:5%"></span></span><span class="ct">10</span></div>
+</div>
+<div class="catcard"><h4>复制/散布</h4>
+<div class="bar"><span class="nm" title="copytopoints::2.0">copytopoints::2.0</span><span class="track"><span class="fill" style="width:19%"></span></span><span class="ct">33</span></div>
+<div class="bar"><span class="nm" title="packfolder">packfolder</span><span class="track"><span class="fill" style="width:10%"></span></span><span class="ct">17</span></div>
+<div class="bar"><span class="nm" title="pack">pack</span><span class="track"><span class="fill" style="width:8%"></span></span><span class="ct">15</span></div>
+<div class="bar"><span class="nm" title="scatter::2.0">scatter::2.0</span><span class="track"><span class="fill" style="width:7%"></span></span><span class="ct">13</span></div>
+<div class="bar"><span class="nm" title="trail">trail</span><span class="track"><span class="fill" style="width:7%"></span></span><span class="ct">13</span></div>
+<div class="bar"><span class="nm" title="unpack">unpack</span><span class="track"><span class="fill" style="width:6%"></span></span><span class="ct">11</span></div>
+<div class="bar"><span class="nm" title="xformpieces">xformpieces</span><span class="track"><span class="fill" style="width:5%"></span></span><span class="ct">9</span></div>
+</div>
+<div class="catcard"><h4>曲线/重采样</h4>
+<div class="bar"><span class="nm" title="resample">resample</span><span class="track"><span class="fill" style="width:18%"></span></span><span class="ct">32</span></div>
+<div class="bar"><span class="nm" title="sweep::2.0">sweep::2.0</span><span class="track"><span class="fill" style="width:12%"></span></span><span class="ct">21</span></div>
+<div class="bar"><span class="nm" title="curve::2.0">curve::2.0</span><span class="track"><span class="fill" style="width:4%"></span></span><span class="ct">8</span></div>
+</div>
+<div class="catcard"><h4>属性/字段</h4>
+<div class="bar"><span class="nm" title="attribwrangle">attribwrangle</span><span class="track"><span class="fill" style="width:76%"></span></span><span class="ct">130</span></div>
+<div class="bar"><span class="nm" title="groupcreate">groupcreate</span><span class="track"><span class="fill" style="width:56%"></span></span><span class="ct">95</span></div>
+<div class="bar"><span class="nm" title="matchsize">matchsize</span><span class="track"><span class="fill" style="width:40%"></span></span><span class="ct">68</span></div>
+<div class="bar"><span class="nm" title="attribcreate::2.0">attribcreate::2.0</span><span class="track"><span class="fill" style="width:17%"></span></span><span class="ct">29</span></div>
+<div class="bar"><span class="nm" title="attribpromote">attribpromote</span><span class="track"><span class="fill" style="width:13%"></span></span><span class="ct">22</span></div>
+<div class="bar"><span class="nm" title="attribadjustcolor">attribadjustcolor</span><span class="track"><span class="fill" style="width:13%"></span></span><span class="ct">22</span></div>
+<div class="bar"><span class="nm" title="connectivity">connectivity</span><span class="track"><span class="fill" style="width:12%"></span></span><span class="ct">21</span></div>
+<div class="bar"><span class="nm" title="bound">bound</span><span class="track"><span class="fill" style="width:12%"></span></span><span class="ct">21</span></div>
+</div>
+<div class="catcard"><h4>VEX变换</h4>
+<div class="bar"><span class="nm" title="xform">xform</span><span class="track"><span class="fill" style="width:100%"></span></span><span class="ct">169</span></div>
+<div class="bar"><span class="nm" title="matchsize">matchsize</span><span class="track"><span class="fill" style="width:40%"></span></span><span class="ct">68</span></div>
+<div class="bar"><span class="nm" title="attribvop">attribvop</span><span class="track"><span class="fill" style="width:10%"></span></span><span class="ct">17</span></div>
+<div class="bar"><span class="nm" title="transform">transform</span><span class="track"><span class="fill" style="width:4%"></span></span><span class="ct">8</span></div>
+</div>
+<div class="catcard"><h4>材质/Shading</h4>
+<div class="bar"><span class="nm" title="mtlximage">mtlximage</span><span class="track"><span class="fill" style="width:81%"></span></span><span class="ct">137</span></div>
+<div class="bar"><span class="nm" title="material">material</span><span class="track"><span class="fill" style="width:44%"></span></span><span class="ct">75</span></div>
+<div class="bar"><span class="nm" title="mtlxstandard_surface">mtlxstandard_surface</span><span class="track"><span class="fill" style="width:43%"></span></span><span class="ct">73</span></div>
+<div class="bar"><span class="nm" title="mtlxdisplacement">mtlxdisplacement</span><span class="track"><span class="fill" style="width:32%"></span></span><span class="ct">55</span></div>
+<div class="bar"><span class="nm" title="mtlxmultiply">mtlxmultiply</span><span class="track"><span class="fill" style="width:30%"></span></span><span class="ct">52</span></div>
+<div class="bar"><span class="nm" title="mtlxmix">mtlxmix</span><span class="track"><span class="fill" style="width:26%"></span></span><span class="ct">44</span></div>
+<div class="bar"><span class="nm" title="principledshader::2.0">principledshader::2.0</span><span class="track"><span class="fill" style="width:23%"></span></span><span class="ct">39</span></div>
+<div class="bar"><span class="nm" title="mtlxcolorcorrect">mtlxcolorcorrect</span><span class="track"><span class="fill" style="width:21%"></span></span><span class="ct">37</span></div>
+<div class="bar"><span class="nm" title="surfacecolor::3.0">surfacecolor::3.0</span><span class="track"><span class="fill" style="width:18%"></span></span><span class="ct">32</span></div>
+</div>
+<div class="catcard"><h4>解算/Sim</h4>
+<div class="bar"><span class="nm" title="vellumconstraints">vellumconstraints</span><span class="track"><span class="fill" style="width:49%"></span></span><span class="ct">84</span></div>
+<div class="bar"><span class="nm" title="popforce">popforce</span><span class="track"><span class="fill" style="width:15%"></span></span><span class="ct">27</span></div>
+<div class="bar"><span class="nm" title="vellumsolver">vellumsolver</span><span class="track"><span class="fill" style="width:15%"></span></span><span class="ct">26</span></div>
+<div class="bar"><span class="nm" title="dopnet">dopnet</span><span class="track"><span class="fill" style="width:10%"></span></span><span class="ct">17</span></div>
+<div class="bar"><span class="nm" title="rbdbulletsolver">rbdbulletsolver</span><span class="track"><span class="fill" style="width:4%"></span></span><span class="ct">8</span></div>
+</div>
+<div class="catcard"><h4>Rig/KineFX</h4>
+<div class="bar"><span class="nm" title="kinefx::rigpose">kinefx::rigpose</span><span class="track"><span class="fill" style="width:22%"></span></span><span class="ct">38</span></div>
+<div class="bar"><span class="nm" title="kinefx::addjoint">kinefx::addjoint</span><span class="track"><span class="fill" style="width:18%"></span></span><span class="ct">31</span></div>
+<div class="bar"><span class="nm" title="kinefx::skeleton">kinefx::skeleton</span><span class="track"><span class="fill" style="width:8%"></span></span><span class="ct">15</span></div>
+<div class="bar"><span class="nm" title="kinefx::rigstashpose">kinefx::rigstashpose</span><span class="track"><span class="fill" style="width:7%"></span></span><span class="ct">12</span></div>
+<div class="bar"><span class="nm" title="apex::graph">apex::graph</span><span class="track"><span class="fill" style="width:5%"></span></span><span class="ct">10</span></div>
+<div class="bar"><span class="nm" title="kinefx::jointcapturebiharmonic">kinefx::jointcapturebiharmonic</span><span class="track"><span class="fill" style="width:5%"></span></span><span class="ct">9</span></div>
+</div>
+</div>
+<h2><span class="n">3</span>逐类拆解：能学什么、怎么映射到 Meshova</h2>
+<div class="card"><h3 style="margin-top:0">造型 / Primitives <span class="pri p-now">现在就做</span></h3>
+<p style="margin:6px 0"><b style="color:#56d4c4">观察到：</b>box / sphere / grid / tube / circle / curve / revolve 是所有工程的地基。真实工程几乎从不直接用最终基元，而是<b>基元 + matchsize 对齐 + 立即接拓扑算子</b>。</p>
+<p style="margin:6px 0"><b style="color:#f0883e">映射到 Meshova：</b>Meshova 已有 box/sphere/plane。优先补齐 <code>tube</code>、<code>circle</code>、<code>curve</code>、<code>revolve（车削）</code>——它们是组合复杂造型的最高频起点。matchsize（按包围盒对齐/缩放）值得做成工具函数，AI 拼装多部件时极其有用。</p>
+</div>
+<div class="card"><h3 style="margin-top:0">拓扑算子 / Ops <span class="pri p-next">下一梯队</span></h3>
+<p style="margin:6px 0"><b style="color:#56d4c4">观察到：</b><code>polyextrude</code>(48)、<code>polysplit</code>、<code>polybevel</code>、<code>blast</code>(删面/点)、<code>smooth</code>、<code>clean</code>、<code>fuse</code> 构成日常工作主体。polyextrude 出现频率仅次于基元，说明<b>挤出是程序化造型的一等公民</b>。</p>
+<p style="margin:6px 0"><b style="color:#f0883e">映射到 Meshova：</b>Meshova 已有 extrude/subdivide/displace。下一梯队：<code>bevel（倒角）</code>、<code>blast（按 group 删除）</code>、<code>fuse（按距离焊点）</code>、<code>clean（去重/退化清理）</code>。bevel 对硬表面造型质量提升最大。</p>
+</div>
+<div class="card"><h3 style="margin-top:0">复制 / 散布 <span class="pri p-now">现在就做</span></h3>
+<p style="margin:6px 0"><b style="color:#56d4c4">观察到：</b><code>copytopoints</code>(33) 和 <code>scatter</code> 是程序化的灵魂——在采样点上实例化几何。配合 <code>pack/xformpieces</code> 处理大量副本，<code>foreach</code> 做逐元素循环。</p>
+<p style="margin:6px 0"><b style="color:#f0883e">映射到 Meshova：</b>Meshova 已有 copyToPoints/scatter/InstancePlan，方向完全正确。要补的是 <b>per-point 属性驱动实例的变体</b>（用点上的 scale/orient/id 选不同源几何），这正是 copytopoints 真正强大的地方。</p>
+</div>
+<div class="card"><h3 style="margin-top:0">曲线 / 重采样 <span class="pri p-now">现在就做</span></h3>
+<p style="margin:6px 0"><b style="color:#56d4c4">观察到：</b><code>resample</code>(32) 高频出现，说明曲线工作流的关键是<b>先把曲线重采样成均匀点，再做扫描/挤出</b>。carve（截取曲线段）、sweep（沿线扫面）、polywire（线变管）配套使用。</p>
+<p style="margin:6px 0"><b style="color:#f0883e">映射到 Meshova：</b>Meshova 已有 curves/sweep。强烈建议补 <code>resample（按段长/段数均匀重采样）</code> 和 <code>polywire（曲线→圆管）</code>——做绳索、树枝、管线、藤蔓的通用利器，且实现简单。</p>
+</div>
+<div class="card"><h3 style="margin-top:0">属性 / 字段 <span class="pri p-now">现在就做</span></h3>
+<p style="margin:6px 0"><b style="color:#56d4c4">观察到：</b><code>attribwrangle</code>(130) 是绝对核心——它就是 VEX 代码节点。再加 <code>attribcreate / attribpromote（点↔面属性传递）/ attribransfer / measure / connectivity（连通分量编号）</code>。<b>整个 Houdini 的可编程性都压在 wrangle 上。</b></p>
+<p style="margin:6px 0"><b style="color:#f0883e">映射到 Meshova：</b>这对应 Meshova 的几何<b>字段(field)系统</b>，是重中之重。AI 脚本要能像 wrangle 一样：读 @P/@N、写自定义属性、按属性着色(coloredPart 已支持)。建议把 <code>connectivity</code>（islands 编号）、<code>measure</code>（面积/曲率）做成字段函数，喂给 scatter/select。</p>
+</div>
+<div class="card"><h3 style="margin-top:0">地形 / HeightField <span class="pri p-later">长期/暂不</span></h3>
+<p style="margin:6px 0"><b style="color:#56d4c4">观察到：</b><code>heightfield_*</code> 系列（noise/erode/mask/xform）是 Houdini 地形管线，本质是<b>2D 高度场 + 噪声叠加 + 侵蚀模拟</b>，最后转网格。</p>
+<p style="margin:6px 0"><b style="color:#f0883e">映射到 Meshova：</b>和 Meshova 的 <code>displaceByNoise</code> + texture/patterns 噪声同源。地形可作为一个高价值 demo：grid + fbm 高度场 + 简单热侵蚀 → 山地。复用现有 noise/fbm，不需新内核。</p>
+</div>
+<div class="card"><h3 style="margin-top:0">材质 / Shading <span class="pri p-next">下一梯队</span></h3>
+<p style="margin:6px 0"><b style="color:#56d4c4">观察到：</b><code>principledshader</code> + MaterialX(<code>mtlxstandard_surface / mtlximage / mtlxnormalmap / mtlxmix / mtlxdisplacement</code>) 主导。MaterialX 是节点化 PBR，标准面=base/rough/metal/normal/displacement 通道，<b>和 Meshova 的 7 通道 Material 几乎一一对应</b>。</p>
+<p style="margin:6px 0"><b style="color:#f0883e">映射到 Meshova：</b>验证了 Meshova 材质内核的通道设计正确。可学 MaterialX 的<b>节点组合方式</b>：mtlxmix(按 mask 混两种材质)、mtlxplace2d(UV 变换)、colorcorrect。这些正好是 texture/filters 该补的组合算子。</p>
+</div>
+<div class="card"><h3 style="margin-top:0">解算 / Sim <span class="pri p-later">长期/暂不</span></h3>
+<p style="margin:6px 0"><b style="color:#56d4c4">观察到：</b><code>vellumsolver/constraints</code>(布料/软体)、<code>popforce</code>、<code>dopnet</code>。这是动态模拟，<b>本质非确定、依赖时间步</b>。</p>
+<p style="margin:6px 0"><b style="color:#f0883e">映射到 Meshova：</b>明确<b>不进 Meshova 范围</b>——和「确定性、同种子同结果」的硬约束冲突。但 Vellum 的<b>约束松弛思想</b>(迭代求解距离约束)可借鉴做静态形变，比如让程序化绳索/布料一次性松弛到稳定形状（确定性迭代，非逐帧）。</p>
+</div>
+<div class="card"><h3 style="margin-top:0">Rig / KineFX <span class="pri p-later">长期/暂不</span></h3>
+<p style="margin:6px 0"><b style="color:#56d4c4">观察到：</b><code>kinefx::skeleton / rigpose / addjoint / jointcapture</code>、APEX 图。现代 Houdini 把骨骼也做成了程序化节点流。</p>
+<p style="margin:6px 0"><b style="color:#f0883e">映射到 Meshova：</b>超出 Meshova 当前 PBR+造型范围。仅记录方向：未来若做<b>可摆姿势的程序化角色</b>，骨骼绑定也能脚本化、确定性生成。短期忽略。</p>
+</div>
+<h2><span class="n">4</span>真实 VEX 代码模式（可直接转成 TS）</h2>
+<p class="lead">从工程的 wrangle 节点里提取的真实代码。VEX 是 Houdini 的逐点/逐面脚本语言，<b>它的编程模型正是 Meshova AI 脚本 DSL 应该学习的对象</b>：无显式循环（隐式 per-element 执行）、<code>@P</code>/<code>@N</code>/<code>@Cd</code> 等属性绑定、<code>addpoint/addprim/setpointattrib</code> 直接造几何、<code>fit/chramp/random</code> 做参数映射。</p>
+<div class="vex"><div class="src">// hip #101825</div>
+<pre>float shift_dist = fit(random(f@__cutteroffsetseed + @ptnum), 0, 1, -max_shift, max_shift);</pre></div>
+<div class="vex"><div class="src">// hip #101825</div>
+<pre>float shift_dist = fit(random(chf(\&quot;splinter_seed\&quot;) + @ptnum), 0, 1, -max_shift, max_shift);</pre></div>
+<div class="vex"><div class="src">// hip #100994</div>
+<pre>$result = qrotate($quaternion, $vec);</pre></div>
+<div class="vex"><div class="src">// hip #101825</div>
+<pre>removepoint($handle, $ptnum, $removeprims);</pre></div>
+<div class="vex"><div class="src">// hip #101825</div>
+<pre>//float randm = chramp(sprintf(\&quot;../%sdistribution\&quot;, randparm), rand(seed));</pre></div>
+<div class="vex"><div class="src">// hip #101825</div>
+<pre>setpointattrib(0, \&quot;grp\&quot;, pt, grp);</pre></div>
+<div class="vex"><div class="src">// hip #101825</div>
+<pre>setpointattrib(0, \&quot;__cutterdir\&quot;, pt, cutter_dir);</pre></div>
+<div class="vex"><div class="src">// hip #101825</div>
+<pre>setpointattrib(0, \&quot;__cuttertype\&quot;, pt, cutter_type);</pre></div>
+<div class="vex"><div class="src">// hip #101825</div>
+<pre>setpointattrib(0, \&quot;__cutterlength\&quot;, pt, cutter_length);</pre></div>
+<div class="vex"><div class="src">// hip #101825</div>
+<pre>snippet	[ 0	locks=0 ]	(	&quot;vector center = @P;</pre></div>
+<div class="vex"><div class="src">// hip #101825</div>
+<pre>setpointattrib(0, \&quot;P\&quot;, endpt, center - offset);</pre></div>
+<div class="vex"><div class="src">// hip #101825</div>
+<pre>int line = addprim(0, \&quot;polyline\&quot;, @ptnum, endpt);&quot;	)</pre></div>
+<div class="vex"><div class="src">// hip #101825</div>
+<pre>//if (i@group_left) @P += v@left * bbs.x * 0.5;</pre></div>
+<div class="vex"><div class="src">// hip #101825</div>
+<pre>//if (i@group_top) @P += v@top * bbs.y * 0.5;</pre></div>
+<div class="take"><b>核心可迁移模式：</b><br>① <code>addprim(0,"polyline",p0,p1)</code> 程序化连线/生枝 —— Meshova 可加 <code>addEdge/addPolyline</code> 字段算子；<br>② <code>fit(random(seed+@ptnum),0,1,-max,max)</code> 用点序号+种子做确定性扰动 —— 完全契合 Meshova 的 makeRng().fork() 确定性约束；<br>③ <code>qrotate(quat,vec)</code> 四元数转向量 —— Meshova math/quat 已有，应进 SCRIPT_API 供朝向控制；<br>④ <code>@orient</code>/<code>@N</code> 驱动实例朝向 —— copyToPoints 应读取点的 orient 属性。</div>
+<h2><span class="n">5</span>工作流与验证经验</h2>
+<div class="card">
+<h3 style="margin-top:0">A. 节点命名与网络组织</h3>
+<p>真实工程大量出现 <code>null</code>(229)、<code>postitnote</code>(便签)、<code>netbox</code>(分组框)、<code>switch</code>(73,A/B 切换分支)。专业 TA 用 null 节点做"命名锚点/接口"，用便签写意图。<b>启发：Meshova 脚本应鼓励 part 命名规范 + 注释，AI 生成脚本时保留可读结构，便于自迭代时定位修改点。</b></p>
+<h3>B. 非破坏 + 可回溯 = 程序化的本质</h3>
+<p>整个 hip 是一棵"算子依赖图"，改任意上游参数全链重算。这正是 Meshova "脚本而非烘焙网格"理念的工业级印证：<b>输出永远是可重跑的过程，不是死数据。</b>Meshova 的不可变网格约定 + 确定性种子，本质就是在保证这种可回溯性。</p>
+<h3>C. 验证靠"分支对比"而非肉眼</h3>
+<p><code>switch</code> + <code>merge</code> 高频，TA 常并排放"算法 A vs 算法 B"结果做对比。<b>启发：Meshova 的 headless 截图闭环正是自动化版的"分支对比"——同种子跑两版脚本，截图比 IoU/差异，让 AI 客观判断哪版更好，而不是凭描述。</b></p>
+<h3>D. matchsize / bound：先量再变换</h3>
+<p><code>matchsize</code>(68)、<code>bound</code>(21)、<code>measure</code> 频繁出现：专业流程在变换前先测量包围盒/尺寸，再做相对对齐，而非写死坐标。<b>启发：Meshova 应提供 <code>bbox()</code>/<code>centerOn()</code>/<code>fitInto()</code> 工具，让 AI 脚本拼装多部件时用相对关系定位，鲁棒性远高于硬编码数值。</b></p>
+</div>
+<h2><span class="n">6</span>Meshova 行动清单（按证据排序）</h2>
+<p class="lead">把上面的频率证据直接翻译成开发待办。优先级由"真实工程出现频率 × Meshova 当前缺口"决定。</p>
+<table><tr><th>能力</th><th>对应 Houdini 算子</th><th>Meshova 现状</th><th>优先级</th></tr>
+<tr><td>曲线重采样 resample</td><td><code>resample(32)</code></td><td>curves 有，重采样缺</td><td><span class="pri p-now">现在就做</span></td></tr>
+<tr><td>曲线→管 polywire</td><td><code>polywire(3)</code></td><td>sweep 有，圆管封装缺</td><td><span class="pri p-now">现在就做</span></td></tr>
+<tr><td>车削 revolve</td><td><code>revolve(3)</code></td><td>缺</td><td><span class="pri p-now">现在就做</span></td></tr>
+<tr><td>连通分量 connectivity</td><td><code>connectivity(21)</code></td><td>缺，散布/选择需要</td><td><span class="pri p-now">现在就做</span></td></tr>
+<tr><td>包围盒/尺寸测量 measure</td><td><code>measure / bound(21) / matchsize(68)</code></td><td>缺，多部件拼装刚需</td><td><span class="pri p-now">现在就做</span></td></tr>
+<tr><td>倒角 bevel</td><td><code>polybevel</code></td><td>缺，硬表面质量关键</td><td><span class="pri p-next">下一梯队</span></td></tr>
+<tr><td>按组删除 blast</td><td><code>blast(74)</code></td><td>select 有，组删除缺</td><td><span class="pri p-next">下一梯队</span></td></tr>
+<tr><td>焊点 fuse / 清理 clean</td><td><code>fuse / clean(30)</code></td><td>缺，布尔后清理需要</td><td><span class="pri p-next">下一梯队</span></td></tr>
+<tr><td>材质混合 mtlxmix(按mask)</td><td><code>mtlxmix(44)</code></td><td>blend 有，mask 驱动可加强</td><td><span class="pri p-next">下一梯队</span></td></tr>
+<tr><td>程序化连线 addPolyline</td><td><code>addprim polyline</code></td><td>缺，生枝/绳索需要</td><td><span class="pri p-next">下一梯队</span></td></tr>
+<tr><td>地形高度场 demo</td><td><code>heightfield_*</code></td><td>displaceByNoise 可复用</td><td><span class="pri p-later">长期/暂不</span></td></tr>
+<tr><td>静态约束松弛(绳/布)</td><td><code>vellum 思想</code></td><td>缺，确定性版可探索</td><td><span class="pri p-later">长期/暂不</span></td></tr>
+</table>
+<h2><span class="n">7</span>样本清单（46 个真实工程）</h2>
+<p class="lead">覆盖海洋/海啸、布料针织、车辆破碎、行星大气、地形、绑定动画、Vellum、材质等多个主题，主题多样性保证了算子统计的代表性。</p>
+<div class="files">
+<span>100994-Tsunami_Cuspmethod_LOP.hipnc</span>
+<span>101825-Logging_truck_clean_sideFX_forum.hipnc</span>
+<span>102452-pin_question.hiplc</span>
+<span>102731-sq010-sh010_Effects_v0008.hipnc</span>
+<span>102731-sq010-sh010_Lighting_v0005.hipnc</span>
+<span>102731-sq010-sh010_Lighting_v0009.hipnc</span>
+<span>102804-sliceTesting_03.hiplc</span>
+<span>102933-balloon_mojigousei_019.hipnc</span>
+<span>102933-balloon_mojigousei_019_t01.hipnc</span>
+<span>102951-Weave.hipnc</span>
+<span>102951-debug_00.hipnc</span>
+<span>103234-worms_02.hiplc</span>
+<span>103356-Skeletal_SEQUENCE_Blend.hip</span>
+<span>103356-Skeletal_SEQUENCE_Blend_mod.hipnc</span>
+<span>103356-Skeletal_SEQUENCE_Blend_mod2.hipnc</span>
+<span>103722-planetary_atmosphere.hiplc</span>
+<span>103754-lamp.hip</span>
+<span>103969-setup.hiplc</span>
+<span>103985-CarFractureDemo.hip</span>
+<span>45813-FlipTank_DrivenBy_OceanSource.hip</span>
+<span>58308-abc_seq-abc_seq_flip-fluid_abc-seq-export.hip</span>
+<span>73131-HoudiniExport_Ply.hiplc</span>
+<span>74522-06_swing__mariusz.wesierski_v009.hiplc</span>
+<span>74522-070620_Swing_004.hiplc</span>
+<span>74522-day_06_swing.hip</span>
+<span>74522-swing.hiplc</span>
+<span>74522-v1_001.hipnc</span>
+<span>74932-29_silky__mariusz.wesierski__v002.hiplc</span>
+<span>74932-Day_29_-_Silky.hiplc</span>
+<span>76857-scale_dependent.hipnc</span>
+<span>81940-test.hip</span>
+<span>82282-ap_simulation02_02.hipnc</span>
+<span>82282-simulation02_02.hipnc</span>
+<span>83538-Gaea_HeightSclae_Error-Gaea_HeightSclae_Error_gaea_HeightScale_test.hip</span>
+<span>87086-bgeo_value_clips_example.hip</span>
+<span>89421-smoke2.hiplc</span>
+<span>95706-F_rig_v13_export_2-F_rig_v13_export_2.hiplc</span>
+<span>95706-JointBased_blendshapes_01.hiplc</span>
+<span>95706-JointBased_blendshapes_lid_test_01.hiplc</span>
+<span>95706-skeleton_blend_setup_apex.hip</span>
+<span>96684-Robot_Rig_WIP_01.hipnc</span>
+<span>97912-rbdcarrig_01.hiplc</span>
+<span>97912-rbdcarrig_02.hiplc</span>
+<span>97935-boxhelp.hiplc</span>
+<span>98013-Coral_Balooon_4.hiplc</span>
+<span>98416-community_H205.hiplc</span>
+</div>
+<footer>本报告基于 SideFX 官方论坛（sidefx.com/forum）公开分享的工程文件，仅作算法与工作流的学习参考。Meshova 坚持自研重写、不复制 GPL/商业源码。解析方式：直接读取 hip 容器内明文节点定义与 VEX 字符串，统计与提炼由本地脚本完成。</footer>
+</div></body></html>

@@ -1,0 +1,22 @@
+import { chromium } from "playwright";
+const exe = "E:/Meshova/node_modules/playwright-core/.local-browsers";
+import { readdirSync } from "node:fs";
+let cpath;
+try { const d=readdirSync(exe).find(x=>x.startsWith("chromium")); cpath=`${exe}/${d}/chrome-win64/chrome.exe`; } catch{}
+const b = await chromium.launch({ executablePath: cpath, headless: true });
+const pg = await b.newPage();
+await pg.goto("http://localhost:5190/web/", { waitUntil: "networkidle" });
+await pg.waitForFunction(() => window.__meshova, { timeout: 15000 });
+await pg.evaluate(() => window.__meshova.loadModelById("teddy"));
+await pg.waitForTimeout(400);
+await pg.evaluate(() => { window.__fogReadback = true; window.__fogDbgNoOverride = true; window.__meshova.setFog(true, { density: 0.9, height: 6, shaft: 1.5 }); });
+await pg.evaluate(() => window.__meshova.settle(8));
+await pg.waitForTimeout(400);
+const r = await pg.evaluate(() => window.__fogReadback);
+console.log("NO-OVERRIDE readback", JSON.stringify(r));
+await pg.evaluate(() => { window.__fogReadback = true; window.__fogDbgNoOverride = false; });
+await pg.evaluate(() => window.__meshova.settle(8));
+await pg.waitForTimeout(400);
+const r2 = await pg.evaluate(() => window.__fogReadback);
+console.log("DEPTH-MAT readback", JSON.stringify(r2));
+await b.close();

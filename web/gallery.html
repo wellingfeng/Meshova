@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Meshova · 模型库</title>
+<style>
+  :root{--bg:#0d1117;--panel:#161b22;--card:#10141c;--line:#30363d;
+    --txt:#e6edf3;--mut:#9aa7b4;--acc:#58a6ff;--acc2:#7ee787;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{min-height:100%;background:var(--bg);color:var(--txt);
+    font:14px/1.6 -apple-system,"Segoe UI","Microsoft YaHei",sans-serif;}
+  #bar{display:flex;align-items:center;gap:16px;flex-wrap:wrap;position:sticky;top:0;z-index:10;
+    background:var(--panel);border-bottom:1px solid var(--line);padding:12px 20px;}
+  #bar .brand{font-size:17px;font-weight:600;letter-spacing:.5px;}
+  #bar .brand span{color:var(--acc);}
+  #bar .count{color:var(--mut);font-size:12px;}
+  #search{flex:1;min-width:180px;max-width:420px;margin-left:auto;
+    background:#1c2330;color:var(--txt);border:1px solid var(--line);
+    border-radius:8px;padding:8px 12px;font:inherit;}
+  #search:focus{outline:none;border-color:var(--acc);}
+  #cats{display:flex;gap:6px;flex-wrap:wrap;padding:10px 20px 0;}
+  .cat{background:#1c2330;color:var(--mut);border:1px solid var(--line);
+    border-radius:20px;padding:4px 14px;font-size:12px;cursor:pointer;user-select:none;}
+  .cat:hover{border-color:var(--acc);color:var(--txt);}
+  .cat.on{background:#15263b;border-color:var(--acc);color:var(--acc);}
+  #grid{display:grid;gap:16px;padding:18px 20px 40px;
+    grid-template-columns:repeat(auto-fill,minmax(220px,1fr));}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;
+    overflow:hidden;cursor:pointer;transition:transform .12s,border-color .12s,box-shadow .12s;
+    display:flex;flex-direction:column;}
+  .card:hover{transform:translateY(-3px);border-color:var(--acc);
+    box-shadow:0 8px 24px #0009;}
+  .thumb{position:relative;aspect-ratio:4/3;background:#0a0d12;
+    display:flex;align-items:center;justify-content:center;overflow:hidden;}
+  .thumb img{width:100%;height:100%;object-fit:cover;display:block;}
+  .thumb .spin{width:26px;height:26px;border:3px solid #2a3340;border-top-color:var(--acc);
+    border-radius:50%;animation:sp .7s linear infinite;}
+  @keyframes sp{to{transform:rotate(360deg);}}
+  .thumb .badge{position:absolute;right:8px;bottom:8px;background:#0d1117cc;
+    border:1px solid var(--line);border-radius:6px;padding:2px 7px;
+    font-size:11px;color:var(--mut);font-variant-numeric:tabular-nums;}
+  .meta{padding:10px 12px;display:flex;flex-direction:column;gap:3px;}
+  .meta .name{font-size:14px;font-weight:600;}
+  .meta .sub{font-size:11px;color:var(--mut);}
+  #empty{display:none;color:var(--mut);text-align:center;padding:60px 20px;grid-column:1/-1;}
+</style>
+</head>
+<body>
+  <header id="bar">
+    <span class="brand">Mesh<span>ova</span> · 模型库</span>
+    <span class="count" id="count"></span>
+    <input id="search" type="search" placeholder="搜索模型名 / 分类…" />
+  </header>
+  <div id="cats"></div>
+  <div id="grid"></div>
+  <script type="importmap">
+  { "imports": {
+    "three": "/web/vendor/three.module.js",
+    "three/addons/": "/web/vendor/addons/"
+  } }
+  </script>
+  <script type="module" src="/web/gallery.js"></script>
+</body>
+</html>

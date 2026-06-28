@@ -1,0 +1,81 @@
+{
+  "name": "meshova",
+  "version": "0.0.0",
+  "description": "Web procedural modeling + procedural PBR material library, driven by AI-written scripts. Script-first DSL, WebGPU, headless screenshot self-iteration loop.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "view": "node scripts/serve.mjs",
+    "teddy": "tsx examples/teddy-bear.ts",
+    "canyon": "tsx examples/gmc-canyon-at4x.ts",
+    "riviera": "tsx examples/buick-riviera-1965.ts",
+    "horse": "tsx examples/midnight-horse.ts",
+    "dog": "tsx examples/reference-dog.ts",
+    "quality:canyon": "tsx scripts/check-canyon-quality.ts",
+    "quality:riviera": "tsx scripts/check-riviera-quality.ts",
+    "quality:horse": "tsx scripts/check-horse-quality.ts",
+    "quality:dog": "tsx scripts/check-dog-quality.ts",
+    "review:canyon": "pnpm canyon && pnpm build && pnpm shot gmc-canyon-at4x \"persp,front,side,top,orbit:45@18\" \"\" \"pbr,normal,depth,matcap\" && pnpm quality:canyon",
+    "review:riviera": "pnpm riviera && pnpm build && pnpm shot buick-riviera-1965 \"persp,front,side,top,orbit:45@18\" \"\" \"pbr,normal,depth,matcap\" && pnpm quality:riviera",
+    "review:horse": "pnpm horse && pnpm build && pnpm shot midnight-horse \"persp,front,side\" \"\" \"pbr,normal,depth,matcap\" && pnpm quality:horse",
+    "review:dog": "pnpm dog && pnpm build && pnpm shot reference-dog \"persp,front,side\" \"\" \"pbr,normal,depth,matcap\" && pnpm quality:dog",
+    "score:ref": "tsx scripts/score-reference.ts",
+    "car": "tsx examples/sports-car.ts",
+    "mech-pilot": "tsx examples/cartoon-mech-pilot.ts",
+    "humanoid": "tsx examples/stylized-humanoid.ts",
+    "clothing": "tsx examples/clothing.ts",
+    "makehuman-base": "node scripts/import-makehuman-base.mjs",
+    "office-chair": "tsx examples/office-chair.ts",
+    "building": "tsx examples/building.ts",
+    "city-block": "tsx examples/city-block.ts",
+    "interior-room": "tsx examples/interior-room.ts",
+    "hard-surface": "tsx examples/hard-surface-panel.ts",
+    "terrain-island": "tsx examples/terrain-island.ts",
+    "lathe-vase": "tsx examples/lathe-vase.ts",
+    "vegetation": "tsx examples/vegetation.ts",
+    "imposter": "tsx scripts/capture-imposter.mjs",
+    "shot": "tsx scripts/screenshot.mjs",
+    "agent": "tsx scripts/agent-demo.mjs",
+    "city-block-agent": "tsx scripts/city-block-agent.mjs",
+    "image2model": "tsx scripts/image-to-model-demo.mjs"
+  },
+  "keywords": [
+    "procedural",
+    "modeling",
+    "pbr",
+    "webgpu",
+    "mesh",
+    "ai",
+    "generative"
+  ],
+  "devDependencies": {
+    "@types/three": "^0.185.0",
+    "playwright": "^1.61.1",
+    "three": "^0.185.0",
+    "tsx": "^4.22.4",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
+  }
+}

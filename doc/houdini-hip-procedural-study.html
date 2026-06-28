@@ -1,0 +1,587 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SideFX 论坛 HIP 程序化建模学习报告</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0b0f14;
+      --panel: #131a22;
+      --panel2: #17212c;
+      --text: #e8eef5;
+      --muted: #9aa9ba;
+      --line: #283544;
+      --a: #ff8a3d;
+      --b: #47d7ac;
+      --c: #72a7ff;
+      --d: #f3d36b;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.55;
+    }
+    header {
+      padding: 56px 6vw 34px;
+      background:
+        linear-gradient(120deg, rgba(255,138,61,.18), transparent 36%),
+        linear-gradient(220deg, rgba(71,215,172,.14), transparent 40%),
+        #0d1218;
+      border-bottom: 1px solid var(--line);
+    }
+    main { padding: 28px 6vw 64px; }
+    h1 { margin: 0 0 14px; font-size: clamp(30px, 5vw, 58px); line-height: 1.02; letter-spacing: 0; }
+    h2 { margin: 36px 0 16px; font-size: 26px; }
+    h3 { margin: 0 0 8px; font-size: 18px; }
+    h4 { margin: 0 0 10px; font-size: 15px; color: var(--d); }
+    p { margin: 0 0 14px; color: var(--muted); }
+    a { color: var(--c); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .lead { max-width: 1100px; font-size: 18px; color: #cdd7e3; }
+    .stats, .grid { display: grid; gap: 14px; }
+    .stats { grid-template-columns: repeat(5, minmax(120px, 1fr)); margin-top: 26px; }
+    .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .stat, .card, .panel, .snippet {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 16px;
+    }
+    .stat b { display: block; font-size: 30px; color: #fff; line-height: 1; margin-bottom: 6px; }
+    .stat span { color: var(--muted); font-size: 13px; }
+    .metric { float: right; font-size: 28px; color: var(--a); font-weight: 800; }
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+    .chips span {
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
+      padding: 2px 8px;
+      border: 1px solid #33475b;
+      border-radius: 999px;
+      color: #cfe3f8;
+      background: #111923;
+      font-size: 12px;
+    }
+    .bars { display: grid; gap: 8px; }
+    .bar {
+      display: grid;
+      grid-template-columns: 190px 1fr 56px;
+      align-items: center;
+      gap: 10px;
+      color: #dbe8f6;
+      font-size: 13px;
+    }
+    .track { height: 12px; background: #0b1118; border: 1px solid #253344; border-radius: 999px; overflow: hidden; }
+    .fill { height: 100%; background: linear-gradient(90deg, var(--a), var(--b)); }
+    table { width: 100%; border-collapse: collapse; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+    th, td { padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; text-align: left; }
+    th { color: #fff; background: var(--panel2); position: sticky; top: 0; }
+    td, small { color: var(--muted); }
+    td:first-child { color: #fff; }
+    ul { margin: 0; padding-left: 20px; color: var(--muted); }
+    li { margin: 7px 0; }
+    .two { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    code {
+      display: block;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      padding: 9px;
+      margin: 8px 0;
+      border-radius: 6px;
+      background: #090d12;
+      border: 1px solid #253344;
+      color: #d9f5e9;
+      font-size: 12px;
+    }
+    .note { color: #d9e8f7; background: #111923; border-left: 3px solid var(--a); padding: 12px 14px; border-radius: 6px; }
+    @media (max-width: 1000px) {
+      .stats { grid-template-columns: repeat(2, 1fr); }
+      .grid, .two { grid-template-columns: 1fr; }
+      .bar { grid-template-columns: 128px 1fr 42px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>SideFX 论坛 HIP 程序化建模学习报告</h1>
+    <p class="lead">抓取 SideFX 官方论坛公开主题与附件，筛选 HIP/HIPLC/HIPNC/HDA/ZIP 样本，离线抽取可读节点名、参数痕迹、网络结构关键词。目标不是复刻 Houdini，而是提炼 Meshova 可用的程序化建模流程、验证、工具与造型策略。</p>
+    <div class="stats">
+      <div class="stat"><b>682</b><span>扫描主题</span></div>
+      <div class="stat"><b>1647</b><span>公开附件</span></div>
+      <div class="stat"><b>49</b><span>已下载目标附件</span></div>
+      <div class="stat"><b>5</b><span>ZIP 内提取场景</span></div>
+      <div class="stat"><b>50</b><span>分析 HIP/HDA 场景</span></div>
+    </div>
+    <p style="margin-top:18px">生成日期：2026-06-27。下载样本位于 <code style="display:inline;padding:2px 6px">out/sidefx-hip-study/downloads/</code>。</p>
+  </header>
+  <main>
+    <section>
+      <h2>结论先行</h2>
+      <div class="panel">
+        <ul>
+          <li>Houdini 的强点不是单个算法，而是<strong>属性流 + 命名选择 + 可视阶段边界</strong>。Meshova 应把 group/name/uv/material/seed/report 作为一等数据，不只传 positions/indices。</li>
+          <li>程序化建模常见骨架：<strong>输入参数 -> 粗形/曲线骨架 -> 分组/属性标注 -> 局部规则 -> 复制/循环 -> 清理验证 -> 输出缓存</strong>。</li>
+          <li>AI 闭环最该学 Houdini 的是可观察性：每个阶段有可命名输出、可缓存、可截图、可测 bbox/面积/连通块/法线/非流形。</li>
+          <li>曲线流程最适合 Meshova 下一阶段补齐：curve/resample/polyframe/sweep 能覆盖头发、绳索、管道、植物、轮廓装饰、家具边线。</li>
+          <li>不要照搬节点 UI。照搬<strong>网络语义</strong>：稳定输入输出、属性表、局部表达式、显式随机种子、阶段验证。</li>
+        </ul>
+      </div>
+    </section>
+
+    <section>
+      <h2>样本覆盖</h2>
+      <table>
+        <thead><tr><th>论坛版块</th><th>主题数</th><th>附件数</th></tr></thead>
+        <tbody><tr><td>Technical Discussion</td><td>160</td><td>49</td></tr><tr><td>Houdini Learning Materials</td><td>120</td><td>48</td></tr><tr><td>Houdini for Realtime</td><td>120</td><td>97</td></tr><tr><td>Work in Progress</td><td>0</td><td>0</td></tr><tr><td>SideFX Labs Tech Art Challenge 2021</td><td>0</td><td>0</td></tr><tr><td>SideFX Labs Tech Art Challenge 2022</td><td>0</td><td>0</td></tr><tr><td>H20 Tech Art Challenge</td><td>0</td><td>0</td></tr><tr><td>Nodevember 2020</td><td>11</td><td>34</td></tr><tr><td>HOULY Daily Challenge</td><td>42</td><td>278</td></tr><tr><td>Mardini 2023</td><td>70</td><td>754</td></tr><tr><td>Mardini 2024</td><td>0</td><td>0</td></tr><tr><td>Mardini 2025</td><td>0</td><td>0</td></tr><tr><td>2025 Game Art Challenge</td><td>0</td><td>0</td></tr><tr><td>How to Houdini Tutorial Contest</td><td>0</td><td>0</td></tr></tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>高频能力分布</h2>
+      <div class="two">
+        <div class="panel"><h3>流程类别</h3><div class="bars"><div class="bar"><span>参数化入口</span><div class="track"><div class="fill" style="width:100%"></div></div><b>303223</b></div><div class="bar"><span>分组与选择</span><div class="track"><div class="fill" style="width:64%"></div></div><b>194026</b></div><div class="bar"><span>UV/材质/烘焙</span><div class="track"><div class="fill" style="width:19%"></div></div><b>57046</b></div><div class="bar"><span>验证/缓存/输出</span><div class="track"><div class="fill" style="width:9%"></div></div><b>26622</b></div><div class="bar"><span>表面质量</span><div class="track"><div class="fill" style="width:8%"></div></div><b>22820</b></div><div class="bar"><span>曲线骨架</span><div class="track"><div class="fill" style="width:5%"></div></div><b>15886</b></div><div class="bar"><span>布尔/体素</span><div class="track"><div class="fill" style="width:4%"></div></div><b>13602</b></div><div class="bar"><span>复制/散布</span><div class="track"><div class="fill" style="width:4%"></div></div><b>11850</b></div><div class="bar"><span>局部规则/VEX</span><div class="track"><div class="fill" style="width:3%"></div></div><b>5582</b></div><div class="bar"><span>循环/批处理</span><div class="track"><div class="fill" style="width:3%"></div></div><b>842</b></div></div></div>
+        <div class="panel"><h3>节点/关键词</h3><div class="bars"><div class="bar"><span>name</span><div class="track"><div class="fill" style="width:100%"></div></div><b>117059</b></div><div class="bar"><span>normal</span><div class="track"><div class="fill" style="width:3%"></div></div><b>4019</b></div><div class="bar"><span>material</span><div class="track"><div class="fill" style="width:3%"></div></div><b>3114</b></div><div class="bar"><span>volume</span><div class="track"><div class="fill" style="width:3%"></div></div><b>2519</b></div><div class="bar"><span>transform</span><div class="track"><div class="fill" style="width:3%"></div></div><b>1994</b></div><div class="bar"><span>xform</span><div class="track"><div class="fill" style="width:3%"></div></div><b>1581</b></div><div class="bar"><span>noise</span><div class="track"><div class="fill" style="width:3%"></div></div><b>1544</b></div><div class="bar"><span>add</span><div class="track"><div class="fill" style="width:3%"></div></div><b>1486</b></div><div class="bar"><span>materialx</span><div class="track"><div class="fill" style="width:3%"></div></div><b>613</b></div><div class="bar"><span>solver</span><div class="track"><div class="fill" style="width:3%"></div></div><b>606</b></div><div class="bar"><span>karma</span><div class="track"><div class="fill" style="width:3%"></div></div><b>580</b></div><div class="bar"><span>null</span><div class="track"><div class="fill" style="width:3%"></div></div><b>557</b></div><div class="bar"><span>attribwrangle</span><div class="track"><div class="fill" style="width:3%"></div></div><b>548</b></div><div class="bar"><span>ray</span><div class="track"><div class="fill" style="width:3%"></div></div><b>474</b></div><div class="bar"><span>delete</span><div class="track"><div class="fill" style="width:3%"></div></div><b>406</b></div><div class="bar"><span>cache</span><div class="track"><div class="fill" style="width:3%"></div></div><b>366</b></div><div class="bar"><span>instance</span><div class="track"><div class="fill" style="width:3%"></div></div><b>332</b></div><div class="bar"><span>curve</span><div class="track"><div class="fill" style="width:3%"></div></div><b>309</b></div><div class="bar"><span>scatter</span><div class="track"><div class="fill" style="width:3%"></div></div><b>272</b></div><div class="bar"><span>connectivity</span><div class="track"><div class="fill" style="width:3%"></div></div><b>213</b></div><div class="bar"><span>line</span><div class="track"><div class="fill" style="width:3%"></div></div><b>192</b></div><div class="bar"><span>pack</span><div class="track"><div class="fill" style="width:3%"></div></div><b>175</b></div><div class="bar"><span>vdb</span><div class="track"><div class="fill" style="width:3%"></div></div><b>174</b></div><div class="bar"><span>groupexpression</span><div class="track"><div class="fill" style="width:3%"></div></div><b>161</b></div></div></div>
+      </div>
+    </section>
+
+    <section>
+      <h2>可学模式</h2>
+      <div class="grid"><article class="card">
+        <div class="metric">46</div>
+        <h3>Null 节点命名输出契约</h3>
+        <p>Houdini 社区 HIP 常把阶段结果挂到 OUT_* / DISPLAY_* null。Meshova 可显式引入 stage/output label，给 AI 和截图器稳定锚点。</p>
+        <div class="chips"><span>null</span></div>
+      </article><article class="card">
+        <div class="metric">4</div>
+        <h3>Curve -&gt; Resample -&gt; Frame -&gt; Sweep</h3>
+        <p>曲线先确定骨架，再重采样稳定密度，再求切线/法线 frame，最后扫掠截面。适合头发、管线、枝条、装饰线、轮廓条。</p>
+        <div class="chips"><span>curve</span><span>resample</span><span>polyframe</span><span>sweep</span></div>
+      </article><article class="card">
+        <div class="metric">13</div>
+        <h3>Group/Name 贯穿选择语义</h3>
+        <p>复杂模型不靠索引猜部位，而靠 group/name 属性流转。Meshova 选择器应输出命名面集/点集，后续 extrude/material/validate 共用。</p>
+        <div class="chips"><span>groupcreate</span><span>groupexpression</span><span>name</span><span>blast</span></div>
+      </article><article class="card">
+        <div class="metric">6</div>
+        <h3>Wrangle 微规则嵌入 SOP 流程</h3>
+        <p>Houdini 用少量 VEX 做局部属性规则，不把所有算子做成黑盒。Meshova 可把用户脚本中的 point/face lambda 提升为一等算子。</p>
+        <div class="chips"><span>attribwrangle</span><span>pointwrangle</span></div>
+      </article><article class="card">
+        <div class="metric">1</div>
+        <h3>For-Each 迭代构件</h3>
+        <p>阵列、砖块、鳞片、楼层常用 foreach per piece/number。Meshova 需要可观察的循环：每轮 seed、输入属性、输出 bbox 可记录。</p>
+        <div class="chips"><span>foreach_begin</span><span>foreach_end</span></div>
+      </article><article class="card">
+        <div class="metric">11</div>
+        <h3>Scatter + CopyToPoints 实例化</h3>
+        <p>点云携带 orient/scale/variant，再实例化几何。Meshova scatter 应返回 typed instance buffer，不急于 bake 成大 mesh。</p>
+        <div class="chips"><span>scatter</span><span>copytopoints</span></div>
+      </article><article class="card">
+        <div class="metric">5</div>
+        <h3>Boolean/VDB 做形体合成</h3>
+        <p>硬表面切割和软融合常混用 boolean/VDB。Meshova P2 boolean 可先做可替换接口，验证用体素/SDF 近似比三角布尔更稳。</p>
+        <div class="chips"><span>boolean</span><span>vdb</span></div>
+      </article><article class="card">
+        <div class="metric">21</div>
+        <h3>Clean/Fuse/Normal 作为质量门</h3>
+        <p>很多 HIP 在生成后立刻清理孤点、焊接、重算法线。Meshova 每个高风险算子后应有 meshQuality report。</p>
+        <div class="chips"><span>clean</span><span>fuse</span><span>normal</span></div>
+      </article><article class="card">
+        <div class="metric">0</div>
+        <h3>Material/UV 跟随几何属性</h3>
+        <p>程序化材质绑定常基于 group/name/uv islands。Meshova 几何核要保留 material slots、uv sets、procedural mask 字段。</p>
+        <div class="chips"><span>uvflatten</span><span>uvlayout</span><span>material</span></div>
+      </article><article class="card">
+        <div class="metric">14</div>
+        <h3>FileCache/ROP 固化昂贵阶段</h3>
+        <p>昂贵节点有缓存边界。Meshova AI 闭环也要缓存 hash(params+seed+version) 的中间 mesh/material，截图迭代才快。</p>
+        <div class="chips"><span>filecache</span><span>rop_geometry</span></div>
+      </article></div>
+    </section>
+
+    <section>
+      <h2>Meshova 建议路线</h2>
+      <div class="grid">
+        <article class="card">
+          <h3>短期：属性与选择系统</h3>
+          <p>新增 face/point/group/name/material 属性表。所有几何算子保留属性映射。选择器返回命名集合，不返回临时索引。</p>
+        </article>
+        <article class="card">
+          <h3>短期：曲线建模栈</h3>
+          <p>实现 polyline/Bezier/NURBS-lite、resample、frame transport、sweep profile、curve loft。优先稳定、可测、可截图。</p>
+        </article>
+        <article class="card">
+          <h3>短期：质量报告</h3>
+          <p>每次 build 输出 bbox、surface area、volume 近似、连通块、退化面、非流形边、normal flip、UV 缺失率。</p>
+        </article>
+        <article class="card">
+          <h3>中期：实例系统</h3>
+          <p>scatter 返回点属性；copyToPoints 输出 instance buffer。AI 调参时不必每次烘大 mesh，截图前再 bake 或 GPU instance。</p>
+        </article>
+        <article class="card">
+          <h3>中期：阶段缓存</h3>
+          <p>算子链节点 hash = op + params + seed + input hash。缓存中间 mesh/material，失败时定位到具体 stage。</p>
+        </article>
+        <article class="card">
+          <h3>中期：SDF/体素接口</h3>
+          <p>布尔、融合、厚度、形体约束可先走 SDF。先提供抽象接口和验证，不急于复杂三角布尔完全体。</p>
+        </article>
+      </div>
+    </section>
+
+    <section>
+      <h2>推荐 DSL 形状</h2>
+      <div class="panel">
+        <p class="note">Houdini 是节点图；Meshova 应保持脚本优先。但 DSL 可吸收节点图的 stage、group、attribute、cache、validation。</p>
+        <code>const body = stage("body.blockout", () =>
+  box({ size }).bevel(radius).tagFaces("front", byNormal(zPlus))
+);
+
+const ribs = stage("detail.ribs", () =>
+  curveSpine(points)
+    .resample({ segments: 48 })
+    .frame({ mode: "parallelTransport" })
+    .sweep(profile.roundRect({ width, height }))
+    .copyAround(body.group("front"), { count, seed })
+);
+
+return validate(merge(body, ribs), {
+  maxDegenerateFaces: 0,
+  requireGroups: ["front", "ribs"],
+  screenshotViews: ["front", "side", "iso"],
+});</code>
+      </div>
+    </section>
+
+    <section>
+      <h2>样本索引 Top 80</h2>
+      <table>
+        <thead><tr><th>文件</th><th>来源主题</th><th>大小</th><th>类别</th><th>高频节点/词</th></tr></thead>
+        <tbody><tr>
+        <td><a href="../out/sidefx-hip-study/downloads/102933-balloon_mojigousei_019.hipnc">balloon_mojigousei_019.hipnc</a></td>
+        <td>Vellumの風船シミュレーションで、一定の高さに達した際に不自然な回転が発生してしまう<br><small><a href="https://www.sidefx.com/forum/attachment/270252e3e05f418c83faba2df3a4a01855064689/">附件</a> · <a href="https://www.sidefx.com/forum/topic/102933/">主题 102933</a></small></td>
+        <td>4.0 MB</td>
+        <td><div class="chips"><span>参数化入口</span><span>分组与选择</span><span>验证/缓存/输出</span><span>UV/材质/烘焙</span></div></td>
+        <td>name:6218, volume:120, add:91, material:83, noise:80, normal:78, transform:78, connectivity:57</td>
+      </tr><tr>
+        <td><a href="../out/sidefx-hip-study/downloads/102933-balloon_mojigousei_019_t01.hipnc">balloon_mojigousei_019_t01.hipnc</a></td>
+        <td>Vellumの風船シミュレーションで、一定の高さに達した際に不自然な回転が発生してしまう<br><small><a href="https://www.sidefx.com/forum/attachment/6337705a5f2f0f8c4723b2633c48b1355dcf9ced/">附件</a> · <a href="https://www.sidefx.com/forum/topic/102933/">主题 102933</a></small></td>
+        <td>4.0 MB</td>
+        <td><div class="chips"><span>参数化入口</span><span>分组与选择</span><span>验证/缓存/输出</span><span>UV/材质/烘焙</span></div></td>
+        <td>name:6218, volume:120, add:91, material:83, noise:80, normal:78, transform:78, connectivity:57</td>
+      </tr><tr>
+        <td><a href="../out/sidefx-hip-study/downloads/74522-06_swing__mariusz.wesierski_v009.hiplc">06_swing__mariusz.wesierski_v009.hiplc</a></td>
+        <td>Day 6 | Motion: Swing<br><small><a href="https://www.sidefx.com/forum/attachment/4a3d93769762839295214851d5a2ab76d7cabd61/">附件</a> · <a href="https://www.sidefx.com/forum/topic/74522/">主题 74522</a></small></td>
+        <td>2.6 MB</td>
+        <td><div class="chips"><span>参数化入口</span><span>分组与选择</span><span>UV/材质/烘焙</span><span>验证/缓存/输出</span></div></td>
+        <td>name:6188, normal:258, noise:194, transform:152, volume:118, add:87, skin:79, solver:76</td>
+      </tr><tr>
+        <td><a href="../out/sidefx-hip-study/downloads/103234-worms_02.hiplc">worms_02.hiplc</a></td>
+        <td>Day 2 | Animal | Animation<br><small><a href="https://www.sidefx.com/forum/attachment/595e4d0570d2854dce6f6bf9a4d81b9516c21b5f/">附件</a> · <a href="https://www.sidefx.com/forum/topic/103234/">主题 103234</a></small></td>
+        <td>1.6 MB</td>
+        <td><div class="chips"><span>参数化入口</span><span>分组与选择</span><span>UV/材质/烘焙</span><span>验证/缓存/输出</span></div></td>
+        <td>name:4073, normal:131, noise:93, solver:84, volume:71, material:57, transform:52, add:47</td>
+      </tr><tr>
+        <td><a href="../out/sidefx-hip-study/downloads/98013-Coral_Balooon_4.hiplc">Coral_Balooon_4.hiplc</a></td>
+        <td>How to stop geometry from oscilating in Vellum<br><small><a href="https://www.sidefx.com/forum/attachment/fab354790635422187300b54bd8e724bb3b4bfc9/">附件</a> · <a href="https://www.sidefx.com/forum/topic/98013/">主题 98013</a></small></td>
+        <td>903.7 KB</td>
+        <td><div class="chips"><span>参数化入口</span><span>分组与选择</span><span>UV/材质/烘焙</span><span>验证/缓存/输出</span></div></td>
+        <td>name:2330, normal:75, volume:33, xform:22, labs:22, transform:18, cache:18, filecache:17</td>
+      </tr><tr>
+        <td><a href="../out/sidefx-hip-study/downloads/103985-CarFractureDemo.hip">CarFractureDemo.hip</a></td>
+        <td>What am I not understanding about the RBD Car Rig?<br><small><a href="https://www.sidefx.com/forum/attachment/c15a207a4d9f98b6bf64c8917261b5bd8e28f7a3/">附件</a> · <a href="https://www.sidefx.com/forum/topic/103985/">主题 103985</a></small></td>
+        <td>1.1 MB</td>
+        <td><div class="chips"><span>参数化入口</span><span>分组与选择</span><span>曲线骨架</span><span>验证/缓存/输出</span></div></td>
+        <td>name:2628, solver:73, normal:68, noise:64, xform:57, add:55, dopnet:49, transform:43</td>
+      </tr><tr>
+        <td><a href="../out/sidefx-hip-study/downloads/87086-bgeo_value_clips_example.hip">bgeo_value_clips_example.hip</a></td>
+        <td>Writing USD to disk that references a geometry sequence<br><small><a href="https://www.sidefx.com/forum/attachment/7fa3a390b582c1870dbc07e59978fcdaee01b61b/">附件</a> · <a href="https://www.sidefx.com/forum/topic/87086/">主题 87086</a></small></td>
+        <td>1.3 MB</td>
+        <td><div class="chips"><span>参数化入口</span><span>分组与选择</span><span>UV/材质/烘焙</span><span>表面质量</span></div></td>
+        <td>name:3040, normal:141, xform:115, volume:64, materialx:49, transform:44, vdb:34, material:34</td>
+      </tr><tr>
+        <td><a href="../out/sidefx-hip-study/downloads/101825-Logging_truck_clean_sideFX_forum.hipnc">Logging_truck_clean_sideFX_forum.hipnc</a></td>
+        <td>Sublayer style and material binding<br><small><a href="https://www.sidefx.com/forum/attachment/9bf853b2c178410bc40bd0c1d93da89e34dc7e1c/">附件</a> · <a href="https://www.sidefx.com/forum/topic/101825/">主题 101825</a></small></td>
+        <td>11.7 MB</td>
+        <td><div class="chips"><span>参数化入口</span><span>分组与选择</span><span>UV/材质/烘焙</span><span>验证/缓存/输出</span></div></td>
+        <td>name:7107, material:269, noise:195, normal:157, volume:127, add:100, karma:79, transform:71</td>
+      </tr><tr>
+        <td><a href="../out/sidefx-hip-study/downloads/74522-swing.hiplc">swing.hiplc</a></td>
+        <td>Day 6 | Motion: Swing<br><small><a href="https://www.sidefx.com/forum/attachment/715173dd73c9b9f062a530a2ba631b876cad6401/">附件</a> · <a href="https://www.sidefx.com/forum/topic/74522/">主题 74522</a></small></td>
+        <td>1.9 MB</td>
+        <td><div class="chips"><span>参数化入口</span><span>分组与选择</span><span>UV/材质/烘焙</span><span>表面质量</span></div></td>
+        <td>name:3168, normal:173, noise:129, xform:75, volume:65, transform:58, material:35, polyextrude:30</td>
+      </tr><tr>
+        <td><a href="../out/sidefx-hip-study/downloads/74522-v1_001.hipnc">v1_001.hipnc</a></td>
+        <td>Day 6 | Motion: Swing<br><small><a href="https://www.sidefx.com/forum/attachment/57d0924c4c3cada9bf1c7b602a275fccc86bdc86/">附件</a> · <a href="https://www.sidefx.com/forum/topic/74522/">主题 74522</a></small></td>
+        <td>1.1 MB</td>
+        <td><div class="chips"><span>参数化入口</span><span>分组与选择</span><span>UV/材质/烘焙</span><span>表面质量</span></div></td>
+        <td>name:2564, normal:140, volume:75, transform:55, noise:51, ray:28, add:25, null:20</td>
+      </tr><tr>
+        <td><a href="../out/sidefx-hip-study/downloads/96684-Robot_Rig_WIP_01.hipnc">Robot_Rig_WIP_01.hipnc</a></td>
+        <td>APEX Character Rigging in Houdini Robot Project - Error<br><small><a href="https://www.sidefx.com/forum/attachment/e5ff50f42ce00f8a9fae61722227a3aea79c2628/">附件</a> · <a href="https://www.sidefx.com/forum/topic/96684/">主题 96684</a></small></td>
+        <td>1.1 MB</td>
+        <td><div class="chips"><span>参数化入口</span><span>分组与选择</span><span>UV/材质/烘焙</span><span>表面质量</span></div></td>
+        <td>name:1852, normal:65, transform:35, null:23, volume:20, xform:19, ray:19, attribwrangle:18</td>
+      </tr><tr>
+        <td><a href="../out/sidefx-hip-study/downloads/103754-lamp.hip">lamp.hip</a></td>
+        <td>Luxo Jr Rigging in APEX<br><small><a href="https://www.sidefx.com/forum/attachment/4ee4a9c3acac3da5fac3a295be4e792d307896aa/">附件</a> · <a href="https://www.sidefx.com/forum/topic/103754/">主题 103754</a></small></td>
+        <td>1.2 MB</td>
+        <td><div class="chips"><span>参数化入口</span><span>分组与选择</span><span>曲线骨架</span><span>复制/散布</span></div></td>
+        <td>name:2872, add:67, transform:34, delete:27, xform:24, curve:23, polyextrude:21, fuse:13</td>
+      </tr><tr>
+        <td><a href="../out/sidefx-hip-study/downloads/103754-lamp.hip">lamp.hip</a></td>
+        <td>Luxo Jr Rigging in APEX<br><small><a href="https://www.sidefx.com/forum/attachment/b712f96d752fdb8e9f96fe56ff05d033c4ecd88f/">附件</a> · <a href="https://www.sidefx.com/forum/topic/103754/">主题 103754</a></small></td>
+        <td>1.2 MB</td>
+        <td><div class="chips"><span>参数化入口</span><span>分组与选择</span><span>曲线骨架</span><span>复制/散布</span></div></td>
+        <td>name:2872, add:67, transform:34, delete:27, xform:24, curve:23, polyextrude:21, fuse:13</td>
+      </tr><tr>
+        <td><a href="../out/sidefx-hip-study/downloads/97912-rbdcarrig_01.hiplc">rbdcarrig_01.hiplc</a></td>
+        <td>RBDCarDeform setup ?<br><small><a href="https://www.sidefx.com/forum/attachment/3c9e8ccef3124205f6e7c6f90c7160f49b0239ba/">附件</a> · <a href="https://www.sidefx.com/forum/topic/97912/">主题 97912</a></small></td>
+        <td>1.1 MB</td>
+        <td><div class="chips"><span>参数化入口</span><span>分组与选择</span><span>验证/缓存/输出</span><span>曲线骨架</span></div></td>
+        <td>name:2798, normal:80, solver:71, add:66, noise:64, xform:55, transform:39, volume:34</td>
+      </tr><tr>
+        <td><a href="../out/sidefx-hip-study/downloads/97912-rbdcarrig_02.hiplc">rbdcarrig_02.hiplc</a></td>
+        <td>RBDCarDeform setup ?<br><small><a href="https://www.sidefx.com/forum/attachment/4ff042107204e6d956aab34e357350cadd24f790/">附件</a> · <a href="https://www.sidefx.com/forum/topic/97912/">主题 97912</a></small></td>
+        <td>1.1 MB</td>
+        <td><div class="chips"><span>参数化入口</span><span>分组与选择</span><span>验证/缓存/输出</span><span>曲线骨架</span></div></td>
+        <td>name:2809, solver:71, normal:69, add:66, noise:64, xform:55, transform:39, volume:34</td>
+      </tr><tr>
+        <td><a href="../out/sidefx-hip-study/downloads/100994-Tsunami_Cuspmethod_LOP.hipnc">Tsunami_Cuspmethod_LOP.hipnc</a></td>
+        <td>My Ocean Spectra render, but my waves do not.<br><small><a href="https://www.sidefx.com/forum/attachment/188c04f187a36e261ceb92a04c46abdddca768c8/">附件</a> · <a href="https://www.sidefx.com/forum/topic/100994/">主题 100994</a></small></td>
+        <td>2.6 MB</td>
+        <td><div class="chips"><span>参数化入口</span><span>分组与选择</span><span>UV/材质/烘焙</span><span>表面质量</span></div></td>
+        <td>name:4603, material:373, normal:239, volume:149, noise:72, transform:67, materialx:61, add:45</td>
+      </tr><tr>
+        <td><a href="../out/sidefx-hip-study/downloads/74932-29_silky__mariusz.wesierski__v002.hiplc">29_silky__mariusz.wesierski__v002.hiplc</a></td>
+        <td>Day 29 | Materials: Silky<br><small><a href="https://www.sidefx.com/forum/attachment/d04d8f4260a541a0f70a1f3407469e78c48aa738/">附件</a> · <a href="https://www.sidefx.com/forum/topic/74932/">主题 74932</a></small></td>
+        <td>2.0 MB</td>
+        <td><div class="chips"><span>参数化入口</span><span>分组与选择</span><span>验证/缓存/输出</span><span>UV/材质/烘焙</span></div></td>
+        <td>name:4264, normal:199, volume:133, ray:85, material:77, noise:74, add:37, transform:34</td>
+      </tr><tr>
+        <td><a href="../out/sidefx-hip-study/downloads/74522-070620_Swing_004.hiplc">070620_Swing_004.hiplc</a></td>
+        <td>Day 6 | Motion: Swing<br><small><a href="https://www.sidefx.com/forum/attachment/1f9cb40a1d652a8c4b8c367978438bae04dc52ed/">附件</a> · <a href="https://www.sidefx.com/forum/topic/74522/">主题 74522</a></small></td>
+        <td>742.0 KB</td>
+        <td><div class="chips"><span>参数化入口</span><span>分组与选择</span><span>验证/缓存/输出</span><span>UV/材质/烘焙</span></div></td>
+        <td>name:1922, normal:76, volume:43, transform:25, add:21, material:19, xform:18, noise:17</td>
+      </tr><tr>
+        <td><a href="../out/sidefx-hip-study/extracted/95706-F_rig_v13_export_2-F_rig_v13_export_2.hiplc">95706-F_rig_v13_export_2-F_rig_v13_export_2.hiplc</a></td>
+        <td>Skeleton Blend for Blendshapes in APEX<br><small><a href="https://www.sidefx.com/forum/attachment/439930e257a8f8a5e8de7c693c392c8cb7e79a6b/">附件</a> · <a href="https://www.sidefx.com/forum/topic/95706/">主题 95706</a></small></td>
+        <td>28.3 MB</td>
+        <td><div class="chips"><span>参数化入口</span><span>分组与选择</span><span>局部规则/VEX</span><span>UV/材质/烘焙</span></div></td>
+        <td>name:2307, xform:162, material:105, add:100, transform:66, delete:19, attribwrangle:17, null:13</td>
+      </tr><tr>
+        <td><a href="../out/sidefx-hip-study/downloads/74522-day_06_swing.hip">day_06_swing.hip</a></td>
+        <td>Day 6 | Motion: Swing<br><small><a href="https://www.sidefx.com/forum/attachment/2485f65906cc0516fc1b3f40d187a1ae7e1bda22/">附件</a> · <a href="https://www.sidefx.com/forum/topic/74522/">主题 74522</a></small></td>
+        <td>1020.8 KB</td>
+        <td><div class="chips"><span>参数化入口</span><span>分组与选择</span><span>UV/材质/烘焙</span><span>曲线骨架</span></div></td>
+        <td>name:2138, normal:106, transform:28, labs:25, material:19, volume:18, noise:17, ray:17</td>
+      </tr><tr>
+        <td><a href="../out/sidefx-hip-study/downloads/103356-Skeletal_SEQUENCE_Blend.hip">Skeletal SEQUENCE Blend.hip</a></td>
+        <td>Blender's ACTION CONSTRAINT with 'Skeleton Blend' in APEX |<br><small><a href="https://www.sidefx.com/forum/attachment/6367e1577d82140f92ac9891a825d26a0c5e46bf/">附件</a> · <a href="https://www.sidefx.com/forum/topic/103356/">主题 103356</a></small></td>
+        <td>646.7 KB</td>
+        <td><div class="chips"><span>参数化入口</span><span>分组与选择</span><span>复制/散布</span><span>UV/材质/烘焙</span></div></td>
+        <td>name:1164, add:25, transform:18, delete:16, clean:11, attribwrangle:10, resample:8, pack:7</td>
+      </tr><tr>
+        <td><a href="../out/sidefx-hip-study/downloads/103356-Skeletal_SEQUENCE_Blend_mod.hipnc">Skeletal SEQUENCE Blend_mod.hipnc</a></td>
+        <td>Blender's ACTION CONSTRAINT with 'Skeleton Blend' in APEX |<br><small><a href="https://www.sidefx.com/forum/attachment/183715b0d08e3f2042179452680069f7348d3b11/">附件</a> · <a href="https://www.sidefx.com/forum/topic/103356/">主题 103356</a></small></td>
+        <td>596.5 KB</td>
+        <td><div class="chips"><span>参数化入口</span><span>分组与选择</span><span>UV/材质/烘焙</span><span>曲线骨架</span></div></td>
+        <td>name:1272, add:25, transform:19, delete:17, clean:11, attribwrangle:10, resample:8, line:6</td>
+      </tr><tr>
+        <td><a href="../out/sidefx-hip-study/downloads/103356-Skeletal_SEQUENCE_Blend_mod2.hipnc">Skeletal SEQUENCE Blend_mod2.hipnc</a></td>
+        <td>Blender's ACTION CONSTRAINT with 'Skeleton Blend' in APEX |<br><small><a href="https://www.sidefx.com/forum/attachment/2412a48cb0ddf23c774f5312ba4c4f5172c51258/">附件</a> · <a href="https://www.sidefx.com/forum/topic/103356/">主题 103356</a></small></td>
+        <td>875.5 KB</td>
+        <td><div class="chips"><span>参数化入口</span><span>分组与选择</span><span>复制/散布</span><span>UV/材质/烘焙</span></div></td>
+        <td>name:1663, add:35, transform:27, delete:18, clean:11, attribwrangle:10, resample:9, line:8</td>
+      </tr><tr>
+        <td><a href="../out/sidefx-hip-study/downloads/102804-sliceTesting_03.hiplc">sliceTesting_03.hiplc</a></td>
+        <td>How to create concentric geometry - cut-through playdough.<br><small><a href="https://www.sidefx.com/forum/attachment/f8a225a42a645b3571b4d68c70d763e1ae73d3c4/">附件</a> · <a href="https://www.sidefx.com/forum/topic/102804/">主题 102804</a></small></td>
+        <td>348.5 KB</td>
+        <td><div class="chips"><span>参数化入口</span><span>分组与选择</span><span>布尔/体素</span><span>曲线骨架</span></div></td>
+        <td>name:665, labs:25, transform:22, noise:15, volume:15, attribwrangle:12, volumewrangle:12, xform:11</td>
+      </tr><tr>
+        <td><a href="../out/sidefx-hip-study/downloads/102731-sq010-sh010_Lighting_v0005.hipnc">sq010-sh010_Lighting_v0005.hipnc</a></td>
+        <td>Karma Physical Skyのsolar Azimuthを変更するとクラッシュする。<br><small><a href="https://www.sidefx.com/forum/attachment/61cd5f91688d5bd19b6928369bfc445b54e1af28/">附件</a> · <a href="https://www.sidefx.com/forum/topic/102731/">主题 102731</a></small></td>
+        <td>3.7 MB</td>
+        <td><div class="chips"><span>参数化入口</span><span>分组与选择</span><span>UV/材质/烘焙</span><span>布尔/体素</span></div></td>
+        <td>name:5572, volume:371, material:178, karma:149, materialx:112, xform:98, transform:61, curve:60</td>
+      </tr><tr>
+        <td><a href="../out/sidefx-hip-study/downloads/102731-sq010-sh010_Effects_v0008.hipnc">sq010-sh010_Effects_v0008.hipnc</a></td>
+        <td>Karma Physical Skyのsolar Azimuthを変更するとクラッシュする。<br><small><a href="https://www.sidefx.com/forum/attachment/11f65b7c2e9090461d53fd1dc6f100b7fc55c6d1/">附件</a> · <a href="https://www.sidefx.com/forum/topic/102731/">主题 102731</a></small></td>
+        <td>1.1 MB</td>
+        <td><div class="chips"><span>参数化入口</span><span>分组与选择</span><span>验证/缓存/输出</span><span>曲线骨架</span></div></td>
+        <td>name:2397, vdb:48, volume:43, add:40, normal:30, transform:28, filecache:19, delete:18</td>
+      </tr><tr>
+        <td><a href="../out/sidefx-hip-study/downloads/102731-sq010-sh010_Lighting_v0009.hipnc">sq010-sh010_Lighting_v0009.hipnc</a></td>
+        <td>Karma Physical Skyのsolar Azimuthを変更するとクラッシュする。<br><small><a href="https://www.sidefx.com/forum/attachment/6945f445b68fd2c50082705b7cb410753ab9243a/">附件</a> · <a href="https://www.sidefx.com/forum/topic/102731/">主题 102731</a></small></td>
+        <td>4.6 MB</td>
+        <td><div class="chips"><span>参数化入口</span><span>分组与选择</span><span>UV/材质/烘焙</span><span>布尔/体素</span></div></td>
+        <td>name:5533, volume:371, material:174, karma:145, materialx:112, xform:98, transform:61, curve:60</td>
+      </tr><tr>
+        <td><a href="../out/sidefx-hip-study/downloads/102452-pin_question.hiplc">pin_question.hiplc</a></td>
+        <td>MPM Pin-to-Animation Mystery<br><small><a href="https://www.sidefx.com/forum/attachment/ccd2e1c6344ac84dffc16db41417a43d50d2a355/">附件</a> · <a href="https://www.sidefx.com/forum/topic/102452/">主题 102452</a></small></td>
+        <td>359.4 KB</td>
+        <td><div class="chips"><span>参数化入口</span><span>分组与选择</span><span>验证/缓存/输出</span><span>UV/材质/烘焙</span></div></td>
+        <td>name:853, normal:32, volume:21, delete:14, material:13, null:11, attribwrangle:10, volumewrangle:10</td>
+      </tr><tr>
+        <td><a href="../out/sidefx-hip-study/downloads/95706-skeleton_blend_setup_apex.hip">skeleton_blend_setup_apex.hip</a></td>
+        <td>Skeleton Blend for Blendshapes in APEX<br><small><a href="https://www.sidefx.com/forum/attachment/e5c707c2ac81738b851709327b5bfe9c50aef23f/">附件</a> · <a href="https://www.sidefx.com/forum/topic/95706/">主题 95706</a></small></td>
+        <td>389.6 KB</td>
+        <td><div class="chips"><span>参数化入口</span><span>分组与选择</span><span>复制/散布</span><span>曲线骨架</span></div></td>
+        <td>name:776, delete:12, clean:11, transform:11, attribwrangle:10, resample:9, add:9, line:5</td>
+      </tr><tr>
+        <td><a href="../out/sidefx-hip-study/downloads/95706-JointBased_blendshapes_lid_test_01.hiplc">JointBased_blendshapes_lid_test_01.hiplc</a></td>
+        <td>Skeleton Blend for Blendshapes in APEX<br><small><a href="https://www.sidefx.com/forum/attachment/167f79e1d94d90b6db357c1c298113bb5ba734ec/">附件</a> · <a href="https://www.sidefx.com/forum/topic/95706/">主题 95706</a></small></td>
+        <td>662.8 KB</td>
+        <td><div class="chips"><span>参数化入口</span><span>分组与选择</span><span>复制/散布</span><span>曲线骨架</span></div></td>
+        <td>name:1240, add:22, transform:22, attribwrangle:11, delete:9, resample:9, line:8, xform:7</td>
+      </tr><tr>
+        <td><a href="../out/sidefx-hip-study/downloads/82282-ap_simulation02_02.hipnc">ap_simulation02_02.hipnc</a></td>
+        <td>Particle Size not decreasing with age<br><small><a href="https://www.sidefx.com/forum/attachment/189b67583a517a61b0486ece59ffcafe5aa2301f/">附件</a> · <a href="https://www.sidefx.com/forum/topic/82282/">主题 82282</a></small></td>
+        <td>2.3 MB</td>
+        <td><div class="chips"><span>参数化入口</span><span>UV/材质/烘焙</span><span>分组与选择</span><span>表面质量</span></div></td>
+        <td>name:3020, material:397, normal:306, noise:65, ray:51, transform:39, volume:33, add:31</td>
+      </tr><tr>
+        <td><a href="../out/sidefx-hip-study/downloads/45813-FlipTank_DrivenBy_OceanSource.hip">FlipTank_DrivenBy_OceanSource.hip</a></td>
+        <td>Driving Flip Particles using ocean source ISSUE<br><small><a href="https://www.sidefx.com/forum/attachment/807c5a692e7bc52815e01c0fc3a028f7015a5137/">附件</a> · <a href="https://www.sidefx.com/forum/topic/45813/">主题 45813</a></small></td>
+        <td>567.6 KB</td>
+        <td><div class="chips"><span>参数化入口</span><span>分组与选择</span><span>表面质量</span><span>布尔/体素</span></div></td>
+        <td>name:1640, normal:164, volume:46, add:33, solver:18, transform:16, null:13, copy:12</td>
+      </tr><tr>
+        <td><a href="../out/sidefx-hip-study/downloads/73131-HoudiniExport_Ply.hiplc">HoudiniExport_Ply.hiplc</a></td>
+        <td>How to use xyz_pointcloud_exporter<br><small><a href="https://www.sidefx.com/forum/attachment/938659154cd07467877e9047e1f0395929ac4ead/">附件</a> · <a href="https://www.sidefx.com/forum/topic/73131/">主题 73131</a></small></td>
+        <td>687.6 KB</td>
+        <td><div class="chips"><span>参数化入口</span><span>分组与选择</span><span>UV/材质/烘焙</span><span>表面质量</span></div></td>
+        <td>name:1537, normal:144, noise:56, add:27, labs:25, instance:17, volume:14, transform:12</td>
+      </tr><tr>
+        <td><a href="../out/sidefx-hip-study/downloads/74932-Day_29_-_Silky.hiplc">Day 29 - Silky.hiplc</a></td>
+        <td>Day 29 | Materials: Silky<br><small><a href="https://www.sidefx.com/forum/attachment/07722ff3c857c3338b6b36c09967ae16511510e9/">附件</a> · <a href="https://www.sidefx.com/forum/topic/74932/">主题 74932</a></small></td>
+        <td>587.2 KB</td>
+        <td><div class="chips"><span>参数化入口</span><span>分组与选择</span><span>验证/缓存/输出</span><span>UV/材质/烘焙</span></div></td>
+        <td>name:1445, normal:71, volume:39, transform:27, add:15, null:13, delete:11, cache:11</td>
+      </tr><tr>
+        <td><a href="../out/sidefx-hip-study/extracted/83538-Gaea_HeightSclae_Error-Gaea_HeightSclae_Error_gaea_HeightScale_test.hip">83538-Gaea_HeightSclae_Error-Gaea_HeightSclae_Error_gaea_HeightScale_test.hip</a></td>
+        <td>Gaea Labs toolset error<br><small><a href="https://www.sidefx.com/forum/attachment/8ee50e56a2811b0ffca78a1b57817d07f1c4d1f0/">附件</a> · <a href="https://www.sidefx.com/forum/topic/83538/">主题 83538</a></small></td>
+        <td>2.2 MB</td>
+        <td><div class="chips"><span>参数化入口</span><span>UV/材质/烘焙</span><span>分组与选择</span><span>表面质量</span></div></td>
+        <td>name:887, normal:65, noise:38, heightfield:27, volume:17, attribwrangle:15, add:12, labs:12</td>
+      </tr><tr>
+        <td><a href="../out/sidefx-hip-study/downloads/95706-JointBased_blendshapes_01.hiplc">JointBased_blendshapes_01.hiplc</a></td>
+        <td>Skeleton Blend for Blendshapes in APEX<br><small><a href="https://www.sidefx.com/forum/attachment/9e2dacb72b6fb36fe30c811d05848102256d4f17/">附件</a> · <a href="https://www.sidefx.com/forum/topic/95706/">主题 95706</a></small></td>
+        <td>446.7 KB</td>
+        <td><div class="chips"><span>参数化入口</span><span>分组与选择</span><span>验证/缓存/输出</span><span>复制/散布</span></div></td>
+        <td>name:898, attribwrangle:11, transform:11, cache:11, delete:10, filecache:10, timeshift:8, add:6</td>
+      </tr><tr>
+        <td><a href="../out/sidefx-hip-study/downloads/103969-setup.hiplc">setup.hiplc</a></td>
+        <td>Connecting ports in apex [solved]<br><small><a href="https://www.sidefx.com/forum/attachment/3ccd9c07940e98d84589e6796e3b24c762d57d0a/">附件</a> · <a href="https://www.sidefx.com/forum/topic/103969/">主题 103969</a></small></td>
+        <td>413.7 KB</td>
+        <td><div class="chips"><span>参数化入口</span><span>分组与选择</span><span>复制/散布</span><span>曲线骨架</span></div></td>
+        <td>name:975, add:21, delete:14, attribwrangle:10, groupexpression:10, transform:7, line:4, pack:4</td>
+      </tr><tr>
+        <td><a href="../out/sidefx-hip-study/downloads/76857-scale_dependent.hipnc">scale_dependent.hipnc</a></td>
+        <td>Is vellum scale dependent?<br><small><a href="https://www.sidefx.com/forum/attachment/e5b3a91acaf3b6b2569c50ba69b065554932022f/">附件</a> · <a href="https://www.sidefx.com/forum/topic/76857/">主题 76857</a></small></td>
+        <td>542.5 KB</td>
+        <td><div class="chips"><span>参数化入口</span><span>分组与选择</span><span>UV/材质/烘焙</span><span>表面质量</span></div></td>
+        <td>name:1249, normal:72, volume:29, add:18, noise:17, material:15, null:14, xform:14</td>
+      </tr><tr>
+        <td><a href="../out/sidefx-hip-study/downloads/81940-test.hip">test.hip</a></td>
+        <td>Karma XPU, Matt Shadow catcher<br><small><a href="https://www.sidefx.com/forum/attachment/f83fa4bb3c78d02267ac780f107dbaa9d6d6b14d/">附件</a> · <a href="https://www.sidefx.com/forum/topic/81940/">主题 81940</a></small></td>
+        <td>909.0 KB</td>
+        <td><div class="chips"><span>参数化入口</span><span>分组与选择</span><span>UV/材质/烘焙</span><span>表面质量</span></div></td>
+        <td>name:1804, xform:114, normal:82, transform:54, material:48, volume:24, attribwrangle:20, karma:15</td>
+      </tr><tr>
+        <td><a href="../out/sidefx-hip-study/downloads/82282-simulation02_02.hipnc">simulation02_02.hipnc</a></td>
+        <td>Particle Size not decreasing with age<br><small><a href="https://www.sidefx.com/forum/attachment/2c0e7886576bf1287f0fbe8b24b9302664b7cdb0/">附件</a> · <a href="https://www.sidefx.com/forum/topic/82282/">主题 82282</a></small></td>
+        <td>2.3 MB</td>
+        <td><div class="chips"><span>参数化入口</span><span>UV/材质/烘焙</span><span>分组与选择</span><span>表面质量</span></div></td>
+        <td>name:2971, material:397, normal:306, noise:65, ray:51, transform:37, volume:33, add:30</td>
+      </tr><tr>
+        <td><a href="../out/sidefx-hip-study/downloads/89421-smoke2.hiplc">smoke2.hiplc</a></td>
+        <td>Labs FlipBook Textures makes watermark in indie edition.<br><small><a href="https://www.sidefx.com/forum/attachment/17cf09f10e87575be5a43e78236f8a62c9f552f4/">附件</a> · <a href="https://www.sidefx.com/forum/topic/89421/">主题 89421</a></small></td>
+        <td>304.9 KB</td>
+        <td><div class="chips"><span>参数化入口</span><span>分组与选择</span><span>复制/散布</span><span>UV/材质/烘焙</span></div></td>
+        <td>name:555, volume:56, scatter:30, normal:28, attribwrangle:10, volumewrangle:10, vdb:9, material:8</td>
+      </tr><tr>
+        <td><a href="../out/sidefx-hip-study/extracted/58308-abc_seq-abc_seq_flip-fluid_abc-seq-export.hip">58308-abc_seq-abc_seq_flip-fluid_abc-seq-export.hip</a></td>
+        <td>Alembic Sequence Files Houdini to Maya<br><small><a href="https://www.sidefx.com/forum/attachment/682da0a96bc313af70783b3c60a2eec237816e37/">附件</a> · <a href="https://www.sidefx.com/forum/topic/58308/">主题 58308</a></small></td>
+        <td>646.7 KB</td>
+        <td><div class="chips"><span>参数化入口</span><span>分组与选择</span><span>表面质量</span><span>UV/材质/烘焙</span></div></td>
+        <td>name:1664, normal:142, volume:40, add:37, vdb:34, transform:15, copy:14, attribwrangle:10</td>
+      </tr><tr>
+        <td><a href="../out/sidefx-hip-study/downloads/102951-Weave.hipnc">Weave.hipnc</a></td>
+        <td>Unexpected result after copying a curve many times over<br><small><a href="https://www.sidefx.com/forum/attachment/2e57945130294bc5b7c40399597a1d7a7748aa43/">附件</a> · <a href="https://www.sidefx.com/forum/topic/102951/">主题 102951</a></small></td>
+        <td>164.4 KB</td>
+        <td><div class="chips"><span>参数化入口</span><span>分组与选择</span><span>曲线骨架</span><span>UV/材质/烘焙</span></div></td>
+        <td>name:329, curve:18, delete:13, transform:13, attribwrangle:10, groupexpression:10, fuse:7, normal:3</td>
+      </tr><tr>
+        <td><a href="../out/sidefx-hip-study/downloads/98416-community_H205.hiplc">community_H205.hiplc</a></td>
+        <td>XPU has obviouse differences to CPU render in solaris<br><small><a href="https://www.sidefx.com/forum/attachment/eaaae96563ce11fdcb447c0e6046acd87f9c2938/">附件</a> · <a href="https://www.sidefx.com/forum/topic/98416/">主题 98416</a></small></td>
+        <td>5.1 MB</td>
+        <td><div class="chips"><span>参数化入口</span><span>分组与选择</span><span>UV/材质/烘焙</span><span>表面质量</span></div></td>
+        <td>name:3355, material:553, transform:374, normal:371, materialx:162, xform:120, null:72, volume:66</td>
+      </tr><tr>
+        <td><a href="../out/sidefx-hip-study/downloads/97935-boxhelp.hiplc">boxhelp.hiplc</a></td>
+        <td>How to add polygons faces between curves?<br><small><a href="https://www.sidefx.com/forum/attachment/00fc5395cbe344699487c3e90487567b812698d5/">附件</a> · <a href="https://www.sidefx.com/forum/topic/97935/">主题 97935</a></small></td>
+        <td>118.2 KB</td>
+        <td><div class="chips"><span>参数化入口</span><span>分组与选择</span><span>UV/材质/烘焙</span><span>验证/缓存/输出</span></div></td>
+        <td>name:190, matchsize:10, xform:10, transform:9, volume:5, material:2, null:1, delete:1</td>
+      </tr><tr>
+        <td><a href="../out/sidefx-hip-study/downloads/102951-debug_00.hipnc">debug_00.hipnc</a></td>
+        <td>Unexpected result after copying a curve many times over<br><small><a href="https://www.sidefx.com/forum/attachment/56abd10e4aef5712894ab0317961e4f65e0b5245/">附件</a> · <a href="https://www.sidefx.com/forum/topic/102951/">主题 102951</a></small></td>
+        <td>99.0 KB</td>
+        <td><div class="chips"><span>参数化入口</span><span>分组与选择</span><span>曲线骨架</span><span>UV/材质/烘焙</span></div></td>
+        <td>name:110, transform:5, curveu:3, volume:3, null:2, copyxform:2, pack:2, material:2</td>
+      </tr><tr>
+        <td><a href="../out/sidefx-hip-study/downloads/103722-planetary_atmosphere.hiplc">planetary_atmosphere.hiplc</a></td>
+        <td>Earth atmosphere?<br><small><a href="https://www.sidefx.com/forum/attachment/230c10fe5e600312de4736786eb16518cdea1269/">附件</a> · <a href="https://www.sidefx.com/forum/topic/103722/">主题 103722</a></small></td>
+        <td>303.0 KB</td>
+        <td><div class="chips"><span>参数化入口</span><span>分组与选择</span><span>验证/缓存/输出</span><span>UV/材质/烘焙</span></div></td>
+        <td>name:658, xform:54, karma:36, attribwrangle:20, transform:12, scatter:8, volume:8, material:3</td>
+      </tr><tr>
+        <td><a href="../out/sidefx-hip-study/downloads/103722-planetary_atmosphere.hiplc">planetary_atmosphere.hiplc</a></td>
+        <td>Earth atmosphere?<br><small><a href="https://www.sidefx.com/forum/attachment/e01eabfede40f61c982c0f5c7697329353ad8176/">附件</a> · <a href="https://www.sidefx.com/forum/topic/103722/">主题 103722</a></small></td>
+        <td>303.0 KB</td>
+        <td><div class="chips"><span>参数化入口</span><span>分组与选择</span><span>验证/缓存/输出</span><span>UV/材质/烘焙</span></div></td>
+        <td>name:658, xform:54, karma:36, attribwrangle:20, transform:12, scatter:8, volume:8, material:3</td>
+      </tr><tr>
+        <td><a href="../out/sidefx-hip-study/extracted/97499-pdg_services_test-uvg_test-extrude_test.hda">97499-pdg_services_test-uvg_test-extrude_test.hda</a></td>
+        <td>PDG Services in Unreal<br><small><a href="https://www.sidefx.com/forum/attachment/5a894b60a1ecd58aaa686ff2c0e8e06f8cca9d2c/">附件</a> · <a href="https://www.sidefx.com/forum/topic/97499/">主题 97499</a></small></td>
+        <td>11.8 KB</td>
+        <td><div class="chips"><span>UV/材质/烘焙</span><span>参数化入口</span><span>分组与选择</span><span>验证/缓存/输出</span></div></td>
+        <td>name:4, extrude:2, circle:1, transform:1</td>
+      </tr><tr>
+        <td><a href="../out/sidefx-hip-study/extracted/97499-pdg_services_test-uvg_test-pdg_services_test.hda">97499-pdg_services_test-uvg_test-pdg_services_test.hda</a></td>
+        <td>PDG Services in Unreal<br><small><a href="https://www.sidefx.com/forum/attachment/5a894b60a1ecd58aaa686ff2c0e8e06f8cca9d2c/">附件</a> · <a href="https://www.sidefx.com/forum/topic/97499/">主题 97499</a></small></td>
+        <td>19.4 KB</td>
+        <td><div class="chips"><span>UV/材质/烘焙</span><span>参数化入口</span><span>分组与选择</span><span>验证/缓存/输出</span></div></td>
+        <td>name:4, circle:1, transform:1</td>
+      </tr></tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>可读片段</h2>
+      <div class="grid"><article class="snippet"><h4>balloon_mojigousei_019.hipnc</h4><code>Sop/groupexpression /Applications/Houdini/Houdini21.0.440/Frameworks/Houdini.framework/Versions/21.0/Resources/houdini/otls/OPlibSop.hda</code><code>Sop/groupexpression otls/OPlibSop.hda</code><code>Sop/polypath /Applications/Houdini/Houdini21.0.440/Frameworks/Houdini.framework/Versions/21.0/Resources/houdini/otls/OPlibSop.hda</code></article><article class="snippet"><h4>balloon_mojigousei_019_t01.hipnc</h4><code>Sop/groupexpression /Applications/Houdini/Houdini21.0.596/Frameworks/Houdini.framework/Versions/21.0/Resources/houdini/otls/OPlibSop.hda</code><code>Sop/groupexpression otls/OPlibSop.hda</code><code>Sop/polypath /Applications/Houdini/Houdini21.0.596/Frameworks/Houdini.framework/Versions/21.0/Resources/houdini/otls/OPlibSop.hda</code></article><article class="snippet"><h4>06_swing__mariusz.wesierski_v009.hiplc</h4><code>Vop/addgroup C:/PROGRA~1/SIDEEF~1/HOUDIN~1.513/houdini/otls/OPlibScripted.hda</code><code>Vop/addgroup otls/OPlibScripted.hda</code><code>Sop/groupexpression C:/PROGRA~1/SIDEEF~1/HOUDIN~1.513/houdini/otls/OPlibSop.hda</code></article><article class="snippet"><h4>worms_02.hiplc</h4><code>Sop/groupexpression C:/PROGRA~1/SIDEEF~1/HOUDIN~1.596/houdini/otls/OPlibSop.hda</code><code>Sop/groupexpression otls/OPlibSop.hda</code><code>Sop/scatteralign C:/PROGRA~1/SIDEEF~1/HOUDIN~1.596/houdini/otls/OPlibSop.hda</code></article><article class="snippet"><h4>Coral_Balooon_4.hiplc</h4><code>Sop/groupexpression C:/PROGRA~1/SIDEEF~1/HOUDIN~1.724/houdini/otls/OPlibSop.hda</code><code>Sop/groupexpression otls/OPlibSop.hda</code><code>Sop/groupexpression</code></article><article class="snippet"><h4>CarFractureDemo.hip</h4><code>Sop/groupexpression C:/PROGRA~1/SIDEEF~1/HOUDIN~1.631/houdini/otls/OPlibSop.hda</code><code>Sop/groupexpression otls/OPlibSop.hda</code><code>Sop/polypath C:/PROGRA~1/SIDEEF~1/HOUDIN~1.631/houdini/otls/OPlibSop.hda</code></article><article class="snippet"><h4>bgeo_value_clips_example.hip</h4><code>Sop/groupexpression /opt/sidefx/hfs19.0.441/houdini/otls/OPlibSop.hda</code><code>Sop/groupexpression otls/OPlibSop.hda</code><code>Vop/normalize /opt/sidefx/hfs19.0.441/houdini/otls/OPlibScripted.hda</code></article><article class="snippet"><h4>Logging_truck_clean_sideFX_forum.hipnc</h4><code>set -g DRIVERPATH = '/obj/Rain/Cache_rain_flying_off_truck_and_trailer/render'</code><code>Sop/groupexpression C:/PROGRA~1/SIDEEF~1/HOUDIN~1.440/houdini/otls/OPlibSop.hda</code><code>Sop/groupexpression otls/OPlibSop.hda</code></article><article class="snippet"><h4>swing.hiplc</h4><code>Sop/groupexpression C:/PROGRA~1/SIDEEF~1/HOUDIN~1.416/houdini/otls/OPlibSop.hda</code><code>Sop/groupexpression otls/OPlibSop.hda</code><code>Sop/groupexpression</code></article><article class="snippet"><h4>v1_001.hipnc</h4><code>Sop/groupexpression C:/PROGRA~1/SIDEEF~1/HOUDIN~1.460/houdini/otls/OPlibSop.hda</code><code>Sop/groupexpression otls/OPlibSop.hda</code><code>Dop/popgroup C:/PROGRA~1/SIDEEF~1/HOUDIN~1.460/houdini/otls/OPlibPopDop.hda</code></article><article class="snippet"><h4>Robot_Rig_WIP_01.hipnc</h4><code>Sop/groupexpression C:/PROGRA~1/SIDEEF~1/HOUDIN~1.724/houdini/otls/OPlibSop.hda</code><code>Sop/groupexpression otls/OPlibSop.hda</code><code>labs::Sop/edgegroup_to_curve::1.0 C:/Program Files/Side Effects Software/sidefx_packages/SideFXLabs20.0/otls/SideFX_Labs.hda</code></article><article class="snippet"><h4>lamp.hip</h4><code>Sop/groupexpression /home/williamh/repo/dev21.0/hfs/houdini/otls/OPlibSop.hda</code><code>Sop/groupexpression otls/OPlibSop.hda</code><code>Sop/groupexpression</code></article><article class="snippet"><h4>lamp.hip</h4><code>Sop/groupexpression /home/williamh/repo/dev21.0/hfs/houdini/otls/OPlibSop.hda</code><code>Sop/groupexpression otls/OPlibSop.hda</code><code>Sop/groupexpression</code></article><article class="snippet"><h4>rbdcarrig_01.hiplc</h4><code>Sop/groupexpression C:/PROGRA~1/SIDEEF~1/HOUDIN~1.278/houdini/otls/OPlibSop.hda</code><code>Sop/groupexpression otls/OPlibSop.hda</code><code>Sop/heightfield_copylayer C:/PROGRA~1/SIDEEF~1/HOUDIN~1.278/houdini/otls/OPlibTerrain.hda</code></article><article class="snippet"><h4>rbdcarrig_02.hiplc</h4><code>Sop/groupexpression C:/PROGRA~1/SIDEEF~1/HOUDIN~1.332/houdini/otls/OPlibSop.hda</code><code>Sop/groupexpression otls/OPlibSop.hda</code><code>Sop/heightfield_copylayer C:/PROGRA~1/SIDEEF~1/HOUDIN~1.332/houdini/otls/OPlibTerrain.hda</code></article><article class="snippet"><h4>Tsunami_Cuspmethod_LOP.hipnc</h4><code>Vop/normalize C:/PROGRA~1/SIDEEF~1/HOUDIN~1.613/houdini/otls/OPlibScripted.hda</code><code>Vop/normalize otls/OPlibScripted.hda</code><code>Dop/popgroup C:/PROGRA~1/SIDEEF~1/HOUDIN~1.613/houdini/otls/OPlibPopDop.hda</code></article><article class="snippet"><h4>29_silky__mariusz.wesierski__v002.hiplc</h4><code>Dop/popgroup</code><code>Sop/groupexpression</code><code>popgroup</code></article><article class="snippet"><h4>070620_Swing_004.hiplc</h4><code>Sop/groupexpression C:/PROGRA~1/SIDEEF~1/HOUDIN~1.460/houdini/otls/OPlibSop.hda</code><code>Sop/groupexpression otls/OPlibSop.hda</code><code>Dop/popgroup C:/PROGRA~1/SIDEEF~1/HOUDIN~1.460/houdini/otls/OPlibPopDop.hda</code></article><article class="snippet"><h4>95706-F_rig_v13_export_2-F_rig_v13_export_2.hiplc</h4><code>kinefx::Sop/groupjoints C:/PROGRA~1/SIDEEF~1/HOUDIN~1.332/packages/kinefx/otls/OPlibKineFX.hda</code><code>kinefx::Sop/groupjoints otls/OPlibKineFX.hda</code><code>kinefx::Sop/groupjoints</code></article><article class="snippet"><h4>day_06_swing.hip</h4><code>labs::Sop/curve_sweep D:/work/SideFX/SideFXLabs/otls/curve_sweep.hda</code><code>labs::Sop/curve_sweep otls/curve_sweep.hda</code><code>labs::Sop/curve_sweep</code></article><article class="snippet"><h4>Skeletal SEQUENCE Blend.hip</h4><code>Sop/polypath C:/PROGRA~1/SIDEEF~1/HOUDIN~1.512/houdini/otls/OPlibSop.hda</code><code>Sop/polypath otls/OPlibSop.hda</code><code>Sop/polypath</code></article><article class="snippet"><h4>Skeletal SEQUENCE Blend_mod.hipnc</h4><code>Sop/polypath C:/_PROGR~1/3D/SIDEEF~1/HOUDIN~1.631/houdini/otls/OPlibSop.hda</code><code>Sop/polypath otls/OPlibSop.hda</code><code>Sop/polypath</code></article><article class="snippet"><h4>Skeletal SEQUENCE Blend_mod2.hipnc</h4><code>Sop/polypath C:/_PROGR~1/3D/SIDEEF~1/HOUDIN~1.631/houdini/otls/OPlibSop.hda</code><code>Sop/polypath otls/OPlibSop.hda</code><code>Sop/polypath</code></article><article class="snippet"><h4>sliceTesting_03.hiplc</h4><code>labs::Sop/polyslice::1.2 /Applications/Houdini/sidefx_packages/SideFXLabs21.0/otls/SideFX_Labs.hda</code><code>labs::Sop/polyslice::1.2 otls/SideFX_Labs.hda</code><code>labs::Sop/polyslice::1.2</code></article></div>
+    </section>
+
+    <section>
+      <h2>方法与限制</h2>
+      <div class="panel">
+        <ul>
+          <li>仅抓取公开论坛页面与公开附件；未登录，不访问私有资源。</li>
+          <li>HIP 二进制未用 Houdini 官方 API 解析，采用字符串抽取；节点频次代表“可读痕迹”，不是完整网络拓扑。</li>
+          <li>ZIP 内只提取 HIP/HDA/OTL；超大附件跳过，避免把模拟缓存/贴图包拉爆。</li>
+          <li>报告用于学习流程和设计原则；不要复制 GPL/第三方资产或具体实现。</li>
+        </ul>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

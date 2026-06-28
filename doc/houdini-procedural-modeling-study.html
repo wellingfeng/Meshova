@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Houdini 程序化建模课程分析 · Meshova 借鉴清单</title>
+<style>
+  :root{
+    --bg:#0c1117; --panel:#151c25; --panel2:#1d2632; --line:#2c3745;
+    --text:#e8edf3; --muted:#9aa7b6; --accent:#4dd0e1; --accent2:#7ee787;
+    --warn:#f5a65b; --danger:#ff7b72; --purple:#bc8cff; --chip:#233040;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--text);font:14px/1.62 "Segoe UI","Microsoft YaHei",system-ui,sans-serif}
+  header{position:sticky;top:0;z-index:5;background:linear-gradient(180deg,#0c1117 75%,rgba(12,17,23,.84));border-bottom:1px solid var(--line);backdrop-filter:blur(8px)}
+  .head{max-width:1280px;margin:0 auto;padding:18px 24px 14px}
+  h1{font-size:24px;margin:0 0 6px;letter-spacing:.2px}
+  h1 span{color:var(--accent)}
+  .sub{color:var(--muted);font-size:13px}
+  .nav{display:flex;gap:8px;flex-wrap:wrap;margin-top:13px}
+  .nav a{color:var(--muted);text-decoration:none;border:1px solid var(--line);background:var(--chip);border-radius:18px;padding:5px 11px;font-size:12px}
+  .nav a:hover{color:var(--text);border-color:var(--accent)}
+  main{max-width:1280px;margin:0 auto;padding:24px 24px 70px}
+  section{margin:0 0 34px}
+  h2{font-size:18px;margin:0 0 14px;color:var(--accent);border-left:4px solid var(--accent);padding-left:10px}
+  h3{font-size:15px;margin:20px 0 9px;color:var(--accent2)}
+  p{margin:8px 0;color:var(--text)}
+  .lead{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--accent2);border-radius:8px;padding:14px 16px;margin:0 0 18px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:13px 14px}
+  .card strong{color:var(--accent2)}
+  .metric{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:14px 0}
+  .metric .box{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:12px}
+  .num{font-size:22px;color:var(--accent);font-weight:700}
+  .label{font-size:12px;color:var(--muted)}
+  table{width:100%;border-collapse:collapse;background:var(--panel);border:1px solid var(--line);margin:12px 0;font-size:13px}
+  th,td{border:1px solid var(--line);padding:9px 10px;text-align:left;vertical-align:top}
+  th{background:var(--panel2);color:var(--accent);font-weight:600}
+  td:first-child{white-space:nowrap}
+  ul{margin:8px 0 0;padding-left:20px}
+  li{margin:4px 0}
+  code{background:#0a0e13;border:1px solid var(--line);border-radius:5px;padding:1px 5px;color:var(--purple);font-family:Consolas,"JetBrains Mono",monospace;font-size:12px}
+  .tag{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:1px 8px;margin:0 4px 4px 0;color:var(--muted);font-size:11px}
+  .ok{color:var(--accent2);border-color:rgba(126,231,135,.5)}
+  .warn{color:var(--warn);border-color:rgba(245,166,91,.55)}
+  .high{color:var(--danger);border-color:rgba(255,123,114,.55)}
+  .flow{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px;margin:12px 0}
+  .steps{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  .step{background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:8px 11px;font-size:12px}
+  .arrow{color:var(--muted)}
+  .shot-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(310px,1fr));gap:14px}
+  figure{margin:0;background:var(--panel);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  figure img{width:100%;display:block;background:#05070a;aspect-ratio:16/9;object-fit:cover}
+  figcaption{padding:9px 11px;color:var(--muted);font-size:12px}
+  figcaption b{color:var(--text)}
+  .priority{display:grid;grid-template-columns:minmax(120px,.65fr) 1.35fr 1.35fr;gap:0;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--panel);font-size:13px}
+  .priority div{padding:10px;border-right:1px solid var(--line);border-bottom:1px solid var(--line)}
+  .priority div:nth-child(3n){border-right:0}
+  .priority .hd{background:var(--panel2);color:var(--accent);font-weight:600}
+  .small{color:var(--muted);font-size:12px}
+  footer{border-top:1px solid var(--line);margin-top:38px;padding-top:14px;color:var(--muted);font-size:12px}
+  @media(max-width:760px){
+    main,.head{padding-left:14px;padding-right:14px}
+    .priority{display:block}
+    .priority div{border-right:0}
+    td:first-child{white-space:normal}
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="head">
+    <h1><span>Houdini</span> 程序化建模课程分析 · Meshova 借鉴清单</h1>
+    <div class="sub">来源：B 站 BV1CT411k7bX · CGMA Procedural Modeling for Production in Houdini · 92 分 P，约 15.4 小时；重点分析 Week 1-6 正课，Q&A 作为流程参考。</div>
+    <nav class="nav">
+      <a href="#summary">结论</a>
+      <a href="#course">课程地图</a>
+      <a href="#patterns">流程模式</a>
+      <a href="#gap">Meshova 缺口</a>
+      <a href="#nodes">节点/算子</a>
+      <a href="#priority">优先级</a>
+      <a href="#shots">截图证据</a>
+    </nav>
+  </div>
+</header>
+<main>
+  <section id="summary">
+    <div class="lead">
+      <b>结论先行：</b>这套课程最值得 Meshova 学的不是“照搬 Houdini 节点”，而是生产级程序化建模的四层结构：
+      <b>基础形体 → 点/属性流 → 模块资产 → 层级装配</b>。Meshova 现在基础几何、曲线、CSG、散布、字段已有雏形；真正缺的是 Houdini 式的中间表示：<b>PointCloud / Group / InstancePlan / Ramp / Module</b>。
+    </div>
+    <div class="metric">
+      <div class="box"><div class="num">92</div><div class="label">视频分 P</div></div>
+      <div class="box"><div class="num">6</div><div class="label">正课周数</div></div>
+      <div class="box"><div class="num">557.6</div><div class="label">正课分钟</div></div>
+      <div class="box"><div class="num">55</div><div class="label">已抽样 storyboard 截图</div></div>
+    </div>
+    <div class="grid">
+      <div class="card"><strong>最该补</strong><br>点云/属性中间层。不要让 <code>scatter()</code> 直接吐最终网格，要能先吐点、写入 <code>orient/scale/id/variant/mask</code>，再 copy。</div>
+      <div class="card"><strong>最能提效</strong><br>模块资产函数。每个零件独立调参、调试、截图，再参与大装配。课程里吊灯、机械鸟、珊瑚、宝塔都这样做。</div>
+      <div class="card"><strong>最适合 AI</strong><br>显式参数 schema + ramp 曲线。AI 改数值、改曲线比改一坨几何代码稳。</div>
+      <div class="card"><strong>短期方向</strong><br>先做建筑/硬表面模块库：grid split、inset、bevel、copy-to-points、facade windows。它最契合当前 Meshova 能力。</div>
+    </div>
+  </section>
+
+  <section id="course">
+    <h2>课程地图</h2>
+    <table>
+      <tr><th>周</th><th>时长</th><th>资产主题</th><th>核心训练</th><th>对 Meshova 的意义</th></tr>
+      <tr><td>Week 1</td><td>120.2 min</td><td>Chandelier 吊灯</td><td>环、链、支撑梁、上下 strands；Copy Stamp/表达式/参数化</td><td>曲线、扫掠、极坐标阵列、模块包装。</td></tr>
+      <tr><td>Week 2</td><td>112.8 min</td><td>Mechanical Bird 机械鸟</td><td>硬表面板件、孔洞、腹部格栅、曲线分布零件</td><td>bevel/boolean、沿曲线复制、局部坐标与朝向。</td></tr>
+      <tr><td>Week 3</td><td>71.4 min</td><td>Succulent 多肉植物</td><td>花瓣曲线、层级随机、lift/长度/厚度 ramp</td><td>有机重复体、ramp 一等公民、实例层级。</td></tr>
+      <tr><td>Week 4</td><td>84.6 min</td><td>Coral Reef 珊瑚礁</td><td>岩体遮罩、点源生成、点属性、珊瑚实例复制</td><td>PointCloud/Group/InstancePlan 是关键缺口。</td></tr>
+      <tr><td>Week 5</td><td>77.4 min</td><td>Pagoda Pt.1 宝塔</td><td>台阶、屋顶、楼层 repeat、模块装配</td><td>建筑 grammar、grid/lattice、polygon inset/roof。</td></tr>
+      <tr><td>Week 6</td><td>91.2 min</td><td>Pagoda Pt.2 宝塔细节</td><td>门、门钉、窗户、梁、屋檐细节</td><td>facade 规则、prefab 变体、表面局部阵列。</td></tr>
+      <tr><td>Q&A</td><td>365.2 min</td><td>答疑/复盘</td><td>生产规范、调参、组织网络</td><td>主要价值在“组织方法”，不是新节点。</td></tr>
+    </table>
+  </section>
+
+  <section id="patterns">
+    <h2>值得学习的流程模式</h2>
+    <h3>1. 点/属性流优先，不急着合并成网格</h3>
+    <div class="flow">
+      <div class="steps">
+        <span class="step">选面/遮罩</span><span class="arrow">→</span>
+        <span class="step">生成点</span><span class="arrow">→</span>
+        <span class="step">写 attrs: orient/scale/id</span><span class="arrow">→</span>
+        <span class="step">copy 资产</span><span class="arrow">→</span>
+        <span class="step">合并/材质分组</span>
+      </div>
+    </div>
+    <p>Week4 珊瑚最典型：先在岩体上得到蓝色点，再给点准备朝向/尺寸/随机种子，最后复制珊瑚。Meshova 当前 <code>poissonScatter()</code> 直接返回 mesh，少了可检查、可复用、可调参的点云阶段。</p>
+
+    <h3>2. 每个复杂模型都拆成可复用子资产</h3>
+    <p>吊灯的链环、机械鸟板件、珊瑚枝、宝塔屋顶/门窗，全是先单独生成一个 module，再被复制/阵列/装配。Meshova 应把 <code>PROC_MODELS</code> 的“整模型 build”升级成“模块函数库 + 装配图”。</p>
+
+    <h3>3. Ramp 是建模控制，不只是材质控制</h3>
+    <p>多肉花瓣 lift、宝塔楼层收分、屋檐曲线、珊瑚枝大小变化都靠 ramp/curve 控制。Meshova 现在可以闭包写 <code>radiusAt(t)</code>，但缺显式 <code>Ramp</code> 数据结构、UI 曲线编辑、序列化。</p>
+
+    <h3>4. Debug 可视化是生产力</h3>
+    <p>课程频繁用颜色显示 mask/group/id，用蓝点显示源点，用临时材质显示选区。Meshova 截图闭环也需要这些 debug view：点、法线、group、wireframe、attrs heatmap。AI 看到中间状态才会改得准。</p>
+
+    <h3>5. 建筑类适合先做 grammar</h3>
+    <p>宝塔证明建筑硬表面最适合参数化：楼层、台阶、屋顶、门窗、梁、瓦片都有清晰重复规则。相较有机花瓣/珊瑚，建筑更容易做出稳定 demo，也更适合 AI 调参闭环。</p>
+  </section>
+
+  <section id="gap">
+    <h2>Meshova 现状对照</h2>
+    <table>
+      <tr><th>能力层</th><th>已具备</th><th>课程暴露的缺口</th></tr>
+      <tr><td>基础图元</td><td><span class="tag ok">box/sphere/plane</span><span class="tag ok">cylinder/cone/torus/icosphere/circle</span></td><td>capsule、rounded box、2D polygon-with-holes、profile primitive。</td></tr>
+      <tr><td>曲线/扫掠</td><td><span class="tag ok">polyline/bezier/helix</span><span class="tag ok">smoothCurve/sweep</span></td><td>ribbon/loft surface、curve resample、curve frame 输出、沿曲线复制实例。</td></tr>
+      <tr><td>布尔/细分</td><td><span class="tag ok">union/subtract/intersect</span><span class="tag ok">catmullClark/subdivide</span></td><td>生产级 bevel/chamfer、inset/offset、非流形诊断、CSG 稳定性报告。</td></tr>
+      <tr><td>散布</td><td><span class="tag ok">surface scatter</span><span class="tag ok">poissonScatter</span></td><td><b>PointCloud 中间层</b>、点属性、点过滤、copy-to-points、variant 选择。</td></tr>
+      <tr><td>字段/属性</td><td><span class="tag ok">ScalarField/VectorField</span><span class="tag ok">storeAttribute/selectField</span></td><td>属性 domain（point/face/part）、group、attr transfer、heatmap debug。</td></tr>
+      <tr><td>模块/装配</td><td><span class="tag warn">ProcModel build(params)</span></td><td><b>Module/HDA-like</b>：子资产、输入/输出契约、参数继承、局部坐标、装配树。</td></tr>
+      <tr><td>UI/调参</td><td><span class="tag ok">滑块 schema</span></td><td>参数分组、枚举、开关、颜色、曲线 ramp、seed lock、预设保存。</td></tr>
+      <tr><td>AI 闭环</td><td><span class="tag ok">截图/agent demo 已有</span></td><td>中间状态截图、目标差异评分、参数搜索/黑盒优化器接口。</td></tr>
+    </table>
+  </section>
+
+  <section id="nodes">
+    <h2>建议补的节点 / 算子</h2>
+    <table>
+      <tr><th>优先级</th><th>算子</th><th>对应 Houdini 思路</th><th>为什么重要</th></tr>
+      <tr><td><span class="tag high">P0</span></td><td><code>pointCloudFromMesh()</code>, <code>groupByField()</code>, <code>setPointAttr()</code></td><td>Scatter/Group/Attribute Wrangle</td><td>把“散布”拆成可调试点云，支撑珊瑚、草、门窗、瓦片。</td></tr>
+      <tr><td><span class="tag high">P0</span></td><td><code>copyToPoints(instance, points)</code></td><td>Copy to Points</td><td>课程出现频率最高的生产模式。比直接 scatter mesh 更通用。</td></tr>
+      <tr><td><span class="tag high">P0</span></td><td><code>Ramp</code>, <code>sampleRamp()</code>, <code>radiusAtRamp()</code></td><td>Ramp Parameter</td><td>花瓣、屋顶、楼层、分枝都靠曲线控制。AI 更容易改 ramp 数据。</td></tr>
+      <tr><td><span class="tag high">P0</span></td><td><code>bevel(mesh)</code>, <code>chamferEdges()</code></td><td>Bevel SOP</td><td>硬表面/建筑件没有 bevel 会显廉价。机械鸟和宝塔都依赖它。</td></tr>
+      <tr><td><span class="tag warn">P1</span></td><td><code>polygon2D()</code>, <code>offsetPolygon()</code>, <code>insetFace()</code></td><td>PolyExtrude/Inset/Offset</td><td>门窗、屋顶、面板、台阶的基础。</td></tr>
+      <tr><td><span class="tag warn">P1</span></td><td><code>gridSplit()</code>, <code>facadeGrid()</code></td><td>建筑分割 grammar</td><td>宝塔/建筑立面可快速出效果，适合作为 Meshova 垂直品类。</td></tr>
+      <tr><td><span class="tag warn">P1</span></td><td><code>arrayPolar()</code>, <code>arrayAlongCurve()</code></td><td>Copy/Transform + Curve frame</td><td>吊灯环、链、齿轮、格栅、花瓣都用到。</td></tr>
+      <tr><td><span class="tag warn">P1</span></td><td><code>loft(curves)</code>, <code>ribbon(curve)</code></td><td>Skin/Loft/Sweep variants</td><td>多肉花瓣、屋顶曲面、布条类形体需要面而不是管。</td></tr>
+      <tr><td><span class="tag">P2</span></td><td><code>branchSystem()</code>, <code>lSystem()</code></td><td>递归生长/分枝</td><td>珊瑚、树枝、藤蔓；有机资产深挖时再做。</td></tr>
+      <tr><td><span class="tag">P2</span></td><td><code>debugPoints()</code>, <code>debugAttrHeatmap()</code>, <code>debugGroups()</code></td><td>Viewport visualizers</td><td>不是产出节点，但对 AI 自迭代很关键。</td></tr>
+    </table>
+  </section>
+
+  <section id="priority">
+    <h2>建议路线</h2>
+    <div class="priority">
+      <div class="hd">阶段</div><div class="hd">做什么</div><div class="hd">产出验证</div>
+      <div><b>Step 1</b><br><span class="small">点/属性层</span></div>
+      <div>新增 <code>PointCloud</code>、<code>PointAttr</code>、<code>Group</code>、<code>copyToPoints</code>。保留现有 <code>poissonScatter()</code>，但内部可先吐点再合并。</div>
+      <div>做“岩体表面蓝点 + 不同颜色 attrs”截图；再 copy 小圆柱/珊瑚枝到点上。</div>
+
+      <div><b>Step 2</b><br><span class="small">Ramp + UI</span></div>
+      <div>把 <code>radiusAt(t)</code> 抽成可序列化 <code>Ramp</code>；参数 schema 支持 ramp、enum、color、group。</div>
+      <div>做“花瓣 lift / 宝塔收分”两个例子，调 ramp 直接改变轮廓。</div>
+
+      <div><b>Step 3</b><br><span class="small">硬表面基础</span></div>
+      <div>补 <code>bevel</code>、<code>roundedBox</code>、<code>inset</code>、<code>arrayPolar</code>、<code>arrayAlongCurve</code>。</div>
+      <div>复现课程里的链环、机械鸟板件、台阶格栅。</div>
+
+      <div><b>Step 4</b><br><span class="small">建筑 grammar</span></div>
+      <div>做 <code>facadeGrid</code>、<code>roofFromRect</code>、<code>stairs</code>、<code>windowPrefab</code>、<code>doorPrefab</code>。</div>
+      <div>生成 1 个参数化宝塔/小楼：层数、屋顶曲线、窗户密度、门钉数量可调。</div>
+
+      <div><b>Step 5</b><br><span class="small">AI 闭环增强</span></div>
+      <div>截图模式加入 points/groups/attrs/wire/material preview。让 AI 能看中间状态。</div>
+      <div>AI 根据“窗户太密/屋顶太平/珊瑚太挤”自动改参数或 ramp。</div>
+    </div>
+  </section>
+
+  <section id="shots">
+    <h2>截图证据</h2>
+    <div class="shot-grid">
+      <figure>
+        <img src="../out/analysis/houdini-procedural/storyboards/p01_984954112_fr4zhb-0001.jpg" alt="Week1 Chandelier rings">
+        <figcaption><b>Week1 吊灯上环：</b>旋转/缩放圆环堆叠，参数面板暴露层数与尺度。对应 Meshova：profile/revolve、polar array、ramp scale。</figcaption>
+      </figure>
+      <figure>
+        <img src="../out/analysis/houdini-procedural/storyboards/p08_984958130_fr4zhb-0001.jpg" alt="Week1 chain link">
+        <figcaption><b>Week1 链环：</b>截面 → 环形实体 → copy/rotate 成链，最后包装子网络。对应 Meshova：module + sweep/torus + copyToPoints。</figcaption>
+      </figure>
+      <figure>
+        <img src="../out/analysis/houdini-procedural/storyboards/p15_984957492_y8tz8b-0001.jpg" alt="Week2 mechanical bird bracket">
+        <figcaption><b>Week2 机械鸟支架：</b>圆端长条、孔洞、倒角、布尔。对应 Meshova：bevel/roundedBox/boolean 稳定性。</figcaption>
+      </figure>
+      <figure>
+        <img src="../out/analysis/houdini-procedural/storyboards/p36_984964238_0290fb-0001.jpg" alt="Week3 succulent petals">
+        <figcaption><b>Week3 多肉：</b>花瓣层级、随机计数、lift/厚度/长度 ramp。对应 Meshova：ribbon/loft、Ramp 数据结构、实例层级。</figcaption>
+      </figure>
+      <figure>
+        <img src="../out/analysis/houdini-procedural/storyboards/p47_984974366_8nnpxb-0001.jpg" alt="Week4 coral point preparation">
+        <figcaption><b>Week4 珊瑚源点：</b>岩体上可视化蓝色点，准备复制资产。对应 Meshova：PointCloud、PointAttr、debugPoints。</figcaption>
+      </figure>
+      <figure>
+        <img src="../out/analysis/houdini-procedural/storyboards/p48_984977582_y8tz8b-0001.jpg" alt="Week4 coral mesh">
+        <figcaption><b>Week4 珊瑚 mesh：</b>点属性驱动变体复制、颜色检查、合并成资产。对应 Meshova：InstancePlan、variant、material groups。</figcaption>
+      </figure>
+      <figure>
+        <img src="../out/analysis/houdini-procedural/storyboards/p55_984992697_qix7db-0001.jpg" alt="Week4 branch coral copy">
+        <figcaption><b>Week4 分枝珊瑚：</b>分枝资产先独立生成，再按遮罩复制到岩体。对应 Meshova：branchSystem/L-system 可后置。</figcaption>
+      </figure>
+      <figure>
+        <img src="../out/analysis/houdini-procedural/storyboards/p59_984996384_fr4zhb-0001.jpg" alt="Week5 pagoda stairs">
+        <figcaption><b>Week5 宝塔台阶：</b>结构化建筑件，网格线、行列、局部 copy。对应 Meshova：gridSplit、stairs、建筑 grammar。</figcaption>
+      </figure>
+      <figure>
+        <img src="../out/analysis/houdini-procedural/storyboards/p64_985000464_fr4zhb-0001.jpg" alt="Week5 pagoda roof">
+        <figcaption><b>Week5 屋顶：</b>轮廓 inset/offset、屋檐坡面、曲线调形。对应 Meshova：polygon offset/inset、roofFromRect。</figcaption>
+      </figure>
+      <figure>
+        <img src="../out/analysis/houdini-procedural/storyboards/p85_985024385_5b712b-0001.jpg" alt="Week6 windows">
+        <figcaption><b>Week6 窗户：</b>墙面规则阵列 + 随机缺失/尺寸变体。对应 Meshova：facadeGrid、windowPrefab、规则随机混合。</figcaption>
+      </figure>
+      <figure>
+        <img src="../out/analysis/houdini-procedural/storyboards/p86_985026656_y8tz8b-0001.jpg" alt="Week6 roof beams">
+        <figcaption><b>Week6 屋顶梁：</b>屋檐下梁/瓦/装饰件按局部坐标复制。对应 Meshova：module local frame、arrayAlongCurve。</figcaption>
+      </figure>
+      <figure>
+        <img src="../out/analysis/houdini-procedural/storyboard-contact.png" alt="storyboard contact sheet">
+        <figcaption><b>抽样总览：</b>已抓取 35 个正课代表分 P、55 张 storyboard，用于宏观识别流程密度与主题转折。</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section>
+    <h2>最终判断</h2>
+    <p>Meshova 已经不是“缺基础几何”的阶段。现在最该做的，是把现有几何能力从“函数直接吐 mesh”推进到 Houdini 式生产流：<b>可见中间数据、可写属性、可复制实例、可封装模块</b>。</p>
+    <p>短期最佳 demo：<b>程序化宝塔/小建筑</b>。它覆盖课程里最重要的点：模块、楼层 repeat、屋顶 ramp、门窗 facade、surface copy、材质分组；同时比珊瑚/多肉更稳定，更适合 AI 闭环和开源展示。</p>
+  </section>
+
+  <footer>
+    本文件由本地抓取的 Bilibili 公开视频元数据与 storyboard 抽样分析生成。截图素材位于 <code>out/analysis/houdini-procedural/</code>。
+  </footer>
+</main>
+</body>
+</html>
