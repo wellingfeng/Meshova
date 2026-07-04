@@ -79,7 +79,9 @@ function rewriteWebJs(filename, text) {
       .replaceAll('from "/web/', 'from "./')
       .replaceAll('import("/web/', 'import("./')
       .replaceAll('fetch("/web/', 'fetch("./')
-      .replaceAll("`/web/index.html?model=${encodeURIComponent(modelParam)}`", "`./viewer.html?model=${encodeURIComponent(modelParam)}`");
+      .replace(/`\/web\/index\.html\?model=\$\{([^}]+)\}`/g, (_, expr) => {
+        return "`./viewer.html?model=${" + expr + "}`";
+      });
   }
   return out;
 }
