@@ -18,6 +18,8 @@ Meshova is a TypeScript procedural modeling and procedural PBR material library.
 
 Use strict TypeScript and ES modules. Keep imports compatible with the existing style, including `.js` extensions for local TypeScript imports. Use two-space indentation, named exports, `camelCase` functions and variables, and `PascalCase` interfaces/types. Prefer immutable-by-convention APIs: return new meshes, buffers, and data objects rather than mutating inputs. Determinism is a core requirement, so seed all randomness and avoid time- or environment-dependent behavior in core logic.
 
+For semantic deformable mesh UI, never expose raw importer/object names such as `root.0` or `component_1` as primary parameter labels. Infer and display human-readable semantic labels from part geometry, prompt/context, or AI/VLM metadata; keep the raw part name only as a stable internal key.
+
 ## Testing Guidelines
 
 Vitest runs in Node and includes `test/**/*.test.ts`. Add focused tests next to the affected domain, for example `test/geometry.test.ts` for mesh operations or `test/random.test.ts` for seeded behavior. Use deterministic assertions and `toBeCloseTo` for floating-point math. Run `pnpm test` and `pnpm typecheck` before submitting changes that touch source.

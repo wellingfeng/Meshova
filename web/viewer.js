@@ -10,9 +10,24 @@ import { ShaderPass } from "three/addons/postprocessing/ShaderPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { Reflector } from "three/addons/objects/Reflector.js";
 import { bakeMaterial, bakeSurface, bakeSurfaceByName, isSurface, SURFACE_NAMES, SURFACE_LABEL_MAP, PRESET_NAMES, BUILDER_NAMES, SURFACE_PARAM_SCHEMA, defaultSurfaceParams } from "/web/materials.js";
-import { PRESET_PARAM_SCHEMA, defaultMatParams, evalPlan, describePlan, planNodeStats, toViewerModel } from "/dist/index.js";
-import { PROC_MODELS, defaultParams } from "/web/procmodels.js";
-import { makeHumanParamSchema, defaultMakeHumanParams, buildMakeHumanParts } from "/web/makehuman.js";
+import {
+  PRESET_PARAM_SCHEMA,
+  defaultMatParams,
+  evalPlan,
+  describePlan,
+  planNodeStats,
+  toViewerModel,
+  makeMesh,
+  recomputeNormals,
+  semanticModelFromParts,
+  deformSemanticMesh,
+  semanticModelToNamedParts,
+  inferSemanticPartLabels,
+  semanticSplitMesh,
+  splitMeshByAiMasks,
+  canonicalizeHumanoidPartsToTPose,
+} from "/dist/index.js";
+import { PROC_MODELS, defaultParams, makeSpeedTreeLibraryModel } from "/web/procmodels.js";
 
 const stage = document.getElementById("stage");
 const errEl = document.getElementById("err");
@@ -545,6 +560,7 @@ let currentLoadedSourceName = "";
 let selectedPart = null;   // selected part name
 let currentParts = [];     // last built parts, kept for async models
 let lastMeta = { parts: 0, verts: 0, tris: 0 };
+let lastAiSplitFrame = null;
 let rebuildToken = 0;
 
 // ---- Wind animation state ----
@@ -580,6 +596,94 @@ function meshToBuffers(mesh) {
     uv[i * 2 + 1] = mesh.uvs[i].y;
   }
   return { pos, nrm, uv, indices: mesh.indices };
+}
+
+const importedTextureLoader = new THREE.TextureLoader();
+const importedTextureCache = new Map();
+const importedTexturePending = new Set();
+
+function resolveImportedTextureUrl(path) {
+  if (!path) return null;
+  if (/^(https?:)?\/\//i.test(path) || path.startsWith("/")) return path;
+  return `/out/${path}`;
+}
+
+function loadImportedTexture(path, { srgb = false, flipY = true } = {}) {
+  const url = resolveImportedTextureUrl(path);
+  if (!url) return null;
+  const key = `${srgb ? "srgb" : "linear"}:${flipY ? "flipY" : "noFlipY"}:${url}`;
+  const cached = importedTextureCache.get(key);
+  if (cached) return cached;
+  let resolvePending = () => {};
+  const pending = new Promise((resolve) => { resolvePending = resolve; });
+  importedTexturePending.add(pending);
+  const tex = importedTextureLoader.load(url, () => {
+    resolvePending();
+    importedTexturePending.delete(pending);
+    resetTAA();
+  }, undefined, (err) => {
+    resolvePending();
+    importedTexturePending.delete(pending);
+    console.warn("texture load failed", url, err);
+  });
+  tex.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace;
+  // OBJ/MTL texture atlases use Three's default flipped upload. glTF-style
+  // no-flip would vertically mirror atlas islands and make UVs look scrambled.
+  tex.flipY = flipY;
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
+  importedTextureCache.set(key, tex);
+  return tex;
+}
+
+function waitForImportedTextures() {
+  return importedTexturePending.size
+    ? Promise.allSettled([...importedTexturePending])
+    : Promise.resolve();
+}
+
+function viewerPartToNamedPart(p) {
+  if (p.mesh) return p;
+  const positions = [];
+  const normals = [];
+  const uvs = [];
+  for (let i = 0; i < p.positions.length; i += 3) {
+    positions.push({ x: p.positions[i], y: p.positions[i + 1], z: p.positions[i + 2] });
+  }
+  if (Array.isArray(p.normals) && p.normals.length === p.positions.length) {
+    for (let i = 0; i < p.normals.length; i += 3) {
+      normals.push({ x: p.normals[i], y: p.normals[i + 1], z: p.normals[i + 2] });
+    }
+  } else {
+    for (let i = 0; i < positions.length; i++) normals.push({ x: 0, y: 1, z: 0 });
+  }
+  if (Array.isArray(p.uvs) && p.uvs.length === positions.length * 2) {
+    for (let i = 0; i < p.uvs.length; i += 2) uvs.push({ x: p.uvs[i], y: p.uvs[i + 1] });
+  } else {
+    for (let i = 0; i < positions.length; i++) uvs.push({ x: 0, y: 0 });
+  }
+  const mesh = recomputeNormals(makeMesh({
+    positions,
+    normals,
+    uvs,
+    indices: Array.from(p.indices || []),
+  }));
+  return {
+    name: p.name,
+    label: p.label,
+    color: p.color || [0.8, 0.8, 0.8],
+    colors: p.colors,
+    windWeight: p.windWeight,
+    surface: p.surface,
+    textures: p.textures,
+    metadata: p.metadata,
+    mesh,
+  };
+}
+
+function viewerModelToNamedParts(model) {
+  const raw = Array.isArray(model) ? model : (model.parts || []);
+  return raw.map(viewerPartToNamedPart);
 }
 
 // Precompute per-vertex convexity/curvature (0..1) from a viewer mesh: spread
@@ -668,10 +772,12 @@ function buildParts(parts, { keepCamera = false } = {}) {
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     mesh.name = part.name;
+    mesh.userData.label = part.label || part.name;
     mesh.userData.baseColor = part.color;
     mesh.userData.vertexColors = hasVColors;
     mesh.userData.hasWind = hasWind;     // remember so material swaps re-inject wind
     mesh.userData.surface = part.surface || null; // matched per-part material
+    mesh.userData.textures = part.textures || null; // imported PBR texture atlas
     if (hasWind) attachWind(mesh.material);
     modelRoot.add(mesh);
   }
@@ -704,13 +810,51 @@ function buildParts(parts, { keepCamera = false } = {}) {
   hud.textContent = `${currentModel ? currentModel.name : ""} · ${parts.length}件 / ${tris}面`;
 }
 
-function makePartMaterial(color, vertexColors = false) {
+function makePartMaterial(color, vertexColors = false, textures = null) {
   const c = color || [0.8, 0.8, 0.8];
-  return new THREE.MeshStandardMaterial({
+  const mat = new THREE.MeshStandardMaterial({
     color: vertexColors ? new THREE.Color(1, 1, 1) : new THREE.Color(c[0], c[1], c[2]),
     vertexColors: !!vertexColors,
     roughness: 0.75, metalness: 0.0,
   });
+  if (!textures) return mat;
+
+  const baseColor = loadImportedTexture(textures.baseColor, { srgb: true });
+  const normal = loadImportedTexture(textures.normal);
+  const roughness = loadImportedTexture(textures.roughness);
+  const metallic = loadImportedTexture(textures.metallic);
+  const ao = loadImportedTexture(textures.ao);
+  const orm = loadImportedTexture(textures.orm);
+  if (baseColor) {
+    mat.map = baseColor;
+    mat.color.setRGB(1, 1, 1);
+    mat.vertexColors = !!vertexColors;
+  }
+  if (normal) {
+    mat.normalMap = normal;
+    mat.normalScale = new THREE.Vector2(1, 1);
+  }
+  if (orm) {
+    // glTF/Three convention: ORM = R AO, G roughness, B metallic.
+    mat.aoMap = orm;
+    mat.roughnessMap = orm;
+    mat.metalnessMap = orm;
+    mat.roughness = 1.0;
+    mat.metalness = 1.0;
+    mat.aoMapIntensity = 1.0;
+  } else {
+    if (ao) mat.aoMap = ao;
+    if (roughness) {
+      mat.roughnessMap = roughness;
+      mat.roughness = 1.0;
+    }
+    if (metallic) {
+      mat.metalnessMap = metallic;
+      mat.metalness = 1.0;
+    }
+  }
+  mat.envMapIntensity = 1.0;
+  return mat;
 }
 
 /**
@@ -1289,7 +1433,13 @@ function applyMaterial(presetName, { size = 256, skipPanel = false } = {}) {
       if (!o.isMesh) return;
       o.material.dispose?.();
       const surf = o.userData.surface;
-      if (surf) {
+      const tex = o.userData.textures;
+      if (tex) {
+        o.material = makePartMaterial(o.userData.baseColor || [0.8, 0.8, 0.8], o.userData.vertexColors, tex);
+        if (edgeWearOn) attachEdgeWear(o.material, edgeWearOpts);
+        if (pomOn) attachPOM(o.material, pomOpts);
+        if (rimOn) attachRimLight(o.material, rimOpts);
+      } else if (surf) {
         // Merge any live per-part override onto the part's own surface params,
         // so the right panel retunes this exact matched material.
         const ov = surfaceOverrides[o.name];
@@ -1307,6 +1457,7 @@ function applyMaterial(presetName, { size = 256, skipPanel = false } = {}) {
         o.material = makePartMaterial(o.userData.baseColor || [0.8, 0.8, 0.8], o.userData.vertexColors);
       }
       o.material.wireframe = wireframe;
+      ensureWind(o);
     });
     if (!skipPanel) renderMatPanel();
     applySelectionHighlight();
@@ -1443,7 +1594,8 @@ function renderPartList(parts) {
     const c = part.color;
     sw.style.background = `rgb(${(c[0]*255)|0},${(c[1]*255)|0},${(c[2]*255)|0})`;
     const name = document.createElement("span");
-    name.textContent = part.name;
+    name.textContent = part.label || part.name;
+    name.title = part.label ? `${part.label} (${part.name})` : part.name;
     row.append(sw, name);
     row.onclick = () => {
       selectedPart = selectedPart === part.name ? null : part.name;
@@ -1591,6 +1743,20 @@ async function buildScriptText() {
     ].join("\n");
   }
 
+  if (currentModel && currentModel.id === "semantic-live") {
+    return [
+      ...header,
+      "// 来源: 当前 Meshova 运行时部件",
+      "// 类型: SemanticMeshModel + 部件级程序化变形控制器",
+      "",
+      `const params = ${paramsText};`,
+      "",
+      "// 运行时代码: viewer 从 ViewerModel 转 NamedPart，调用 semanticModelFromParts/deformSemanticMesh/semanticModelToNamedParts。",
+      "// 当前材质状态",
+      `const materialState = ${materialText};`,
+    ].join("\n");
+  }
+
   if (currentModel) {
     const moduleText = await fetchProcModelsSource();
     const info = extractProcModelSource(moduleText, currentModel);
@@ -1661,6 +1827,616 @@ function setScriptPanelOpen(open) {
   scriptPanel.setAttribute("aria-hidden", scriptPanelOpen ? "false" : "true");
   if (scriptToggleBtn) scriptToggleBtn.classList.toggle("on", scriptPanelOpen);
   if (scriptPanelOpen) updateScriptPanel();
+}
+
+const SEMANTIC_GLOBAL_SCHEMA = [
+  { key: "scaleX", label: "整体X缩放", min: 0.5, max: 1.8, step: 0.01, default: 1 },
+  { key: "scaleY", label: "整体Y缩放", min: 0.5, max: 1.8, step: 0.01, default: 1 },
+  { key: "scaleZ", label: "整体Z缩放", min: 0.5, max: 1.8, step: 0.01, default: 1 },
+];
+
+function semanticPartParamKey(partName, suffix) {
+  return `part:${partName}:${suffix}`;
+}
+
+function semanticPartLabel(part, i) {
+  if (part.label) return part.label;
+  const raw = String(part.name || "");
+  if (/^(root|mesh|object|component)[._-]?\d+$/i.test(raw)) return `部件${i + 1}`;
+  return raw || `部件${i + 1}`;
+}
+
+function makeSemanticParamSpec(part, i, suffix, label, min, max, step, defaultValue) {
+  return {
+    key: semanticPartParamKey(part.name, suffix),
+    label: `${semanticPartLabel(part, i)} · ${label}`,
+    min,
+    max,
+    step,
+    default: defaultValue,
+  };
+}
+
+function semanticParamSchema(parts) {
+  const ranked = [...parts]
+    .map((part, i) => ({ part, i, tris: part.mesh.indices.length / 3, verts: part.mesh.positions.length }))
+    .sort((a, b) => b.tris - a.tris || b.verts - a.verts);
+  const schema = [...SEMANTIC_GLOBAL_SCHEMA];
+  for (const { part, i } of ranked) {
+    schema.push(
+      makeSemanticParamSpec(part, i, "length", "拉长", 0.45, 1.8, 0.01, 1),
+      makeSemanticParamSpec(part, i, "thickness", "变粗", 0.45, 1.8, 0.01, 1),
+      makeSemanticParamSpec(part, i, "twist", "扭转", -1.2, 1.2, 0.01, 0),
+      makeSemanticParamSpec(part, i, "bend", "弯曲", -1.2, 1.2, 0.01, 0),
+      makeSemanticParamSpec(part, i, "taper", "收分", -0.8, 0.8, 0.01, 0),
+    );
+  }
+  return schema;
+}
+
+function defaultParamsFromSchema(schema) {
+  const params = {};
+  for (const spec of schema) params[spec.key] = spec.default;
+  return params;
+}
+
+function semanticLongestAxis(part) {
+  const b = new THREE.Box3();
+  for (const p of part.mesh.positions) b.expandByPoint(new THREE.Vector3(p.x, p.y, p.z));
+  const size = new THREE.Vector3();
+  b.getSize(size);
+  if (size.x >= size.y && size.x >= size.z) return "x";
+  if (size.y >= size.z) return "y";
+  return "z";
+}
+
+function semanticAnalysisFromModel(model, entry = {}) {
+  const meta = model?.meta || {};
+  return entry.semanticAnalysis || meta.semanticAnalysis || meta.objectSemantic || meta.aiSemantic || null;
+}
+
+function normalizeViewerSemanticAnalysis(analysis) {
+  if (!analysis || typeof analysis !== "object") return null;
+  const out = {};
+  if (typeof analysis.object === "string" && analysis.object.trim()) out.object = analysis.object.trim();
+  if (typeof analysis.category === "string" && analysis.category.trim()) out.category = analysis.category.trim();
+  if (typeof analysis.confidence === "number") out.confidence = Math.max(0, Math.min(1, analysis.confidence));
+  if (analysis.partLabels && typeof analysis.partLabels === "object") out.partLabels = { ...analysis.partLabels };
+  if (Array.isArray(analysis.parts)) out.parts = analysis.parts.map((part) => ({ ...part }));
+  return Object.keys(out).length ? out : null;
+}
+
+function trustedPartLabel(part) {
+  const source = part.metadata?.labelSource;
+  return source === "ai" || source === "explicit" || source === "user";
+}
+
+function buildSemanticLiveModel(sourceParts, name = "语义网格实时变形", prompt = "", options = {}) {
+  const baseParts = sourceParts.map((part) => ({
+    ...part,
+    mesh: makeMesh({
+      positions: part.mesh.positions.map((p) => ({ ...p })),
+      normals: part.mesh.normals.map((n) => ({ ...n })),
+      uvs: part.mesh.uvs.map((uv) => ({ ...uv })),
+      indices: Array.from(part.mesh.indices),
+    }),
+  }));
+  const inferLabels = options.inferLabels !== false;
+  if (inferLabels) {
+    const analysis = normalizeViewerSemanticAnalysis(options.analysis);
+    const shouldReplaceExisting = options.replaceExistingLabels === true
+      || !!analysis
+      || baseParts.some((part) => part.label && !trustedPartLabel(part));
+    const labelInput = shouldReplaceExisting
+      ? baseParts.map((part) => (trustedPartLabel(part) ? part : { ...part, label: undefined }))
+      : baseParts;
+    const inferredLabels = inferSemanticPartLabels(labelInput, {
+      prompt,
+      analysis,
+      replaceExistingLabels: shouldReplaceExisting,
+    });
+    const inferredByName = new Map(inferredLabels.map((item) => [item.name, item]));
+    for (const part of baseParts) {
+      if (!part.label || shouldReplaceExisting || analysis) {
+        const inferred = inferredByName.get(part.name);
+        if (inferred) {
+          part.label = inferred.label;
+          part.metadata = {
+            ...(part.metadata || {}),
+            role: inferred.role,
+            labelConfidence: inferred.confidence,
+            labelSource: inferred.source || (analysis ? "ai" : "generic"),
+          };
+        }
+      }
+    }
+  } else {
+    baseParts.forEach((part, i) => {
+      if (part.label) return;
+      part.label = semanticPartLabel(part, i);
+      part.metadata = {
+        ...(part.metadata || {}),
+        role: part.metadata?.role || "component",
+        labelConfidence: part.metadata?.labelConfidence || 1,
+      };
+    });
+  }
+  const schema = semanticParamSchema(baseParts);
+  const axes = new Map(baseParts.map((part) => [part.name, semanticLongestAxis(part)]));
+  return {
+    id: "semantic-live",
+    name,
+    schema,
+    defaultParams: () => defaultParamsFromSchema(schema),
+    build(params) {
+      const model = semanticModelFromParts(baseParts);
+      const modelBox = new THREE.Box3();
+      for (const p of model.mesh.positions) modelBox.expandByPoint(new THREE.Vector3(p.x, p.y, p.z));
+      const modelCenter = new THREE.Vector3();
+      modelBox.getCenter(modelCenter);
+      const center = { x: modelCenter.x, y: modelCenter.y, z: modelCenter.z };
+      const ops = [];
+      if (params.scaleX !== 1 || params.scaleY !== 1 || params.scaleZ !== 1) {
+        ops.push({ part: baseParts.map((part) => part.name), mode: "scale", scale: { x: params.scaleX, y: params.scaleY, z: params.scaleZ }, center });
+      }
+      for (const part of baseParts) {
+        const axis = axes.get(part.name) || "y";
+        const length = params[semanticPartParamKey(part.name, "length")] ?? 1;
+        const thickness = params[semanticPartParamKey(part.name, "thickness")] ?? 1;
+        const twist = params[semanticPartParamKey(part.name, "twist")] ?? 0;
+        const bend = params[semanticPartParamKey(part.name, "bend")] ?? 0;
+        const taper = params[semanticPartParamKey(part.name, "taper")] ?? 0;
+        if (length !== 1) ops.push({ part: part.name, mode: "stretch", axis, factor: length, pivot: "center" });
+        if (thickness !== 1) ops.push({ part: part.name, mode: "thicken", axis, factor: thickness });
+        if (taper !== 0) ops.push({ part: part.name, mode: "taper", axis, startScale: 1 + taper, endScale: Math.max(0.05, 1 - taper) });
+        if (twist !== 0) ops.push({ part: part.name, mode: "twist", axis, angle: twist });
+        if (bend !== 0) ops.push({ part: part.name, mode: "bend", axis, towards: axis === "x" ? "z" : "x", angle: bend });
+      }
+      const deformed = ops.length ? deformSemanticMesh(model, ops) : model;
+      const out = semanticModelToNamedParts(deformed);
+      return out.map((part, i) => ({
+        ...part,
+        color: baseParts[i]?.color || part.color,
+        surface: baseParts[i]?.surface || part.surface,
+        textures: baseParts[i]?.textures || part.textures,
+      }));
+    },
+  };
+}
+
+function loadViewerModel(model) {
+  rebuildToken++;
+  currentModel = null;
+  currentParams = null;
+  currentLoadedSource = model && typeof model.source === "string" ? model.source : null;
+  currentLoadedSourceName = (model && model.name) || "AI模型";
+  selectedPart = null;
+  surfaceOverrides = {};
+  renderParamPanel();
+  const parts = viewerModelToNamedParts(model);
+  buildParts(parts, { keepCamera: false });
+  if (hud) hud.textContent = `${(model && model.name) || "AI模型"} · ${parts.length}件`;
+}
+
+function semanticSplitTargetIndex(parts) {
+  if (selectedPart) {
+    const selected = parts.findIndex((part) => part.name === selectedPart);
+    if (selected >= 0) return selected;
+  }
+  if (parts.length !== 1) return -1;
+  let best = -1;
+  let bestTris = -1;
+  parts.forEach((part, i) => {
+    const tris = part.mesh?.indices?.length ? part.mesh.indices.length / 3 : 0;
+    if (tris > bestTris) {
+      best = i;
+      bestTris = tris;
+    }
+  });
+  return best;
+}
+
+function stableSplitName(sourceName, splitName) {
+  const base = String(sourceName || "mesh").replace(/[^a-zA-Z0-9_:-]+/g, "_").replace(/^_+|_+$/g, "") || "mesh";
+  const suffix = String(splitName || "part").replace(/^part_/, "").replace(/[^a-zA-Z0-9_:-]+/g, "_");
+  return `${base}_${suffix || "region"}`;
+}
+
+async function autoSemanticSplitCurrent(options = {}) {
+  if (!currentParts.length) return { ok: false, error: "no parts" };
+  const targetIndex = semanticSplitTargetIndex(currentParts);
+  if (targetIndex < 0) return { ok: false, error: "请先选中要拆分的大部件" };
+
+  const source = currentParts[targetIndex];
+  const splitOptions = {
+    cap: true,
+    prefix: "part",
+  };
+  if (options.faceLabels) splitOptions.faceLabels = options.faceLabels;
+  if (options.preset) splitOptions.preset = options.preset;
+  if (options.positionTolerance !== undefined) splitOptions.positionTolerance = options.positionTolerance;
+  const split = semanticSplitMesh(source.mesh, splitOptions);
+  if (split.length <= 1) return { ok: false, error: "只检测到 1 个连通部件" };
+
+  const splitParts = split.map((part) => ({
+    ...part,
+    name: stableSplitName(source.name, part.name),
+    color: source.color || part.color || [0.8, 0.8, 0.8],
+    surface: source.surface || part.surface,
+    textures: source.textures || part.textures,
+    metadata: {
+      ...(source.metadata || {}),
+      ...(part.metadata || {}),
+      sourcePart: source.name,
+      autoSemanticSplit: true,
+      role: "component",
+      labelConfidence: 1,
+      labelSource: "generic",
+    },
+  }));
+  const nextParts = [
+    ...currentParts.slice(0, targetIndex),
+    ...splitParts,
+    ...currentParts.slice(targetIndex + 1),
+  ];
+  const modelName = `${currentModel?.name || currentLoadedSourceName || "模型"} · 按部件拆分`;
+  const model = buildSemanticLiveModel(nextParts, modelName, "", { inferLabels: false });
+  await loadProcModel(model);
+  if (hud) hud.textContent = `${modelName} · ${nextParts.length}件`;
+  return { ok: true, source: source.name, parts: nextParts.length, splitParts: splitParts.length };
+}
+
+async function captureSemanticFrame(frames = 12) {
+  await window.__meshova?.settle?.(frames);
+  const url = renderer.domElement.toDataURL("image/png");
+  return {
+    imageBase64: url.includes(",") ? url.split(",")[1] : url,
+    parts: currentParts.map((part) => ({
+      name: part.name,
+      label: part.label || "",
+      tris: part.mesh?.indices?.length ? part.mesh.indices.length / 3 : 0,
+    })),
+  };
+}
+
+function colorForFaceId(faceIndex) {
+  const id = faceIndex + 1;
+  return [
+    (id & 255) / 255,
+    ((id >> 8) & 255) / 255,
+    ((id >> 16) & 255) / 255,
+  ];
+}
+
+function faceIdFromPixel(r, g, b) {
+  const id = r + (g << 8) + (b << 16);
+  return id === 0 ? -1 : id - 1;
+}
+
+function faceIdMeshForPart(part) {
+  const mesh = part.mesh;
+  const tris = mesh.indices.length / 3;
+  const positions = new Float32Array(tris * 9);
+  const colors = new Float32Array(tris * 9);
+  for (let f = 0; f < tris; f++) {
+    const color = colorForFaceId(f);
+    for (let corner = 0; corner < 3; corner++) {
+      const src = mesh.positions[mesh.indices[f * 3 + corner]];
+      const dst = f * 9 + corner * 3;
+      positions[dst] = src.x;
+      positions[dst + 1] = src.y;
+      positions[dst + 2] = src.z;
+      colors[dst] = color[0];
+      colors[dst + 1] = color[1];
+      colors[dst + 2] = color[2];
+    }
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+  geo.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+  const mat = new THREE.ShaderMaterial({
+    vertexShader: `
+      attribute vec3 color;
+      varying vec3 vIdColor;
+      void main() {
+        vIdColor = color;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }`,
+    fragmentShader: `
+      precision highp float;
+      varying vec3 vIdColor;
+      void main() {
+        gl_FragColor = vec4(vIdColor, 1.0);
+      }`,
+  });
+  mat.toneMapped = false;
+  const out = new THREE.Mesh(geo, mat);
+  out.frustumCulled = false;
+  return out;
+}
+
+function captureFaceIdViewForPart(part) {
+  const width = renderer.domElement.width;
+  const height = renderer.domElement.height;
+  const rt = new THREE.WebGLRenderTarget(width, height, {
+    depthBuffer: true,
+    stencilBuffer: false,
+    colorSpace: THREE.NoColorSpace,
+  });
+  rt.texture.minFilter = THREE.NearestFilter;
+  rt.texture.magFilter = THREE.NearestFilter;
+  const tempScene = new THREE.Scene();
+  tempScene.background = new THREE.Color(0, 0, 0);
+  const tempRoot = new THREE.Group();
+  tempRoot.position.copy(modelRoot.position);
+  tempRoot.add(faceIdMeshForPart(part));
+  tempScene.add(tempRoot);
+
+  const prevTarget = renderer.getRenderTarget();
+  const prevClearAlpha = renderer.getClearAlpha();
+  const prevClearColor = new THREE.Color();
+  renderer.getClearColor(prevClearColor);
+  renderer.setRenderTarget(rt);
+  renderer.setClearColor(0x000000, 1);
+  renderer.clear(true, true, true);
+  renderer.render(tempScene, camera);
+
+  const pixels = new Uint8Array(width * height * 4);
+  renderer.readRenderTargetPixels(rt, 0, 0, width, height, pixels);
+  renderer.setRenderTarget(prevTarget);
+  renderer.setClearColor(prevClearColor, prevClearAlpha);
+
+  const faceIds = new Int32Array(width * height);
+  for (let y = 0; y < height; y++) {
+    const srcY = height - 1 - y;
+    for (let x = 0; x < width; x++) {
+      const src = (srcY * width + x) * 4;
+      faceIds[y * width + x] = faceIdFromPixel(pixels[src], pixels[src + 1], pixels[src + 2]);
+    }
+  }
+
+  tempRoot.traverse((obj) => {
+    if (obj.isMesh) {
+      obj.geometry.dispose();
+      obj.material.dispose();
+    }
+  });
+  rt.dispose();
+  return { width, height, faceIds, backgroundFaceId: -1 };
+}
+
+function aiSplitTargetIndex(parts, partName) {
+  if (partName) {
+    const idx = parts.findIndex((part) => part.name === partName);
+    if (idx >= 0) return idx;
+  }
+  return semanticSplitTargetIndex(parts);
+}
+
+function maskFromBbox(bbox, width, height) {
+  if (!Array.isArray(bbox) || bbox.length < 4) return null;
+  const nums = bbox.map(Number);
+  if (nums.some((n) => !Number.isFinite(n))) return null;
+  let [x0, y0, x1, y1] = nums;
+  const normalized = Math.max(Math.abs(x0), Math.abs(y0), Math.abs(x1), Math.abs(y1)) <= 1.01;
+  if (normalized) {
+    x0 *= width; x1 *= width;
+    y0 *= height; y1 *= height;
+  }
+  const left = Math.max(0, Math.min(width - 1, Math.floor(Math.min(x0, x1))));
+  const right = Math.max(0, Math.min(width - 1, Math.ceil(Math.max(x0, x1))));
+  const top = Math.max(0, Math.min(height - 1, Math.floor(Math.min(y0, y1))));
+  const bottom = Math.max(0, Math.min(height - 1, Math.ceil(Math.max(y0, y1))));
+  if (right <= left || bottom <= top) return null;
+  const out = new Uint8Array(width * height);
+  for (let y = top; y <= bottom; y++) {
+    out.fill(1, y * width + left, y * width + right + 1);
+  }
+  return out;
+}
+
+async function captureAiSplitFrame(options = {}) {
+  if (!currentParts.length) return { ok: false, error: "no parts" };
+  const targetIndex = aiSplitTargetIndex(currentParts, options.partName);
+  if (targetIndex < 0) return { ok: false, error: "请先选中要 AI 切割的大部件" };
+  await window.__meshova?.settle?.(options.frames ?? 12);
+  const source = currentParts[targetIndex];
+  const url = renderer.domElement.toDataURL("image/png");
+  const faceIdView = captureFaceIdViewForPart(source);
+  const frameId = `ai_split_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+  lastAiSplitFrame = {
+    frameId,
+    targetPartName: source.name,
+    targetIndex,
+    faceIdView,
+  };
+  const out = {
+    ok: true,
+    frameId,
+    imageBase64: url.includes(",") ? url.split(",")[1] : url,
+    width: faceIdView.width,
+    height: faceIdView.height,
+    targetPart: {
+      name: source.name,
+      label: source.label || "",
+      tris: source.mesh.indices.length / 3,
+    },
+    parts: currentParts.map((part) => ({
+      name: part.name,
+      label: part.label || "",
+      tris: part.mesh?.indices?.length ? part.mesh.indices.length / 3 : 0,
+    })),
+  };
+  if (options.includeFaceIds) out.faceIds = Array.from(faceIdView.faceIds);
+  return out;
+}
+
+function normalizeAiMaskPayload(mask) {
+  const data = mask?.mask ?? mask?.data;
+  const generated = data || maskFromBbox(mask?.bbox, lastAiSplitFrame.faceIdView.width, lastAiSplitFrame.faceIdView.height);
+  if (!generated || typeof generated.length !== "number") return null;
+  const out = {
+    partKey: mask.partKey || mask.key || mask.name,
+    label: mask.label,
+    role: mask.role,
+    confidence: mask.confidence,
+    color: mask.color,
+    method: mask.method,
+    generationPrompt: mask.generationPrompt,
+    threshold: mask.threshold,
+    weight: mask.weight,
+    mask: Array.from(generated),
+    view: lastAiSplitFrame.faceIdView,
+  };
+  return out;
+}
+
+async function applyAiGuidedSplit(payload = {}) {
+  if (!currentParts.length) return { ok: false, error: "no parts" };
+  if (!lastAiSplitFrame) return { ok: false, error: "missing AI split frame" };
+  if (payload.frameId && payload.frameId !== lastAiSplitFrame.frameId) {
+    return { ok: false, error: "AI split frame expired" };
+  }
+  const masks = Array.isArray(payload.masks)
+    ? payload.masks.map(normalizeAiMaskPayload).filter(Boolean)
+    : [];
+  if (!masks.length) return { ok: false, error: "missing AI masks" };
+
+  const targetIndex = lastAiSplitFrame.targetIndex;
+  const source = currentParts[targetIndex];
+  const result = splitMeshByAiMasks(source.mesh, masks, {
+    plan: payload.plan,
+    cap: payload.cap ?? true,
+    minTriangles: payload.minTriangles ?? 1,
+    smoothPasses: payload.smoothPasses ?? 8,
+    minFaceScore: payload.minFaceScore ?? 0.25,
+  });
+  if (!result.ok) {
+    return { ok: false, error: "AI masks did not produce split", diagnostics: result.diagnostics };
+  }
+
+  const splitParts = result.parts.map((part) => ({
+    ...part,
+    name: stableSplitName(source.name, part.name),
+    color: part.color || source.color || [0.8, 0.8, 0.8],
+    surface: source.surface || part.surface,
+    textures: source.textures || part.textures,
+    metadata: {
+      ...(source.metadata || {}),
+      ...(part.metadata || {}),
+      sourcePart: source.name,
+      autoSemanticSplit: true,
+      aiGuidedSplit: true,
+    },
+  }));
+  const nextParts = [
+    ...currentParts.slice(0, targetIndex),
+    ...splitParts,
+    ...currentParts.slice(targetIndex + 1),
+  ];
+  const objectName = payload.plan?.objectLabel || currentModel?.name || currentLoadedSourceName || "模型";
+  const modelName = `${objectName} · AI识别切割`;
+  const model = buildSemanticLiveModel(nextParts, modelName, "", { inferLabels: false });
+  await loadProcModel(model);
+  if (hud) hud.textContent = `${modelName} · ${nextParts.length}件`;
+  return {
+    ok: true,
+    frameId: lastAiSplitFrame.frameId,
+    source: source.name,
+    parts: nextParts.length,
+    splitParts: splitParts.length,
+    labels: splitParts.map((part) => part.label || part.name),
+    diagnostics: result.diagnostics,
+  };
+}
+
+async function postJson(url, body) {
+  const resp = await fetch(url, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  let json = null;
+  try {
+    json = await resp.json();
+  } catch {
+    // keep null
+  }
+  if (!resp.ok) {
+    return { ok: false, error: json?.error || `HTTP ${resp.status}` };
+  }
+  return json || { ok: false, error: "empty response" };
+}
+
+async function runAiGuidedSplitCurrent(options = {}) {
+  if (!currentParts.length) return { ok: false, error: "no parts" };
+  if (hud) hud.textContent = "AI切割: 截图中...";
+  const frame = await captureAiSplitFrame({ frames: options.frames ?? 12, partName: options.partName });
+  if (!frame.ok) return frame;
+  if (hud) hud.textContent = "AI切割: 识别部件中...";
+  const res = await postJson("/api/ai-split", {
+    imageBase64: frame.imageBase64,
+    width: frame.width,
+    height: frame.height,
+    targetPart: frame.targetPart,
+    parts: frame.parts,
+    hint: options.hint || currentModel?.name || currentLoadedSourceName || "",
+  });
+  if (!res.ok) return res;
+  const masks = Array.isArray(res.masks)
+    ? res.masks
+    : Array.isArray(res.parts)
+      ? res.parts
+      : Array.isArray(res.plan?.parts)
+        ? res.plan.parts
+        : [];
+  if (!masks.length) {
+    return { ok: false, error: "AI 未返回 masks/bbox；需要 SAM masks 或 VLM bbox" };
+  }
+  if (hud) hud.textContent = "AI切割: 应用切割中...";
+  return applyAiGuidedSplit({
+    frameId: frame.frameId,
+    plan: res.plan,
+    masks,
+    cap: options.cap ?? true,
+  });
+}
+
+async function applySemanticAnalysis(analysis) {
+  if (!currentParts.length) return { ok: false, error: "no parts" };
+  const normalized = normalizeViewerSemanticAnalysis(analysis);
+  if (!normalized) return { ok: false, error: "invalid semantic analysis" };
+  const modelName = normalized.object
+    ? `${normalized.object} · 语义网格实时变形`
+    : `${currentModel?.name || currentLoadedSourceName || "模型"} · AI识别`;
+  const model = buildSemanticLiveModel(currentParts, modelName, "", {
+    analysis: normalized,
+    replaceExistingLabels: true,
+  });
+  await loadProcModel(model);
+  if (hud) hud.textContent = `${modelName} · ${currentParts.length}件`;
+  return { ok: true, analysis: normalized, parts: currentParts.length };
+}
+
+async function autoTPoseCurrent(options = {}) {
+  if (!currentParts.length) return { ok: false, error: "no parts" };
+  const res = canonicalizeHumanoidPartsToTPose(currentParts, options);
+  if (!res.parts.length) return { ok: false, error: "empty_model" };
+  rebuildToken++;
+  currentModel = null;
+  currentParams = null;
+  currentLoadedSource = null;
+  currentLoadedSourceName = "T-Pose 规范化模型";
+  selectedPart = null;
+  surfaceOverrides = {};
+  renderParamPanel();
+  buildParts(res.parts, { keepCamera: false });
+  if (hud) {
+    const pct = Math.round(res.confidence * 100);
+    const diag = res.diagnostics.length ? ` · ${res.diagnostics.join(", ")}` : "";
+    hud.textContent = `T-Pose完成 · 置信度 ${pct}%${diag}`;
+  }
+  return { ok: true, confidence: res.confidence, diagnostics: res.diagnostics };
 }
 
 // ---- procedural model loading + live params ----
@@ -1904,53 +2680,44 @@ function hexToRgb(hex) {
   return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
 }
 
-const EXTERNAL_MODELS = new Map();
-const EXTERNAL_MODEL_ALIASES = {
-  "office-chair": "officechair",
-  "preview-sphere": "sphere",
-  "teddy-bear": "teddy",
-};
-
-const makeHumanLiveModel = {
-  id: "makehuman-live",
-  name: "MakeHuman CC0实时Morph",
-  schema: makeHumanParamSchema,
-  defaultParams: defaultMakeHumanParams,
-  build: buildMakeHumanParts,
-};
-
-async function loadExternalModel(entry) {
-  const res = await fetch(`/out/${entry.file}`, { cache: "no-store" });
-  if (!res.ok) throw new Error(`failed to load external model: ${entry.file}`);
-  const model = await res.json();
-  window.__meshova.loadParts(model);
-}
-
-async function appendExternalModels() {
+async function loadGeneratedModelById(id) {
+  const safe = String(id || "").replace(/^\/+/, "").split(/[\\/]/).pop();
+  if (!safe) return null;
+  const file = safe.endsWith(".json") ? safe : `${safe}.json`;
   try {
-    const res = await fetch("/out/models.json", { cache: "no-store" });
-    if (!res.ok) return;
-    const manifest = await res.json();
-    const models = Array.isArray(manifest.models) ? manifest.models : [];
-    for (const entry of models) {
-      if (!entry || entry.hidden || !entry.id || !entry.file || PROC_MODELS[entry.id]) continue;
-      if (PROC_MODELS[EXTERNAL_MODEL_ALIASES[entry.id]]) continue;
-      const value = `external:${entry.id}`;
-      if (EXTERNAL_MODELS.has(value)) continue;
-      EXTERNAL_MODELS.set(value, entry);
+    const res = await fetch(`/out/${file}`, { cache: "no-store" });
+    if (!res.ok) return null;
+    const model = await res.json();
+    if (model?.meta?.procedural?.type === "speedtree-library") {
+      await loadProcModel(makeSpeedTreeLibraryModel(model.meta.procedural, model.name));
+      return true;
     }
+    loadViewerModel(model);
+    return true;
   } catch {
-    /* external models are optional */
+    return null;
   }
 }
 
+function procModelForId(id) {
+  const key = String(id || "").replace(/\.json$/i, "");
+  return PROC_MODELS[key] || null;
+}
+
 // 初始模型由模型库通过 URL 参数 ?model=<id> 指定；工具栏不再有模型/材质下拉。
-function initModelSelect() {
+async function initModelSelect() {
   const first = Object.keys(PROC_MODELS)[0];
   const wanted = new URLSearchParams(location.search).get("model");
-  const initial = wanted && PROC_MODELS[wanted] ? wanted : first;
-  loadProcModel(PROC_MODELS[initial]);
-  appendExternalModels();
+  if (wanted) {
+    const proc = procModelForId(wanted);
+    if (proc) {
+      loadProcModel(proc);
+      return;
+    }
+    const loaded = await loadGeneratedModelById(wanted);
+    if (loaded) return;
+  }
+  loadProcModel(PROC_MODELS[first]);
 }
 
 // ---- UI wiring ----
@@ -1973,6 +2740,42 @@ document.getElementById("autorot").onclick = (e) => {
 };
 document.getElementById("grid").onclick = (e) => {
   grid.visible = !grid.visible; e.target.classList.toggle("on", grid.visible);
+};
+const semanticSplitBtn = document.getElementById("semantic-split");
+if (semanticSplitBtn) semanticSplitBtn.onclick = async () => {
+  semanticSplitBtn.disabled = true;
+  try {
+    const res = await autoSemanticSplitCurrent();
+    if (!res.ok && hud) hud.textContent = `自动拆分失败: ${res.error}`;
+  } catch (err) {
+    fail("自动拆分出错: " + (err?.message || err));
+  } finally {
+    semanticSplitBtn.disabled = false;
+  }
+};
+const aiSemanticSplitBtn = document.getElementById("ai-semantic-split");
+if (aiSemanticSplitBtn) aiSemanticSplitBtn.onclick = async () => {
+  aiSemanticSplitBtn.disabled = true;
+  try {
+    const res = await runAiGuidedSplitCurrent();
+    if (!res.ok && hud) hud.textContent = `AI切割失败: ${res.error}`;
+  } catch (err) {
+    fail("AI切割出错: " + (err?.message || err));
+  } finally {
+    aiSemanticSplitBtn.disabled = false;
+  }
+};
+const tposeBtn = document.getElementById("tpose");
+if (tposeBtn) tposeBtn.onclick = async () => {
+  tposeBtn.disabled = true;
+  try {
+    const res = await autoTPoseCurrent();
+    if (!res.ok && hud) hud.textContent = `T-Pose失败: ${res.error}`;
+  } catch (err) {
+    fail("T-Pose出错: " + (err?.message || err));
+  } finally {
+    tposeBtn.disabled = false;
+  }
 };
 if (scriptToggleBtn) scriptToggleBtn.onclick = () => setScriptPanelOpen(!scriptPanelOpen);
 if (scriptCloseBtn) scriptCloseBtn.onclick = () => setScriptPanelOpen(false);
@@ -2258,47 +3061,22 @@ function updateFog() {
 }
 animate();
 applyEnvironment("studio");
-initModelSelect();
+void initModelSelect();
 
 // Expose hooks for headless screenshot tooling + AI procedural control.
 window.__meshova = {
   // procedural model control
-  models: () => [...Object.keys(PROC_MODELS), makeHumanLiveModel.id],
-  loadModelById: (id) => {
-    if (PROC_MODELS[id]) return loadProcModel(PROC_MODELS[id]);
-    if (id === makeHumanLiveModel.id) return loadProcModel(makeHumanLiveModel);
-    return null;
+  models: () => Object.keys(PROC_MODELS),
+  loadModelById: async (id) => {
+    const proc = procModelForId(id);
+    if (proc) return loadProcModel(proc);
+    return loadGeneratedModelById(id);
   },
   // Load raw AI-generated parts directly (bypasses PROC_MODELS). Accepts a
   // ViewerModel-like { name, parts:[{name,color,positions,normals,uvs,indices}] }
   // or already-built {name, mesh, color} parts. Used by the agent loop's
   // render callback to screenshot arbitrary script output.
-  loadParts: (model) => {
-    rebuildToken++;
-    currentModel = null;
-    currentParams = null;
-    currentLoadedSource = model && typeof model.source === "string" ? model.source : null;
-    currentLoadedSourceName = (model && model.name) || "AI模型";
-    selectedPart = null;
-    surfaceOverrides = {};
-    renderParamPanel();
-    const raw = Array.isArray(model) ? model : (model.parts || []);
-    const parts = raw.map((p) => {
-      if (p.mesh) return p;
-      // ViewerModel part: flat arrays -> mesh shape buildParts expects
-      const positions = [];
-      const normals = [];
-      const uvs = [];
-      for (let i = 0; i < p.positions.length; i += 3) {
-        positions.push({ x: p.positions[i], y: p.positions[i + 1], z: p.positions[i + 2] });
-        normals.push({ x: p.normals[i], y: p.normals[i + 1], z: p.normals[i + 2] });
-      }
-      for (let i = 0; i < p.uvs.length; i += 2) uvs.push({ x: p.uvs[i], y: p.uvs[i + 1] });
-      return { name: p.name, color: p.color || [0.8, 0.8, 0.8], colors: p.colors, windWeight: p.windWeight, surface: p.surface, mesh: { positions, normals, uvs, indices: p.indices } };
-    });
-    buildParts(parts, { keepCamera: false });
-    if (hud) hud.textContent = `${(model && model.name) || "AI模型"} · ${parts.length}件`;
-  },
+  loadParts: (model) => loadViewerModel(model),
   getParams: () => ({ ...currentParams }),
   setParam: (key, value) => {
     if (!currentParams || !(key in currentParams)) return;
@@ -2316,6 +3094,7 @@ window.__meshova = {
   setView: (v) => fitView(v),
   setAutorot: (on) => { autorot = on; },
   setWire: (on) => { wireframe = on; applyWire(); },
+  setGrid: (on) => { grid.visible = !!on; const btn = document.getElementById("grid"); if (btn) btn.classList.toggle("on", grid.visible); },
   // wind: toggle GPU foliage sway / set amplitude. Screenshots call setWind(false)
   // for a frozen, deterministic frame.
   setWind: (on, strength) => {
@@ -2383,7 +3162,9 @@ window.__meshova = {
   },
   // Force-finish TAA accumulation, then resolve once a stable, fully
   // anti-aliased frame is on screen. Use this before grabbing a screenshot.
-  settle: (frames = 12) => new Promise((resolve) => {
+  settle: async (frames = 12) => {
+    await waitForImportedTextures();
+    return new Promise((resolve) => {
     resetTAA();
     let n = 0;
     const step = () => {
@@ -2395,7 +3176,8 @@ window.__meshova = {
       else requestAnimationFrame(step);
     };
     requestAnimationFrame(step);
-  }),
+    });
+  },
   getMatParams: () => ({ ...currentMatParams }),
   setMatParam: (key, value) => {
     currentMatParams[key] = value;
@@ -2407,6 +3189,13 @@ window.__meshova = {
     surfaceOverrides[partName][key] = value;
     if (currentPreset === "model") applyMaterial("model");
   },
+  captureSemanticFrame: (frames = 12) => captureSemanticFrame(frames),
+  applySemanticAnalysis: (analysis) => applySemanticAnalysis(analysis),
+  captureAiSplitFrame: (options = {}) => captureAiSplitFrame(options),
+  applyAiGuidedSplit: (payload = {}) => applyAiGuidedSplit(payload),
+  runAiGuidedSplit: (options = {}) => runAiGuidedSplitCurrent(options),
+  autoSemanticSplit: (options = {}) => autoSemanticSplitCurrent(options),
+  autoTPose: (options = {}) => autoTPoseCurrent(options),
   getSurfaceParams: () => (currentSurfaceName ? { ...currentSurfaceParams } : null),
   setSurfaceParam: (key, value) => {
     if (!currentSurfaceName) return;

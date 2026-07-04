@@ -138,17 +138,36 @@ export const SCRIPT_API: Record<string, unknown> = {
   grass: M.grass,
   conifer: M.conifer,
   palm: M.palm,
+  curve1D: M.curve1D,
+  sampleCurve1D: M.sampleCurve1D,
+  shapeBranchesToEnvelope: M.shapeBranchesToEnvelope,
+  constrainPointToEnvelope: M.constrainPointToEnvelope,
+  envelopeRadiusScale: M.envelopeRadiusScale,
   frond: M.frond,
   needleCluster: M.needleCluster,
+  branchFeatures: M.branchFeatures,
+  branchFeatureMeshes: M.branchFeatureMeshes,
   windWeights: M.windWeights,
   foliageWindWeights: M.foliageWindWeights,
+  windChannels: M.windChannels,
+  combineWindChannels: M.combineWindChannels,
   billboardImposter: M.billboardImposter,
   imposterAtlasLayout: M.imposterAtlasLayout,
+  buildTreeLOD: M.buildTreeLOD,
+  gameExportProfile: M.gameExportProfile,
+  buildTreeGameExport: M.buildTreeGameExport,
+  treeGuideFromSilhouette: M.treeGuideFromSilhouette,
+  buildTreeFromGuide: M.buildTreeFromGuide,
+  vegetationSpeciesPreset: M.vegetationSpeciesPreset,
+  buildSpeciesPlant: M.buildSpeciesPlant,
   growBranches: M.growBranches,
   branchesToMesh: M.branchesToMesh,
+  branchFlareMesh: M.branchFlareMesh,
   scatterLeaves: M.scatterLeaves,
   leafCard: M.leafCard,
+  leafMesh: M.leafMesh,
   crossQuad: M.crossQuad,
+  crossLeafMesh: M.crossLeafMesh,
   gnarlCurve: M.gnarlCurve,
   growCurve: M.growCurve,
   curveFrameAt: M.curveFrameAt,
@@ -282,21 +301,40 @@ CURVES:
   smoothCurve(curve,subdiv) resampleCurve(curve,{count?,segmentLength?}) curveLength(curve)
   sweep(curve,{radius,sides,radiusAt?,caps?})  // resample BEFORE sweep for even tubes (ropes/pipes/vines)
 VEGETATION (P7: procedural trees/shrubs/grass — recursive spline branches + leaf cards):
-  tree({seed,height?,trunkRadius?,branchCount?,depth?,branchAngle?,leafDensity?,leafSize?,leaves?}) -> {wood,leaves,branches}
-  shrub({seed,height?,stems?,stemRadius?,spread?,leafDensity?,leafSize?}) -> {wood,leaves,branches}
+  tree({seed,height?,trunkRadius?,branchCount?,depth?,branchAngle?,leafDensity?,leafSize?,leaves?,leafShape?,leafCurl?,leafFold?,branchFlare?,
+    branchLengthProfile?,branchRadiusProfile?,branchAngleProfile?,branchCountProfile?,leafDensityProfile?,
+    canopy?:{shape?:"ellipsoid"|"cone"|"column"|"umbrella",baseY?,height?,radiusX?,radiusZ?,strength?},
+    branchFeatures?:true|{count?,kind?:"mixed"|"knot"|"burl"|"scar",size?}}) -> {wood,leaves,branches,features?}
+  shrub({seed,height?,stems?,stemRadius?,spread?,leafDensity?,leafSize?,leafShape?}) -> {wood,leaves,branches}
   grass({seed,blades?,area?,height?,bend?,width?}) -> {wood(empty),leaves,branches}
   conifer({seed,height?,trunkRadius?,whorls?,perWhorl?,needleDensity?}) -> {wood,leaves} // pine/spruce cone shape, needle clusters
   palm({seed,height?,trunkRadius?,fronds?,frondLength?,lean?}) -> {wood,leaves} // leaning ringed trunk + arching fronds
+  vegetationSpeciesPreset("oak"|"maple"|"birch"|"willow"|"pine"|"spruce"|"palm"|"shrub", overrides?) -> species rules/material colors
+  buildSpeciesPlant(species, overrides?) -> {wood,leaves,branches} // species-specific tree/conifer/palm/shrub
+  buildTreeLOD(treeOptions) -> {high,mid,low,imposter,imposterDistance} // progressive LOD: fewer branches/leaves + billboard
+  gameExportProfile("hero"|"realtime"|"mobile"|overrides?) -> LOD distances + atlas + wind packing + material slots
+  buildTreeGameExport(treeOptions, profile?) -> {profile,lod,stats,wind} // engine-ready metadata around tree LOD
+  treeGuideFromSilhouette({height?,crownWidth?,crownDepth?,trunkLean?,crownBasePct?,shape?}) -> {trunk,canopy}
+  buildTreeFromGuide(guide, treeOptions?) -> {wood,leaves,branches} // image/VLM guide spine + crown -> procedural tree
+  curve1D(number|[{t,value}]|{value?,stops?,variance?,seed?,min?,max?}) -> (t,index?)=>number
+  sampleCurve1D(input,t,fallback?,index?) -> number // deterministic SpeedTree-style curve/variance parameter
+  shapeBranchesToEnvelope(branches,{shape,baseY,height,radiusX,radiusZ,strength}) -> BranchSegment[] // crown silhouette clamp
+  branchFeatures(branches,{seed?,count?,kind?,size?}) -> feature metadata
+  branchFeatureMeshes(branches,{seed?,count?,kind?,size?}) -> Mesh // knots/scars/burls on bark
   frond(rachisCurve,{pairs?,leafletLength?,leafletWidth?,angle?,rachisRadius?}) -> {stem,blades} // palm/fern leaf blade
   needleCluster(center,dir,{count?,length?,spread?}) -> Mesh // pine needle tuft
   windWeights(mesh,{heightInfluence?,radialInfluence?}) -> number[] // per-vertex 0..1 wind weight (root=0,tip=1); pass as part.windWeight for viewer sway
   foliageWindWeights(mesh,base?,jitter?) -> number[] // uniform-high weights for leaf/grass meshes
+  windChannels(mesh,{kind?:"wood"|"foliage"|"grass"|"frond",seed?}) -> {trunkBend,branchSway,leafFlutter,phase,combined}
+  combineWindChannels(channels,{trunk?,branch?,leaf?}) -> number[] // pack channels to current viewer windWeight
   billboardImposter(sourceMesh,{cards?,height?,width?,uvRect?}) -> Mesh // far-LOD crossed cards sized to a tree's bounds
   imposterAtlasLayout({views?,rows?}) -> {cells:[{azimuth,uvRect}]} // multi-view atlas UV layout for imposters
   // tree/shrub/grass return separate meshes: surfacePart the .wood as "bark", the .leaves as a thin/translucent leaf material
   growBranches(parentCurve,parentRadius,{seed,count,depth,angle,phototropism?,gravity?,startPct?,endPct?,radiusScale?,lengthScale?}) -> BranchSegment[]
-  branchesToMesh(branches,{sides?}) scatterLeaves(branches,{seed,perBranch?,size?,upBias?,cross?}) -> Mesh
+  branchesToMesh(branches,{sides?,flare?,flareScale?}) branchFlareMesh(branch,{sides?,flareScale?}) -> Mesh
+  scatterLeaves(branches,{seed,perBranch?,size?,upBias?,cross?,shape?:"quad"|"oval"|"lanceolate"|"teardrop"|"round",curl?,fold?}) -> Mesh
   leafCard(center,normal,up,w,h) crossQuad(center,normal,up,w,h)  // single / crossed leaf quads
+  leafMesh(center,normal,up,w,h,{shape?,segments?,curl?,fold?}) crossLeafMesh(center,normal,up,w,h,opts?) // procedural leaf silhouette
   gnarlCurve(curve,{seed,amount,frequency?}) growCurve(start,dir,len,{segments?,phototropism?,gravity?,gnarl?,seed?}) curveFrameAt(curve,t)->{position,tangent,normal,binormal}
 MEASURE / PLACEMENT (measure first, place by relative size — robust multi-part assembly):
   faceAreas(mesh)->number[] surfaceArea(mesh) connectivity(topo)->{faceIsland,count} pointIslands(topo)->{pointIsland,count}

@@ -1,0 +1,31 @@
+export const HIDDEN_GALLERY_MODEL_IDS = new Set([
+  "sphere",
+  "rock",
+  "tower",
+  "pagoda",
+  "mushroom",
+  "gear",
+  "officechair",
+  "dragonfly",
+  "buick-riviera-1965",
+  "midnight-horse",
+  "reference-dog",
+  "cartoon-mech-pilot",
+  "stylized-humanoid",
+  "tshirt",
+  "skirt",
+  "pants",
+  "dress",
+  "hoodie",
+  "smooth",
+  "spring",
+  "vine",
+  "meadow",
+  "csg",
+  "fterrain",
+  "wineglass",
+]);
+
+export function isGalleryModelVisible(id) {
+  return !HIDDEN_GALLERY_MODEL_IDS.has(id);
+}

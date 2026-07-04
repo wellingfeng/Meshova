@@ -9,17 +9,35 @@ import {
   needleCluster,
   windWeights,
   foliageWindWeights,
+  windChannels,
+  combineWindChannels,
   billboardImposter,
   imposterAtlasLayout,
+  buildTreeLOD,
+  buildTreeGameExport,
+  gameExportProfile,
+  treeGuideFromSilhouette,
+  buildTreeFromGuide,
+  curve1D,
+  sampleCurve1D,
+  vegetationSpeciesPreset,
+  buildSpeciesPlant,
   growBranches,
   branchesToMesh,
+  branchFlareMesh,
+  branchFeatures,
+  branchFeatureMeshes,
+  shapeBranchesToEnvelope,
   scatterLeaves,
+  leafMesh,
+  crossLeafMesh,
   curveFrameAt,
   gnarlCurve,
   growCurve,
   GOLDEN_ANGLE,
   polyline,
   bezier,
+  curveLength,
   bounds,
   vertexCount,
   triangleCount,
@@ -89,6 +107,19 @@ describe("gnarl + growCurve", () => {
   });
 });
 
+describe("vegetation curve params", () => {
+  it("samples constants, ramps, and deterministic variance", () => {
+    const ramp = curve1D([{ t: 0, value: 1 }, { t: 1, value: 3 }]);
+    expect(ramp(0.5)).toBeCloseTo(2, 5);
+    expect(sampleCurve1D(2, 0.4)).toBe(2);
+
+    const varied = curve1D({ value: 1, variance: 0.2, seed: 4, min: 0.8, max: 1.2 });
+    expect(varied(0.3, 7)).toBe(varied(0.3, 7));
+    expect(varied(0.3, 7)).toBeGreaterThanOrEqual(0.8);
+    expect(varied(0.3, 7)).toBeLessThanOrEqual(1.2);
+  });
+});
+
 describe("growBranches", () => {
   it("produces branches with increasing depth and tags terminals", () => {
     const trunk = polyline([vec3(0, 0, 0), vec3(0, 2, 0), vec3(0, 4, 0)]);
@@ -101,6 +132,66 @@ describe("growBranches", () => {
     expect(branches.filter((b) => b.depth === maxDepth).every((b) => b.terminal)).toBe(true);
     const mesh = branchesToMesh(branches);
     assertValid(mesh);
+    expect(vertexCount(mesh)).toBeGreaterThan(0);
+  });
+
+  it("attaches child branch roots near the parent surface", () => {
+    const trunk = polyline([vec3(0, 0, 0), vec3(0, 4, 0)]);
+    const branches = growBranches(trunk, 0.3, { seed: 2, count: 4, depth: 1 });
+    const first = branches[0]!;
+    const root = first.curve.points[0]!;
+    expect(Math.hypot(root.x, root.z)).toBeGreaterThan(0.05);
+    expect(first.attachNormal).toBeDefined();
+    expect(first.parentRadius).toBeGreaterThan(0);
+  });
+
+  it("adds optional flared collars at branch roots", () => {
+    const trunk = polyline([vec3(0, 0, 0), vec3(0, 4, 0)]);
+    const branches = growBranches(trunk, 0.3, { seed: 4, count: 3, depth: 1 });
+    const plain = branchesToMesh(branches, { flare: false });
+    const flared = branchesToMesh(branches, { flare: true, flareScale: 2 });
+    const collar = branchFlareMesh(branches[0]!, { flareScale: 2 });
+    assertValid(collar);
+    expect(vertexCount(flared)).toBeGreaterThan(vertexCount(plain));
+  });
+
+  it("uses SpeedTree-style profiles for branch length", () => {
+    const trunk = polyline([vec3(0, 0, 0), vec3(0, 4, 0)]);
+    const branches = growBranches(trunk, 0.3, {
+      seed: 5,
+      count: 3,
+      depth: 1,
+      startPct: 0.1,
+      endPct: 0.9,
+      lengthProfile: [{ t: 0, value: 1.6 }, { t: 1, value: 0.35 }],
+    });
+    expect(curveLength(branches[0]!.curve)).toBeGreaterThan(curveLength(branches[2]!.curve));
+  });
+
+  it("can constrain branch tips to a canopy envelope", () => {
+    const trunk = polyline([vec3(0, 0, 0), vec3(0, 4, 0)]);
+    const branches = growBranches(trunk, 0.3, { seed: 6, count: 5, depth: 1, lengthScale: 1.2 });
+    const shaped = shapeBranchesToEnvelope(branches, {
+      shape: "column",
+      baseY: 0,
+      height: 4,
+      radiusX: 0.65,
+      radiusZ: 0.65,
+      strength: 1,
+    });
+    const maxR = Math.max(...shaped.flatMap((b) => b.curve.points.map((p) => Math.hypot(p.x, p.z))));
+    expect(maxR).toBeLessThanOrEqual(0.65001);
+  });
+
+  it("creates deterministic branch feature meshes", () => {
+    const trunk = polyline([vec3(0, 0, 0), vec3(0, 4, 0)]);
+    const branches = growBranches(trunk, 0.3, { seed: 4, count: 4, depth: 2 });
+    const features = branchFeatures(branches, { seed: 9, count: 5 });
+    const mesh = branchFeatureMeshes(branches, { seed: 9, count: 5 });
+    const meshAgain = branchFeatureMeshes(branches, { seed: 9, count: 5 });
+    expect(features).toHaveLength(5);
+    assertValid(mesh);
+    expect(meshKey(mesh)).toBe(meshKey(meshAgain));
     expect(vertexCount(mesh)).toBeGreaterThan(0);
   });
 
@@ -127,6 +218,31 @@ describe("leaves", () => {
     assertValid(leaves);
     expect(triangleCount(leaves)).toBeGreaterThan(0);
   });
+
+  it("builds shaped procedural leaf meshes", () => {
+    const m = leafMesh(vec3(0, 0, 0), vec3(0, 0, 1), vec3(0, 1, 0), 0.25, 0.7, {
+      shape: "lanceolate",
+      segments: 6,
+      curl: 0.2,
+      fold: 0.1,
+    });
+    const crossed = crossLeafMesh(vec3(0, 0, 0), vec3(0, 0, 1), vec3(0, 1, 0), 0.25, 0.7, {
+      shape: "oval",
+      segments: 5,
+    });
+    assertValid(m);
+    assertValid(crossed);
+    expect(vertexCount(m)).toBeGreaterThan(4);
+    expect(vertexCount(crossed)).toBeGreaterThan(vertexCount(m));
+  });
+
+  it("scatters shaped leaves on terminal branches", () => {
+    const trunk = polyline([vec3(0, 0, 0), vec3(0, 4, 0)]);
+    const branches = growBranches(trunk, 0.3, { seed: 7, count: 5, depth: 2 });
+    const leaves = scatterLeaves(branches, { seed: 7, perBranch: 3, shape: "oval", cross: false });
+    assertValid(leaves);
+    expect(vertexCount(leaves)).toBeGreaterThan(0);
+  });
 });
 
 describe("plant builders", () => {
@@ -152,6 +268,74 @@ describe("plant builders", () => {
     const t = tree({ seed: 3, leaves: false });
     expect(vertexCount(t.leaves)).toBe(0);
     expect(vertexCount(t.wood)).toBeGreaterThan(0);
+  });
+
+  it("leafDensity 0 omits tree leaves", () => {
+    const t = tree({ seed: 3, leafDensity: 0 });
+    expect(vertexCount(t.leaves)).toBe(0);
+    expect(vertexCount(t.wood)).toBeGreaterThan(0);
+  });
+
+  it("tree supports canopy, profile, and bark features together", () => {
+    const t = tree({
+      seed: 13,
+      height: 4,
+      branchLengthProfile: [{ t: 0, value: 1.2 }, { t: 1, value: 0.45 }],
+      leafDensityProfile: [{ t: 0, value: 0.2 }, { t: 1, value: 1 }],
+      canopy: { shape: "ellipsoid", baseY: 0.9, height: 3.2, radiusX: 1.1, radiusZ: 1.0, strength: 0.9 },
+      branchFeatures: { seed: 3, count: 4 },
+    });
+    assertValid(t.wood);
+    assertValid(t.leaves);
+    expect(t.features).toBeDefined();
+    expect(vertexCount(t.features!)).toBeGreaterThan(0);
+  });
+
+  it("builds a procedural tree from a silhouette guide", () => {
+    const guide = treeGuideFromSilhouette({
+      height: 4,
+      crownWidth: 2,
+      trunkLean: 0.35,
+      shape: "ellipsoid",
+    });
+    const t = buildTreeFromGuide(guide, { seed: 14, branchCount: 5, depth: 2, leafDensity: 4 });
+    assertValid(t.wood);
+    assertValid(t.leaves);
+    const bb = bounds(t.wood);
+    expect(bb.max.y).toBeGreaterThan(3.5);
+    expect(bb.max.x).toBeGreaterThan(0.1);
+  });
+
+  it("species presets build matching plant forms", () => {
+    const oak = vegetationSpeciesPreset("oak", { tree: { seed: 12, height: 4 } });
+    expect(oak.kind).toBe("tree");
+    expect(oak.tree?.leafShape).toBe("oval");
+    const pine = buildSpeciesPlant("pine", { conifer: { seed: 5, height: 4 } });
+    assertValid(pine.wood);
+    assertValid(pine.leaves);
+    expect(vertexCount(pine.wood)).toBeGreaterThan(0);
+    expect(vertexCount(pine.leaves)).toBeGreaterThan(0);
+  });
+
+  it("buildTreeLOD reduces detail across levels and creates an imposter", () => {
+    const lod = buildTreeLOD({ seed: 6, height: 4, depth: 3, branchCount: 7, leafDensity: 8 });
+    const highVerts = vertexCount(lod.high.wood) + vertexCount(lod.high.leaves);
+    const midVerts = vertexCount(lod.mid.wood) + vertexCount(lod.mid.leaves);
+    const lowVerts = vertexCount(lod.low.wood) + vertexCount(lod.low.leaves);
+    expect(highVerts).toBeGreaterThan(midVerts);
+    expect(midVerts).toBeGreaterThan(lowVerts);
+    assertValid(lod.imposter);
+    expect(triangleCount(lod.imposter)).toBe(4);
+  });
+
+  it("buildTreeGameExport wraps LOD with profile stats and wind channels", () => {
+    const profile = gameExportProfile("mobile");
+    expect(profile.windPacking).toBe("combined");
+    const asset = buildTreeGameExport({ seed: 8, height: 3.5, depth: 2, branchCount: 5, leafDensity: 5 }, "mobile");
+    expect(asset.profile.id).toBe("mobile");
+    expect(asset.stats.highVertices).toBeGreaterThan(asset.stats.lowVertices);
+    expect(asset.wind.highWood.combined.length).toBe(asset.lod.high.wood.positions.length);
+    expect(asset.lod.imposterDistance).toBe(profile.imposterDistance);
   });
 
   it("shrub returns valid foliage and multiple stems", () => {
@@ -261,6 +445,21 @@ describe("wind weights", () => {
       expect(v).toBeGreaterThanOrEqual(0.55 - 1e-9);
       expect(v).toBeLessThanOrEqual(1.0 + 1e-9);
     }
+  });
+
+  it("windChannels exposes deterministic trunk/branch/leaf channels", () => {
+    const t = tree({ seed: 3 });
+    const a = windChannels(t.leaves, { kind: "foliage", seed: 8 });
+    const b = windChannels(t.leaves, { kind: "foliage", seed: 8 });
+    expect(a).toEqual(b);
+    expect(a.combined.length).toBe(t.leaves.positions.length);
+    expect(a.leafFlutter.some((v) => v > 0)).toBe(true);
+    for (const v of a.combined) {
+      expect(v).toBeGreaterThanOrEqual(0);
+      expect(v).toBeLessThanOrEqual(1);
+    }
+    const packed = combineWindChannels(a, { trunk: 0, branch: 0, leaf: 1 });
+    expect(packed).toEqual(a.leafFlutter);
   });
 });
 

@@ -9,6 +9,8 @@ export * from "./png.js";
 export * from "./silhouette.js";
 export * from "./color.js";
 export * from "./material.js";
+export * from "./object.js";
+export * from "./part-split.js";
 export * from "./loss.js";
 export * from "./multiview.js";
 export * from "./solidity.js";

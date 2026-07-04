@@ -16,6 +16,7 @@ export * from "./geometry/index.js";
 export * from "./vegetation/index.js";
 export * from "./field/index.js";
 export * from "./texture/index.js";
+export * from "./terrain/index.js";
 export * from "./agent/index.js";
 export * from "./vision/index.js";
 export * from "./pipeline/index.js";

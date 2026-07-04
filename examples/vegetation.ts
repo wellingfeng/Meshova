@@ -11,6 +11,10 @@ import {
   grass,
   conifer,
   palm,
+  vegetationSpeciesPreset,
+  buildSpeciesPlant,
+  buildTreeLOD,
+  windChannels,
   translateMesh,
   vec3,
   toViewerModel,
@@ -32,13 +36,28 @@ const scenes: Scene[] = [];
 
 // --- Tree ---
 {
-  const t = tree({ seed: 7, height: 4.2, branchCount: 7, depth: 3, leafDensity: 9 });
+  const preset = vegetationSpeciesPreset("oak", { tree: { seed: 7, height: 4.2 } });
+  const t = buildSpeciesPlant("oak", { tree: { seed: 7, height: 4.2 } });
   scenes.push({
     id: "veg-tree",
-    name: "程序化树",
+    name: "程序化橡树",
     parts: [
-      { name: "trunk", mesh: t.wood, color: BARK },
-      { name: "leaves", mesh: t.leaves, color: LEAF },
+      { name: "trunk", mesh: t.wood, color: preset.barkColor, windWeight: windChannels(t.wood, { kind: "wood" }).combined },
+      { name: "leaves", mesh: t.leaves, color: preset.leafColor, windWeight: windChannels(t.leaves, { kind: "foliage" }).combined },
+    ],
+  });
+}
+
+// --- LOD tree preview: low mesh + imposter side by side ---
+{
+  const lod = buildTreeLOD({ seed: 17, height: 4.4, branchCount: 8, depth: 3, leafDensity: 9, leafShape: "oval" });
+  scenes.push({
+    id: "veg-tree-lod",
+    name: "程序化树LOD",
+    parts: [
+      { name: "low_trunk", mesh: translateMesh(lod.low.wood, vec3(-1.2, 0, 0)), color: BARK },
+      { name: "low_leaves", mesh: translateMesh(lod.low.leaves, vec3(-1.2, 0, 0)), color: LEAF },
+      { name: "imposter", mesh: translateMesh(lod.imposter, vec3(1.6, 0, 0)), color: LEAF_LIGHT },
     ],
   });
 }

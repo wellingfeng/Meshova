@@ -28,9 +28,29 @@ export interface PartSurfaceRef {
   params?: Record<string, unknown>;
 }
 
+/** Texture atlas references for imported mesh assets. Paths are resolved by host code. */
+export interface PartTextureRef {
+  /** sRGB albedo/base-color map. */
+  baseColor?: string;
+  /** Tangent-space normal map. */
+  normal?: string;
+  /** Linear roughness map; grayscale maps are accepted. */
+  roughness?: string;
+  /** Linear metallic/metalness map; grayscale maps are accepted. */
+  metallic?: string;
+  /** Linear ambient occlusion map. */
+  ao?: string;
+  /** Packed ORM atlas: R=AO, G=roughness, B=metallic. */
+  orm?: string;
+  /** Optional shaded preview map, kept for provenance/comparison. */
+  shaded?: string;
+}
+
 /** A named, optionally colored part for multi-material scene export. */
 export interface NamedPart {
   name: string;
+  /** Human-readable semantic label for UI controls; stable name remains `name`. */
+  label?: string;
   mesh: Mesh;
   /** Linear RGB 0..1; written as a diffuse material in the .mtl sidecar. */
   color?: [number, number, number];
@@ -38,6 +58,10 @@ export interface NamedPart {
   colors?: number[];
   /** Optional matched surface material for this part (glass, metal, ...). */
   surface?: PartSurfaceRef;
+  /** Optional imported PBR texture atlas refs. */
+  textures?: PartTextureRef;
+  /** Optional provenance/semantic metadata kept through viewer export. */
+  metadata?: Record<string, unknown>;
   /**
    * Optional per-vertex wind weight (0..1, one per vertex). Drives the viewer's
    * wind shader: 0 = anchored (root/trunk base), 1 = max sway (leaf tips).
@@ -115,6 +139,8 @@ export function toOBJScene(
 
 export interface ViewerPart {
   name: string;
+  /** Human-readable semantic label for UI controls. */
+  label?: string;
   /** Linear RGB 0..1. */
   color: [number, number, number];
   /** Flat xyz triples. */
@@ -129,6 +155,10 @@ export interface ViewerPart {
   colors?: number[];
   /** Optional matched surface material ref (glass/metal/...), resolved by viewer. */
   surface?: PartSurfaceRef;
+  /** Optional imported PBR texture atlas refs. */
+  textures?: PartTextureRef;
+  /** Optional provenance/semantic metadata. */
+  metadata?: Record<string, unknown>;
   /** Optional per-vertex wind weight (0..1) for the viewer's wind shader. */
   windWeight?: number[];
 }
@@ -136,7 +166,7 @@ export interface ViewerPart {
 export interface ViewerModel {
   format: "meshova-model@1";
   name: string;
-  meta: { parts: number; verts: number; tris: number };
+  meta: { parts: number; verts: number; tris: number; [key: string]: unknown };
   parts: ViewerPart[];
 }
 
@@ -162,6 +192,7 @@ export function toViewerModel(parts: NamedPart[], name = "model"): ViewerModel {
       uvs,
       indices: m.indices.slice(),
     };
+    if (part.label) vpart.label = part.label;
     if (part.colors && part.colors.length === m.positions.length * 3) {
       vpart.colors = part.colors.slice();
     }
@@ -170,6 +201,12 @@ export function toViewerModel(parts: NamedPart[], name = "model"): ViewerModel {
     }
     if (part.surface) {
       vpart.surface = part.surface;
+    }
+    if (part.textures) {
+      vpart.textures = { ...part.textures };
+    }
+    if (part.metadata) {
+      vpart.metadata = { ...part.metadata };
     }
     return vpart;
   });

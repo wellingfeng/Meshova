@@ -21,6 +21,11 @@ import {
   estimateViewpoint,
   maskBounds,
   classifyByFeatures,
+  classifyObjectByVlm,
+  MockLlmClient,
+  parseAIGuidedSplitPlan,
+  parseObjectSemanticAnalysis,
+  planAIGuidedSplitByVlm,
   resolveWithGuard,
   CATEGORY_TO_PRESET,
   bytesToBase64,
@@ -217,6 +222,66 @@ describe("material classifier guard", () => {
     const choice = classifyByFeatures(patch);
     expect(choice.tint).toBeDefined();
     expect(choice.confidence).toBeGreaterThan(0);
+  });
+});
+
+describe("object semantic classifier", () => {
+  it("parses VLM object analysis without prompt heuristics", () => {
+    const analysis = parseObjectSemanticAnalysis(`\`\`\`json
+{"object":"灭霸手套","category":"equipment","confidence":0.93,"parts":[{"name":"body","label":"手套主体","role":"body","confidence":0.9}],"reason":"gold glove with gems"}
+\`\`\``);
+    expect(analysis.object).toBe("灭霸手套");
+    expect(analysis.category).toBe("equipment");
+    expect(analysis.parts[0]!.name).toBe("body");
+    expect(analysis.parts[0]!.label).toBe("手套主体");
+  });
+
+  it("returns unknown for unparseable object analysis", () => {
+    const analysis = parseObjectSemanticAnalysis("not json");
+    expect(analysis.category).toBe("unknown");
+    expect(analysis.confidence).toBeLessThan(0.2);
+  });
+
+  it("asks the VLM to classify from screenshot image", async () => {
+    const client = new MockLlmClient([
+      `{"object":"灭霸手套","category":"equipment","confidence":0.91,"parts":[],"reason":"visible gauntlet"}`,
+    ]);
+    const analysis = await classifyObjectByVlm({
+      client,
+      imageBase64: bytesToBase64(new Uint8Array([1, 2, 3])),
+      partKeys: ["body"],
+      hint: "MOCARNA RĘKAWICA",
+    });
+    expect(client.callCount).toBe(1);
+    expect(analysis.object).toBe("灭霸手套");
+    expect(analysis.category).toBe("equipment");
+  });
+});
+
+describe("AI-guided split planner", () => {
+  it("parses cut and regenerate split plan parts", () => {
+    const plan = parseAIGuidedSplitPlan(`\`\`\`json
+{"objectLabel":"灭霸手套","confidence":0.88,"parts":[{"key":"palm","label":"手套主体","role":"body","confidence":0.9,"method":"cut","bbox":[0.18,0.22,0.82,0.88]},{"key":"gem_red","label":"红色宝石","role":"gem","confidence":0.76,"method":"regenerate","bbox":[0.42,0.18,0.55,0.31],"generationPrompt":"生成单独红色宝石部件"}],"notes":["front view"]}
+\`\`\``);
+    expect(plan.objectLabel).toBe("灭霸手套");
+    expect(plan.parts.map((part) => part.label)).toEqual(["手套主体", "红色宝石"]);
+    expect(plan.parts[1]!.method).toBe("regenerate");
+    expect(plan.parts[1]!.generationPrompt).toContain("红色宝石");
+    expect(plan.parts[0]!.bbox).toEqual([0.18, 0.22, 0.82, 0.88]);
+  });
+
+  it("asks the VLM for a screenshot split plan", async () => {
+    const client = new MockLlmClient([
+      `{"objectLabel":"灭霸手套","confidence":0.91,"parts":[{"key":"palm","label":"手背","role":"body","confidence":0.9,"method":"cut"}],"notes":[]}`,
+    ]);
+    const plan = await planAIGuidedSplitByVlm({
+      client,
+      imageBase64: bytesToBase64(new Uint8Array([4, 5, 6])),
+      hint: "MOCARNA RĘKAWICA",
+    });
+    expect(client.callCount).toBe(1);
+    expect(plan.objectLabel).toBe("灭霸手套");
+    expect(plan.parts[0]!.key).toBe("palm");
   });
 });
 

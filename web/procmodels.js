@@ -71,8 +71,17 @@ import {
   grass,
   conifer,
   palm,
+  buildTreeFromGuide,
+  buildSpeciesPlant,
+  treeGuideFromSilhouette,
+  vegetationSpeciesPreset,
   windWeights,
   foliageWindWeights,
+  windChannels,
+  buildSpeedTreeLibraryPlant,
+  defaultSpeedTreeLibraryParams,
+  inferSpeedTreeLibraryRecipe,
+  speedTreeLibraryId,
   segmentedTube,
   bendMesh,
   taperMesh,
@@ -81,6 +90,7 @@ import {
   metaballs,
   fuseSpheres,
 } from "/dist/index.js";
+import { SPEEDTREE_TUTORIAL_MODELS } from "/web/speedtree-tutorial-procmodels.js";
 
 /** @typedef {{ key:string, label:string, min:number, max:number, step:number, default:number }} ParamSpec */
 
@@ -110,6 +120,60 @@ function windSurfPart(name, mesh, type, params, mode = "tree") {
   const sp = surfPart(name, mesh, type, params);
   sp.windWeight = mode === "foliage" ? foliageWindWeights(mesh, 0.55, 0.45) : windWeights(mesh, {});
   return sp;
+}
+
+function speedTreePart(name, mesh, type, params, windKind, seed) {
+  const sp = surfPart(name, mesh, type, params);
+  sp.windWeight = windChannels(mesh, { kind: windKind, seed }).combined;
+  return sp;
+}
+
+function normalizedSpeedTreeLibraryEntry(input) {
+  const entry = input && input.entry ? input.entry : input;
+  return {
+    category: String(entry?.category || "SpeedTree"),
+    species: String(entry?.species || "Unknown"),
+    ...(entry?.variant ? { variant: String(entry.variant) } : {}),
+    ...(entry?.relPath ? { relPath: String(entry.relPath) } : {}),
+    ...(Number.isFinite(Number(entry?.seed)) ? { seed: Number(entry.seed) } : {}),
+  };
+}
+
+function speedTreeLibrarySchema(entry, defaults) {
+  const hMax = Math.max(2, defaults.height * 2.2);
+  return [
+    { key: "seed", label: "随机种子", min: 0, max: 999999, step: 1, default: defaults.seed },
+    { key: "height", label: "整体高度", min: 0.2, max: hMax, step: 0.05, default: defaults.height },
+    { key: "trunkScale", label: "枝干粗细", min: 0.25, max: 3, step: 0.01, default: defaults.trunkScale },
+    { key: "crownScale", label: "冠幅/扩散", min: 0.2, max: 3, step: 0.01, default: defaults.crownScale },
+    { key: "crownDepth", label: "冠层深度", min: 0.2, max: 3, step: 0.01, default: defaults.crownDepth },
+    { key: "branchAngle", label: "分枝角度偏移", min: -45, max: 45, step: 1, default: defaults.branchAngle },
+    { key: "branchCount", label: "枝/茎数量", min: 0.1, max: 3, step: 0.05, default: defaults.branchCount },
+    { key: "leafDensity", label: "叶/花密度", min: 0, max: 3, step: 0.05, default: defaults.leafDensity },
+    { key: "leafSize", label: "叶/花尺寸", min: 0.2, max: 3, step: 0.01, default: defaults.leafSize },
+    { key: "gnarl", label: "枝干扭曲", min: 0, max: 3, step: 0.01, default: defaults.gnarl },
+    { key: "lean", label: "整体倾斜", min: -2, max: 2, step: 0.01, default: defaults.lean },
+  ];
+}
+
+export function makeSpeedTreeLibraryModel(procedural = {}, fallbackName = "Meshova树库") {
+  const entry = normalizedSpeedTreeLibraryEntry(procedural);
+  const quality = procedural.quality === "medium" || procedural.quality === "high" ? procedural.quality : "proxy";
+  const defaults = {
+    ...defaultSpeedTreeLibraryParams(entry, { quality }),
+    ...(procedural.defaultParams || {}),
+  };
+  const recipe = inferSpeedTreeLibraryRecipe(entry, { quality, params: defaults });
+  const id = procedural.id || speedTreeLibraryId(entry);
+  return {
+    id,
+    name: procedural.name || fallbackName || recipe.label,
+    schema: speedTreeLibrarySchema(entry, defaults),
+    defaultParams: () => ({ ...defaults }),
+    build(params) {
+      return buildSpeedTreeLibraryPlant(entry, { quality, params });
+    },
+  };
 }
 
 // ---- teddy bear, fully parameterized ----
@@ -1428,6 +1492,503 @@ const palmModel = {
   },
 };
 
+// ---- SpeedTree-lite: live procedural tree recipes, not static exported JSON ----
+const SPEEDTREE_SPECIES = [
+  { id: "oak", label: "橡树", seed: 101, height: 4.6 },
+  { id: "maple", label: "枫树", seed: 117, height: 4.2 },
+  { id: "birch", label: "桦树", seed: 131, height: 5.0 },
+  { id: "willow", label: "柳树", seed: 149, height: 4.8 },
+  { id: "pine", label: "松树", seed: 163, height: 5.6 },
+  { id: "spruce", label: "云杉", seed: 179, height: 6.1 },
+  { id: "palm", label: "棕榈树", seed: 191, height: 5.2 },
+];
+
+const SPEEDTREE_TREE_SCHEMA = [
+  { key: "height", label: "树高", min: 2.4, max: 7.5, step: 0.1, default: 4.6 },
+  { key: "trunkRadius", label: "主干半径", min: 0.08, max: 0.7, step: 0.01, default: 0.28 },
+  { key: "branchCount", label: "一级枝数", min: 3, max: 12, step: 1, default: 8 },
+  { key: "depth", label: "分叉层级", min: 1, max: 4, step: 1, default: 3 },
+  { key: "branchAngle", label: "出枝角", min: 25, max: 78, step: 1, default: 54 },
+  { key: "gnarl", label: "弯曲度", min: 0, max: 0.42, step: 0.01, default: 0.16 },
+  { key: "leafDensity", label: "叶密度", min: 0, max: 16, step: 1, default: 9 },
+  { key: "leafSize", label: "叶片大小", min: 0.06, max: 0.32, step: 0.01, default: 0.18 },
+  { key: "flareScale", label: "枝根膨大", min: 1, max: 2.6, step: 0.05, default: 1.8 },
+  { key: "featureCount", label: "树皮特征", min: 0, max: 28, step: 1, default: 9 },
+  { key: "seed", label: "种子", min: 0, max: 500, step: 1, default: 101 },
+];
+
+const SPEEDTREE_CONIFER_SCHEMA = [
+  { key: "height", label: "树高", min: 3, max: 9, step: 0.1, default: 5.6 },
+  { key: "trunkRadius", label: "主干半径", min: 0.08, max: 0.35, step: 0.01, default: 0.17 },
+  { key: "whorls", label: "枝层数", min: 4, max: 16, step: 1, default: 9 },
+  { key: "perWhorl", label: "每层枝数", min: 3, max: 10, step: 1, default: 6 },
+  { key: "needleDensity", label: "针叶密度", min: 1, max: 8, step: 1, default: 5 },
+  { key: "seed", label: "种子", min: 0, max: 500, step: 1, default: 163 },
+];
+
+const SPEEDTREE_PALM_SCHEMA = [
+  { key: "height", label: "树高", min: 3, max: 9, step: 0.1, default: 5.2 },
+  { key: "trunkRadius", label: "主干半径", min: 0.08, max: 0.3, step: 0.01, default: 0.14 },
+  { key: "fronds", label: "棕榈叶数", min: 4, max: 18, step: 1, default: 10 },
+  { key: "frondLength", label: "叶长", min: 1, max: 3.2, step: 0.1, default: 1.9 },
+  { key: "lean", label: "倾斜", min: -0.6, max: 1.1, step: 0.05, default: 0.42 },
+  { key: "seed", label: "种子", min: 0, max: 500, step: 1, default: 191 },
+];
+
+function schemaWithDefaults(schema, defaults) {
+  return schema.map((s) => ({ ...s, default: defaults[s.key] ?? s.default }));
+}
+
+function speciesSchema(entry) {
+  if (entry.id === "pine" || entry.id === "spruce") {
+    const preset = vegetationSpeciesPreset(entry.id).conifer || {};
+    return schemaWithDefaults(SPEEDTREE_CONIFER_SCHEMA, { ...preset, seed: entry.seed, height: entry.height });
+  }
+  if (entry.id === "palm") {
+    const preset = vegetationSpeciesPreset(entry.id).palm || {};
+    return schemaWithDefaults(SPEEDTREE_PALM_SCHEMA, { ...preset, seed: entry.seed, height: entry.height });
+  }
+  const preset = vegetationSpeciesPreset(entry.id).tree || {};
+  return schemaWithDefaults(SPEEDTREE_TREE_SCHEMA, {
+    ...preset,
+    seed: entry.seed,
+    height: entry.height,
+    flareScale: preset.branchFlareScale ?? 1.8,
+    featureCount: typeof preset.branchFeatures === "object" ? (preset.branchFeatures.count ?? 9) : 0,
+  });
+}
+
+function makeSpeciesModel(entry) {
+  return {
+    id: `speedtree-${entry.id}`,
+    name: `SpeedTree-lite ${entry.label}`,
+    schema: speciesSchema(entry),
+    build(p) {
+      const seed = Math.round(p.seed);
+      let overrides;
+      if (entry.id === "pine" || entry.id === "spruce") {
+        overrides = {
+          conifer: {
+            seed,
+            height: p.height,
+            trunkRadius: p.trunkRadius,
+            whorls: Math.round(p.whorls),
+            perWhorl: Math.round(p.perWhorl),
+            needleDensity: Math.round(p.needleDensity),
+          },
+        };
+      } else if (entry.id === "palm") {
+        overrides = {
+          palm: {
+            seed,
+            height: p.height,
+            trunkRadius: p.trunkRadius,
+            fronds: Math.round(p.fronds),
+            frondLength: p.frondLength,
+            lean: p.lean,
+          },
+        };
+      } else {
+        const featureBase = vegetationSpeciesPreset(entry.id).tree?.branchFeatures || {};
+        overrides = {
+          tree: {
+            seed,
+            height: p.height,
+            trunkRadius: p.trunkRadius,
+            branchCount: Math.round(p.branchCount),
+            depth: Math.round(p.depth),
+            branchAngle: p.branchAngle,
+            gnarl: p.gnarl,
+            leafDensity: Math.round(p.leafDensity),
+            leafSize: p.leafSize,
+            leaves: p.leafDensity > 0,
+            branchFlareScale: p.flareScale,
+            branchFeatures: p.featureCount > 0 ? { ...featureBase, count: Math.round(p.featureCount) } : false,
+          },
+        };
+      }
+      const preset = vegetationSpeciesPreset(entry.id, overrides);
+      const plant = buildSpeciesPlant(entry.id, overrides);
+      return speedTreePlantParts(entry.label, plant, preset.barkColor, preset.leafColor, seed, entry.id);
+    },
+  };
+}
+
+function speedTreePlantParts(label, plant, barkColor, leafColor, seed, tag) {
+  const parts = [
+    speedTreePart("wood", plant.wood, "wood", { color: barkColor, roughness: 0.9 }, "wood", seed),
+  ];
+  parts[0].label = `${label} 枝干`;
+  parts[0].metadata = { generator: "spline-sweep-branch-flare", tag };
+  if (plant.leaves.positions.length > 0) {
+    const leaf = speedTreePart("foliage", plant.leaves, "fabric", { color: leafColor, roughness: 0.72 }, "foliage", seed + 1);
+    leaf.label = `${label} 叶冠`;
+    leaf.metadata = { generator: "procedural-shaped-leaf-or-frond", tag };
+    parts.push(leaf);
+  }
+  return parts;
+}
+
+const SPEEDTREE_ARCHETYPES = [
+  {
+    id: "column-cypress",
+    name: "柱形柏树",
+    bark: [0.36, 0.25, 0.16],
+    leaf: [0.06, 0.25, 0.14],
+    guide: { height: 6.2, crownWidth: 1.25, crownDepth: 1.05, crownBasePct: 0.12, trunkLean: 0, shape: "column" },
+    tree: {
+      seed: 307,
+      trunkRadius: 0.18,
+      gnarl: 0.04,
+      branchCount: 9,
+      depth: 3,
+      branchAngle: 26,
+      leafDensity: 4,
+      leafSize: 0.1,
+      leafShape: "lanceolate",
+      leafCurl: 0.12,
+      branchFlareScale: 1.35,
+      branchLengthProfile: { stops: [{ t: 0, value: 0.55 }, { t: 0.55, value: 0.72 }, { t: 1, value: 0.38 }], smooth: true },
+      branchAngleProfile: { value: 0.72, variance: 0.08, seed: 307, min: 0.48, max: 0.92 },
+      branchCountProfile: [{ t: 0, value: 1.25 }, { t: 0.8, value: 0.7 }, { t: 1, value: 0.35 }],
+      leafDensityProfile: [{ t: 0, value: 0.45 }, { t: 0.45, value: 1.25 }, { t: 1, value: 0.95 }],
+      branchFeatures: { count: 5, size: 0.7 },
+    },
+  },
+  {
+    id: "baobab",
+    name: "猴面包树",
+    bark: [0.53, 0.42, 0.29],
+    leaf: [0.16, 0.42, 0.18],
+    guide: { height: 4.8, crownWidth: 4.5, crownDepth: 3.6, crownBasePct: 0.48, trunkLean: 0, shape: "umbrella" },
+    tree: {
+      seed: 331,
+      trunkRadius: 0.62,
+      gnarl: 0.09,
+      branchCount: 8,
+      depth: 3,
+      branchAngle: 66,
+      leafDensity: 5,
+      leafSize: 0.16,
+      leafShape: "round",
+      leafFold: 0.08,
+      branchFlareScale: 2.2,
+      branchLengthProfile: [{ t: 0, value: 0.35 }, { t: 0.55, value: 1.3 }, { t: 1, value: 0.75 }],
+      branchRadiusProfile: [{ t: 0, value: 1.35 }, { t: 1, value: 0.6 }],
+      leafDensityProfile: [{ t: 0, value: 0.15 }, { t: 0.68, value: 0.8 }, { t: 1, value: 1.15 }],
+      branchFeatures: { count: 22, size: 1.3, minBranchRadius: 0.05 },
+    },
+  },
+  {
+    id: "windswept-coastal-pine",
+    name: "风吹海岸松",
+    bark: [0.28, 0.19, 0.13],
+    leaf: [0.08, 0.29, 0.17],
+    guide: { height: 5.2, crownWidth: 3.4, crownDepth: 1.6, trunkLean: 1.15, crownBasePct: 0.34, shape: "ellipsoid" },
+    tree: {
+      seed: 353,
+      trunkRadius: 0.28,
+      gnarl: 0.2,
+      branchCount: 8,
+      depth: 3,
+      branchAngle: 52,
+      leafDensity: 5,
+      leafSize: 0.14,
+      leafShape: "lanceolate",
+      leafCurl: 0.2,
+      leafFold: 0.15,
+      branchFlareScale: 1.75,
+      branchLengthProfile: { stops: [{ t: 0, value: 0.25 }, { t: 0.52, value: 1.25 }, { t: 1, value: 0.85 }], variance: 0.18, seed: 353, min: 0.1 },
+      branchAngleProfile: [{ t: 0, value: 0.65 }, { t: 0.65, value: 1.2 }, { t: 1, value: 0.82 }],
+      leafDensityProfile: [{ t: 0, value: 0.2 }, { t: 0.55, value: 1.0 }, { t: 1, value: 0.65 }],
+      branchFeatures: { count: 13, kind: "scar", size: 0.95 },
+    },
+  },
+  {
+    id: "dead-snag",
+    name: "枯树残干",
+    bark: [0.48, 0.43, 0.35],
+    guide: { height: 4.3, crownWidth: 2.4, crownDepth: 1.7, trunkLean: -0.28, crownBasePct: 0.24, shape: "cone" },
+    tree: {
+      seed: 379,
+      trunkRadius: 0.34,
+      gnarl: 0.28,
+      branchCount: 8,
+      depth: 2,
+      branchAngle: 58,
+      leaves: false,
+      leafDensity: 0,
+      leafSize: 0.12,
+      branchFlareScale: 1.55,
+      branchLengthProfile: { stops: [{ t: 0, value: 0.95 }, { t: 0.58, value: 0.72 }, { t: 1, value: 0.22 }], variance: 0.22, seed: 379, min: 0.12 },
+      branchRadiusProfile: [{ t: 0, value: 0.9 }, { t: 1, value: 0.42 }],
+      branchCountProfile: [{ t: 0, value: 0.85 }, { t: 1, value: 0.35 }],
+      branchFeatures: { count: 26, kind: "mixed", size: 1.1, minBranchRadius: 0.035 },
+    },
+  },
+  {
+    id: "blossom-tree",
+    name: "开花小乔木",
+    bark: [0.36, 0.23, 0.18],
+    leaf: [0.96, 0.56, 0.72],
+    guide: { height: 3.6, crownWidth: 3.5, crownDepth: 3.0, trunkLean: 0.18, crownBasePct: 0.26, shape: "ellipsoid" },
+    tree: {
+      seed: 401,
+      trunkRadius: 0.2,
+      gnarl: 0.14,
+      branchCount: 8,
+      depth: 3,
+      branchAngle: 54,
+      leafDensity: 6,
+      leafSize: 0.12,
+      leafShape: "teardrop",
+      leafCurl: 0.1,
+      leafFold: 0.06,
+      branchFlareScale: 1.6,
+      branchLengthProfile: { stops: [{ t: 0, value: 0.7 }, { t: 0.55, value: 1.1 }, { t: 1, value: 0.72 }], variance: 0.1, seed: 401 },
+      leafDensityProfile: [{ t: 0, value: 0.25 }, { t: 0.55, value: 1.2 }, { t: 1, value: 1.35 }],
+      branchFeatures: { count: 7, kind: "knot", size: 0.85 },
+    },
+  },
+  {
+    id: "bonsai-pine",
+    name: "盆景松",
+    bark: [0.27, 0.18, 0.12],
+    leaf: [0.06, 0.2, 0.12],
+    guide: { height: 1.65, crownWidth: 2.1, crownDepth: 1.35, trunkLean: -0.42, crownBasePct: 0.18, shape: "umbrella" },
+    tree: {
+      seed: 433,
+      trunkRadius: 0.18,
+      gnarl: 0.36,
+      branchCount: 7,
+      depth: 3,
+      branchAngle: 72,
+      leafDensity: 6,
+      leafSize: 0.08,
+      leafShape: "lanceolate",
+      leafCurl: 0.24,
+      leafFold: 0.12,
+      branchFlareScale: 1.9,
+      branchLengthProfile: { stops: [{ t: 0, value: 0.65 }, { t: 0.42, value: 1.35 }, { t: 1, value: 0.5 }], variance: 0.18, seed: 433, min: 0.18 },
+      branchAngleProfile: { value: 1.15, variance: 0.16, seed: 433, min: 0.72, max: 1.45 },
+      branchCountProfile: [{ t: 0, value: 1.1 }, { t: 0.7, value: 0.82 }, { t: 1, value: 0.35 }],
+      leafDensityProfile: [{ t: 0, value: 0.15 }, { t: 0.55, value: 1.05 }, { t: 1, value: 0.9 }],
+      branchFeatures: { count: 10, kind: "burl", size: 0.9 },
+    },
+  },
+];
+
+function customDefaults(cfg) {
+  const features = typeof cfg.tree.branchFeatures === "object" ? cfg.tree.branchFeatures : {};
+  return {
+    height: cfg.guide.height,
+    crownWidth: cfg.guide.crownWidth,
+    crownDepth: cfg.guide.crownDepth,
+    trunkLean: cfg.guide.trunkLean ?? 0,
+    crownBasePct: cfg.guide.crownBasePct,
+    trunkRadius: cfg.tree.trunkRadius,
+    branchCount: cfg.tree.branchCount,
+    depth: cfg.tree.depth,
+    branchAngle: cfg.tree.branchAngle,
+    gnarl: cfg.tree.gnarl,
+    leafDensity: cfg.tree.leafDensity ?? 0,
+    leafSize: cfg.tree.leafSize ?? 0.12,
+    flareScale: cfg.tree.branchFlareScale ?? 1.6,
+    featureCount: features.count ?? 0,
+    featureSize: features.size ?? 1,
+    seed: cfg.tree.seed,
+  };
+}
+
+function customSchema(cfg) {
+  const d = customDefaults(cfg);
+  return [
+    { key: "height", label: "树高", min: 1.2, max: 8, step: 0.1, default: d.height },
+    { key: "crownWidth", label: "树冠宽度", min: 0.7, max: 5.5, step: 0.05, default: d.crownWidth },
+    { key: "crownDepth", label: "树冠深度", min: 0.7, max: 5, step: 0.05, default: d.crownDepth },
+    { key: "trunkLean", label: "主干倾斜", min: -1.4, max: 1.4, step: 0.02, default: d.trunkLean },
+    { key: "crownBasePct", label: "树冠起点", min: 0.08, max: 0.65, step: 0.01, default: d.crownBasePct },
+    { key: "trunkRadius", label: "主干半径", min: 0.06, max: 0.75, step: 0.01, default: d.trunkRadius },
+    { key: "branchCount", label: "一级枝数", min: 2, max: 12, step: 1, default: d.branchCount },
+    { key: "depth", label: "分叉层级", min: 1, max: 4, step: 1, default: d.depth },
+    { key: "branchAngle", label: "出枝角", min: 18, max: 78, step: 1, default: d.branchAngle },
+    { key: "gnarl", label: "弯曲度", min: 0, max: 0.45, step: 0.01, default: d.gnarl },
+    { key: "leafDensity", label: "叶密度", min: 0, max: 10, step: 1, default: d.leafDensity },
+    { key: "leafSize", label: "叶片大小", min: 0.05, max: 0.28, step: 0.01, default: d.leafSize },
+    { key: "flareScale", label: "枝根膨大", min: 1, max: 2.8, step: 0.05, default: d.flareScale },
+    { key: "featureCount", label: "树皮特征", min: 0, max: 32, step: 1, default: d.featureCount },
+    { key: "featureSize", label: "特征大小", min: 0.3, max: 1.6, step: 0.05, default: d.featureSize },
+    { key: "seed", label: "种子", min: 0, max: 500, step: 1, default: d.seed },
+  ];
+}
+
+function buildCustomSpeedTreeParts(cfg, p) {
+  const seed = Math.round(p.seed);
+  const featureBase = typeof cfg.tree.branchFeatures === "object" ? cfg.tree.branchFeatures : {};
+  const opts = {
+    ...cfg.tree,
+    seed,
+    trunkRadius: p.trunkRadius,
+    branchCount: Math.round(p.branchCount),
+    depth: Math.round(p.depth),
+    branchAngle: p.branchAngle,
+    gnarl: p.gnarl,
+    leafDensity: Math.round(p.leafDensity),
+    leafSize: p.leafSize,
+    leaves: !!cfg.leaf && p.leafDensity > 0,
+    branchFlareScale: p.flareScale,
+    branchFeatures: p.featureCount > 0 ? { ...featureBase, count: Math.round(p.featureCount), size: p.featureSize } : false,
+  };
+  const plant = buildTreeFromGuide(treeGuideFromSilhouette({
+    ...cfg.guide,
+    height: p.height,
+    crownWidth: p.crownWidth,
+    crownDepth: p.crownDepth,
+    trunkLean: p.trunkLean,
+    crownBasePct: p.crownBasePct,
+  }), opts);
+  return speedTreePlantParts(cfg.name, plant, cfg.bark, cfg.leaf || [0.2, 0.38, 0.16], seed, cfg.id);
+}
+
+function makeCustomSpeedTreeModel(cfg) {
+  return {
+    id: `speedtree-custom-${cfg.id}`,
+    name: `SpeedTree-lite ${cfg.name}`,
+    schema: customSchema(cfg),
+    build(p) {
+      return buildCustomSpeedTreeParts(cfg, p);
+    },
+  };
+}
+
+const speedtreeGuidedCanopy = {
+  id: "speedtree-guided-canopy",
+  name: "SpeedTree-lite 引导树冠",
+  schema: customSchema({
+    id: "guided-canopy",
+    name: "引导树冠",
+    bark: [0.31, 0.21, 0.13],
+    leaf: [0.16, 0.36, 0.12],
+    guide: { height: 4.7, crownWidth: 3.5, crownDepth: 2.7, trunkLean: -0.42, crownBasePct: 0.22, shape: "umbrella" },
+    tree: {
+      seed: 233,
+      trunkRadius: 0.26,
+      branchCount: 9,
+      depth: 3,
+      branchAngle: 56,
+      gnarl: 0.12,
+      leafDensity: 10,
+      leafSize: 0.18,
+      leafShape: "oval",
+      branchFlareScale: 1.8,
+      branchFeatures: { count: 10, size: 1.0 },
+      branchLengthProfile: [{ t: 0, value: 1.25 }, { t: 0.6, value: 1.1 }, { t: 1, value: 0.65 }],
+      leafDensityProfile: [{ t: 0, value: 0.35 }, { t: 0.7, value: 1.15 }, { t: 1, value: 0.8 }],
+    },
+  }),
+  build(p) {
+    return buildCustomSpeedTreeParts({
+      id: "guided-canopy",
+      name: "引导树冠",
+      bark: [0.31, 0.21, 0.13],
+      leaf: [0.16, 0.36, 0.12],
+      guide: { height: 4.7, crownWidth: 3.5, crownDepth: 2.7, trunkLean: -0.42, crownBasePct: 0.22, shape: "umbrella" },
+      tree: {
+        seed: 233,
+        trunkRadius: 0.26,
+        branchCount: 9,
+        depth: 3,
+        branchAngle: 56,
+        gnarl: 0.12,
+        leafDensity: 10,
+        leafSize: 0.18,
+        leafShape: "oval",
+        branchFlareScale: 1.8,
+        branchFeatures: { count: 10, size: 1.0 },
+        branchLengthProfile: [{ t: 0, value: 1.25 }, { t: 0.6, value: 1.1 }, { t: 1, value: 0.65 }],
+        leafDensityProfile: [{ t: 0, value: 0.35 }, { t: 0.7, value: 1.15 }, { t: 1, value: 0.8 }],
+      },
+    }, p);
+  },
+};
+
+const speedtreeSpeciesLineup = {
+  id: "speedtree-species-lineup",
+  name: "SpeedTree-lite 树种对比",
+  schema: [
+    { key: "heightScale", label: "整体高度倍率", min: 0.7, max: 1.35, step: 0.05, default: 1 },
+    { key: "leafScale", label: "叶量倍率", min: 0, max: 1.5, step: 0.05, default: 0.75 },
+    { key: "spacing", label: "间距", min: 2.4, max: 4.5, step: 0.1, default: 3.2 },
+    { key: "seedOffset", label: "种子偏移", min: 0, max: 80, step: 1, default: 0 },
+  ],
+  build(p) {
+    const parts = [];
+    const count = SPEEDTREE_SPECIES.length;
+    for (let i = 0; i < count; i++) {
+      const entry = SPEEDTREE_SPECIES[i];
+      const model = makeSpeciesModel(entry);
+      const params = defaultParams(model);
+      params.height *= p.heightScale;
+      if ("leafDensity" in params) params.leafDensity = Math.round(params.leafDensity * p.leafScale);
+      if ("needleDensity" in params) params.needleDensity = Math.max(1, Math.round(params.needleDensity * p.leafScale));
+      params.seed = Math.round(params.seed + p.seedOffset);
+      const x = (i - (count - 1) * 0.5) * p.spacing;
+      for (const part of model.build(params)) {
+        parts.push({
+          ...part,
+          name: `${entry.id}_${part.name}`,
+          label: part.label || `${entry.label} ${part.name}`,
+          mesh: translateMesh(part.mesh, vec3(x, 0, 0)),
+        });
+      }
+    }
+    return parts;
+  },
+};
+
+const speedtreeCustomLineup = {
+  id: "speedtree-custom-lineup",
+  name: "SpeedTree-lite 新树型对比",
+  schema: [
+    { key: "heightScale", label: "整体高度倍率", min: 0.7, max: 1.35, step: 0.05, default: 1 },
+    { key: "leafScale", label: "叶量倍率", min: 0, max: 1.5, step: 0.05, default: 0.75 },
+    { key: "spacing", label: "间距", min: 2.6, max: 4.8, step: 0.1, default: 3.4 },
+    { key: "seedOffset", label: "种子偏移", min: 0, max: 80, step: 1, default: 0 },
+  ],
+  build(p) {
+    const parts = [];
+    const count = SPEEDTREE_ARCHETYPES.length;
+    for (let i = 0; i < count; i++) {
+      const cfg = SPEEDTREE_ARCHETYPES[i];
+      const params = customDefaults(cfg);
+      params.height *= p.heightScale;
+      params.crownWidth *= p.heightScale;
+      params.crownDepth *= p.heightScale;
+      params.trunkRadius *= p.heightScale;
+      params.leafDensity = Math.round(params.leafDensity * p.leafScale);
+      params.seed = Math.round(params.seed + p.seedOffset);
+      const x = (i - (count - 1) * 0.5) * p.spacing;
+      for (const part of buildCustomSpeedTreeParts(cfg, params)) {
+        parts.push({
+          ...part,
+          name: `${cfg.id}_${part.name}`,
+          label: part.label || `${cfg.name} ${part.name}`,
+          mesh: translateMesh(part.mesh, vec3(x, 0, 0)),
+        });
+      }
+    }
+    return parts;
+  },
+};
+
+const SPEEDTREE_MODELS = Object.fromEntries([
+  ...SPEEDTREE_SPECIES.map((entry) => [`speedtree-${entry.id}`, makeSpeciesModel(entry)]),
+  ["speedtree-guided-canopy", speedtreeGuidedCanopy],
+  ["speedtree-species-lineup", speedtreeSpeciesLineup],
+  ...SPEEDTREE_ARCHETYPES.map((cfg) => [`speedtree-custom-${cfg.id}`, makeCustomSpeedTreeModel(cfg)]),
+  ["speedtree-custom-lineup", speedtreeCustomLineup],
+]);
+
 // ---- mechanical dragonfly: head + compound eyes, short thorax, long
 // segmented tail, four iridescent wings, six mechanical legs. Fully
 // parametric and deterministic (no random) — silhouette over the reference. ----
@@ -1586,7 +2147,7 @@ const dragonfly = {
   },
 };
 
-export const PROC_MODELS = { sphere: sphereModel, teddy, rock, tower, pagoda, building, cityblock: cityBlock, "interior-room": interiorRoom, "hard-surface-kit": hardSurfaceKit, "terrain-island": terrainIsland, mushroom, gear, officechair: officeChair, dragonfly, "sports-car": sportsCar, "gmc-canyon-at4x": gmcCanyonAt4x, "buick-riviera-1965": buickRiviera1965, "midnight-horse": midnightHorse, "reference-dog": referenceDog, "cartoon-mech-pilot": cartoonMechPilot, "stylized-humanoid": stylizedHumanoid, tshirt: tshirtModel, skirt: skirtModel, pants: pantsModel, dress: dressModel, hoodie: hoodieModel, smooth: smoothModel, spring: springModel, vine: vineModel, meadow: meadowModel, csg: csgModel, fterrain: terrainModel, wineglass: wineGlassModel, "veg-tree": treeModel, "veg-shrub": shrubModel, "veg-grass": grassModel, "veg-conifer": coniferModel, "veg-palm": palmModel };
+export const PROC_MODELS = { sphere: sphereModel, teddy, rock, tower, pagoda, building, cityblock: cityBlock, "interior-room": interiorRoom, "hard-surface-kit": hardSurfaceKit, "terrain-island": terrainIsland, mushroom, gear, officechair: officeChair, dragonfly, "sports-car": sportsCar, "gmc-canyon-at4x": gmcCanyonAt4x, "buick-riviera-1965": buickRiviera1965, "midnight-horse": midnightHorse, "reference-dog": referenceDog, "cartoon-mech-pilot": cartoonMechPilot, "stylized-humanoid": stylizedHumanoid, tshirt: tshirtModel, skirt: skirtModel, pants: pantsModel, dress: dressModel, hoodie: hoodieModel, smooth: smoothModel, spring: springModel, vine: vineModel, meadow: meadowModel, csg: csgModel, fterrain: terrainModel, wineglass: wineGlassModel, "veg-tree": treeModel, "veg-shrub": shrubModel, "veg-grass": grassModel, "veg-conifer": coniferModel, "veg-palm": palmModel, ...SPEEDTREE_MODELS, ...SPEEDTREE_TUTORIAL_MODELS };
 
 /** Default param object from a schema. */
 export function defaultParams(model) {

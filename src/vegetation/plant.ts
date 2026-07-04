@@ -17,21 +17,28 @@ import type { Mesh } from "../geometry/mesh.js";
 import { merge } from "../geometry/mesh.js";
 import { makeRng } from "../random/prng.js";
 import { gnarlCurve, curveFrameAt } from "./curve-frame.js";
-import { growBranches, branchesToMesh, type BranchSegment } from "./branch.js";
-import { scatterLeaves } from "./leaf.js";
+import { growBranches, branchesToMesh, type BranchSegment, type BranchMeshOptions, type GrowBranchesOptions } from "./branch.js";
+import { scatterLeaves, type LeafShape, type ScatterLeavesOptions } from "./leaf.js";
 import { frond, needleCluster } from "./frond.js";
+import { shapeBranchesToEnvelope, type CanopyEnvelope } from "./envelope.js";
+import { branchFeatureMeshes, type BranchFeatureOptions } from "./feature.js";
+import type { Curve1DInput } from "./curve-param.js";
 
 export interface PlantResult {
   /** Woody parts (trunk + branches) — assign a bark material. */
   wood: Mesh;
   /** Leaf cards — assign a thin/translucent leaf material. */
   leaves: Mesh;
+  /** Optional bark details such as knots, scars, and burls. */
+  features?: Mesh;
   /** All branch segments (for inspection / further scatter). */
   branches: BranchSegment[];
 }
 
 export interface TreeOptions {
   seed?: number;
+  /** Optional guide spine. Use image/VLM extracted trunk instead of a straight trunk. */
+  trunkCurve?: Curve;
   /** Trunk height in world units. */
   height?: number;
   /** Trunk base radius. */
@@ -50,17 +57,41 @@ export interface TreeOptions {
   leafSize?: number;
   /** Set false to omit leaves (bare/winter tree). */
   leaves?: boolean;
+  /** Leaf silhouette. "quad" keeps classic crossed cards. */
+  leafShape?: LeafShape;
+  /** Tip curl for shaped leaves. */
+  leafCurl?: number;
+  /** Side fold for shaped leaves. */
+  leafFold?: number;
+  /** Add flared bark collars at branch roots. */
+  branchFlare?: boolean;
+  /** Root collar radius multiplier. */
+  branchFlareScale?: number;
+  /** SpeedTree-style branch length multiplier over parent t. */
+  branchLengthProfile?: Curve1DInput;
+  /** SpeedTree-style branch radius multiplier over parent t. */
+  branchRadiusProfile?: Curve1DInput;
+  /** SpeedTree-style branch angle multiplier over parent t. */
+  branchAngleProfile?: Curve1DInput;
+  /** SpeedTree-style child count multiplier over recursion depth. */
+  branchCountProfile?: Curve1DInput;
+  /** Leaf count multiplier over terminal branch attachment t. */
+  leafDensityProfile?: Curve1DInput;
+  /** Clamp branch tips into a crown silhouette. */
+  canopy?: CanopyEnvelope;
+  /** Add knots/scars/burls on branches. */
+  branchFeatures?: boolean | BranchFeatureOptions;
 }
 
 /** Build a single-trunk tree. */
 export function tree(opts: TreeOptions = {}): PlantResult {
   const seed = opts.seed ?? 1;
-  const height = opts.height ?? 4;
+  const height = opts.height ?? (opts.trunkCurve ? curveYSpan(opts.trunkCurve) : 4);
   const trunkRadius = opts.trunkRadius ?? 0.28;
   const rng = makeRng(seed);
 
   // Trunk: vertical polyline, gnarled, swept with taper + root flare.
-  const raw = polyline([vec3(0, 0, 0), vec3(0, height * 0.5, 0), vec3(0, height, 0)]);
+  const raw = opts.trunkCurve ?? polyline([vec3(0, 0, 0), vec3(0, height * 0.5, 0), vec3(0, height, 0)]);
   const trunkCurve = gnarlCurve(raw, { seed: (rng.next() * 1e9) | 0, amount: (opts.gnarl ?? 0.12) * height * 0.15 });
   const trunkMesh = sweep(trunkCurve, {
     sides: 8,
@@ -69,7 +100,7 @@ export function tree(opts: TreeOptions = {}): PlantResult {
     caps: true,
   });
 
-  const branches = growBranches(trunkCurve, trunkRadius, {
+  const growOpts: GrowBranchesOptions = {
     seed: (rng.next() * 1e9) | 0,
     count: opts.branchCount ?? 7,
     depth: opts.depth ?? 3,
@@ -80,22 +111,55 @@ export function tree(opts: TreeOptions = {}): PlantResult {
     endPct: 0.96,
     radiusScale: 0.58,
     lengthScale: 0.7,
-  });
-  const branchMesh = branchesToMesh(branches, { sides: 6 });
-  const wood = merge(trunkMesh, branchMesh);
-
-  const wantLeaves = opts.leaves ?? true;
-  const leaves = wantLeaves
-    ? scatterLeaves(branches, {
-        seed: (rng.next() * 1e9) | 0,
-        perBranch: opts.leafDensity ?? 8,
-        size: opts.leafSize ?? 0.18,
-        upBias: 0.45,
-        cross: true,
-      })
+  };
+  if (opts.branchLengthProfile !== undefined) growOpts.lengthProfile = opts.branchLengthProfile;
+  if (opts.branchRadiusProfile !== undefined) growOpts.radiusProfile = opts.branchRadiusProfile;
+  if (opts.branchAngleProfile !== undefined) growOpts.angleProfile = opts.branchAngleProfile;
+  if (opts.branchCountProfile !== undefined) growOpts.countProfile = opts.branchCountProfile;
+  let branches = growBranches(trunkCurve, trunkRadius, growOpts);
+  branches = shapeBranchesToEnvelope(branches, opts.canopy);
+  const branchMeshOpts: BranchMeshOptions = {
+    sides: 6,
+    flare: opts.branchFlare ?? true,
+  };
+  if (opts.branchFlareScale !== undefined) branchMeshOpts.flareScale = opts.branchFlareScale;
+  const branchMesh = branchesToMesh(branches, branchMeshOpts);
+  const featureOpts = opts.branchFeatures === true ? {} : opts.branchFeatures;
+  const features = featureOpts
+    ? branchFeatureMeshes(branches, { seed: (rng.next() * 1e9) | 0, ...featureOpts })
     : merge();
+  const wood = merge(trunkMesh, branchMesh, features);
 
-  return { wood, leaves, branches };
+  const leafDensity = opts.leafDensity ?? 8;
+  const wantLeaves = (opts.leaves ?? true) && leafDensity > 0;
+  let leaves = merge();
+  if (wantLeaves) {
+    const leafOpts: ScatterLeavesOptions = {
+      seed: (rng.next() * 1e9) | 0,
+      perBranch: leafDensity,
+      size: opts.leafSize ?? 0.18,
+      upBias: 0.45,
+      cross: true,
+      shape: opts.leafShape ?? "quad",
+    };
+    if (opts.leafDensityProfile !== undefined) leafOpts.densityProfile = opts.leafDensityProfile;
+    if (opts.leafCurl !== undefined) leafOpts.curl = opts.leafCurl;
+    if (opts.leafFold !== undefined) leafOpts.fold = opts.leafFold;
+    leaves = scatterLeaves(branches, leafOpts);
+  }
+
+  return opts.branchFeatures ? { wood, leaves, branches, features } : { wood, leaves, branches };
+}
+
+function curveYSpan(curve: Curve): number {
+  if (curve.points.length === 0) return 4;
+  let minY = Infinity;
+  let maxY = -Infinity;
+  for (const p of curve.points) {
+    if (p.y < minY) minY = p.y;
+    if (p.y > maxY) maxY = p.y;
+  }
+  return Math.max(1e-4, maxY - minY);
 }
 
 /** Root-flared, tapering trunk profile. */
@@ -114,6 +178,10 @@ export interface ShrubOptions {
   spread?: number;
   leafDensity?: number;
   leafSize?: number;
+  leafShape?: LeafShape;
+  leafCurl?: number;
+  leafFold?: number;
+  branchFlare?: boolean;
 }
 
 /** Build a multi-stem shrub (no dominant trunk, dense foliage). */
@@ -147,17 +215,21 @@ export function shrub(opts: ShrubOptions = {}): PlantResult {
       radiusScale: 0.55,
       lengthScale: 0.6,
     });
-    woods.push(branchesToMesh(br, { sides: 4 }));
+    woods.push(branchesToMesh(br, { sides: 4, flare: opts.branchFlare ?? true }));
     for (const b of br) allBranches.push(b);
   }
   const wood = merge(...woods);
-  const leaves = scatterLeaves(allBranches, {
+  const leafOpts: ScatterLeavesOptions = {
     seed: (rng.next() * 1e9) | 0,
     perBranch: opts.leafDensity ?? 10,
     size: opts.leafSize ?? 0.12,
     upBias: 0.5,
     cross: true,
-  });
+    shape: opts.leafShape ?? "quad",
+  };
+  if (opts.leafCurl !== undefined) leafOpts.curl = opts.leafCurl;
+  if (opts.leafFold !== undefined) leafOpts.fold = opts.leafFold;
+  const leaves = scatterLeaves(allBranches, leafOpts);
   return { wood, leaves, branches: allBranches };
 }
 

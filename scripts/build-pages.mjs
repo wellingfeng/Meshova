@@ -2,6 +2,7 @@ import { mkdir, readFile, rm, writeFile, cp } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { HIDDEN_GALLERY_MODEL_IDS } from "../web/model-visibility.js";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const outDir = resolve(root, process.env.MESHOVA_PAGES_DIR || ".site");
@@ -202,7 +203,7 @@ async function main() {
 
   const procSource = await readText(procModelsPath);
   const names = parseModelNames(procSource);
-  const ids = parseExportedModelIds(procSource);
+  const ids = parseExportedModelIds(procSource).filter((id) => !HIDDEN_GALLERY_MODEL_IDS.has(id));
   for (const id of ids) {
     await writeText(join(outDir, "models", `${id}.html`), modelPage(id, names.get(id)));
   }
