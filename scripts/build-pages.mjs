@@ -37,7 +37,7 @@ function rewriteHtmlForRoot(html, kind) {
       .replaceAll("← 模型库", "模型库")
       .replaceAll('src="/web/viewer.js"', 'src="./web/viewer.js"');
   }
-  return out;
+  return out.replace("</head>", '<link rel="icon" href="./favicon.ico" />\n</head>');
 }
 
 function rewriteHtmlForWeb(html, kind) {
@@ -52,7 +52,7 @@ function rewriteHtmlForWeb(html, kind) {
       .replaceAll("← 模型库", "模型库")
       .replaceAll('src="/web/viewer.js"', 'src="./viewer.js"');
   }
-  return out;
+  return out.replace("</head>", '<link rel="icon" href="../favicon.ico" />\n</head>');
 }
 
 function rewriteWebJs(filename, text) {
@@ -148,6 +148,7 @@ function modelPage(id, name) {
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Meshova · ${title}</title>
+<link rel="icon" href="../favicon.ico" />
 <style>
 html,body{height:100%;margin:0;background:#0d1117;color:#e6edf3;font:14px/1.6 -apple-system,"Segoe UI","Microsoft YaHei",sans-serif}
 main{min-height:100%;display:grid;place-items:center;text-align:center;padding:24px}
