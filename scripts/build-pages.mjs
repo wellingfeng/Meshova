@@ -61,15 +61,17 @@ function rewriteWebJs(filename, text) {
   }
   if (filename === "viewer.js") {
     return text
-      .replaceAll('from "/web/materials.js"', 'from "./materials.js"')
-      .replaceAll('from "/web/procmodels.js"', 'from "./procmodels.js"')
+      .replaceAll('from "/web/', 'from "./')
+      .replaceAll('import("/web/', 'import("./')
       .replaceAll('from "/dist/index.js"', 'from "../dist/index.js"')
-      .replaceAll('fetch("/web/procmodels.js"', 'fetch("./procmodels.js"')
+      .replaceAll('fetch("/web/', 'fetch("./')
       .replaceAll('file: "/web/procmodels.js"', 'file: "web/procmodels.js"');
   }
   if (filename === "gallery.js") {
     return text
-      .replaceAll('from "/web/procmodels.js"', 'from "./procmodels.js"')
+      .replaceAll('from "/web/', 'from "./')
+      .replaceAll('import("/web/', 'import("./')
+      .replaceAll('fetch("/web/', 'fetch("./')
       .replaceAll('fetch("/out/models.json"', 'fetch("./out/models.json"')
       .replaceAll("`/web/index.html?model=${encodeURIComponent(modelParam)}`", "`./viewer.html?model=${encodeURIComponent(modelParam)}`");
   }
