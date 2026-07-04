@@ -3,5 +3,6 @@ dist/
 *.log
 .DS_Store
 out/
+.site/
 .ultragamestudio/
 _h.mjs
