@@ -56,11 +56,18 @@ function rewriteHtmlForWeb(html, kind) {
 }
 
 function rewriteWebJs(filename, text) {
+  let out = text
+    .replace(/fetch\("\/out\/([^"]+)",/g, 'fetch(new URL("../out/$1", import.meta.url),')
+    .replace(/fetch\(`\/out\/([^`]+)`,/g, 'fetch(new URL(`../out/$1`, import.meta.url),')
+    .replaceAll("`/out/shots/${entry.id}-orbit35.png`", "new URL(`../out/shots/${entry.id}-orbit35.png`, import.meta.url).href")
+    .replaceAll("`/out/shots/${entry.id}-persp.png`", "new URL(`../out/shots/${entry.id}-persp.png`, import.meta.url).href")
+    .replaceAll("`/out/shots/${entry.id}-top.png`", "new URL(`../out/shots/${entry.id}-top.png`, import.meta.url).href")
+    .replaceAll("return `/out/${path}`;", "return new URL(`../out/${path}`, import.meta.url).href;");
   if (filename === "materials.js" || filename === "procmodels.js") {
-    return text.replaceAll('from "/dist/index.js"', 'from "../dist/index.js"');
+    return out.replaceAll('from "/dist/index.js"', 'from "../dist/index.js"');
   }
   if (filename === "viewer.js") {
-    return text
+    return out
       .replaceAll('from "/web/', 'from "./')
       .replaceAll('import("/web/', 'import("./')
       .replaceAll('from "/dist/index.js"', 'from "../dist/index.js"')
@@ -68,14 +75,13 @@ function rewriteWebJs(filename, text) {
       .replaceAll('file: "/web/procmodels.js"', 'file: "web/procmodels.js"');
   }
   if (filename === "gallery.js") {
-    return text
+    return out
       .replaceAll('from "/web/', 'from "./')
       .replaceAll('import("/web/', 'import("./')
       .replaceAll('fetch("/web/', 'fetch("./')
-      .replaceAll('fetch("/out/models.json"', 'fetch("./out/models.json"')
       .replaceAll("`/web/index.html?model=${encodeURIComponent(modelParam)}`", "`./viewer.html?model=${encodeURIComponent(modelParam)}`");
   }
-  return text;
+  return out;
 }
 
 function htmlEscape(value) {
