@@ -64,8 +64,16 @@ function rewriteWebJs(filename, text) {
     .replaceAll("`/out/shots/${entry.id}-persp.png`", "new URL(`../out/shots/${entry.id}-persp.png`, import.meta.url).href")
     .replaceAll("`/out/shots/${entry.id}-top.png`", "new URL(`../out/shots/${entry.id}-top.png`, import.meta.url).href")
     .replaceAll("return `/out/${path}`;", "return new URL(`../out/${path}`, import.meta.url).href;");
-  if (filename === "materials.js" || filename === "procmodels.js") {
-    return out.replaceAll('from "/dist/index.js"', 'from "../dist/index.js"');
+  if (
+    filename === "materials.js" ||
+    filename === "procmodels.js" ||
+    filename === "speedtree-tutorial-procmodels.js" ||
+    filename === "model-visibility.js"
+  ) {
+    return out
+      .replaceAll('from "/dist/index.js"', 'from "../dist/index.js"')
+      .replaceAll('from "/web/', 'from "./')
+      .replaceAll('import("/web/', 'import("./');
   }
   if (filename === "viewer.js") {
     return out
@@ -196,7 +204,14 @@ async function main() {
   await writeText(join(outDir, "web", "gallery.html"), rewriteHtmlForWeb(await readText(join(webDir, "gallery.html")), "gallery"));
   await writeText(join(outDir, "web", "index.html"), rewriteHtmlForWeb(await readText(join(webDir, "index.html")), "viewer"));
 
-  for (const filename of ["gallery.js", "materials.js", "procmodels.js", "viewer.js"]) {
+  for (const filename of [
+    "gallery.js",
+    "materials.js",
+    "procmodels.js",
+    "viewer.js",
+    "speedtree-tutorial-procmodels.js",
+    "model-visibility.js",
+  ]) {
     const path = join(outDir, "web", filename);
     await writeText(path, rewriteWebJs(filename, await readText(path)));
   }
