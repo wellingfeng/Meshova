@@ -75,6 +75,10 @@ export interface SpeedTreeLibraryBuildOptions {
   quality?: "proxy" | "medium" | "high";
   /** Live procedural controls used by the browser viewer. */
   params?: Partial<SpeedTreeLibraryParams>;
+  /** Foliage color sampled from the reference image (0..1 RGB). */
+  foliageColor?: [number, number, number];
+  /** Bark color sampled from the reference image (0..1 RGB). */
+  barkColor?: [number, number, number];
 }
 
 export interface SpeedTreeLibraryParams {
@@ -191,6 +195,9 @@ export function buildSpeedTreeLibraryPlant(
   const params = resolveSpeedTreeLibraryParams(recipe, opts.params);
   recipe.seed = params.seed;
   recipe.height = params.height;
+  // Reference-derived color overrides (sampled from the target image, not baked).
+  if (opts.foliageColor) recipe.foliageColor = clampColor(opts.foliageColor);
+  if (opts.barkColor) recipe.barkColor = clampColor(opts.barkColor);
   if (recipe.kind === "conifer") return plantParts(recipe, buildConifer(recipe, opts), "needles");
   if (recipe.kind === "palm") return plantParts(recipe, buildPalm(recipe, opts), "fronds");
   if (recipe.kind === "cactus") return buildCactusParts(recipe, opts);
@@ -315,6 +322,7 @@ function bucket(value: number, step: number): string {
 
 function buildBroadleaf(recipe: SpeedTreeLibraryRecipe, opts: SpeedTreeLibraryBuildOptions): PlantResult {
   const key = recipe.tags.join(" ");
+  const acaciaLike = key.includes("acacia") || key.includes("thorn");
   const p = resolveSpeedTreeLibraryParams(recipe, opts.params);
   const quality = opts.quality ?? "medium";
   const depth = quality === "proxy" ? 2 : 3;
@@ -324,18 +332,21 @@ function buildBroadleaf(recipe: SpeedTreeLibraryRecipe, opts: SpeedTreeLibraryBu
     : key.includes("baobab") || key.includes("acacia") || key.includes("thorn") ? "umbrella"
     : "ellipsoid";
   const crownWidth = recipe.height * (
-    key.includes("baobab") ? 0.9
-      : key.includes("willow") ? 0.78
-        : shape === "column" ? 0.34
-          : key.includes("olive") || key.includes("mesquite") ? 0.62
-            : 0.7
+    acaciaLike ? 1.28
+      : key.includes("baobab") ? 0.9
+        : key.includes("willow") ? 0.78
+          : shape === "column" ? 0.34
+            : key.includes("olive") || key.includes("mesquite") ? 0.62
+              : 0.7
   ) * p.crownScale;
+  const crownBasePct = acaciaLike ? 0.42 : key.includes("baobab") ? 0.46 : key.includes("poplar") ? 0.18 : 0.26;
+  const crownDepth = crownWidth * (acaciaLike || key.includes("windswept") ? 0.55 : 0.85) * p.crownDepth;
   const guide = treeGuideFromSilhouette({
     height: recipe.height,
     crownWidth,
-    crownDepth: crownWidth * (key.includes("windswept") ? 0.55 : 0.85) * p.crownDepth,
+    crownDepth,
     trunkLean: (key.includes("willow") ? -0.22 : key.includes("acacia") ? 0.18 : 0) + p.lean,
-    crownBasePct: key.includes("baobab") ? 0.46 : key.includes("poplar") ? 0.18 : 0.26,
+    crownBasePct,
     shape,
   });
   const trunkRadius = recipe.height * (
@@ -344,8 +355,8 @@ function buildBroadleaf(recipe: SpeedTreeLibraryRecipe, opts: SpeedTreeLibraryBu
         : key.includes("birch") || key.includes("poplar") ? 0.04
           : 0.06
   ) * p.trunkScale;
-  const branchAngle = (key.includes("willow") ? 64 : key.includes("baobab") ? 68 : shape === "column" ? 30 : 52) + p.branchAngle;
-  const leafDensity = recipe.leafless ? 0 : Math.round((key.includes("fruit") ? 11 : 8) * leafDensityScale * p.leafDensity);
+  const branchAngle = (key.includes("willow") ? 64 : acaciaLike ? 70 : key.includes("baobab") ? 68 : shape === "column" ? 30 : 52) + p.branchAngle;
+  const leafDensity = recipe.leafless ? 0 : Math.round((acaciaLike ? 18 : key.includes("fruit") ? 11 : 8) * leafDensityScale * p.leafDensity);
   const treeOpts: TreeOptions = {
     seed: recipe.seed,
     trunkRadius,
@@ -354,20 +365,51 @@ function buildBroadleaf(recipe: SpeedTreeLibraryRecipe, opts: SpeedTreeLibraryBu
     depth,
     branchAngle,
     leafDensity,
-    leafSize: (key.includes("maple") ? 0.18 : key.includes("willow") ? 0.14 : 0.16) * p.leafSize,
-    leafShape: recipe.leafShape ?? "oval",
+    leafSize: (acaciaLike ? 0.07 : key.includes("maple") ? 0.18 : key.includes("willow") ? 0.14 : 0.16) * p.leafSize,
+    leafShape: acaciaLike ? "lanceolate" : recipe.leafShape ?? "oval",
     leafCurl: key.includes("willow") ? -0.18 : 0.08,
     leafFold: 0.1,
-    branchFlareScale: key.includes("baobab") || key.includes("oak") ? 2.2 : 1.6,
-    branchLengthProfile: shape === "column"
-      ? [{ t: 0, value: 0.45 }, { t: 0.65, value: 0.85 }, { t: 1, value: 0.42 }]
+    // Thinner root collars: fat flares turned branches into visible "antlers"
+    // poking out of the crown. Keep just enough for a natural base.
+    branchFlareScale: key.includes("baobab") ? 1.5 : key.includes("oak") ? 1.35 : 1.2,
+    // Shorter mid/tip branches so twigs stay inside the crown envelope and get
+    // covered by the leaf shell instead of spearing past it.
+    branchLengthProfile: acaciaLike
+      ? [{ t: 0, value: 0.45 }, { t: 0.5, value: 1.0 }, { t: 1, value: 0.62 }]
+      : shape === "column"
+      ? [{ t: 0, value: 0.42 }, { t: 0.65, value: 0.78 }, { t: 1, value: 0.36 }]
       : key.includes("baobab")
-        ? [{ t: 0, value: 0.3 }, { t: 0.62, value: 1.35 }, { t: 1, value: 0.72 }]
-        : [{ t: 0, value: 1.15 }, { t: 0.55, value: 1.05 }, { t: 1, value: 0.55 }],
-    leafDensityProfile: [{ t: 0, value: 0.25 }, { t: 0.65, value: 1.2 }, { t: 1, value: 0.9 }],
-    branchFeatures: { count: Math.max(1, Math.round((quality === "proxy" ? 3 : 9) * p.branchCount)), kind: "mixed", size: key.includes("baobab") ? 1.25 : 0.9 },
+        ? [{ t: 0, value: 0.3 }, { t: 0.62, value: 1.1 }, { t: 1, value: 0.55 }]
+        : [{ t: 0, value: 0.9 }, { t: 0.55, value: 0.82 }, { t: 1, value: 0.42 }],
+    // Push leaves outward and up toward the branch tips so the shell forms on the
+    // crown edge, not clustered at branch roots.
+    leafDensityProfile: [{ t: 0, value: 0.15 }, { t: 0.6, value: 1.0 }, { t: 1, value: 1.35 }],
+    // Taper branches hard so woody mass shrinks fast and hides under the foliage.
+    branchRadiusProfile: [{ t: 0, value: 1.0 }, { t: 0.5, value: 0.5 }, { t: 1, value: 0.16 }],
+    branchFeatures: { count: Math.max(1, Math.round((quality === "proxy" ? 3 : 9) * p.branchCount)), kind: "mixed", size: key.includes("baobab") ? 1.25 : 0.75 },
   };
-  return buildTreeFromGuide(guide, treeOpts);
+  if (acaciaLike) {
+    treeOpts.branchPhototropism = 0.72;
+    treeOpts.branchGravity = 0;
+    treeOpts.branchLengthScale = 0.52;
+  }
+  const plant = buildTreeFromGuide(guide, treeOpts);
+  const leafCloud = leafDensity > 0
+    ? broadleafCrownCloud(recipe, {
+      shape,
+      quality,
+      crownWidth,
+      crownDepth,
+      crownBasePct,
+      lean: (key.includes("willow") ? -0.22 : key.includes("acacia") ? 0.18 : 0) + p.lean,
+      leafSize: p.leafSize,
+      leafDensity: p.leafDensity,
+    })
+    : merge();
+  return {
+    ...plant,
+    leaves: merge(plant.leaves, leafCloud),
+  };
 }
 
 function buildConifer(recipe: SpeedTreeLibraryRecipe, opts: SpeedTreeLibraryBuildOptions): PlantResult {
@@ -375,7 +417,7 @@ function buildConifer(recipe: SpeedTreeLibraryRecipe, opts: SpeedTreeLibraryBuil
   const p = resolveSpeedTreeLibraryParams(recipe, opts.params);
   const quality = opts.quality ?? "medium";
   if (key.includes("cypress") || key.includes("juniper") || key.includes("cedar")) {
-    return buildTreeFromGuide(treeGuideFromSilhouette({
+    const plant = buildTreeFromGuide(treeGuideFromSilhouette({
       height: recipe.height,
       crownWidth: (key.includes("italian") ? recipe.height * 0.22 : recipe.height * 0.36) * p.crownScale,
       crownDepth: (key.includes("italian") ? recipe.height * 0.2 : recipe.height * 0.34) * p.crownDepth,
@@ -396,8 +438,12 @@ function buildConifer(recipe: SpeedTreeLibraryRecipe, opts: SpeedTreeLibraryBuil
       leafDensityProfile: [{ t: 0, value: 0.55 }, { t: 0.55, value: 1.25 }, { t: 1, value: 0.9 }],
       branchFeatures: { count: quality === "proxy" ? 2 : 5, size: 0.65 },
     });
+    return {
+      ...plant,
+      leaves: merge(plant.leaves, coniferCrownCloud(recipe, p, "column", quality)),
+    };
   }
-  return conifer({
+  const plant = conifer({
     seed: recipe.seed,
     height: recipe.height,
     trunkRadius: (key.includes("redwood") ? 0.28 : 0.16) * p.trunkScale,
@@ -405,6 +451,181 @@ function buildConifer(recipe: SpeedTreeLibraryRecipe, opts: SpeedTreeLibraryBuil
     perWhorl: Math.max(3, Math.round((quality === "proxy" ? 5 : key.includes("spruce") ? 8 : 7) * p.crownScale)),
     needleDensity: Math.max(0, Math.round((quality === "proxy" ? 3 : key.includes("pine") ? 6 : 7) * p.leafDensity)),
   });
+  return {
+    ...plant,
+    leaves: merge(plant.leaves, coniferCrownCloud(recipe, p, "cone", quality)),
+  };
+}
+
+interface BroadleafCloudOptions {
+  shape: "ellipsoid" | "column" | "umbrella";
+  quality: "proxy" | "medium" | "high";
+  crownWidth: number;
+  crownDepth: number;
+  crownBasePct: number;
+  lean: number;
+  leafSize: number;
+  leafDensity: number;
+}
+
+function broadleafCrownCloud(recipe: SpeedTreeLibraryRecipe, opts: BroadleafCloudOptions): Mesh {
+  const key = recipe.tags.join(" ");
+  const rng = makeRng(recipe.seed + 3907);
+  const detail = opts.quality === "proxy" ? 1 : 2;
+  const density = Math.max(0.35, opts.leafDensity);
+  const meshes: Mesh[] = [];
+  const crownBase = recipe.height * opts.crownBasePct;
+  const crownHeight = recipe.height * (1 - opts.crownBasePct);
+  const rx = opts.crownWidth * 0.5;
+  const rz = opts.crownDepth * 0.5;
+  // Interior occluder only: a small, shrunken sphere deep inside the leaf mass so
+  // gaps between leaf cards don't show sky through the crown. It must never form
+  // the outer silhouette (that's the "green ball" artifact), so it stays at ~0.6x
+  // and is always wrapped by the leaf shell below.
+  const addBlob = (x: number, y: number, z: number, sx: number, sy: number, sz: number) => {
+    // Fill most of the volume so the crown reads solid, but stay just under the
+    // leaf shell so the sphere edge itself never becomes the silhouette.
+    meshes.push(transform(icosphere(1, detail), {
+      scale: vec3(sx * 0.82, sy * 0.82, sz * 0.82),
+      translate: vec3(x + opts.lean * 0.45, y, z),
+    }));
+  };
+  // A broken leaf shell: dense crossed cards scattered on and just OUTSIDE the
+  // blob's ellipsoid surface, pushed outward so their edges break the contour.
+  // Size + outward-offset jitter make the silhouette ragged like real foliage.
+  const addLeafPatch = (x: number, y: number, z: number, sx: number, sy: number, sz: number, count: number) => {
+    // Dense shell hugging the occluder surface. Two bands: an inner band right on
+    // the surface (fills gaps, no sky through), and an outer band slightly past it
+    // (frays the contour). Kept close so the crown stays solid, not a spray.
+    const shellCount = Math.round(count * 2.6);
+    for (let i = 0; i < shellCount; i++) {
+      const a = rng.next() * TAU;
+      const phi = Math.acos(1 - 2 * rng.next());
+      const dirX = Math.sin(phi) * Math.cos(a);
+      const dirY = Math.cos(phi) * 0.9 + 0.08;
+      const dirZ = Math.sin(phi) * Math.sin(a);
+      // Surface band 0.72..1.02: mostly on/just inside the shell, a few fraying out.
+      const surf = 0.72 + rng.next() * rng.next() * 0.34;
+      const px = x + dirX * sx * surf;
+      const py = y + dirY * sy * surf;
+      const pz = z + dirZ * sz * surf;
+      const n = normalize(vec3(dirX + rng.range(-0.28, 0.28), Math.abs(dirY) * 0.5 + 0.25, dirZ + rng.range(-0.28, 0.28)));
+      // Larger overlapping cards so neighbors close the gaps between them.
+      const w = Math.max(0.07, Math.min(sx, sz) * rng.range(0.34, 0.6));
+      const h = w * rng.range(1.05, 1.5);
+      const center = vec3(px + opts.lean * 0.45, py, pz);
+      meshes.push(leafCard(center, n, vec3(0, 1, 0), w, h));
+      meshes.push(leafCard(center, normalize(vec3(-n.z, 0.12, n.x)), vec3(0, 1, 0), w * 0.92, h * 0.94));
+    }
+  };
+
+  if (opts.shape === "umbrella" || key.includes("acacia") || key.includes("thorn")) {
+    const count = Math.max(5, Math.round((opts.quality === "proxy" ? 7 : 10) * density));
+    for (let i = 0; i < count; i++) {
+      const t = count <= 1 ? 0.5 : i / (count - 1);
+      const edge = t * 2 - 1;
+      const y = crownBase + crownHeight * (0.62 + rng.range(-0.06, 0.08));
+      const x = edge * rx * (0.82 + rng.next() * 0.18);
+      const z = rng.range(-rz * 0.5, rz * 0.5);
+      const sideScale = 1 - Math.abs(edge) * 0.28;
+      const ubx = rx * (0.26 + rng.next() * 0.08) * sideScale * opts.leafSize;
+      const uby = crownHeight * (0.08 + rng.next() * 0.035) * opts.leafSize;
+      const ubz = rz * (0.38 + rng.next() * 0.12) * opts.leafSize;
+      addBlob(x, y, z, ubx, uby, ubz);
+      addLeafPatch(x, y, z, ubx, uby, ubz, opts.quality === "proxy" ? 12 : 22);
+    }
+    const cbx = rx * 0.44 * opts.leafSize;
+    const cby = crownHeight * 0.12 * opts.leafSize;
+    const cbz = rz * 0.5 * opts.leafSize;
+    addBlob(0, crownBase + crownHeight * 0.72, 0, cbx, cby, cbz);
+    addLeafPatch(0, crownBase + crownHeight * 0.72, 0, cbx, cby, cbz, opts.quality === "proxy" ? 16 : 30);
+    return merge(...meshes);
+  }
+
+  if (opts.shape === "column") {
+    const count = Math.max(4, Math.round((opts.quality === "proxy" ? 6 : 9) * density));
+    for (let i = 0; i < count; i++) {
+      const t = (i + 0.5) / count;
+      const taper = 0.72 + Math.sin(t * Math.PI) * 0.35;
+      const clx = rx * taper * opts.leafSize;
+      const cly = crownHeight * 0.13 * opts.leafSize;
+      const clz = rz * taper * opts.leafSize;
+      const cxp = rng.range(-rx * 0.18, rx * 0.18);
+      const czp = rng.range(-rz * 0.18, rz * 0.18);
+      addBlob(cxp, crownBase + crownHeight * t, czp, clx, cly, clz);
+      addLeafPatch(cxp, crownBase + crownHeight * t, czp, clx, cly, clz, opts.quality === "proxy" ? 10 : 18);
+    }
+    return merge(...meshes);
+  }
+
+  const count = Math.max(5, Math.round((opts.quality === "proxy" ? 7 : 11) * density));
+  for (let i = 0; i < count; i++) {
+    const a = (i / count) * TAU + rng.range(-0.18, 0.18);
+    const r = Math.sqrt(rng.next()) * 0.72;
+    const x = Math.cos(a) * rx * r;
+    const z = Math.sin(a) * rz * r;
+    const y = crownBase + crownHeight * (0.34 + rng.next() * 0.52);
+    const vertical = Math.sin(((y - crownBase) / crownHeight) * Math.PI);
+    const bx = rx * (0.28 + rng.next() * 0.11) * (0.72 + vertical * 0.35) * opts.leafSize;
+    const by = crownHeight * (0.12 + rng.next() * 0.05) * opts.leafSize;
+    const bz = rz * (0.28 + rng.next() * 0.1) * (0.72 + vertical * 0.35) * opts.leafSize;
+    addBlob(x, y, z, bx, by, bz);
+    // Leaf shell spans the blob's full extent so cards wrap it, not a bare sphere.
+    addLeafPatch(x, y, z, bx, by, bz, opts.quality === "proxy" ? 10 : 20);
+  }
+  return merge(...meshes);
+}
+
+function coniferCrownCloud(
+  recipe: SpeedTreeLibraryRecipe,
+  params: SpeedTreeLibraryParams,
+  shape: "column" | "cone",
+  quality: "proxy" | "medium" | "high",
+): Mesh {
+  if (params.leafDensity <= 0) return merge();
+  const rng = makeRng(recipe.seed + 7901);
+  const detail = quality === "proxy" ? 1 : 2;
+  const meshes: Mesh[] = [];
+  const addBlob = (x: number, y: number, z: number, sx: number, sy: number, sz: number) => {
+    meshes.push(transform(icosphere(1, detail), {
+      scale: vec3(sx, sy, sz),
+      translate: vec3(x + params.lean * 0.35, y, z),
+    }));
+  };
+  if (shape === "column") {
+    const count = quality === "proxy" ? 7 : 11;
+    const radiusX = recipe.height * 0.12 * params.crownScale;
+    const radiusZ = recipe.height * 0.1 * params.crownDepth;
+    for (let i = 0; i < count; i++) {
+      const t = (i + 0.5) / count;
+      const taper = 0.62 + Math.sin(t * Math.PI) * 0.38;
+      addBlob(
+        rng.range(-radiusX * 0.16, radiusX * 0.16),
+        recipe.height * (0.1 + t * 0.86),
+        rng.range(-radiusZ * 0.16, radiusZ * 0.16),
+        radiusX * taper,
+        recipe.height * 0.085,
+        radiusZ * taper,
+      );
+    }
+    return merge(...meshes);
+  }
+
+  const tiers = quality === "proxy" ? 6 : 10;
+  for (let i = 0; i < tiers; i++) {
+    const t = i / Math.max(1, tiers - 1);
+    const y = recipe.height * (0.14 + t * 0.8);
+    const radius = recipe.height * (0.34 * (1 - t) + 0.05) * params.crownScale;
+    addBlob(
+      rng.range(-radius * 0.08, radius * 0.08),
+      y,
+      rng.range(-radius * 0.08, radius * 0.08),
+      radius,
+      recipe.height * (0.055 + 0.02 * (1 - t)),
+      radius * 0.82 * params.crownDepth,
+    );
+  }
+  return merge(...meshes);
 }
 
 function buildPalm(recipe: SpeedTreeLibraryRecipe, opts: SpeedTreeLibraryBuildOptions): PlantResult {
@@ -903,7 +1124,11 @@ function hashSeed(input: string): number {
     h ^= input.charCodeAt(i);
     h = Math.imul(h, 0x01000193) >>> 0;
   }
-  return h | 0;
+  // Map to unsigned then into the valid seed range [0, 999999]. Returning a
+  // signed int here (h | 0) made ~half the species hash to negatives, which the
+  // seed clamps (Math.max(0, …) / clampNum(…, 0, 999999)) collapsed to 0 — so
+  // many species shared seed 0 and rendered as visually identical trees.
+  return (h >>> 0) % 1000000;
 }
 
 function clampNum(value: unknown, min: number, max: number): number {
@@ -913,6 +1138,11 @@ function clampNum(value: unknown, min: number, max: number): number {
 
 function round2(value: number): number {
   return Math.round(value * 100) / 100;
+}
+
+function clampColor(c: [number, number, number]): [number, number, number] {
+  const ch = (v: number) => Math.max(0, Math.min(1, Number.isFinite(v) ? v : 0));
+  return [ch(c[0]), ch(c[1]), ch(c[2])];
 }
 
 function doubleSided(mesh: Mesh): Mesh {

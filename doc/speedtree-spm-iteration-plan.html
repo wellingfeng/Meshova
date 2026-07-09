@@ -1,0 +1,1100 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Meshova 树木生成开发方案 · SpeedTree v8.3 树库拟合闭环</title>
+<style>
+  :root{
+    --bg:#07100d;
+    --bg2:#0d1714;
+    --panel:#13211d;
+    --panel2:#1b2d27;
+    --panel3:#223a32;
+    --line:#35584d;
+    --text:#edf8f2;
+    --muted:#9fb7ad;
+    --green:#78e08f;
+    --mint:#55d7c7;
+    --blue:#7ea7ff;
+    --amber:#ffbd73;
+    --red:#ff7f7f;
+    --purple:#cda2ff;
+    --code:#07100d;
+    --shadow:rgba(0,0,0,.34);
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;
+    background:
+      radial-gradient(circle at 16% 5%, rgba(85,215,199,.14), transparent 28%),
+      radial-gradient(circle at 82% 8%, rgba(126,167,255,.11), transparent 24%),
+      linear-gradient(180deg,var(--bg),#09110f 54%,#060a09);
+    color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif;
+    line-height:1.68;
+  }
+  a{color:var(--mint);text-decoration:none}
+  a:hover{text-decoration:underline}
+  header{
+    min-height:70vh;
+    display:flex;
+    align-items:center;
+    border-bottom:1px solid var(--line);
+    padding:44px 24px 26px;
+  }
+  .hero{width:100%;max-width:1200px;margin:0 auto}
+  .eyebrow{
+    display:inline-flex;
+    gap:8px;
+    align-items:center;
+    border:1px solid rgba(120,224,143,.36);
+    color:var(--green);
+    background:rgba(120,224,143,.08);
+    border-radius:999px;
+    padding:5px 11px;
+    font-size:13px;
+    margin-bottom:18px;
+  }
+  h1{
+    margin:0;
+    max-width:1050px;
+    font-size:clamp(34px,5.6vw,70px);
+    line-height:1.05;
+    letter-spacing:0;
+  }
+  .hero p{
+    max-width:900px;
+    margin:18px 0 0;
+    color:var(--muted);
+    font-size:18px;
+  }
+  .hero-grid{
+    display:grid;
+    grid-template-columns:1.05fr .95fr;
+    gap:16px;
+    margin-top:30px;
+  }
+  .thesis,.metric-grid{
+    background:linear-gradient(180deg,rgba(27,45,39,.95),rgba(13,23,20,.98));
+    border:1px solid var(--line);
+    border-radius:8px;
+    box-shadow:0 18px 42px var(--shadow);
+  }
+  .thesis{padding:20px}
+  .thesis b{color:var(--green)}
+  .metric-grid{
+    padding:14px;
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:10px;
+  }
+  .metric{
+    min-height:92px;
+    background:rgba(255,255,255,.035);
+    border:1px solid rgba(255,255,255,.08);
+    border-radius:8px;
+    padding:13px;
+  }
+  .metric strong{display:block;color:var(--mint);font-size:24px;line-height:1.08}
+  .metric span{display:block;color:var(--muted);font-size:12px;margin-top:8px}
+  nav{
+    position:sticky;
+    top:0;
+    z-index:20;
+    background:rgba(7,16,13,.9);
+    border-bottom:1px solid var(--line);
+    backdrop-filter:blur(10px);
+  }
+  .nav-inner{
+    max-width:1200px;
+    margin:0 auto;
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    padding:10px 22px;
+  }
+  .nav-inner a{
+    color:var(--muted);
+    font-size:13px;
+    border:1px solid transparent;
+    border-radius:999px;
+    padding:5px 10px;
+  }
+  .nav-inner a:hover{
+    color:var(--text);
+    border-color:var(--line);
+    background:var(--panel);
+    text-decoration:none;
+  }
+  main{max-width:1200px;margin:0 auto;padding:30px 22px 84px}
+  section{scroll-margin-top:78px;margin:0 0 48px}
+  h2{
+    margin:0 0 10px;
+    font-size:25px;
+    line-height:1.25;
+    letter-spacing:0;
+  }
+  h2 span{color:var(--green)}
+  h3{margin:20px 0 8px;color:var(--mint);font-size:17px}
+  p{margin:8px 0;color:#deede6}
+  .lead{color:var(--muted);max-width:940px;margin-bottom:18px}
+  .grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+  .grid.two{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .grid.four{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .card{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:16px;
+    box-shadow:0 10px 28px rgba(0,0,0,.16);
+  }
+  .card h3{margin-top:0}
+  .tag{
+    display:inline-flex;
+    align-items:center;
+    border:1px solid var(--line);
+    border-radius:999px;
+    padding:2px 9px;
+    color:var(--muted);
+    font-size:12px;
+    margin:3px 5px 3px 0;
+    background:rgba(255,255,255,.03);
+  }
+  .tag.ok{color:var(--green);border-color:rgba(120,224,143,.45)}
+  .tag.warn{color:var(--amber);border-color:rgba(255,189,115,.45)}
+  .tag.risk{color:var(--red);border-color:rgba(255,127,127,.45)}
+  .tag.new{color:var(--blue);border-color:rgba(126,167,255,.45)}
+  .tag.ai{color:var(--purple);border-color:rgba(205,162,255,.45)}
+  table{
+    width:100%;
+    border-collapse:collapse;
+    margin:14px 0;
+    font-size:14px;
+    background:var(--panel);
+    border-radius:8px;
+    overflow:hidden;
+  }
+  th,td{border:1px solid var(--line);padding:10px 12px;text-align:left;vertical-align:top}
+  th{background:var(--panel2);color:var(--mint);font-weight:650}
+  tr:nth-child(even) td{background:rgba(255,255,255,.018)}
+  code{
+    background:var(--code);
+    color:#b8f5ca;
+    border:1px solid rgba(120,224,143,.16);
+    border-radius:5px;
+    padding:1px 6px;
+    font-family:Consolas,"JetBrains Mono",monospace;
+    font-size:.92em;
+  }
+  pre{
+    background:var(--code);
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:15px;
+    overflow:auto;
+    color:#d9f8e4;
+    line-height:1.55;
+    font-family:Consolas,"JetBrains Mono",monospace;
+    font-size:13px;
+  }
+  .note{
+    border:1px solid rgba(255,189,115,.36);
+    border-left:4px solid var(--amber);
+    background:rgba(255,189,115,.08);
+    border-radius:8px;
+    padding:13px 15px;
+    color:#ffe3bf;
+    margin:14px 0;
+  }
+  .okbox{
+    border-color:rgba(120,224,143,.36);
+    border-left-color:var(--green);
+    background:rgba(120,224,143,.07);
+    color:#dbffe4;
+  }
+  .riskbox{
+    border-color:rgba(255,127,127,.36);
+    border-left-color:var(--red);
+    background:rgba(255,127,127,.07);
+    color:#ffdada;
+  }
+  .flow{
+    display:grid;
+    grid-template-columns:repeat(6,minmax(0,1fr));
+    gap:10px;
+    margin:18px 0;
+  }
+  .step{
+    position:relative;
+    background:linear-gradient(180deg,var(--panel2),var(--panel));
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:14px;
+    min-height:132px;
+  }
+  .step:after{
+    content:"";
+    position:absolute;
+    right:-8px;
+    top:50%;
+    width:13px;
+    height:13px;
+    border-top:2px solid var(--line);
+    border-right:2px solid var(--line);
+    transform:translateY(-50%) rotate(45deg);
+    background:var(--panel2);
+    z-index:2;
+  }
+  .step:last-child:after{display:none}
+  .step b{display:block;color:var(--green);margin-bottom:6px}
+  .step small{display:block;color:var(--muted)}
+  .split{
+    display:grid;
+    grid-template-columns:.95fr 1.05fr;
+    gap:14px;
+    align-items:start;
+  }
+  .score{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:16px;
+  }
+  .bar{
+    height:8px;
+    background:#091512;
+    border:1px solid var(--line);
+    border-radius:99px;
+    overflow:hidden;
+    margin:9px 0 4px;
+  }
+  .bar i{display:block;height:100%;background:linear-gradient(90deg,var(--green),var(--mint));border-radius:99px}
+  .phase{
+    display:grid;
+    grid-template-columns:92px 1fr;
+    gap:14px;
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:15px;
+    margin:10px 0;
+  }
+  .phase .num{
+    color:var(--bg);
+    background:var(--green);
+    border-radius:8px;
+    min-height:70px;
+    display:grid;
+    place-items:center;
+    font-size:28px;
+    font-weight:800;
+  }
+  ul{margin:8px 0 0;padding-left:20px;color:#dcebe4}
+  li{margin:5px 0}
+  .tree-map{
+    background:linear-gradient(180deg,var(--panel2),var(--panel));
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:18px;
+    margin:14px 0;
+  }
+  .tree-node{
+    display:inline-block;
+    margin:5px;
+    padding:8px 11px;
+    border:1px solid var(--line);
+    border-radius:8px;
+    background:rgba(255,255,255,.035);
+    color:#e8fff0;
+  }
+  .tree-node.root{border-color:var(--green);color:var(--green)}
+  .tree-node.branch{border-color:var(--mint);color:var(--mint)}
+  .tree-node.leaf{border-color:var(--amber);color:var(--amber)}
+  .tree-node.fit{border-color:var(--blue);color:var(--blue)}
+  footer{
+    max-width:1200px;
+    margin:0 auto;
+    padding:24px 22px 54px;
+    color:var(--muted);
+    border-top:1px solid var(--line);
+    font-size:13px;
+  }
+  @media (max-width:980px){
+    header{min-height:58vh}
+    .hero-grid,.grid,.grid.two,.grid.four,.split{grid-template-columns:1fr}
+    .flow{grid-template-columns:1fr}
+    .step{min-height:auto}
+    .step:after{display:none}
+  }
+  @media (max-width:560px){
+    main{padding-inline:16px}
+    .metric-grid{grid-template-columns:1fr}
+    .phase{grid-template-columns:1fr}
+    .phase .num{min-height:48px}
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="hero">
+    <div class="eyebrow">Meshova vegetation · SpeedTree v8.3 本地树库拟合</div>
+    <h1>把 1029 个 SPM 当训练老师，做 Meshova 自有树木生成闭环。</h1>
+    <p>目标不是复刻 SpeedTree，不把 SPM 变成运行时依赖。目标是从本地 SpeedTree v8.3 树库提取形态统计、截图目标、材质族标签，把它们拟合到 Meshova 的树木 DSL 和参数先验，最后能生成同类新树。</p>
+    <div class="hero-grid">
+      <div class="thesis">
+        <p><b>当前机器事实：</b>树库在 <code>E:\BaiduNetdiskDownload\speedtree教程软件树库\speedtree树库\解压后11.1GB树库\SpeedTree Library树库</code>。SpeedTree Modeler 在 <code>C:\Program Files\SpeedTree\SpeedTree Cinema v8.3.0\win64\SpeedTree Modeler Cinema.exe</code>。</p>
+        <p><b>核心路线：</b>先走 Modeler v8.3 导出 + OBJ/XML/截图抽特征。SDK 只作为增强路径；不逆向 SPM。Meshova 现有 <code>src/vegetation</code> 和 <code>pnpm speedtree:library</code> 作为基础，但要从“按文件名猜形态”升级到“按参考树评分拟合”。</p>
+      </div>
+      <div class="metric-grid">
+        <div class="metric"><strong>1029</strong><span>本地 .spm 源树，可分批采样</span></div>
+        <div class="metric"><strong>5814</strong><span>.tga 贴图，可做材质族/叶型标签</span></div>
+        <div class="metric"><strong>631</strong><span>.stm 小 mesh/leaf card 参考</span></div>
+        <div class="metric"><strong>闭环</strong><span>导出 → 渲染 → 评分 → 搜索 → 固化参数库</span></div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<nav>
+  <div class="nav-inner">
+    <a href="#gap">流程诊断</a>
+    <a href="#facts">本地事实</a>
+    <a href="#decision">结论</a>
+    <a href="#architecture">架构</a>
+    <a href="#export">导出链路</a>
+    <a href="#reference">参考包</a>
+    <a href="#features">特征抽取</a>
+    <a href="#recipe">TreeRecipe</a>
+    <a href="#optimizer">评分优化</a>
+    <a href="#mvp">MVP</a>
+    <a href="#roadmap">开发路线</a>
+  </div>
+</nav>
+
+<main>
+<section id="gap">
+  <h2><span>0★</span> 流程诊断：给了 SPM 为什么生成还是这么差</h2>
+  <p class="lead">核心问题不是“某个模块参数不好调”，而是<b>现有闭环根本没读 SPM 里的任何数据</b>。你手上有 1029 个 SPM 老师，但当前流程只把 SPM 当成了一个文件名，几何、骨架、叶位、颜色全部丢弃。这是天花板被锁死的真正原因。</p>
+
+  <div class="note" style="border-color:#2f8f56;background:#0c1a12">
+    <b style="color:#78e08f">✅ 已实现（本轮）：SPM = gzip 压缩的 SpeedTree XML，Node 内置 zlib 直接解，无需 SDK / Modeler / 逆向。</b>
+    <div style="margin-top:6px">实测：文件头 <code>1f 8b 08</code> 即 gzip 魔数，解压后是 <code>&lt;SpeedTree Version="5"&gt;</code> XML，含 392 个命名参数 + 分层 <code>Generator</code>（Tree→Trunk→分支各级→Leaves）+ 数千个 <code>Node</code> 实例（每根枝干的样条骨架）。授权变体（基名 / _High / _Med / _Low / _RT）解析成功率 ≈ 98%；Desktop/Mobile 运行时变体是非标 gzip，自动跳过。</div>
+    <div style="margin-top:6px">新增 <code>scripts/spm-features.mjs</code> 抽结构特征、<code>src/vegetation/spm-fit.ts</code> 映射为 Meshova 参数近真起点，<code>speedtree-fit.mjs</code> 接入 SPM 种子 + 参考图冠/干色分区采样（color 权重升到 0.28），30 棵树批量拟合 + 网页对比。这就是把下文“结构 / 颜色”两条断链接回闭环的落地实现。</div>
+  </div>
+
+  <div class="note riskbox">
+    <b>实锤（来自 <code>scripts/speedtree-fit.mjs</code> 现状）：</b>脚本里唯一涉及 <code>.spm</code> 的代码是 <code>representativeSpm()</code>——它做的只是<b>在树种目录里挑一个 .spm 文件、取它的 basename 当 variant 字符串</b>，然后拿这个名字去查一张手写的树种参数表。SPM 文件本身<b>一个字节的几何数据都没有被读取</b>。真正喂给评分的“参考”，是同目录里的一张预览 JPG 的剪影。
+  </div>
+
+  <h3>当前是“假闭环”：拿一张 2D 剪影，盲调一组和真树结构无关的手写参数</h3>
+  <div class="flow">
+    <div class="step"><b>SPM</b><small>只取文件名 → 树种名，几何全丢</small></div>
+    <div class="step"><b>手写表</b><small>名字查一组默认参数，与真树结构无关</small></div>
+    <div class="step"><b>Meshova 生成</b><small>从这个盲起点出发</small></div>
+    <div class="step"><b>预览 JPG</b><small>只算剪影 IoU + 微弱颜色(0.12)</small></div>
+    <div class="step"><b>盲调 8 参</b><small>坐标下降撑轮廓面积，不管形态</small></div>
+  </div>
+
+  <h3>三条本该存在的信息通路，现在全断</h3>
+  <table>
+    <thead>
+      <tr><th>信息通路</th><th>SPM / 参考图里其实有</th><th>现状</th><th>后果</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><b>结构</b></td>
+        <td>主干曲线、一级分支角度分布、层级深度、冠幅/树高比、枝下高</td>
+        <td><span class="tag risk">全丢，只用文件名</span></td>
+        <td>优化起点靠瞎猜；单张 2D 剪影信息量喂不动 8 个参数</td>
+      </tr>
+      <tr>
+        <td><b>颜色</b></td>
+        <td>参考图里真实的冠色、干色</td>
+        <td><span class="tag risk">从不采样</span></td>
+        <td>叶色永远是硬编码随机绿；评分里颜色权重还只有 0.12</td>
+      </tr>
+      <tr>
+        <td><b>视角</b></td>
+        <td>可从多角度渲真值做对比</td>
+        <td><span class="tag warn">单张预览图</span></td>
+        <td>评分不稳；一个光滑实体球也能骗到高 IoU</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="note riskbox">
+    <b>叠加的造型硬伤：</b><code>library.ts</code> 的 <code>broadleafCrownCloud()</code> 用 <b>实体 icosphere 球</b>当叶冠主体——硬圆边、有高光、不通透，本质就是个“绿球”。而评分只奖励剪影面积吻合，绿球恰好轮廓 IoU 很高。<b>于是优化器越调越像绿球，而不是越像真树</b>。这就是截图里每棵阔叶树都糊成一坨的直接原因。
+  </div>
+
+  <h3>流程该怎么改：让 SPM 从“文件名”变成“真值目标”</h3>
+  <p class="lead">不逆向、不复刻、不把 SPM 当运行时依赖。做法是<b>离线一次性从 SPM 抽结构化统计特征</b>当拟合真值——看老师的解题过程，不抄答案，输出仍然是纯 Meshova 脚本。这是把断掉的“结构 / 颜色”两条通路接回闭环。</p>
+  <div class="flow">
+    <div class="step"><b>离线导出</b><small>v8.3 Modeler CLI 把 .spm 导成 Raw XML + OBJ</small></div>
+    <div class="step"><b>抽真值特征</b><small>解析 XML → TreeFeature：骨架、角度直方图、冠干比；参考图分区采样冠/干色</small></div>
+    <div class="step"><b>映射初值</b><small>TreeFeature → TreeRecipe 近真起点，不再瞎猜</small></div>
+    <div class="step"><b>多目标评分</b><small>IoU + 破碎度 + 冠干比 + 色相，对齐真值</small></div>
+    <div class="step"><b>收敛入库</b><small>坐标下降精修 → 树种参数库 → 生成新树</small></div>
+  </div>
+
+  <h3>改造清单（按 ROI 排序）</h3>
+  <table>
+    <thead>
+      <tr><th>阶段</th><th>改什么</th><th>从“文件名”变成</th><th>收益</th><th>性质</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><b>F0 颜色通路</b></td>
+        <td>参考图冠区/干区分区采样 → override <code>foliageColor</code>/<code>barkColor</code>；color 权重 0.12→0.3</td>
+        <td>用真实颜色</td>
+        <td>色差立刻降，改动最小</td>
+        <td><span class="tag new">流程修复</span></td>
+      </tr>
+      <tr>
+        <td><b>F1 结构通路</b></td>
+        <td>Modeler CLI 批量导 Raw XML → 解析抽 <code>TreeFeature</code>(冠幅/树高比、枝下高、一级分支角度直方图、层级深度) → 映射 TreeRecipe 初值</td>
+        <td>优化起点接近真值</td>
+        <td>从根上补信息，抬升天花板</td>
+        <td><span class="tag new">流程修复</span></td>
+      </tr>
+      <tr>
+        <td><b>F2 评分升级</b></td>
+        <td>IoU 之外加：轮廓破碎度(周长²/面积，区分实体球 vs 蓬松冠)、冠/干面积比、冠内明度直方图</td>
+        <td>评分对齐“像真树”</td>
+        <td>实体球骗分失效</td>
+        <td><span class="tag warn">质量</span></td>
+      </tr>
+      <tr>
+        <td><b>F3 叶冠换血</b></td>
+        <td>删 <code>broadleafCrownCloud</code> 的实体 icosphere，改沿冠包络撒破碎交叉叶片 + 色相/明度抖动 + 叶冠 AO</td>
+        <td>造型根治</td>
+        <td>阔叶树从“绿球”变蓬松冠</td>
+        <td><span class="tag warn">质量</span></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="note">
+    <b>落地顺序建议：</b>先做 <b>F0 + F1</b>——它们才是“给了 SPM 却没用上”的正解，把结构与颜色两条通路接回闭环，天花板才抬得起来；<b>F2 + F3</b> 随后跟上，负责把造型和评分质量从“能对上轮廓”推到“看着像真树”。只在 F0/F1 之上盲调参数，无论调多少轮都突破不了绿球的上限。
+  </div>
+</section>
+
+<section id="facts">
+  <h2><span>00</span> 本地树库盘点</h2>
+  <p class="lead">已扫描你的树库根目录。它不是只有树，也有草、花、海洋植物、奇幻植物。开发时要先过滤训练集，不能让 broadleaf/conifer/palm/shrub 混在同一套参数里硬拟合。</p>
+  <table>
+    <thead>
+      <tr>
+        <th>分类目录</th>
+        <th>总文件</th>
+        <th>SPM</th>
+        <th>OBJ</th>
+        <th>TGA</th>
+        <th>JPG</th>
+        <th>STM</th>
+        <th>用途判断</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>Broadleaves</td><td>4755</td><td>586</td><td>159</td><td>3374</td><td>310</td><td>269</td><td>主训练集：阔叶、橡树、枫树、桦树、白蜡、榆树等。</td></tr>
+      <tr><td>Conifers</td><td>999</td><td>123</td><td>36</td><td>573</td><td>109</td><td>133</td><td>针叶训练集：松、杉、柏、红木等。</td></tr>
+      <tr><td>Palms_&amp;_Cacti</td><td>639</td><td>58</td><td>0</td><td>467</td><td>52</td><td>42</td><td>单独 grammar：棕榈、仙人掌、大叶植物。</td></tr>
+      <tr><td>Shrubs_&amp;_Flowers</td><td>1109</td><td>166</td><td>1</td><td>674</td><td>155</td><td>70</td><td>灌木、草、花、蕨类；不应和树共用主干规则。</td></tr>
+      <tr><td>Marine</td><td>209</td><td>28</td><td>0</td><td>122</td><td>28</td><td>21</td><td>水生/海洋植物，后置。</td></tr>
+      <tr><td>Miscellaneous_&amp;_Fantasy</td><td>728</td><td>66</td><td>2</td><td>510</td><td>63</td><td>59</td><td>奇幻/杂项，适合压力测试，不适合首批拟合。</td></tr>
+      <tr><td>Common_Files</td><td>128</td><td>0</td><td>0</td><td>91</td><td>0</td><td>37</td><td>共享材质/网格资源。</td></tr>
+      <tr><td>Hand_Drawn</td><td>5</td><td>2</td><td>0</td><td>3</td><td>0</td><td>0</td><td>风格化样本，后置。</td></tr>
+    </tbody>
+  </table>
+  <div class="grid three">
+    <div class="card">
+      <h3>变体命名规律</h3>
+      <p>常见后缀：<code>High</code>、<code>High_2</code>、<code>Med</code>、<code>Low</code>、<code>RT</code>、<code>Desktop</code>、<code>Mobile</code>、<code>Fall</code>、<code>Bare</code>、<code>Young</code>。</p>
+      <span class="tag ok">可做 LOD/季节/年龄标签</span>
+    </div>
+    <div class="card">
+      <h3>物种说明</h3>
+      <p>多个目录含 <code>info.txt</code>，例如 Acacia 有英文树种说明。可作为树种中文名、生态标签、VLM prompt 上下文。</p>
+      <span class="tag new">可转 species metadata</span>
+    </div>
+    <div class="card">
+      <h3>现有 Meshova 基线</h3>
+      <p><code>examples/speedtree-library.ts</code> 已按目录/文件名生成 Meshova-native 植被。现状问题：它只读名字，不读真实形态，所以效果容易偏。</p>
+      <span class="tag warn">需升级为参考拟合</span>
+    </div>
+  </div>
+  <h3>本地变量建议</h3>
+  <pre><code>$env:SPEEDTREE_LIBRARY_SOURCE = "E:\BaiduNetdiskDownload\speedtree教程软件树库\speedtree树库\解压后11.1GB树库\SpeedTree Library树库"
+$env:SPEEDTREE_MODELER = "C:\Program Files\SpeedTree\SpeedTree Cinema v8.3.0\win64\SpeedTree Modeler Cinema.exe"
+$env:MESHOVA_TREE_REF_OUT = "out\speedtree-ref"</code></pre>
+</section>
+
+<section id="decision">
+  <h2><span>01</span> 结论：v8.3 本地可做，先别等 SDK</h2>
+  <p class="lead">SpeedTree Pipeline SDK 能读写原生 SPM，但不是你当前本机 v8.3 安装自带的必然能力。最稳开发路径：用 v8.3 Modeler 打开 SPM 并批量导出几何/Raw XML/贴图引用，再用 Meshova 自己的渲染与评分闭环逼近。</p>
+  <div class="grid three">
+    <div class="card">
+      <h3>短期强路径：Modeler 导出</h3>
+      <p>SpeedTree Modeler 命令行支持打开模型并导出，官方文档列出 <code>-export</code>、<code>-export_game</code>、<code>-export_options</code>。Windows 下用 <code>Start-Process -Wait</code> 等导出完成。</p>
+      <span class="tag ok">适配本机 v8.3</span><span class="tag ok">可自动化</span>
+    </div>
+    <div class="card">
+      <h3>中期增强：Raw XML / custom exporter</h3>
+      <p>Raw XML 可包含 Points、Vertices、Triangles、Leaf References、Bones、Meshes 等结构。它比 OBJ 更适合反推分枝骨架、叶片实例、材质 slot。</p>
+      <span class="tag ok">结构更完整</span><span class="tag warn">需实测 v8.3 导出 preset</span>
+    </div>
+    <div class="card">
+      <h3>长期增强：Pipeline SDK</h3>
+      <p>若拿到 Pipeline SDK，再读 SPM authoring graph。它能提高解析质量，但不能成为开源 Meshova 的运行时依赖，也不应该复制 SpeedTree 生成器。</p>
+      <span class="tag new">可选增强</span><span class="tag risk">授权边界</span>
+    </div>
+  </div>
+  <div class="note riskbox">
+    法务边界：不逆向破解 SPM 二进制；不复制贴图/网格到 Meshova 发布物；不把 SpeedTree generator 公式搬进 Meshova。只做本地离线参考、统计、截图评分、参数拟合。
+  </div>
+</section>
+
+<section id="architecture">
+  <h2><span>02</span> 目标架构：参考树包 → 拟合目标 → Meshova 配方</h2>
+  <p class="lead">开发重点不是“导入 SpeedTree”，而是建立中间表示。SpeedTree、照片、手工树都能变成同一种 Reference；Meshova 生成器只吃 FitTarget 和参数先验。</p>
+  <div class="flow">
+    <div class="step"><b>Inventory</b><small>扫描树库，提取分类、物种、变体、贴图、info.txt、缩略图。</small></div>
+    <div class="step"><b>Export</b><small>Modeler v8.3 批量导出 OBJ/FBX/XML/纹理引用。</small></div>
+    <div class="step"><b>Reference</b><small>统一尺度、渲染多视角，生成 mask/depth/normal/matcap。</small></div>
+    <div class="step"><b>Features</b><small>提取树高、冠宽、骨架、叶团密度、材质族。</small></div>
+    <div class="step"><b>Fit</b><small>搜索 Meshova TreeRecipe 参数，多指标评分。</small></div>
+    <div class="step"><b>Priors</b><small>把多个样本汇总成树种/形态类别参数分布。</small></div>
+  </div>
+  <div class="tree-map">
+    <span class="tree-node root">SpeedTreeReference</span>
+    <span class="tree-node branch">inventory.json</span>
+    <span class="tree-node branch">export.xml / mesh.obj</span>
+    <span class="tree-node leaf">views/*.png</span>
+    <span class="tree-node fit">fit-target.json</span>
+    <span class="tree-node root">MeshovaRecipe</span>
+    <span class="tree-node branch">params</span>
+    <span class="tree-node branch">priors</span>
+    <span class="tree-node leaf">regression shots</span>
+  </div>
+  <h3>仓库落点</h3>
+  <table>
+    <thead>
+      <tr><th>文件/目录</th><th>职责</th><th>状态</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>examples/speedtree-library.ts</code></td><td>当前树库再生成入口。继续保留，作为 baseline 与最终 demo。</td><td><span class="tag ok">已有</span></td></tr>
+      <tr><td><code>src/vegetation/library.ts</code></td><td>当前按目录/文件名推断 kind/颜色/形态。后续接收 reference-derived priors。</td><td><span class="tag ok">已有</span></td></tr>
+      <tr><td><code>scripts/speedtree-inventory.mjs</code></td><td>扫描本地树库，产出可复现 inventory，不导出资产。</td><td><span class="tag new">新增</span></td></tr>
+      <tr><td><code>scripts/speedtree-export.mjs</code></td><td>调用 Modeler v8.3 导出 OBJ/XML/贴图引用，写 reference 包。</td><td><span class="tag new">新增</span></td></tr>
+      <tr><td><code>src/vegetation/reference.ts</code></td><td>SpeedTreeReference、FitTarget、stats schema。</td><td><span class="tag new">新增</span></td></tr>
+      <tr><td><code>src/vegetation/fit.ts</code></td><td>候选生成、评分、搜索、priors 汇总。</td><td><span class="tag new">新增</span></td></tr>
+      <tr><td><code>web/tree-lab.html</code></td><td>A/B 查看参考树与 Meshova 候选，多视角差分、参数轨迹。</td><td><span class="tag new">新增</span></td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section id="export">
+  <h2><span>03</span> SpeedTree v8.3 导出链路</h2>
+  <p class="lead">先用 12 棵样本验证命令。不要一开始跑 1029 个 SPM。每个导出任务必须有日志、超时、失败重试、跳过已导出。</p>
+  <h3>命令形态</h3>
+  <pre><code># 官方命令模式：Modeler 打开 .spm，然后 -export 到目标格式
+# Windows 下建议脚本内部用 Start-Process -Wait，避免进程未结束就读文件。
+
+&amp; $env:SPEEDTREE_MODELER `
+  "$env:SPEEDTREE_LIBRARY_SOURCE\Broadleaves\Acacia\Acacia.spm" `
+  -export "out\speedtree-ref\broadleaves-acacia-acacia\mesh.obj" `
+  -export_options "config\speedtree-export-v83-obj.ini"
+
+&amp; $env:SPEEDTREE_MODELER `
+  "$env:SPEEDTREE_LIBRARY_SOURCE\Broadleaves\Acacia\Acacia.spm" `
+  -export "out\speedtree-ref\broadleaves-acacia-acacia\raw.xml" `
+  -export_options "config\speedtree-export-v83-xml.ini"</code></pre>
+  <div class="note">
+    v8.3 实测点：本机 exe 对 <code>-h</code> 没有输出帮助文本。脚本第一版不要假设所有 option 都能 introspect；用一棵 Acacia 导出验证 preset，再批量跑。
+  </div>
+  <h3>新增脚本接口</h3>
+  <pre><code>pnpm speedtree:inventory -- --source "$env:SPEEDTREE_LIBRARY_SOURCE"
+pnpm speedtree:export -- --limit 12 --category Broadleaves,Conifers --format obj,xml
+pnpm speedtree:reference -- --ids broadleaves-acacia-acacia,conifers-colorado-blue-spruce
+pnpm speedtree:fit -- --ids broadleaves-acacia-acacia --trials 240
+pnpm speedtree:lab</code></pre>
+  <table>
+    <thead>
+      <tr><th>脚本</th><th>输入</th><th>输出</th><th>关键规则</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>speedtree:inventory</code></td>
+        <td>树库根目录</td>
+        <td><code>out/speedtree-ref/inventory.json</code></td>
+        <td>只读文件名、大小、目录、info.txt；不复制贴图/模型。</td>
+      </tr>
+      <tr>
+        <td><code>speedtree:export</code></td>
+        <td>inventory + Modeler exe</td>
+        <td>每棵树一个 <code>exports/</code> 目录</td>
+        <td>失败写 <code>export.log</code>；导出物仅本地使用，加入 gitignore。</td>
+      </tr>
+      <tr>
+        <td><code>speedtree:reference</code></td>
+        <td>OBJ/XML/贴图引用</td>
+        <td>标准化 mesh、views、stats</td>
+        <td>统一尺度、朝向、相机、灯光；输出 mask/depth/normal/matcap。</td>
+      </tr>
+      <tr>
+        <td><code>speedtree:fit</code></td>
+        <td>reference + Meshova generator</td>
+        <td><code>fit.json</code>、top-k recipes、报告图</td>
+        <td>优化参数，不保存 SpeedTree mesh/texture 到发布资产。</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<section id="reference">
+  <h2><span>04</span> Reference 包结构</h2>
+  <p class="lead">每棵参考树一个稳定目录。后续评分、回归、人工审核都基于这个目录，不重复扫原始树库。</p>
+  <pre><code>out/speedtree-ref/
+  inventory.json
+  broadleaves-acacia-acacia/
+    source.json
+    info.txt
+    exports/
+      raw.xml
+      mesh.obj
+      mesh.mtl
+      export.log
+    normalized/
+      reference.mesh.json
+      bounds.json
+      materials.json
+    views/
+      front_mask.png
+      side_mask.png
+      top_mask.png
+      orbit_045_rgb.png
+      orbit_045_depth.png
+      orbit_045_normal.png
+      orbit_045_matcap.png
+    features.json
+    fit-target.json
+    fit/
+      best.recipe.json
+      trials.jsonl
+      report.html</code></pre>
+  <h3>TypeScript 数据契约</h3>
+  <pre><code>export interface SpeedTreeReference {
+  id: string;
+  source: {
+    libraryRoot: string;
+    category: string;
+    species: string;
+    variant: string;
+    spmRelPath: string;
+    infoText?: string;
+  };
+  exports: {
+    meshObj?: string;
+    rawXml?: string;
+    thumbnails: string[];
+    textureRefs: TextureRef[];
+  };
+  normalized: {
+    height: number;
+    bounds: Bounds3;
+    pivot: Vec3;
+    scaleToMeters: number;
+    upAxis: "y";
+  };
+  features: TreeMorphology;
+  views: ReferenceViewSet;
+}
+
+export interface TreeMorphology {
+  classHint: "broadleaf" | "conifer" | "palm" | "cactus" | "shrub" | "grass" | "flower" | "aquatic" | "fungus" | "unknown";
+  height: number;
+  trunkRadiusRatio: number;
+  crownBasePct: number;
+  crownWidthRatio: number;
+  crownDepthRatio: number;
+  crownShape: "round" | "oval" | "cone" | "umbrella" | "column" | "layered" | "ragged";
+  branchLevels: BranchLevelStats[];
+  leafCloud: LeafCloudStats;
+  materialFamilies: MaterialFamilyStats;
+  confidence: number;
+}
+
+export interface MeshovaTreeFitTarget {
+  id: string;
+  classHint: TreeMorphology["classHint"];
+  targetStats: TreeMorphology;
+  targetViews: string[];
+  searchSpace: TreeRecipeSearchSpace;
+  scoreWeights: TreeScoreWeights;
+}</code></pre>
+</section>
+
+<section id="features">
+  <h2><span>05</span> 特征抽取：从真实参考反推生成参数</h2>
+  <p class="lead">特征抽取分三层：结构特征优先，截图特征兜底，VLM 只做类别与失败描述。不能让 VLM 单独决定参数。</p>
+  <div class="grid two">
+    <div class="score">
+      <h3>XML/OBJ 结构层</h3>
+      <div class="bar"><i style="width:88%"></i></div>
+      <ul>
+        <li>Raw XML 若有 Bones / Leaf References：直接统计枝层、叶实例、材质 slot。</li>
+        <li>OBJ fallback：按 material/group 分 wood vs foliage；计算 AABB、冠层体素、连通组件。</li>
+        <li>贴图文件名分类：<code>Bark</code>、<code>Leaf</code>、<code>Normal</code>、<code>Spec</code>、<code>Branch</code>、<code>Thorn</code>。</li>
+        <li><code>info.txt</code> 提取 common name、latin name、生态描述。</li>
+      </ul>
+    </div>
+    <div class="score">
+      <h3>截图评分层</h3>
+      <div class="bar"><i style="width:82%"></i></div>
+      <ul>
+        <li>固定相机：front、side、top、orbit 45/135/225/315。</li>
+        <li>Pass：RGB、mask、depth、normal、matcap、wire、wood-only、foliage-only。</li>
+        <li>指标：silhouette IoU、冠层密度、深度分布、轮廓曲率、孔洞率。</li>
+        <li>VLM：只输出“像什么树、哪里不像、优先调哪个语义参数”。</li>
+      </ul>
+    </div>
+  </div>
+  <h3>关键算法</h3>
+  <table>
+    <thead>
+      <tr><th>特征</th><th>抽取方法</th><th>映射到 Meshova 参数</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>树高/冠宽/冠深</td>
+        <td>wood+foliage bounds；剔除离群叶卡；统一 Y-up。</td>
+        <td><code>height</code>、<code>crownScale</code>、<code>crownDepth</code></td>
+      </tr>
+      <tr>
+        <td>冠底高度</td>
+        <td>foliage 顶点按高度直方图，找连续高密区域起点。</td>
+        <td><code>canopy.baseY</code>、<code>branchStartPct</code></td>
+      </tr>
+      <tr>
+        <td>冠层形状</td>
+        <td>多高度切片半径曲线；拟合 cone/oval/umbrella/column/layered。</td>
+        <td><code>canopy.shape</code>、<code>branchLengthProfile</code></td>
+      </tr>
+      <tr>
+        <td>分枝层级</td>
+        <td>XML bones 优先；OBJ fallback 用 wood mesh skeletonize + 半径估计。</td>
+        <td><code>authoring.levels[]</code>、<code>branchCountProfile</code></td>
+      </tr>
+      <tr>
+        <td>枝条角度/下垂</td>
+        <td>branch tangent vs up 向量分布；按一级/二级/末端分桶。</td>
+        <td><code>angle</code>、<code>gravity</code>、<code>phototropism</code></td>
+      </tr>
+      <tr>
+        <td>叶团密度</td>
+        <td>leaf vertices 或 leaf refs 转 3D voxel；计算终端偏置、空洞率。</td>
+        <td><code>leafDensity</code>、<code>leafDensityProfile</code>、<code>terminalBias</code></td>
+      </tr>
+      <tr>
+        <td>材质族</td>
+        <td>贴图名 + 缩略图/VLM + 颜色直方图 + normal 频谱。</td>
+        <td><code>barkMaterial</code>、<code>leafMaterial</code>、季节变体</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<section id="recipe">
+  <h2><span>06</span> Meshova TreeRecipe 升级</h2>
+  <p class="lead">现有 <code>tree()</code>、<code>conifer()</code>、<code>palm()</code>、<code>shrub()</code> 已有雏形。问题是参数太粗，缺参考拟合目标。下一步要把“树木 grammar”显式化。</p>
+  <div class="tree-map">
+    <span class="tree-node root">TreeRecipe</span>
+    <span class="tree-node branch">trunkCurve</span>
+    <span class="tree-node branch">authoring.levels[]</span>
+    <span class="tree-node branch">crownEnvelope</span>
+    <span class="tree-node leaf">leafCloud</span>
+    <span class="tree-node leaf">barkProfile</span>
+    <span class="tree-node leaf">leafProfile</span>
+    <span class="tree-node fit">fitPriors</span>
+  </div>
+  <h3>新增 Recipe 字段</h3>
+  <pre><code>export interface TreeRecipe {
+  id: string;
+  classHint: TreeClassHint;
+  seed: number;
+  scale: {
+    height: number;
+    trunkRadius: number;
+    crownWidth: number;
+    crownDepth: number;
+  };
+  trunk: {
+    lean: number;
+    curvature: number;
+    gnarl: number;
+    taperProfile: Curve1DInput;
+    rootFlare: number;
+  };
+  branchLevels: Array&lt;{
+    count: Range;
+    startPct: Range01;
+    endPct: Range01;
+    placement: "alternate" | "spiral" | "whorl" | "random";
+    angleDeg: Range;
+    lengthProfile: Curve1DInput;
+    radiusProfile: Curve1DInput;
+    gravity: number;
+    phototropism: number;
+    curvatureNoise: number;
+  }&gt;;
+  crown: {
+    shape: "round" | "oval" | "cone" | "umbrella" | "column" | "layered" | "ragged";
+    basePct: number;
+    density: number;
+    holes: number;
+    asymmetry: number;
+  };
+  foliage: {
+    type: "broadleaf" | "needle" | "frond" | "pad" | "blade" | "twigOnly";
+    leafShape: LeafShape;
+    size: Range;
+    clusterSize: Range;
+    terminalBias: number;
+    orientation: "upward" | "droop" | "radial" | "fan" | "whorl";
+  };
+}</code></pre>
+  <h3>当前生成器最该补的能力</h3>
+  <table>
+    <thead>
+      <tr><th>能力</th><th>为什么影响效果</th><th>实现建议</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Whorl / 层状分枝</td>
+        <td>针叶树不像，通常是枝层节奏错。</td>
+        <td>在 <code>BranchPlacementMode</code> 补 whorl phase、perWhorl jitter、层间距曲线。</td>
+      </tr>
+      <tr>
+        <td>冠层密度场</td>
+        <td>当前叶片容易像均匀噪声球。</td>
+        <td>按 crown envelope voxel 采样，控制空洞、外边缘稀疏、枝端聚集。</td>
+      </tr>
+      <tr>
+        <td>材质微结构</td>
+        <td>树皮/叶片质感不对，会让形体再好也像玩具。</td>
+        <td>树皮纵向 ridge/noise，叶片透光近似、背面色、roughness 范围。</td>
+      </tr>
+      <tr>
+        <td>年龄/季节变体</td>
+        <td>树库有 Young/Bare/Fall/RT/High/Low，能给模型学“同物种变体”。</td>
+        <td>把后缀转成 <code>age</code>、<code>season</code>、<code>lodIntent</code> 标签。</td>
+      </tr>
+      <tr>
+        <td>FitTarget 调参面板</td>
+        <td>AI 需要看差异、改语义参数，不应改 raw object 名。</td>
+        <td>Tree Lab 只显示“冠宽、冠底、枝角、叶密、下垂”等中文/语义 label。</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<section id="optimizer">
+  <h2><span>07</span> 评分与优化：多目标，不做像素复刻</h2>
+  <p class="lead">最终目标是生成同类新树，所以评分要惩罚“死贴单棵参考”的过拟合。形态像、类别对、随机种子稳定，比像素级相同更重要。</p>
+  <table>
+    <thead>
+      <tr><th>分数</th><th>权重</th><th>实现</th><th>调哪些参数</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>轮廓 IoU</td><td>22%</td><td>8 视角 mask；树干/冠层分区算。</td><td>height、crownWidth、crownBase、lean</td></tr>
+      <tr><td>冠层密度</td><td>18%</td><td>体素密度 + 多视角 alpha 覆盖 + 空洞率。</td><td>leafDensity、holes、terminalBias</td></tr>
+      <tr><td>枝架相似</td><td>18%</td><td>XML bones 或 wood skeleton；角度/层级/长度分布。</td><td>branchLevels、angle、gravity</td></tr>
+      <tr><td>深度/法线统计</td><td>12%</td><td>depth histogram + normal orientation；不逐像素死比。</td><td>crownDepth、branch curvature</td></tr>
+      <tr><td>材质族</td><td>10%</td><td>贴图名、颜色范围、normal 频率、VLM 粗判。</td><td>barkProfile、leafProfile</td></tr>
+      <tr><td>类别语义</td><td>10%</td><td>VLM 判断：橡树/松树/棕榈/灌木是否稳定。</td><td>classHint、placement、leaf type</td></tr>
+      <tr><td>生成稳定性</td><td>10%</td><td>同 recipe 换 16 seed，检查断枝、空冠、爆面、类别漂移。</td><td>search space、constraints</td></tr>
+    </tbody>
+  </table>
+  <pre><code>score =
+  0.22 * silhouette
++ 0.18 * crownDensity
++ 0.18 * branchSkeleton
++ 0.12 * depthNormal
++ 0.10 * materialFamily
++ 0.10 * vlmSpecies
++ 0.10 * seedStability
+- penalties(overfit, intersections, brokenTopology, tooDense, tooFewParts)</code></pre>
+  <h3>优化器顺序</h3>
+  <div class="grid three">
+    <div class="card">
+      <h3>第一版：LHS + 局部爬山</h3>
+      <p>无需新依赖。先随机覆盖 search space，取 top-k 后逐参数微调。适合 12 棵 MVP。</p>
+      <span class="tag ok">最稳</span>
+    </div>
+    <div class="card">
+      <h3>第二版：CMA-ES / 进化搜索</h3>
+      <p>多参数连续优化更强。可以自己写轻量版，或引入小依赖后封装。</p>
+      <span class="tag new">适合批量拟合</span>
+    </div>
+    <div class="card">
+      <h3>第三版：AI 批评器</h3>
+      <p>VLM 只做诊断文本与参数优先级：冠太圆、枝太直、叶太密、针叶层不明显。</p>
+      <span class="tag ai">人机协同</span>
+    </div>
+  </div>
+</section>
+
+<section id="mvp">
+  <h2><span>08</span> MVP 样本：先做 12 棵，不吃完整树库</h2>
+  <p class="lead">首批必须覆盖 4 类 grammar：圆冠阔叶、塔形针叶、棕榈/仙人掌、灌木/草。每类只锁 5-8 个核心参数，先让曲线正确。</p>
+  <table>
+    <thead>
+      <tr><th>类型</th><th>本地样本</th><th>拟合重点</th><th>通过标准</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>圆冠阔叶</td>
+        <td><code>Broadleaves\Red_Oak</code>、<code>Broadleaves\American_Elm</code>、<code>Broadleaves\European_Beech</code></td>
+        <td>冠宽/冠底/枝角/叶团终端偏置。</td>
+        <td>8 视角 silhouette ≥ 0.70；VLM 稳定识别为阔叶树。</td>
+      </tr>
+      <tr>
+        <td>开伞/稀疏阔叶</td>
+        <td><code>Broadleaves\Acacia</code>、<code>Broadleaves\African_Baobab</code></td>
+        <td>伞形冠、粗干、枝端叶、空洞率。</td>
+        <td>不能生成成普通球冠；顶部轮廓要扁宽。</td>
+      </tr>
+      <tr>
+        <td>针叶树</td>
+        <td><code>Conifers\Colorado_Blue_Spruce</code>、<code>Conifers\Scots_Pine</code>、<code>Conifers\Italian_Cypress</code></td>
+        <td>whorl、层状枝、锥形/柱形冠、针叶密度。</td>
+        <td>侧视锥形/柱形稳定；枝层可见。</td>
+      </tr>
+      <tr>
+        <td>棕榈/仙人掌</td>
+        <td><code>Palms_&amp;_Cacti\Coconut_Palm</code>、<code>Palms_&amp;_Cacti\Saguaro_Cactus</code></td>
+        <td>单干顶叶、frond fan、柱体分叉、刺/棱。</td>
+        <td>不能被识别成普通阔叶树。</td>
+      </tr>
+      <tr>
+        <td>灌木/草</td>
+        <td><code>Shrubs_&amp;_Flowers\American_Boxwood</code>、<code>Shrubs_&amp;_Flowers\Pampas_Grass</code></td>
+        <td>多主干、低矮冠、近地密度、blade clump。</td>
+        <td>换 seed 仍保持灌木/草类别。</td>
+      </tr>
+    </tbody>
+  </table>
+  <h3>实验命令目标</h3>
+  <pre><code>pnpm speedtree:inventory -- --source "$env:SPEEDTREE_LIBRARY_SOURCE"
+pnpm speedtree:export -- --preset mvp12 --format obj,xml
+pnpm speedtree:reference -- --preset mvp12 --views front,side,top,orbit
+pnpm speedtree:fit -- --preset mvp12 --trials 240 --quality proxy
+pnpm speedtree:report -- --preset mvp12</code></pre>
+</section>
+
+<section id="roadmap">
+  <h2><span>09</span> 开发路线</h2>
+  <div class="phase">
+    <div class="num">P0</div>
+    <div>
+      <h3>树库 inventory + 现有 baseline 报告</h3>
+      <p>复用 <code>pnpm speedtree:library</code> 生成 baseline，再新增 inventory。输出每类数量、变体、贴图族、样本缩略图、当前 Meshova 再生成截图。</p>
+      <span class="tag ok">1-2 天</span><span class="tag">不碰 SPM 内部</span>
+    </div>
+  </div>
+  <div class="phase">
+    <div class="num">P1</div>
+    <div>
+      <h3>Modeler v8.3 导出验证</h3>
+      <p>用 Acacia、Colorado Blue Spruce 各一棵验证 OBJ/XML 导出 preset。记录命令、输出结构、是否含 bones/leaf refs/material ids。</p>
+      <span class="tag ok">2-4 天</span><span class="tag">决定 XML 价值</span>
+    </div>
+  </div>
+  <div class="phase">
+    <div class="num">P2</div>
+    <div>
+      <h3>Reference 包与渲染 pass</h3>
+      <p>把导出 mesh 规范化到 Meshova/Three 渲染链，产出 RGB/mask/depth/normal/matcap。先不优化，只保证参考包可复现。</p>
+      <span class="tag ok">3-5 天</span><span class="tag">截图回归基础</span>
+    </div>
+  </div>
+  <div class="phase">
+    <div class="num">P3</div>
+    <div>
+      <h3>特征抽取 + FitTarget</h3>
+      <p>实现 bounds、冠层切片、叶团密度、分枝统计、材质族。输出 <code>features.json</code> 和可视化 HTML 报告。</p>
+      <span class="tag ok">1-2 周</span><span class="tag">解释当前差距</span>
+    </div>
+  </div>
+  <div class="phase">
+    <div class="num">P4</div>
+    <div>
+      <h3>TreeRecipe 搜索</h3>
+      <p>LHS + 局部爬山，先拟合 12 棵。每棵保存 top-10 recipes、分数曲线、失败原因。Tree Lab 支持人工锁定参数。</p>
+      <span class="tag ok">1-2 周</span><span class="tag">闭环跑通</span>
+    </div>
+  </div>
+  <div class="phase">
+    <div class="num">P5</div>
+    <div>
+      <h3>参数先验库</h3>
+      <p>按 broadleaf.round、broadleaf.umbrella、conifer.cone、conifer.column、palm.frond、shrub.clump 汇总 priors。新树从 priors 采样，不再拟合单棵。</p>
+      <span class="tag ok">持续</span><span class="tag">生成新树</span>
+    </div>
+  </div>
+</section>
+
+<section id="checks">
+  <h2><span>10</span> 验收标准</h2>
+  <table>
+    <thead>
+      <tr><th>阶段</th><th>验收</th><th>失败信号</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>P0</td>
+        <td>inventory 能稳定扫描 1029 个 SPM；baseline 能生成可浏览图库。</td>
+        <td>分类混乱、重复变体未归并、输出不可复现。</td>
+      </tr>
+      <tr>
+        <td>P1</td>
+        <td>至少 2 棵树导出 OBJ/XML 成功；导出日志可定位失败。</td>
+        <td>命令行导出不稳定、XML 无结构信息、尺度/朝向漂移。</td>
+      </tr>
+      <tr>
+        <td>P3</td>
+        <td>features 报告能解释样本：例如 Spruce 是锥形层状，Acacia 是伞形稀疏。</td>
+        <td>只得到 AABB，无法区分树种形态。</td>
+      </tr>
+      <tr>
+        <td>P4</td>
+        <td>12 棵中 8 棵达到类别正确 + silhouette ≥ 0.70 + 无明显拓扑坏点。</td>
+        <td>优化只会堆叶片；换 seed 类别漂移；针叶/阔叶互相串类。</td>
+      </tr>
+      <tr>
+        <td>P5</td>
+        <td>每个形态类能随机生成 20 棵新树，80% 通过 VLM 类别检查与基本几何检查。</td>
+        <td>只会复现训练样本，不会生成稳定新树。</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<section id="sources">
+  <h2><span>11</span> 参考来源</h2>
+  <ul>
+    <li><a href="https://docs.unity3d.com/speedtree-modeler/manual/export-from-the-command-line.html">SpeedTree Modeler：命令行导出，包含 <code>-export</code>、<code>-export_game</code>、<code>-export_options</code>，Windows 下建议等待进程结束</a></li>
+    <li><a href="https://docs.unity3d.com/speedtree-modeler/manual/export-custom-formats.html">SpeedTree Modeler：Raw XML / custom exporter，可导出 Points、Vertices、Triangles、Leaf References、Bones、Meshes 等数据</a></li>
+    <li><a href="https://docs.unity3d.com/speedtree-modeler/manual/vfx-export-options.html">SpeedTree Modeler：VFX 导出格式，包含 FBX、OBJ、USD、ABC、STE、XML 等</a></li>
+    <li><a href="https://docs.unity3d.com/speedtree-modeler/manual/modeling-approach.html">SpeedTree Modeler：procedural modeling、generator、node 建模方式</a></li>
+    <li><a href="https://docs.unity3d.com/speedtree-runtime-sdk/manual/whats-new.html">SpeedTree Runtime SDK 10：说明 Pipeline SDK 面向读取、操作、导出原生 SPM</a></li>
+  </ul>
+</section>
+</main>
+
+<footer>
+  Meshova 树木生成开发方案。SpeedTree v8.3 本地树库只作离线参考与评分老师；最终输出为 Meshova 自有 TreeRecipe、几何、材质、LOD、参数先验与截图回归。
+</footer>
+</body>
+</html>

@@ -89,6 +89,66 @@ function placeInstance(inst: InstanceRecord): Mesh {
   return translateMesh(mesh, inst.position);
 }
 
+// ---------------------------------------------------------------------------
+// Hierarchical assembly — UE PCG "ApplyHierarchy / CopyPointsWithHierarchy".
+// A prefab is a small set of parts, each with a relative transform. Placing the
+// prefab at a point stamps the whole cluster (a rock pile, a bush clump, a
+// prop group) with one parent transform, so composed detail travels together.
+// ---------------------------------------------------------------------------
+
+export interface AssemblyPart {
+  readonly mesh: Mesh;
+  /** Local offset from the assembly origin. */
+  readonly offset?: Vec3;
+  /** Local Euler rotation (radians). */
+  readonly rotate?: Vec3;
+  /** Local uniform scale. */
+  readonly scale?: number;
+}
+
+export interface Assembly {
+  readonly parts: ReadonlyArray<AssemblyPart>;
+}
+
+/** Bake an assembly's parts into a single mesh in local (origin) space. */
+export function realizeAssembly(assembly: Assembly): Mesh {
+  if (assembly.parts.length === 0) return merge();
+  return merge(
+    ...assembly.parts.map((part) => {
+      let mesh = part.mesh;
+      const hasXform =
+        (part.scale !== undefined && part.scale !== 1) ||
+        (part.rotate !== undefined &&
+          (part.rotate.x !== 0 || part.rotate.y !== 0 || part.rotate.z !== 0));
+      if (hasXform) {
+        mesh = transform(mesh, {
+          ...(part.scale !== undefined ? { scale: part.scale } : {}),
+          ...(part.rotate !== undefined ? { rotate: part.rotate } : {}),
+        });
+      }
+      if (part.offset) mesh = translateMesh(mesh, part.offset);
+      return mesh;
+    }),
+  );
+}
+
+/**
+ * Copy hierarchical assemblies to points. Each assembly is pre-baked into a
+ * local-space mesh, then treated as one library entry for copyToPoints — so
+ * variant/scale/yaw/alignToNormal all apply to the whole cluster at once. This
+ * is the cheap way to scatter rock piles / bush clumps as coherent units.
+ */
+export function copyAssembliesToPoints(
+  pc: PointCloud,
+  library: Assembly | ReadonlyArray<Assembly>,
+  opts: InstancePlanOptions = {},
+): Mesh {
+  const assemblies = Array.isArray(library) ? library : [library];
+  if (assemblies.length === 0) throw new Error("assembly library is empty");
+  const baked = assemblies.map(realizeAssembly);
+  return copyToPoints(pc, baked, opts);
+}
+
 function finiteOr(v: number, fallback: number): number {
   return Number.isFinite(v) ? v : fallback;
 }

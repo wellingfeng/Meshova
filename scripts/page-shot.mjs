@@ -1,0 +1,13 @@
+import { chromium } from "playwright";
+import { existsSync } from "node:fs";
+const shell=chromium.executablePath();
+const full=shell.replace(/chromium_headless_shell-(\d+)/,"chromium-$1").replace(/chrome-headless-shell-win64[\/]chrome-headless-shell\.exe$/i,"chrome-win64\chrome.exe");
+const browser=await chromium.launch({executablePath:existsSync(full)?full:undefined,headless:true,args:["--use-gl=angle","--ignore-gpu-blocklist","--headless=new"]});
+const page=await browser.newPage({viewport:{width:1440,height:820}});
+const errs=[];page.on("pageerror",e=>errs.push(String(e)));
+await page.goto("http://127.0.0.1:5199/web/tree-fit.html",{waitUntil:"networkidle"});
+await page.waitForTimeout(3500);
+await page.screenshot({path:"out/tree-fit-page.png"});
+const rows=await page.$$eval(".row",els=>els.length);
+console.log("rows:",rows,"errors:",errs.slice(0,3).join("|")||"none");
+await browser.close();

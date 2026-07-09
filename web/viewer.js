@@ -1591,7 +1591,9 @@ function renderPartList(parts) {
     row.className = "part" + (part.name === selectedPart ? " sel" : "");
     const sw = document.createElement("span");
     sw.className = "sw";
-    const c = part.color;
+    const c = part.color || (part.colors && part.colors.length >= 3
+      ? [part.colors[0], part.colors[1], part.colors[2]]
+      : [0.7, 0.7, 0.7]);
     sw.style.background = `rgb(${(c[0]*255)|0},${(c[1]*255)|0},${(c[2]*255)|0})`;
     const name = document.createElement("span");
     name.textContent = part.label || part.name;
@@ -2015,6 +2017,7 @@ function loadViewerModel(model) {
   renderParamPanel();
   const parts = viewerModelToNamedParts(model);
   buildParts(parts, { keepCamera: false });
+  errEl.style.display = "none";
   if (hud) hud.textContent = `${(model && model.name) || "AI模型"} · ${parts.length}件`;
 }
 

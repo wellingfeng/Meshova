@@ -282,3 +282,48 @@ export function subtract(a: Mesh, b: Mesh): Mesh {
 export function intersect(a: Mesh, b: Mesh): Mesh {
   return csg(a, b, "intersect");
 }
+
+/**
+ * Subtract MANY cutters from one base solid robustly. Chaining `subtract`
+ * repeatedly on the running result fails: a raw BSP-CSG output carries hairline
+ * cracks at each new cut wall that the next boolean chokes on (empty result).
+ * Merging all cutters into one tool and subtracting ONCE keeps the base solid
+ * as the sole manifold operand. This is the correct way to drill a bolt-hole
+ * pattern, cut a row of vents, or slot a panel.
+ */
+export function subtractAll(base: Mesh, cutters: Mesh[]): Mesh {
+  const list = cutters.filter((c) => c.indices.length > 0);
+  if (list.length === 0) return base;
+  const tool = list.length === 1 ? list[0]! : mergeMeshes(list);
+  return subtract(base, tool);
+}
+
+/**
+ * Union a list of solids into one. Folds left with cleanup between steps so the
+ * accumulator stays a clean manifold for the next union (raw CSG output would
+ * otherwise degrade after a few combines). Returns the empty mesh for [].
+ */
+export function unionAll(meshes: Mesh[], cleanup: (m: Mesh) => Mesh = (m) => m): Mesh {
+  const list = meshes.filter((m) => m.indices.length > 0);
+  if (list.length === 0) return makeMesh({ positions: [], normals: [], uvs: [], indices: [] });
+  let acc = list[0]!;
+  for (let i = 1; i < list.length; i++) acc = cleanup(union(acc, list[i]!));
+  return acc;
+}
+
+/** Local merge (avoids a mesh.js import cycle at module top). */
+function mergeMeshes(meshes: Mesh[]): Mesh {
+  const positions: Vec3[] = [];
+  const normals: Vec3[] = [];
+  const uvs: { x: number; y: number }[] = [];
+  const indices: number[] = [];
+  let offset = 0;
+  for (const m of meshes) {
+    for (const p of m.positions) positions.push({ ...p });
+    for (const n of m.normals) normals.push({ ...n });
+    for (const uv of m.uvs) uvs.push({ ...uv });
+    for (const idx of m.indices) indices.push(idx + offset);
+    offset += m.positions.length;
+  }
+  return makeMesh({ positions, normals, uvs, indices });
+}

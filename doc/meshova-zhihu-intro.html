@@ -1,0 +1,583 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Meshova：让 AI 写程序化建模脚本，而不是直接吐出黑箱网格</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --ink: #18202a;
+        --muted: #5d6a7a;
+        --soft: #eef3f8;
+        --line: #d8e1ec;
+        --blue: #1976d2;
+        --green: #138a66;
+        --orange: #d96c23;
+        --bg: #ffffff;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background: #f4f7fb;
+        color: var(--ink);
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+          "Microsoft YaHei", sans-serif;
+        line-height: 1.78;
+      }
+
+      .page {
+        width: min(920px, calc(100% - 32px));
+        margin: 0 auto;
+        padding: 36px 0 72px;
+      }
+
+      article {
+        background: var(--bg);
+        border: 1px solid var(--line);
+        box-shadow: 0 18px 50px rgba(24, 32, 42, 0.08);
+      }
+
+      header,
+      section,
+      footer {
+        padding: 0 52px;
+      }
+
+      header {
+        padding-top: 52px;
+        padding-bottom: 22px;
+      }
+
+      .eyebrow {
+        margin: 0 0 14px;
+        color: var(--blue);
+        font-size: 14px;
+        font-weight: 700;
+        letter-spacing: 0;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: clamp(30px, 5vw, 48px);
+        line-height: 1.16;
+        letter-spacing: 0;
+      }
+
+      .lead {
+        margin: 22px 0 0;
+        color: #334155;
+        font-size: 18px;
+      }
+
+      h2 {
+        margin: 48px 0 14px;
+        font-size: 28px;
+        line-height: 1.28;
+        letter-spacing: 0;
+      }
+
+      h3 {
+        margin: 30px 0 10px;
+        font-size: 20px;
+        line-height: 1.35;
+      }
+
+      p {
+        margin: 14px 0;
+      }
+
+      a {
+        color: var(--blue);
+        text-decoration-thickness: 1px;
+        text-underline-offset: 3px;
+      }
+
+      strong {
+        color: #0f172a;
+      }
+
+      .note {
+        margin: 24px 0;
+        padding: 18px 20px;
+        border-left: 4px solid var(--blue);
+        background: var(--soft);
+        color: #263443;
+      }
+
+      figure {
+        margin: 30px 0;
+      }
+
+      img,
+      svg {
+        display: block;
+        width: 100%;
+        height: auto;
+        border: 1px solid var(--line);
+        background: #f8fafc;
+      }
+
+      figcaption {
+        margin-top: 9px;
+        color: var(--muted);
+        font-size: 14px;
+        text-align: center;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 18px;
+      }
+
+      .grid figure {
+        margin: 0;
+      }
+
+      .table-wrap {
+        margin: 24px 0;
+        overflow-x: auto;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 15px;
+      }
+
+      th,
+      td {
+        padding: 12px 14px;
+        border: 1px solid var(--line);
+        text-align: left;
+        vertical-align: top;
+      }
+
+      th {
+        background: #edf4fb;
+      }
+
+      code {
+        padding: 2px 5px;
+        border-radius: 4px;
+        background: #eef2f7;
+        color: #1e3a8a;
+        font-family: "Cascadia Code", Consolas, monospace;
+        font-size: 0.92em;
+      }
+
+      pre {
+        margin: 22px 0;
+        padding: 18px 20px;
+        overflow-x: auto;
+        border: 1px solid #243244;
+        background: #0d1420;
+        color: #d8e8ff;
+        font-family: "Cascadia Code", Consolas, monospace;
+        font-size: 14px;
+        line-height: 1.62;
+      }
+
+      pre code {
+        padding: 0;
+        border-radius: 0;
+        background: transparent;
+        color: inherit;
+        font-size: inherit;
+      }
+
+      ul {
+        padding-left: 22px;
+      }
+
+      li {
+        margin: 8px 0;
+      }
+
+      .pill-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin: 20px 0 0;
+      }
+
+      .pill {
+        padding: 6px 10px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: #f8fbff;
+        color: #334155;
+        font-size: 13px;
+      }
+
+      .callout {
+        margin: 30px 0 0;
+        padding: 22px 24px;
+        background: #102035;
+        color: #e8f2ff;
+      }
+
+      .callout strong {
+        color: #ffffff;
+      }
+
+      footer {
+        padding-top: 12px;
+        padding-bottom: 48px;
+        color: var(--muted);
+      }
+
+      @media (max-width: 720px) {
+        .page {
+          width: 100%;
+          padding: 0;
+        }
+
+        article {
+          border-left: 0;
+          border-right: 0;
+          box-shadow: none;
+        }
+
+        header,
+        section,
+        footer {
+          padding-left: 20px;
+          padding-right: 20px;
+        }
+
+        header {
+          padding-top: 34px;
+        }
+
+        .grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <article>
+        <header>
+          <p class="eyebrow">开源项目介绍 / 程序化建模 / AI 资产生成</p>
+          <h1>Meshova：让 AI 写程序化建模脚本，而不是直接吐出黑箱网格</h1>
+          <p class="lead">
+            Meshova 是一个用 TypeScript 写的 Web 程序化建模与程序化 PBR
+            材质库。它的核心目标不是做另一个“输入一句话，生成一个死模型”的
+            text-to-3D 工具，而是给 AI 一套可执行、可复现、可调参、可迭代的建模内核。
+          </p>
+          <div class="pill-row" aria-label="项目关键词">
+            <span class="pill">TypeScript</span>
+            <span class="pill">程序化建模</span>
+            <span class="pill">程序化 PBR</span>
+            <span class="pill">AI 脚本</span>
+            <span class="pill">截图自迭代</span>
+            <span class="pill">MIT 开源</span>
+          </div>
+        </header>
+
+        <section>
+          <figure>
+            <img
+              src="meshova-zhihu-assets/meshova-gallery.png"
+              alt="Meshova 模型库网页截图，展示角色、建筑、车辆、植被、地形等程序化模型"
+            />
+            <figcaption>Meshova 当前模型库界面：模型不是静态资产，而是由代码生成的程序化结果。</figcaption>
+          </figure>
+
+          <h2>为什么要做这个项目？</h2>
+          <p>
+            现在的 AI 3D 资产生成，常见路线是黑箱直出网格：你给一句提示词，它给一个模型。
+            这种方式看起来很快，但对游戏开发、技术美术、工具链集成并不友好。
+          </p>
+          <p>
+            问题很直接：生成结果很难稳定复现，很难局部修改，很难保证拓扑、材质、命名、LOD、
+            部件语义、批量变体都可控。对生产环境来说，“看起来像”不够，资产还要能改、能组合、
+            能调参数、能进入流水线。
+          </p>
+          <p>
+            Meshova 选择另一条路：让 AI 不直接吐模型，而是写程序化脚本。脚本调用 Meshova
+            的几何、材质、随机、视觉评估接口生成模型。这样产物仍然是代码，能被版本管理、能复现、
+            能审查，也能继续被人或 AI 修改。
+          </p>
+
+          <div class="note">
+            一句话概括：Meshova 想做的是“AI 时代的 Houdini 式程序化内核”，但交互对象优先是代码和自动化流程，
+            不是节点图。
+          </div>
+        </section>
+
+        <section>
+          <h2>核心思路：脚本优先，而不是节点优先</h2>
+          <p>
+            传统 DCC 里，节点图对人很友好，因为人需要可视化地组织逻辑。但对 AI 来说，代码才是天然表达方式。
+            AI 写 TypeScript 函数，比模拟鼠标连节点更直接，也更容易测试、回滚、裁剪、重用。
+          </p>
+          <p>
+            Meshova 因此把核心能力做成 TypeScript 库：几何体、曲线、布尔、散布、细分、形变、场函数、
+            程序化纹理、PBR 材质、图片评分、沙箱执行，都能被脚本调用。
+          </p>
+
+          <pre><code>const rng = makeRng(seed);
+const body = scaleMesh(sphere(1, 28, 22), vec3(width, height, width));
+const fur = materialFromFields({
+  baseColor: fbmColor(noise, furRamp),
+  roughness: constantField(0.85),
+  metalness: constantField(0)
+});</code></pre>
+
+          <p>
+            代码只是入口。更重要的是，Meshova 要保证同一个 seed、同一段脚本、同一套参数能得到同一个结果。
+            这让截图回归、AI 自迭代和资产变体都变得可控。
+          </p>
+        </section>
+
+        <section>
+          <h2>工作流：AI 写脚本，浏览器渲染，截图反向修正</h2>
+          <figure>
+            <svg viewBox="0 0 1000 390" role="img" aria-label="Meshova 工作流图">
+              <defs>
+                <linearGradient id="g1" x1="0" x2="1" y1="0" y2="1">
+                  <stop offset="0" stop-color="#102035" />
+                  <stop offset="1" stop-color="#1c4766" />
+                </linearGradient>
+                <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                  <path d="M 0 0 L 10 5 L 0 10 z" fill="#1976d2" />
+                </marker>
+              </defs>
+              <rect width="1000" height="390" fill="#f8fbff" />
+              <rect x="35" y="42" width="930" height="300" rx="18" fill="url(#g1)" />
+              <g font-family="Microsoft YaHei, sans-serif" text-anchor="middle">
+                <g>
+                  <rect x="72" y="118" width="160" height="96" rx="10" fill="#ffffff" opacity="0.96" />
+                  <text x="152" y="154" fill="#102035" font-size="22" font-weight="700">需求 / 图片</text>
+                  <text x="152" y="184" fill="#5d6a7a" font-size="15">提示词、参考图、约束</text>
+                </g>
+                <g>
+                  <rect x="300" y="118" width="160" height="96" rx="10" fill="#ffffff" opacity="0.96" />
+                  <text x="380" y="154" fill="#102035" font-size="22" font-weight="700">AI 写脚本</text>
+                  <text x="380" y="184" fill="#5d6a7a" font-size="15">调用 Meshova DSL</text>
+                </g>
+                <g>
+                  <rect x="528" y="118" width="160" height="96" rx="10" fill="#ffffff" opacity="0.96" />
+                  <text x="608" y="154" fill="#102035" font-size="22" font-weight="700">生成模型</text>
+                  <text x="608" y="184" fill="#5d6a7a" font-size="15">几何 + 程序化 PBR</text>
+                </g>
+                <g>
+                  <rect x="756" y="118" width="160" height="96" rx="10" fill="#ffffff" opacity="0.96" />
+                  <text x="836" y="154" fill="#102035" font-size="22" font-weight="700">截图评分</text>
+                  <text x="836" y="184" fill="#5d6a7a" font-size="15">轮廓、视角、语义</text>
+                </g>
+                <path d="M232 166 H294" stroke="#65b5ff" stroke-width="5" marker-end="url(#arrow)" />
+                <path d="M460 166 H522" stroke="#65b5ff" stroke-width="5" marker-end="url(#arrow)" />
+                <path d="M688 166 H750" stroke="#65b5ff" stroke-width="5" marker-end="url(#arrow)" />
+                <path d="M836 220 C836 286 380 286 380 224" fill="none" stroke="#62d6a3" stroke-width="5" marker-end="url(#arrow)" />
+                <text x="608" y="305" fill="#dff8ec" font-size="18" font-weight="700">评分不足：AI 修改脚本，再渲染，再比较</text>
+              </g>
+            </svg>
+            <figcaption>Meshova 的关键闭环：代码生成资产，渲染结果再反馈给 AI。</figcaption>
+          </figure>
+
+          <p>
+            这个闭环是项目最重要的部分。AI 写脚本后，浏览器查看器或 headless 截图脚本渲染模型；
+            视觉模块再计算轮廓、视角、材质类别等评分；评分差，就把问题反馈给 AI，让它改脚本。
+          </p>
+          <p>
+            这种方式比一次性生成网格慢一些，但优势是可解释。哪里不像，可以改哪里；哪个部件不对，
+            可以定位到部件；材质类别错了，可以切 preset；参数变化，也能批量生成变体。
+          </p>
+        </section>
+
+        <section>
+          <h2>现在已经能做什么？</h2>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>模块</th>
+                  <th>当前能力</th>
+                  <th>意义</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>math</code> / <code>random</code></td>
+                  <td>向量、矩阵、标量工具、seed RNG、Perlin noise、FBM</td>
+                  <td>同 seed 同结果，程序化资产可复现</td>
+                </tr>
+                <tr>
+                  <td><code>geometry</code></td>
+                  <td>基础体、变换、曲线、扫描、散布、布尔、细分、形变、语义部件</td>
+                  <td>从简单模型到可组合资产，不依赖手工建模</td>
+                </tr>
+                <tr>
+                  <td><code>texture</code></td>
+                  <td>程序化 PBR 通道、noise pattern、tiling、PNG 导出、材质 preset</td>
+                  <td>材质由代码生成，不把参考图烘成死贴图</td>
+                </tr>
+                <tr>
+                  <td><code>viewer</code></td>
+                  <td>浏览器模型库、实时参数面板、PBR/法线/深度/matcap 查看</td>
+                  <td>人和 AI 都能检查模型质量</td>
+                </tr>
+                <tr>
+                  <td><code>vision</code> / <code>pipeline</code></td>
+                  <td>轮廓、视角、材质分类、图片到程序化模型的闭环接口</td>
+                  <td>支持“看图改脚本”，形状优先，材质类别兜底</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="grid">
+            <figure>
+              <img
+                src="meshova-zhihu-assets/meshova-teddy.png"
+                alt="Meshova 卡通小熊程序化模型和参数编辑界面"
+              />
+              <figcaption>卡通小熊：身体、耳朵、眼睛、毛绒材质都来自脚本参数。</figcaption>
+            </figure>
+            <figure>
+              <img
+                src="meshova-zhihu-assets/meshova-sports-car.png"
+                alt="Meshova 红色跑车程序化模型和参数编辑界面"
+              />
+              <figcaption>红色跑车：车长、车宽、车高、轮胎等参数可实时调整。</figcaption>
+            </figure>
+          </div>
+        </section>
+
+        <section>
+          <h2>为什么坚持“程序化”，不直接做图片复刻？</h2>
+          <p>
+            Meshova 的图片输入目标不是复刻像素，也不是做 3D 扫描替代品。它优先追求造型一致性：
+            多视角轮廓、比例、主要部件、语义结构尽量像参考物。材质只做类别正确：金属像金属，
+            布料像布料，皮革像皮革。不确定时宁可退回中性材质，也不强猜。
+          </p>
+          <p>
+            原因很实际：游戏和实时应用需要可编辑资产。一个从图片直接烘出来的死网格，短期看好看，
+            长期很难维护。程序化模型虽然初始效果更克制，但后续能改比例、换材质、批量出变体、
+            接入工具链，还能被 AI 继续迭代。
+          </p>
+
+          <figure>
+            <img
+              src="meshova-zhihu-assets/script-panel.png"
+              alt="Meshova 查看器中的程序化脚本面板"
+            />
+            <figcaption>查看器可以展开当前模型脚本：资产背后不是黑箱，而是一段可读、可改、可复现的代码。</figcaption>
+          </figure>
+        </section>
+
+        <section>
+          <h2>语义部件：让参数面板对人有意义</h2>
+          <p>
+            程序化建模很容易掉进另一个坑：参数很多，但名字像 <code>root.0</code>、<code>component_1</code>，
+            人看不懂，AI 也不容易稳定引用。Meshova 把语义部件作为一等概念处理，尽量把部件标成
+            <code>head</code>、<code>belly</code>、<code>wheel</code>、<code>door</code> 这类可读名字。
+          </p>
+          <p>
+            这样参数调节才像资产编辑，而不是调一堆匿名网格。对未来的图片输入也重要：AI 或 VLM
+            可以先拆出“上半部、下半部、头部、腹部”等语义区域，再把区域绑定到可编辑参数上。
+          </p>
+
+          <figure>
+            <img
+              src="meshova-zhihu-assets/semantic-split.png"
+              alt="Meshova 语义拆分和参数编辑界面"
+            />
+            <figcaption>语义拆分界面：部件命名、选择、参数调节服务于后续 AI 迭代。</figcaption>
+          </figure>
+        </section>
+
+        <section>
+          <h2>这和 Blender / Houdini / Substance Designer 是什么关系？</h2>
+          <p>
+            Meshova 会学习这些工具的思想，但不是要复制它们。Houdini 证明了程序化建模的价值；
+            Substance Designer 证明了程序化材质的价值；Blender 证明了开源 DCC 的生态价值。
+          </p>
+          <p>
+            Meshova 的切入点更窄：Web、TypeScript、AI 脚本、headless 截图闭环。它更像一个可以嵌入
+            AI 工作流的程序化资产内核，而不是完整 DCC。项目采用 MIT 许可，算法会参考公开知识自行重写，
+            不复制 GPL 源码。
+          </p>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>工具/路线</th>
+                  <th>主要交互对象</th>
+                  <th>Meshova 的取舍</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>传统 DCC</td>
+                  <td>人操作 UI</td>
+                  <td>Meshova 优先让 AI 写脚本，人再审查和调参</td>
+                </tr>
+                <tr>
+                  <td>节点式程序化工具</td>
+                  <td>节点图</td>
+                  <td>Meshova 优先代码 DSL，方便测试、版本管理、自动生成</td>
+                </tr>
+                <tr>
+                  <td>黑箱 text-to-3D</td>
+                  <td>提示词和生成结果</td>
+                  <td>Meshova 保留生成过程，强调可复现和可编辑</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section>
+          <h2>适合什么场景？</h2>
+          <ul>
+            <li>独立游戏或原型项目，需要大量风格统一、可调参数的资产。</li>
+            <li>技术美术工具链，需要程序化生成、批量变体、自动截图回归。</li>
+            <li>AI 资产流水线，需要让模型生成过程可审查，而不是只拿最终网格。</li>
+            <li>Web 工具或在线编辑器，需要在浏览器里生成、预览、导出模型和材质。</li>
+          </ul>
+          <p>
+            它暂时不适合追求单张图极致复刻，也不适合替代成熟 DCC 的手工雕刻、复杂绑定、影视级资产制作。
+            当前重点是把“可控程序化资产生成”这件事做扎实。
+          </p>
+        </section>
+
+        <section>
+          <h2>下一步</h2>
+          <p>
+            Meshova 后续会继续加强三件事。第一，几何表达能力：更多曲面、拓扑编辑、局部布尔、角色和硬表面模板。
+            第二，视觉闭环：多视角评分、VLM 语义拆解、黑盒参数优化，让“看图改脚本”更稳定。第三，Web
+            性能：把更重的几何和材质计算逐步推向 WebGPU，让浏览器端也能承担更多实时生成任务。
+          </p>
+          <p>
+            我希望它最后能变成一个开源、非黑箱、面向 AI 的程序化资产底座：人定义审美和约束，
+            AI 写脚本和迭代，Meshova 负责可复现的几何、材质、渲染、评分。
+          </p>
+
+          <div class="callout">
+            <strong>项目地址：</strong>
+            Meshova 当前以开源库和浏览器模型库形式推进。核心关键词是：程序化、可复现、可编辑、AI 友好。
+          </div>
+        </section>
+
+        <footer>
+          <p>
+            本文配图来自 Meshova 本地模型库与调试查看器截图。发布到知乎时，建议按文中顺序上传图片：
+            模型库总览、工作流图、小熊、跑车、脚本面板、语义拆分。
+          </p>
+        </footer>
+      </article>
+    </main>
+  </body>
+</html>

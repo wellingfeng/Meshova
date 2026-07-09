@@ -6,3 +6,10 @@ out/
 .site/
 .ultragamestudio/
 _h.mjs
+.claude/
+.omc/
+# 只读参考源，不入库
+Meshova_pcg-ref/
+RitualBuildingPCG-ref/
+# 临时截图脚本
+scripts/_gal-shot*.mjs

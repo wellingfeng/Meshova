@@ -17,6 +17,7 @@ import { makeRng } from "../random/prng.js";
 import type { BranchSegment } from "./branch.js";
 import { curveFrameAt, rotateAround } from "./curve-frame.js";
 import { curve1D, type Curve1DInput } from "./curve-param.js";
+import type { BranchPlacementMode } from "./branch.js";
 
 /**
  * A single leaf quad centered at `center`, facing `normal`, with `up` defining
@@ -63,6 +64,8 @@ export interface LeafMeshOptions {
   curl?: number;
   /** Side fold along the leaf normal, in leaf-width units. */
   fold?: number;
+  /** Fake normals away from the card plane so flat cards shade like a round crown. */
+  roundedNormals?: boolean;
 }
 
 /**
@@ -86,6 +89,7 @@ export function leafMesh(
   const segments = Math.max(3, Math.floor(opts.segments ?? 7));
   const curl = opts.curl ?? 0;
   const fold = opts.fold ?? 0;
+  const roundedNormals = opts.roundedNormals ?? false;
 
   const positions: Vec3[] = [];
   const normals: Vec3[] = [];
@@ -103,7 +107,7 @@ export function leafMesh(
         add(scale(right, hw * side), scale(n, curlOffset + foldOffset)),
       );
       positions.push(pos);
-      normals.push(n);
+      normals.push(roundedNormals ? normalize(add(n, add(scale(right, side * 0.35), scale(u, (t - 0.45) * 0.35)))) : n);
       uvs.push(vec2(side < 0 ? 0 : 1, t));
     }
   }
@@ -159,6 +163,10 @@ export interface ScatterLeavesOptions {
   fold?: number;
   /** Per-branch count multiplier, sampled from branch attachT. */
   densityProfile?: Curve1DInput;
+  /** Leaf placement along each terminal branch. */
+  placement?: BranchPlacementMode;
+  /** Fake normals away from the card plane so flat leaves shade fuller. */
+  roundedNormals?: boolean;
 }
 
 /**
@@ -175,6 +183,7 @@ export function scatterLeaves(branches: BranchSegment[], opts: ScatterLeavesOpti
   const startPct = opts.startPct ?? 0.4;
   const shape = opts.shape ?? "quad";
   const densityProfile = curve1D(opts.densityProfile, 1);
+  const placement = opts.placement ?? "golden";
   const rng = makeRng(opts.seed ?? 99);
   const UP = vec3(0, 1, 0);
 
@@ -184,7 +193,7 @@ export function scatterLeaves(branches: BranchSegment[], opts: ScatterLeavesOpti
     if (!b.terminal) continue;
     const count = Math.max(0, Math.round(perBranch * densityProfile(b.attachT ?? 1, bi)));
     for (let i = 0; i < count; i++) {
-      const t = startPct + (1 - startPct) * ((i + rng.next()) / Math.max(1, count));
+      const t = leafT(i, count, startPct, placement, rng);
       const frame = curveFrameAt(b.curve, Math.min(1, t));
       // Facing: blend branch outward normal toward world up.
       const facing = normalize(lerpVec3(frame.normal, UP, upBias));
@@ -197,6 +206,7 @@ export function scatterLeaves(branches: BranchSegment[], opts: ScatterLeavesOpti
       if (opts.leafSegments !== undefined) instanceOpts.leafSegments = opts.leafSegments;
       if (opts.curl !== undefined) instanceOpts.curl = opts.curl;
       if (opts.fold !== undefined) instanceOpts.fold = opts.fold;
+      if (opts.roundedNormals !== undefined) instanceOpts.roundedNormals = opts.roundedNormals;
       const card = makeLeafInstance(frame.position, rolledNormal, up, s, s * aspect, instanceOpts);
       cards.push(card);
     }
@@ -221,17 +231,49 @@ function makeLeafInstance(
   opts: LeafInstanceOptions,
 ): Mesh {
   if (opts.shape === "quad") {
-    return opts.cross
+    const card = opts.cross
       ? crossQuad(center, normal, up, width, height)
       : leafCard(center, normal, up, width, height);
+    return opts.roundedNormals ? roundLeafNormals(card, center, up, width, height) : card;
   }
   const meshOpts: LeafMeshOptions = { shape: opts.shape };
   if (opts.leafSegments !== undefined) meshOpts.segments = opts.leafSegments;
   if (opts.curl !== undefined) meshOpts.curl = opts.curl;
   if (opts.fold !== undefined) meshOpts.fold = opts.fold;
+  if (opts.roundedNormals !== undefined) meshOpts.roundedNormals = opts.roundedNormals;
   return opts.cross
     ? crossLeafMesh(center, normal, up, width, height, meshOpts)
     : leafMesh(center, normal, up, width, height, meshOpts);
+}
+
+/*
+ * Keep rounded normals as shading data only. Geometry remains card/leaf mesh,
+ * so LOD counts and UVs stay stable.
+ */
+export function roundLeafNormals(mesh: Mesh, center: Vec3, up: Vec3, width: number, height: number): Mesh {
+  const upUnit = normalize(up);
+  const normals = mesh.positions.map((p, i) => {
+    const base = mesh.normals[i] ?? vec3(0, 1, 0);
+    const along = Math.max(0, Math.min(1, dot(add(p, scale(center, -1)), upUnit) / Math.max(1e-6, height)));
+    const lateral = add(p, scale(add(center, scale(upUnit, along * height)), -1));
+    const sideAmount = Math.min(1, length(lateral) / Math.max(1e-6, width * 0.5));
+    return normalize(add(base, add(scale(upUnit, (along - 0.45) * 0.28), scale(normalize(lateral), sideAmount * 0.38))));
+  });
+  return {
+    positions: mesh.positions.slice(),
+    normals,
+    uvs: mesh.uvs.slice(),
+    indices: mesh.indices.slice(),
+  };
+}
+
+function leafT(i: number, count: number, startPct: number, placement: BranchPlacementMode, rng: ReturnType<typeof makeRng>): number {
+  if (placement === "stratified-shuffled") {
+    const slotSize = 1 / Math.max(1, count);
+    const jitter = (rng.next() - 0.5) * slotSize * 0.7;
+    return startPct + (1 - startPct) * clamp01((i + 0.5) * slotSize + jitter);
+  }
+  return startPct + (1 - startPct) * ((i + rng.next()) / Math.max(1, count));
 }
 
 interface LeafInstanceOptions {
@@ -240,6 +282,7 @@ interface LeafInstanceOptions {
   leafSegments?: number;
   curl?: number;
   fold?: number;
+  roundedNormals?: boolean;
 }
 
 function leafWidthProfile(shape: Exclude<LeafShape, "quad">, t: number): number {

@@ -28,8 +28,13 @@ import {
   branchFeatures,
   branchFeatureMeshes,
   shapeBranchesToEnvelope,
+  shapeBranchesToTrellis,
+  pullPointToTrellis,
   scatterLeaves,
   leafMesh,
+  leafCard,
+  roundLeafNormals,
+  sweepBarkTube,
   crossLeafMesh,
   curveFrameAt,
   gnarlCurve,
@@ -168,6 +173,53 @@ describe("growBranches", () => {
     expect(curveLength(branches[0]!.curve)).toBeGreaterThan(curveLength(branches[2]!.curve));
   });
 
+  it("supports ez-tree-style per-level authoring options", () => {
+    const trunk = polyline([vec3(0, 0, 0), vec3(0, 4, 0)]);
+    const branches = growBranches(trunk, 0.3, {
+      seed: 15,
+      levels: [
+        { children: 3, angle: 35, lengthScale: 0.7, radiusScale: 0.6 },
+        { children: 2, angle: 55, lengthScale: 0.45, radiusScale: 0.45 },
+      ],
+    });
+    expect(branches.filter((b) => b.depth === 1)).toHaveLength(3);
+    expect(branches.filter((b) => b.depth === 2)).toHaveLength(6);
+    expect(branches.every((b) => b.depth <= 2)).toBe(true);
+  });
+
+  it("stratified-shuffled placement keeps child attach positions inside slots", () => {
+    const trunk = polyline([vec3(0, 0, 0), vec3(0, 4, 0)]);
+    const branches = growBranches(trunk, 0.3, {
+      seed: 16,
+      count: 6,
+      depth: 1,
+      startPct: 0.2,
+      endPct: 0.8,
+      placement: "stratified-shuffled",
+    });
+    const ts = branches.map((b) => b.attachT ?? 0).sort((a, b) => a - b);
+    expect(ts[0]!).toBeGreaterThanOrEqual(0.2);
+    expect(ts[ts.length - 1]!).toBeLessThanOrEqual(0.8);
+    for (let i = 1; i < ts.length; i++) {
+      expect(ts[i]! - ts[i - 1]!).toBeGreaterThan(0.02);
+    }
+  });
+
+  it("creates bark UVs based on radius and arc length", () => {
+    const curve = polyline([vec3(0, 0, 0), vec3(0, 2, 0)]);
+    const mesh = sweepBarkTube(curve, {
+      sides: 4,
+      radius: 0.5,
+      radiusAt: () => 1,
+      caps: false,
+      barkUv: { longitudinalScale: 0.5, radialScale: Math.PI },
+    });
+    assertValid(mesh);
+    expect(mesh.uvs[0]!.y).toBeCloseTo(0, 5);
+    expect(mesh.uvs[4]!.x).toBeCloseTo(1, 5);
+    expect(mesh.uvs[5]!.y).toBeCloseTo(4, 5);
+  });
+
   it("can constrain branch tips to a canopy envelope", () => {
     const trunk = polyline([vec3(0, 0, 0), vec3(0, 4, 0)]);
     const branches = growBranches(trunk, 0.3, { seed: 6, count: 5, depth: 1, lengthScale: 1.2 });
@@ -181,6 +233,32 @@ describe("growBranches", () => {
     });
     const maxR = Math.max(...shaped.flatMap((b) => b.curve.points.map((p) => Math.hypot(p.x, p.z))));
     expect(maxR).toBeLessThanOrEqual(0.65001);
+  });
+
+  it("can pull branch curves toward a trellis grid", () => {
+    const p = vec3(0.36, 1.2, 0.7);
+    const pulled = pullPointToTrellis(p, {
+      kind: "grid",
+      origin: vec3(0, 0, 0),
+      axisU: vec3(1, 0, 0),
+      axisV: vec3(0, 1, 0),
+      spacing: 0.5,
+      strength: 1,
+    }, 1);
+    expect(pulled.x).toBeCloseTo(0.5, 5);
+    expect(pulled.y).toBeCloseTo(1.2, 5);
+    expect(pulled.z).toBeCloseTo(0, 5);
+
+    const trunk = polyline([vec3(0, 0, 0), vec3(0, 4, 0)]);
+    const branches = growBranches(trunk, 0.3, { seed: 17, count: 2, depth: 1 });
+    const shaped = shapeBranchesToTrellis(branches, {
+      kind: "wall",
+      normal: vec3(0, 0, 1),
+      strength: 1,
+      startPct: 0,
+    });
+    const maxTipAbsZ = Math.max(...shaped.map((b) => Math.abs(b.curve.points[b.curve.points.length - 1]!.z)));
+    expect(maxTipAbsZ).toBeLessThan(1e-5);
   });
 
   it("creates deterministic branch feature meshes", () => {
@@ -236,6 +314,15 @@ describe("leaves", () => {
     expect(vertexCount(crossed)).toBeGreaterThan(vertexCount(m));
   });
 
+  it("can round leaf normals without changing card geometry", () => {
+    const card = leafCard(vec3(0, 0, 0), vec3(0, 0, 1), vec3(0, 1, 0), 0.4, 0.8);
+    const rounded = roundLeafNormals(card, vec3(0, 0, 0), vec3(0, 1, 0), 0.4, 0.8);
+    assertValid(rounded);
+    expect(rounded.positions).toEqual(card.positions);
+    expect(rounded.indices).toEqual(card.indices);
+    expect(rounded.normals.some((n, i) => Math.abs(n.x - card.normals[i]!.x) > 1e-6 || Math.abs(n.y - card.normals[i]!.y) > 1e-6)).toBe(true);
+  });
+
   it("scatters shaped leaves on terminal branches", () => {
     const trunk = polyline([vec3(0, 0, 0), vec3(0, 4, 0)]);
     const branches = growBranches(trunk, 0.3, { seed: 7, count: 5, depth: 2 });
@@ -289,6 +376,30 @@ describe("plant builders", () => {
     assertValid(t.leaves);
     expect(t.features).toBeDefined();
     expect(vertexCount(t.features!)).toBeGreaterThan(0);
+  });
+
+  it("tree accepts authoring controls from ez-tree-style presets", () => {
+    const t = tree({
+      seed: 18,
+      height: 4,
+      leafDensity: 3,
+      authoring: {
+        placement: "stratified-shuffled",
+        barkUv: { longitudinalScale: 0.4, radialScale: 0.35 },
+        roundedLeafNormals: true,
+        levels: [
+          { children: 4, angle: 42, startPct: 0.25, endPct: 0.85, lengthScale: 0.7 },
+          { children: 2, angle: 58, lengthScale: 0.45, radiusScale: 0.45 },
+        ],
+        trellis: { kind: "wall", normal: vec3(0, 0, 1), strength: 0.2 },
+      },
+    });
+    assertValid(t.wood);
+    assertValid(t.leaves);
+    expect(t.branches.filter((b) => b.depth === 1)).toHaveLength(4);
+    expect(t.branches.filter((b) => b.depth === 2)).toHaveLength(8);
+    expect(t.wood.uvs.some((uv) => uv.y > 1)).toBe(true);
+    expect(vertexCount(t.leaves)).toBeGreaterThan(0);
   });
 
   it("builds a procedural tree from a silhouette guide", () => {

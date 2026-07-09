@@ -8,6 +8,7 @@ import {
   materialFromFields,
   PRESETS,
   MATERIAL_BUILDERS,
+  SBS_REPRO,
   buildSurface,
   resolvePhysical,
   SURFACE_LABELS,
@@ -76,17 +77,32 @@ export function bakeBuilderMaterial(builderName, size = 256, params = {}) {
 
 export const PRESET_NAMES = Object.keys(PRESETS);
 export const BUILDER_NAMES = Object.keys(MATERIAL_BUILDERS);
+/** SBS reproduction recipe names (field presets keyed by reference folder). */
+export const SBS_REPRO_NAMES = Object.keys(SBS_REPRO);
 
 /** True if `name` is a buffer-chain material builder rather than a field preset. */
 export function isBuilder(name) {
   return Object.prototype.hasOwnProperty.call(MATERIAL_BUILDERS, name);
 }
 
-/** Bake any known material (preset or builder) by name. */
+/** True if `name` is an SBS reproduction recipe. */
+export function isSbsRepro(name) {
+  return Object.prototype.hasOwnProperty.call(SBS_REPRO, name);
+}
+
+/** Bake an SBS reproduction recipe into a three MeshStandardMaterial. */
+export function bakeSbsReproMaterial(name, size = 256, params = {}) {
+  const fn = SBS_REPRO[name];
+  if (!fn) throw new Error("unknown sbs recipe: " + name);
+  const m = materialFromFields(size, fn(params));
+  return materialFromMeshovaMaterial(m);
+}
+
+/** Bake any known material (preset, builder or SBS repro) by name. */
 export function bakeMaterial(name, size = 256, params = {}) {
-  return isBuilder(name)
-    ? bakeBuilderMaterial(name, size, params)
-    : bakeStandardMaterial(name, size, params);
+  if (isBuilder(name)) return bakeBuilderMaterial(name, size, params);
+  if (isSbsRepro(name)) return bakeSbsReproMaterial(name, size, params);
+  return bakeStandardMaterial(name, size, params);
 }
 
 /**

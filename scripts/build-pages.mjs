@@ -56,6 +56,17 @@ function rewriteHtmlForWeb(html, kind) {
   return out.replace("</head>", '<link rel="icon" href="../favicon.ico" />\n</head>');
 }
 
+// matlab.html lives in outDir/web/ and references vendor + its module script by
+// absolute /web paths; the "back" link points to the gallery (index.html).
+function rewriteMaterialHtml(html) {
+  const out = html
+    .replaceAll('"/web/vendor/three.module.js"', '"./vendor/three.module.js"')
+    .replaceAll('"/web/vendor/addons/"', '"./vendor/addons/"')
+    .replaceAll('src="/web/matlab.js"', 'src="./matlab.js"')
+    .replaceAll('href="/web/gallery.html"', 'href="../index.html"');
+  return out.replace("</head>", '<link rel="icon" href="../favicon.ico" />\n</head>');
+}
+
 function rewriteWebJs(filename, text) {
   let out = text
     .replace(/fetch\("\/out\/([^"]+)",/g, 'fetch(new URL("../out/$1", import.meta.url),')
@@ -88,9 +99,15 @@ function rewriteWebJs(filename, text) {
       .replaceAll('from "/web/', 'from "./')
       .replaceAll('import("/web/', 'import("./')
       .replaceAll('fetch("/web/', 'fetch("./')
+      .replaceAll("`/web/matlab.html?", "`./matlab.html?")
       .replace(/`\/web\/index\.html\?model=\$\{([^}]+)\}`/g, (_, expr) => {
         return "`./viewer.html?model=${" + expr + "}`";
       });
+  }
+  if (filename === "matlab.js") {
+    return out
+      .replaceAll('from "/web/', 'from "./')
+      .replaceAll('from "/dist/index.js"', 'from "../dist/index.js"');
   }
   return out;
 }
@@ -203,10 +220,12 @@ async function main() {
   await writeText(join(outDir, "viewer.html"), rewriteHtmlForRoot(await readText(join(webDir, "index.html")), "viewer"));
   await writeText(join(outDir, "web", "gallery.html"), rewriteHtmlForWeb(await readText(join(webDir, "gallery.html")), "gallery"));
   await writeText(join(outDir, "web", "index.html"), rewriteHtmlForWeb(await readText(join(webDir, "index.html")), "viewer"));
+  await writeText(join(outDir, "web", "matlab.html"), rewriteMaterialHtml(await readText(join(webDir, "matlab.html"))));
 
   for (const filename of [
     "gallery.js",
     "materials.js",
+    "matlab.js",
     "procmodels.js",
     "viewer.js",
     "speedtree-tutorial-procmodels.js",

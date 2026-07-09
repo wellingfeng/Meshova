@@ -346,7 +346,15 @@ export function roundedBox(opts: RoundedBoxOptions = {}): Mesh {
     const idx = positions.length;
     positions.push(pos);
     normals.push(nrm);
-    uvs.push(vec2(0, 0));
+    // Planar UV by the dominant normal axis (triplanar-style box projection),
+    // normalized to the box extent. All-zero UVs make anisotropic materials
+    // (brushedMetal etc.) compute NaN tangents and drop the whole render.
+    const ax = Math.abs(nrm.x), ay = Math.abs(nrm.y), az = Math.abs(nrm.z);
+    let uu: number, vv: number;
+    if (ax >= ay && ax >= az) { uu = pos.z / (2 * hd) + 0.5; vv = pos.y / (2 * hh) + 0.5; }
+    else if (ay >= ax && ay >= az) { uu = pos.x / (2 * hw) + 0.5; vv = pos.z / (2 * hd) + 0.5; }
+    else { uu = pos.x / (2 * hw) + 0.5; vv = pos.y / (2 * hh) + 0.5; }
+    uvs.push(vec2(uu, vv));
     keyToIdx.set(k, idx);
     return idx;
   };

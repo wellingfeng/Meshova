@@ -349,6 +349,69 @@ export function emissive(p: SurfaceParams & { color?: [number, number, number]; 
   });
 }
 
+/**
+ * Foliage / leaf — two-sided translucent dielectric (UE MF_TwoSided_Leaves +
+ * MF_generateTranslucency). Real leaves glow when backlit because light
+ * transmits through the thin blade; we drive that with a partial transmission
+ * plus a thin-walled thickness, add procedural vein streaks and a waxy sheen,
+ * and a subtle season/health tint. `transparent` is on so the viewer treats it
+ * as needing two-sided/alpha rendering.
+ */
+export function foliage(
+  p: SurfaceParams & {
+    color?: [number, number, number];
+    /** 0 = fresh green, 1 = autumn/dry tint. */
+    season?: number;
+    /** Backlit transmission strength 0..1. */
+    translucency?: number;
+    veinScale?: number;
+  } = {},
+): SurfaceMaterial {
+  const green = p.color ?? [0.16, 0.4, 0.12];
+  const autumn: [number, number, number] = [0.5, 0.32, 0.08];
+  const season = clamp(p.season ?? 0, 0, 1);
+  const base: [number, number, number] = [
+    green[0] + (autumn[0] - green[0]) * season,
+    green[1] + (autumn[1] - green[1]) * season,
+    green[2] + (autumn[2] - green[2]) * season,
+  ];
+  const noise = makeNoise(p.seed ?? 37);
+  const veinScale = p.veinScale ?? 26;
+  return makeSurface({
+    type: "foliage",
+    label: "叶片",
+    fields: {
+      baseColor: (u, v) => {
+        // veins: elongated fbm streaks running along v (leaf length)
+        const vein = fbm2(noise, u * veinScale, v * (veinScale * 0.35), { octaves: 3 });
+        const shade = 1 - Math.abs(vein) * 0.35;
+        // slight lighter edge tint toward the leaf tip
+        const tip = 0.9 + v * 0.2;
+        return [
+          clamp(base[0] * shade * tip, 0, 1),
+          clamp(base[1] * shade * tip, 0, 1),
+          clamp(base[2] * shade * tip, 0, 1),
+        ];
+      },
+      metallic: () => 0,
+      roughness: (u, v) => clamp(0.55 + fbm2(noise, u * veinScale, v * veinScale, { octaves: 2 }) * 0.12, 0.2, 1),
+      height: (u, v) => clamp(0.5 + fbm2(noise, u * veinScale, v * (veinScale * 0.35), { octaves: 2 }) * 0.25, 0, 1),
+      normalStrength: 1.3,
+    },
+    physical: {
+      transmission: p.translucency ?? 0.35,
+      thickness: 0,
+      ior: 1.4,
+      sheen: 0.25,
+      sheenColor: [0.7, 0.85, 0.5],
+      sheenRoughness: 0.5,
+      specularIntensity: 0.5,
+      attenuationColor: [base[0] * 1.6, base[1] * 1.4, base[2] * 1.6],
+    },
+    transparent: true,
+  });
+}
+
 /** Iridescent / pearlescent surface (soap film, beetle shell). */
 export function iridescent(p: SurfaceParams & { color?: [number, number, number] } = {}): SurfaceMaterial {
   const color = p.color ?? [0.6, 0.6, 0.65];
@@ -992,6 +1055,45 @@ export function snow(p: SurfaceParams & { tint?: [number, number, number] } = {}
   });
 }
 
+/**
+ * Cloud — soft white body with subsurface-like light pooling. Moderate
+ * transmission + thick volume + Beer–Lambert bluish attenuation reads as light
+ * scattering through vapor; strong sheen gives the fuzzy back-lit rim; fbm
+ * mottling breaks up the albedo so it doesn't look like plastic.
+ */
+export function cloudSurface(p: SurfaceParams & { tint?: [number, number, number] } = {}): SurfaceMaterial {
+  const tint = p.tint ?? p.color ?? [0.97, 0.98, 1.0];
+  const noise = makeNoise(p.seed ?? 91);
+  const puff = (u: number, v: number) => fbm2(noise, u * 7, v * 7, { octaves: 5 }) * 0.5 + 0.5;
+  return makeSurface({
+    type: "cloud",
+    label: "云",
+    fields: {
+      baseColor: (u, v) => {
+        // slightly darker/cooler in the creases (shadowed vapor)
+        const d = (puff(u, v) - 0.5) * 0.12;
+        return [clamp(tint[0] + d, 0, 1), clamp(tint[1] + d, 0, 1), clamp(tint[2] + d * 0.7, 0, 1)];
+      },
+      metallic: () => 0,
+      roughness: (u, v) => clamp(0.85 + puff(u, v) * 0.1, 0.04, 1),
+      height: (u, v) => clamp(0.5 + (puff(u, v) - 0.5) * 0.6, 0, 1),
+      normalStrength: 1.1,
+    },
+    physical: {
+      transmission: 0.35,
+      thickness: 1.2,
+      ior: 1.05,
+      attenuationColor: [0.85, 0.9, 1.0],
+      attenuationDistance: 0.9,
+      sheen: 0.9,
+      sheenColor: [1, 1, 1],
+      sheenRoughness: 0.8,
+      specularIntensity: 0.3,
+    },
+    transparent: true,
+  });
+}
+
 /** Sand — granular albedo, wind-ripple normals, faint mineral sparkle. */
 export function sand(p: SurfaceParams & { color?: [number, number, number] } = {}): SurfaceMaterial {
   const color = p.color ?? [0.76, 0.62, 0.4];
@@ -1256,6 +1358,7 @@ export const SURFACE_LIBRARY = {
   emissive,
   iridescent,
   fur: furSurface,
+  foliage,
   shortCoat,
   blackCoat,
   wood: woodSurface,
@@ -1296,6 +1399,7 @@ export const SURFACE_LIBRARY = {
   leaf,
   grassBlade,
   hair,
+  cloud: cloudSurface,
 } as const;
 
 export type SurfaceName = keyof typeof SURFACE_LIBRARY;
@@ -1367,6 +1471,13 @@ export const SURFACE_PARAM_SCHEMA: Record<string, SurfaceParamSpec[]> = {
   fabric: [
     { key: "color", label: "织物色", type: "rgb", default: [0.45, 0.18, 0.22] },
     SEED(31),
+  ],
+  foliage: [
+    { key: "color", label: "叶片色", type: "rgb", default: [0.16, 0.4, 0.12] },
+    { key: "season", label: "季节(青→枯)", type: "range", min: 0, max: 1, step: 0.02, default: 0 },
+    { key: "translucency", label: "逆光透光", type: "range", min: 0, max: 1, step: 0.02, default: 0.35 },
+    { key: "veinScale", label: "叶脉密度", type: "range", min: 8, max: 60, step: 1, default: 26 },
+    SEED(37),
   ],
   leather: [
     { key: "color", label: "皮革色", type: "rgb", default: [0.28, 0.16, 0.1] },

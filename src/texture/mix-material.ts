@@ -11,6 +11,7 @@
 import type { TextureBuffer } from "./buffer.js";
 import { makeTexture } from "./buffer.js";
 import type { Material } from "./pbr.js";
+import { heightBlendMask } from "./detailing.js";
 
 function px(tex: TextureBuffer, x: number, y: number, c: number): number {
   const ch = Math.min(c, tex.channels - 1);
@@ -59,4 +60,60 @@ export function mixMaterials(a: Material, b: Material, mask: MaterialMask): Mate
     height: lerpBuffers(a.height, b.height, mask),
     emission: lerpBuffers(a.emission, b.emission, mask),
   };
+}
+
+export interface HeightBlendMaterialsOptions {
+  /** Blend position 0..1: how much of the raised/base surface layer B claims. */
+  amount: number;
+  /** Transition hardness 0..1 (1 = crisp seam, 0 = soft lerp). Default 0.6. */
+  contrast?: number;
+  /** Per-texel noise jitter on the height so the seam looks organic. */
+  jitter?: number;
+  /** Noise scale for the jitter. */
+  jitterScale?: number;
+  /** Seed for the jitter noise. */
+  seed?: number;
+  /**
+   * Which material's height field drives the blend. "b" (default) lets layer B
+   * settle into A's low spots (moss in crevices); "a" caps A's high spots.
+   */
+  heightFrom?: "a" | "b";
+}
+
+/** Read a TextureBuffer's channel 0 as a (u,v)->0..1 field (bilinear-free nearest). */
+function bufferAsField(tex: TextureBuffer): (u: number, v: number) => number {
+  return (u, v) => {
+    const x = Math.min(tex.width - 1, Math.max(0, Math.floor(u * tex.width)));
+    const y = Math.min(tex.height - 1, Math.max(0, Math.floor(v * tex.height)));
+    return px(tex, x, y, 0);
+  };
+}
+
+/**
+ * Height-aware two-material blend (UE M_BlendMoss / MF_Blend_Through_Input):
+ * instead of a flat crossfade, layer B wins where the driving height clears a
+ * contrast-controlled threshold, so B nestles into crevices (or caps ledges)
+ * with a crisp, natural seam. This is the realistic way to grow moss on rock,
+ * snow on ledges, or blend worn edges. Both materials must share dimensions.
+ */
+export function heightBlendMaterials(
+  a: Material,
+  b: Material,
+  opts: HeightBlendMaterialsOptions,
+): Material {
+  const amount = Math.min(1, Math.max(0, opts.amount));
+  const contrast = Math.min(1, Math.max(0, opts.contrast ?? 0.6));
+  const jitter = Math.min(1, Math.max(0, opts.jitter ?? 0));
+  const jScale = opts.jitterScale ?? 12;
+  const seed = (opts.seed ?? 0) >>> 0;
+  const heightTex = opts.heightFrom === "a" ? a.height : b.height;
+  const heightField = bufferAsField(heightTex);
+  const mask = heightBlendMask(heightField, {
+    amount,
+    contrast,
+    jitter,
+    jitterScale: jScale,
+    seed,
+  });
+  return mixMaterials(a, b, mask);
 }

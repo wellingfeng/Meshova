@@ -8,6 +8,14 @@
 import * as THREE from "three";
 import { PROC_MODELS, defaultParams } from "/web/procmodels.js";
 import { isGalleryModelVisible } from "/web/model-visibility.js";
+import { bakeMaterial, SBS_REPRO_NAMES, PRESET_NAMES, BUILDER_NAMES } from "/web/materials.js";
+
+// 材质条目：与模型同库展示，用方块缩略图；点击跳 matlab.html 单材质渲染器。
+const MATERIAL_CATS = [
+  { id: "sbs", label: "材质·SBS复现", names: SBS_REPRO_NAMES },
+  { id: "preset", label: "材质·内置预设", names: PRESET_NAMES },
+  { id: "builder", label: "材质·拼接", names: BUILDER_NAMES },
+];
 
 // 分类：把模型 id 归到便于浏览的组，未列出的归“其它”。
 const CATEGORY = {
@@ -16,7 +24,9 @@ const CATEGORY = {
   "sports-car": "载具",
   "hard-surface-kit": "硬表面",
   officechair: "家具", wineglass: "家具", "interior-room": "家具",
-  tower: "建筑", pagoda: "建筑", building: "建筑", cityblock: "建筑",
+  tower: "建筑", pagoda: "建筑", building: "建筑", cityblock: "建筑", streetscene: "建筑", freeway: "建筑",
+  "urban-artdeco": "建筑", "urban-glass": "建筑", "urban-brick": "建筑",
+  "urban-office": "建筑", "urban-brownstone": "建筑", "urban-corporate": "建筑",
   rock: "自然", mushroom: "自然", meadow: "自然", vine: "自然",
   fterrain: "地形", "terrain-island": "地形",
   "veg-tree": "植被", "veg-shrub": "植被", "veg-grass": "植被",
@@ -26,6 +36,9 @@ const CATEGORY = {
 const catOf = (id, fallback) => {
   if (id === "fterrain" || id.startsWith("terrain-")) return "地形";
   if (id.startsWith("veg-")) return "植被";
+  if (id.startsWith("mech-")) return "机械";
+  if (fallback === "meshova") return "Meshova 生成";
+  if (id.startsWith("urban-")) return "建筑";
   if (id.startsWith("speedtree-tutorial-")) return "SpeedTree教程复刻";
   if (id === "speedtree-species-lineup" || id === "speedtree-guided-canopy" || /^speedtree-(oak|maple|birch|willow|pine|spruce|palm)$/.test(id)) return "SpeedTree-lite";
   if (id === "speedtree-custom-lineup" || id.startsWith("speedtree-custom-")) return "SpeedTree-lite 新树型";
@@ -35,7 +48,7 @@ const catOf = (id, fallback) => {
 function isGeneratedLibraryEntry(m) {
   if (!m || !m.id || !m.file || PROC_MODELS[m.id] || !isGalleryModelVisible(m.id)) return false;
   const id = String(m.id);
-  return id.startsWith("speedtree-") || id.startsWith("terrain-") || id.startsWith("veg-") || m.category === "地形" || m.category === "植被";
+  return m.category === "meshova" || id.startsWith("speedtree-") || id.startsWith("terrain-") || id.startsWith("veg-") || id.startsWith("mech-") || m.category === "地形" || m.category === "植被" || m.category === "机械";
 }
 
 async function loadGeneratedEntries() {
@@ -108,6 +121,48 @@ const key = new THREE.DirectionalLight(0xffffff, 2.4); key.position.set(3, 5, 4)
 const fill = new THREE.DirectionalLight(0x88aaff, 0.8); fill.position.set(-4, 1, -2);
 const rim = new THREE.DirectionalLight(0xffffff, 1.0); rim.position.set(0, 3, -5);
 scene.add(key, fill, rim, new THREE.HemisphereLight(0x9fb8ff, 0x202028, 0.7));
+
+// 程序化渐变天空 IBL：材质方块的金属/粗糙反射才正确（无外部 HDR）。
+function makeEnv() {
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  const sky = new THREE.Scene();
+  const geo = new THREE.SphereGeometry(50, 32, 16);
+  const mat = new THREE.ShaderMaterial({
+    side: THREE.BackSide,
+    uniforms: { top: { value: new THREE.Color(0xbcd4ff) }, bot: { value: new THREE.Color(0x33383f) } },
+    vertexShader: `varying vec3 vP; void main(){ vP=position; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
+    fragmentShader: `varying vec3 vP; uniform vec3 top; uniform vec3 bot;
+      void main(){ float t=clamp(normalize(vP).y*0.5+0.5,0.0,1.0); gl_FragColor=vec4(mix(bot,top,t),1.0);} `,
+  });
+  sky.add(new THREE.Mesh(geo, mat));
+  const rt = pmrem.fromScene(sky);
+  pmrem.dispose();
+  return rt.texture;
+}
+scene.environment = makeEnv();
+
+// 材质缩略图用的方块（第二套 uv 供 aoMap）。
+const matCubeGeo = new THREE.BoxGeometry(1.4, 1.4, 1.4, 4, 4, 4);
+matCubeGeo.setAttribute("uv2", matCubeGeo.getAttribute("uv"));
+
+// 为一个材质名渲染方块缩略图，返回 dataURL。
+function renderMaterialThumb(name) {
+  const material = bakeMaterial(name, 256, {});
+  const mesh = new THREE.Mesh(matCubeGeo, material);
+  mesh.rotation.set(0.15, 0.6, 0);
+  const root = new THREE.Group();
+  root.add(mesh);
+  scene.add(root);
+  frameRoot(root);
+  renderer.render(scene, camera);
+  const url = canvas.toDataURL("image/png");
+  scene.remove(root);
+  for (const k of ["map", "normalMap", "roughnessMap", "metalnessMap", "aoMap", "emissiveMap"]) {
+    if (material[k] && material[k].dispose) material[k].dispose();
+  }
+  material.dispose();
+  return url;
+}
 
 const textureLoader = new THREE.TextureLoader();
 const textureCache = new Map();
@@ -295,10 +350,26 @@ const generatedEntries = await loadGeneratedEntries();
 const procEntries = Object.entries(PROC_MODELS)
   .filter(([id]) => isGalleryModelVisible(id))
   .map(([id, model]) => ({ id, model, cat: catOf(id), generated: false }));
+// 材质条目：三大类展平，标记 isMaterial，与模型同库排在末尾。
+const materialEntries = [];
+for (const cat of MATERIAL_CATS) {
+  for (const name of cat.names) {
+    materialEntries.push({
+      id: `mat:${cat.id}:${name}`,
+      model: { name },
+      cat: cat.label,
+      isMaterial: true,
+      matName: name,
+      matCat: cat.id,
+    });
+  }
+}
+
 const entries = [
   ...procEntries.filter((e) => !e.id.startsWith("speedtree-")),
   ...procEntries.filter((e) => e.id.startsWith("speedtree-")),
   ...generatedEntries,
+  ...materialEntries,
 ];
 let activeCat = "全部";
 let query = "";
@@ -324,12 +395,16 @@ const cards = entries.map((e) => {
   card.dataset.name = e.model.name;
   card.dataset.id = e.id;
   card.dataset.cat = e.cat;
-  const sub = e.generated ? `${e.cat} · ${e.file}` : `${e.cat} · ${e.id}`;
+  const sub = e.isMaterial ? e.cat : e.generated ? `${e.cat} · ${e.file}` : `${e.cat} · ${e.id}`;
   card.innerHTML =
     `<div class="thumb"><div class="spin"></div></div>` +
     `<div class="meta"><span class="name">${e.model.name}</span>` +
     `<span class="sub">${sub}</span></div>`;
   card.onclick = () => {
+    if (e.isMaterial) {
+      location.href = `/web/matlab.html?cat=${encodeURIComponent(e.matCat)}&mat=${encodeURIComponent(e.matName)}`;
+      return;
+    }
     const modelParam = e.generated ? (e.file || `${e.id}.json`) : e.id;
     location.href = `/web/index.html?model=${encodeURIComponent(modelParam)}`;
   };
@@ -390,24 +465,64 @@ async function fillGeneratedCard(entry) {
   }
 }
 
-// 逐个烘缩略图（顺序执行，避免同时占满 GPU；让出主线程保持 UI 响应）。
-(async () => {
-  for (const entry of cards.filter((card) => card.generated)) {
-    await fillGeneratedCard(entry);
-  }
-  for (const entry of cards) {
-    const { card, model } = entry;
-    const thumb = card.querySelector(".thumb");
-    if (entry.generated) continue;
+// 单张缩略图渲染：按 entry 类型分派。材质方块最快，生成模型优先用离线截图，proc 模型运行时 build。
+async function renderOne(entry) {
+  const { card, model } = entry;
+  const thumb = card.querySelector(".thumb");
+  if (entry.isMaterial) {
     try {
-      const { url, verts, tris } = await renderThumb(model);
-      thumb.innerHTML =
-        `<img src="${url}" alt="${model.name}" />` +
-        `<span class="badge">${tris | 0} 面</span>`;
-      card.querySelector(".sub").textContent += ` · ${verts} 顶点`;
+      const url = renderMaterialThumb(entry.matName);
+      thumb.innerHTML = `<img src="${url}" alt="${entry.model.name}" />`;
     } catch (e) {
       thumb.innerHTML = `<span style="color:#ff7b72;font-size:12px;padding:8px;text-align:center">渲染失败<br>${e?.message || e}</span>`;
     }
+    return;
+  }
+  if (entry.generated) {
+    await fillGeneratedCard(entry);
+    return;
+  }
+  try {
+    const { url, verts, tris } = await renderThumb(model);
+    thumb.innerHTML =
+      `<img src="${url}" alt="${model.name}" />` +
+      `<span class="badge">${tris | 0} 面</span>`;
+    card.querySelector(".sub").textContent += ` · ${verts} 顶点`;
+  } catch (e) {
+    thumb.innerHTML = `<span style="color:#ff7b72;font-size:12px;padding:8px;text-align:center">渲染失败<br>${e?.message || e}</span>`;
+  }
+}
+
+// 懒加载：只渲染进入视口的卡片。共享同一个 renderer，所以按“进入视口”顺序串行出队，
+// 首屏可见的卡片最先渲染。滚动到哪就渲染到哪，避免几百张排一条队把首屏挤到队尾。
+const renderQueue = [];
+let pumping = false;
+async function pump() {
+  if (pumping) return;
+  pumping = true;
+  while (renderQueue.length) {
+    const entry = renderQueue.shift();
+    if (entry.rendered) continue;
+    entry.rendered = true;
+    await renderOne(entry);
     await new Promise((r) => requestAnimationFrame(r));
   }
-})();
+  pumping = false;
+}
+
+const cardByEl = new Map(cards.map((e) => [e.card, e]));
+const observer = new IntersectionObserver(
+  (records) => {
+    for (const rec of records) {
+      if (!rec.isIntersecting) continue;
+      const entry = cardByEl.get(rec.target);
+      if (!entry || entry.rendered || entry.queued) continue;
+      entry.queued = true;
+      renderQueue.push(entry);
+      observer.unobserve(rec.target);
+    }
+    pump();
+  },
+  { rootMargin: "300px 0px", threshold: 0.01 }
+);
+for (const entry of cards) observer.observe(entry.card);

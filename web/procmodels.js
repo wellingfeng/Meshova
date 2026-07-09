@@ -43,8 +43,21 @@ import {
   storePointAttribute,
   pointAttribute,
   copyToPoints,
+  surfacePointCloud,
+  applyRules,
+  ruleNormalToDensity,
+  ruleDensityNoise,
+  ruleDensityPrune,
+  ruleSelfPruning,
+  ruleScaleJitter,
+  ruleYawJitter,
+  ruleClipToCurveBand,
+  ruleWeightedFill,
+  pruneMasked,
+  copyAssembliesToPoints,
   makeNoise,
   fbm2,
+  vec2,
   vec3,
   buildSportsCarParts,
   buildGmcCanyonAt4xParts,
@@ -52,12 +65,24 @@ import {
   buildCartoonMechPilotParts,
   buildStylizedHumanoidParts,
   buildBuildingParts,
+  buildUrbanBuildingParts,
+  urbanDefaults,
+  buildChineseHallParts,
+  buildMountainVillageParts,
   buildMidnightHorseParts,
   buildReferenceDogParts,
   buildCityBlockParts,
+  buildStreetsceneParts,
   buildInteriorRoomParts,
   buildHardSurfaceKitParts,
   buildTerrainIslandParts,
+  buildCloudParts,
+  buildCloudSkyParts,
+  buildPolygonIslandParts,
+  buildTerrainField,
+  classifyBiomes,
+  overworldBiomeTable,
+  scatterPointsOnField,
   buildTShirt,
   buildSkirt,
   buildPants,
@@ -67,6 +92,7 @@ import {
   solveCloth,
   getFabric,
   tree,
+  growingTree,
   shrub,
   grass,
   conifer,
@@ -89,6 +115,16 @@ import {
   stretchMesh,
   metaballs,
   fuseSpheres,
+  roadRibbon,
+  roadCurbs,
+  roadCenterLine,
+  buildFreewayParts,
+  buildRailwayParts,
+  makeTerrainPrimitiveField,
+  heightfieldToTerrainMesh,
+  sampleField2DBilinear,
+  makeMesh,
+  recomputeNormals,
 } from "/dist/index.js";
 import { SPEEDTREE_TUTORIAL_MODELS } from "/web/speedtree-tutorial-procmodels.js";
 
@@ -109,6 +145,43 @@ function surfPart(name, mesh, type, params) {
 
 function roundedBoxMesh(w, h, d, iterations = 1) {
   return catmullClark(box(w, h, d), iterations);
+}
+
+/** Deterministic 0..1 PRNG (mulberry32) so the rock pile is reproducible per seed. */
+function mulberry32(seed) {
+  let a = seed >>> 0 || 1;
+  return function () {
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/** Lift a mesh so its lowest vertex sits on y=0 (rocks rest on the ground). */
+function dropToGround(m) {
+  let minY = Infinity;
+  for (const p of m.positions) if (p.y < minY) minY = p.y;
+  return Number.isFinite(minY) ? translateMesh(m, vec3(0, -minY, 0)) : m;
+}
+
+/**
+ * World-space triplanar UV reprojection. After non-uniform scaling, a mesh's
+ * original UVs get stretched — projecting UVs from world position (per the
+ * dominant normal axis) keeps texel density uniform regardless of scale.
+ * `density` is texture repeats per world unit.
+ */
+function triplanarUV(m, density = 1) {
+  const uvs = m.positions.map((p, i) => {
+    const n = m.normals[i];
+    const ax = Math.abs(n.x), ay = Math.abs(n.y), az = Math.abs(n.z);
+    let u, v;
+    if (ax >= ay && ax >= az) { u = p.z; v = p.y; }       // facing X -> ZY plane
+    else if (ay >= ax && ay >= az) { u = p.x; v = p.z; }  // facing Y -> XZ plane
+    else { u = p.x; v = p.y; }                            // facing Z -> XY plane
+    return vec2(u * density, v * density);
+  });
+  return { positions: m.positions, normals: m.normals, uvs, indices: m.indices };
 }
 
 /**
@@ -236,6 +309,209 @@ const rock = {
     return [surfPart("rock", m, "stone", { scale: 5 })];
   },
 };
+
+// ---- a stylized rock pile: polar-scattered low-poly rocks with distance falloff ----
+// Reimplements the RockTools aesthetic (Cubic / Sharp) from public knowledge:
+// rocks scattered on a disk, scaled down toward the edge, stretched tall/flat/wide,
+// with rotation jitter growing with distance from the center.
+const rockPile = {
+  id: "rock-pile",
+  name: "风格化岩石群",
+  schema: [
+    { key: "type", label: "形态 (0圆润 1尖锐)", min: 0, max: 1, step: 1, default: 0 },
+    { key: "count", label: "石块数", min: 1, max: 60, step: 1, default: 30 },
+    { key: "radius", label: "分布半径", min: 0.6, max: 3, step: 0.05, default: 1.7 },
+    { key: "decentralize", label: "外扩程度", min: 0, max: 1, step: 0.01, default: 0.55 },
+    { key: "tallness", label: "高耸", min: 0, max: 1, step: 0.01, default: 0.35 },
+    { key: "flatness", label: "扁平", min: 0, max: 1, step: 0.01, default: 0.15 },
+    { key: "wideness", label: "横宽", min: 0, max: 1, step: 0.01, default: 0.2 },
+    { key: "jitter", label: "旋转扰动", min: 0, max: 1, step: 0.01, default: 0.4 },
+    { key: "rough", label: "表面崎岖", min: 0, max: 0.5, step: 0.01, default: 0.18 },
+    { key: "seed", label: "随机种子", min: 0, max: 100, step: 1, default: 7 },
+  ],
+  build(p) {
+    const rnd = mulberry32((p.seed | 0) * 2654435761 + 1);
+    const count = Math.max(1, Math.round(p.count));
+    const sharp = p.type >= 0.5;
+    const parts = [];
+
+    for (let i = 0; i < count; i++) {
+      const rd = rnd(), theta = rnd() * Math.PI * 2;
+      const rr = rnd(), sr = rnd();
+      const rx = rnd(), ry = rnd(), rz = rnd();
+
+      // polar position: exponent < 1 pushes rocks outward as decentralize grows
+      const pow = 0.66 + (0.25 - 0.66) * p.decentralize;
+      const d = Math.pow(rd, pow); // 0..1 normalized distance
+      const r = d * p.radius;
+      const pos = vec3(r * Math.cos(theta), 0, r * Math.sin(theta));
+
+      // base low-poly rock: sharp = icosphere kept faceted, cubic = rounded box
+      let m = sharp
+        ? subdivide(icosphere(0.28 + rr * 0.14, 1), 0)
+        : catmullClark(box(0.4 + rr * 0.2, 0.4 + rr * 0.2, 0.4 + rr * 0.2), 1);
+
+      // give each rock its own crag via seeded noise displacement
+      if (p.rough > 0) {
+        m = displaceByNoise(m, { amount: p.rough, scale: sharp ? 3.5 : 2.2, seed: (p.seed | 0) + i * 13 });
+      }
+
+      // distance falloff: center rocks biggest, edge rocks smallest
+      const distCurve = 1 - d;               // near-center -> ~1, edge -> ~0
+      const distRev = d;                     // inverse
+      // gentler center->edge falloff so the pile reads as a cluster, not one boulder + gravel
+      const localScale = (0.55 + distCurve * 0.55) * (0.78 + sr * 0.44);
+      const tall = 1 + 2 * (distCurve * p.tallness);
+      const flat = 3 * (distRev * p.flatness);
+      const wide = 3 * (distRev * p.wideness);
+      const height = Math.max(0.15, tall - flat);
+      const sc = vec3((1 + wide) * localScale, height * localScale, (1 + wide) * localScale);
+
+      // rotation jitter grows with distance (edge rocks tumble more)
+      const jr = p.jitter * Math.PI * d;
+      const rot = vec3((rx - 0.5) * jr, ry * Math.PI * 2, (rz - 0.5) * jr);
+
+      m = transform(m, { scale: sc, rotate: rot });
+      m = dropToGround(m);
+      // reproject UVs in the rock's local (post-scale) space so stretching from
+      // the non-uniform scale doesn't smear the stone texture into streaks
+      m = triplanarUV(m, 1.6);
+      m = translateMesh(m, pos);
+      parts.push(m);
+    }
+
+    const merged = parts.reduce((acc, m) => (acc ? merge(acc, m) : m), null);
+    return [surfPart("rocks", cleanMesh(merged), "stone", { scale: 1.5 })];
+  },
+};
+
+// ---- PCG vegetated terrain: the UE Electric Dreams scatter pipeline ----
+// Terrain mesh -> surface sample -> slope density (陡坡不长草) -> noise density
+// (疏密团簇) -> self-pruning (不穿模) -> clear a road band (Difference) ->
+// copy tree/rock assemblies to the surviving points. All deterministic (seed).
+const pcgVegetation = {
+  id: "pcg-vegetation",
+  name: "PCG 植被地形",
+  schema: [
+    { key: "size", label: "地形尺寸", min: 8, max: 30, step: 0.5, default: 18 },
+    { key: "relief", label: "地形起伏", min: 0.5, max: 6, step: 0.1, default: 3 },
+    { key: "count", label: "撒点密度", min: 200, max: 3000, step: 50, default: 1400 },
+    { key: "slopeMax", label: "最大生长坡度°", min: 20, max: 70, step: 1, default: 42 },
+    { key: "clumping", label: "疏密团簇", min: 0, max: 1, step: 0.01, default: 0.55 },
+    { key: "spacing", label: "最小间距", min: 0.2, max: 2, step: 0.05, default: 0.7 },
+    { key: "roadWidth", label: "空地/路宽", min: 0, max: 3, step: 0.1, default: 1.4 },
+    { key: "treeRatio", label: "乔木占比", min: 0, max: 1, step: 0.05, default: 0.35 },
+    { key: "seed", label: "随机种子", min: 0, max: 100, step: 1, default: 7 },
+  ],
+  build(p) {
+    const size = p.size;
+    // 1) terrain: an island-falloff heightfield turned into a mesh.
+    const field = makeTerrainPrimitiveField({
+      resolution: 96,
+      seed: p.seed | 0,
+      height: 1,
+      noiseScale: 1.25,
+      ridgeStrength: 0.5,
+      islandFalloff: 1.6,
+    });
+    const terrain = heightfieldToTerrainMesh(field, {
+      size,
+      heightScale: p.relief,
+      baseY: 0,
+    });
+    return buildPcgVegetationParts(p, terrain, size);
+  },
+};
+
+function buildPcgVegetationParts(p, terrain, size) {
+  // 2) surface scatter, then the density/pruning pipeline.
+  const raw = surfacePointCloud(terrain, { count: Math.round(p.count), seed: (p.seed | 0) + 1 });
+  const slope = (p.slopeMax * Math.PI) / 180;
+  // a gentle S-curve road across the middle for the "Difference" clear.
+  const road = smoothCurve(
+    polyline([
+      vec3(-size * 0.5, 0, -size * 0.18),
+      vec3(-size * 0.15, 0, size * 0.08),
+      vec3(size * 0.2, 0, -size * 0.1),
+      vec3(size * 0.5, 0, size * 0.16),
+    ]),
+    6,
+  );
+  const rules = [
+    ruleNormalToDensity({ startAngle: slope * 0.6, endAngle: slope }),
+    ruleDensityNoise({ frequency: 0.12 + p.clumping * 0.25, floor: p.clumping * 0.55, multiply: true, seed: (p.seed | 0) + 2 }),
+    ruleDensityPrune((p.seed | 0) + 3),
+    ruleSelfPruning({ radius: p.spacing }),
+  ];
+  if (p.roadWidth > 0) rules.push(ruleClipToCurveBand(road, { width: p.roadWidth, mode: "remove" }));
+  // pick tree vs rock per point, then jitter scale/yaw for variety.
+  rules.push(
+    ruleWeightedFill([0, 1], { weights: [p.treeRatio, 1 - p.treeRatio], seed: (p.seed | 0) + 4 }),
+    ruleScaleJitter(0.35, (p.seed | 0) + 5),
+    ruleYawJitter(Math.PI, (p.seed | 0) + 6),
+    pruneMasked(),
+  );
+  const scattered = applyRules(raw, rules);
+
+  // 3) instance libraries as hierarchical assemblies (trunk+canopy / rock cluster).
+  const treeAsm = {
+    parts: [
+      { mesh: cylinder(0.06, 0.9, 6), offset: vec3(0, 0.45, 0) },
+      { mesh: icosphere(0.42, 1), offset: vec3(0, 1.15, 0), scale: 1 },
+      { mesh: icosphere(0.3, 1), offset: vec3(0.12, 1.5, 0.05), scale: 0.8 },
+    ],
+  };
+  const rockAsm = {
+    parts: [
+      { mesh: catmullClark(box(0.4, 0.32, 0.42), 1), offset: vec3(0, 0.14, 0) },
+      { mesh: icosphere(0.18, 0), offset: vec3(0.28, 0.1, 0.1), scale: 0.9 },
+    ],
+  };
+  // split points by variant so each mesh set gets its own material.
+  const treePts = filterByVariant(scattered, 0);
+  const rockPts = filterByVariant(scattered, 1);
+  const parts = [surfPart("terrain", terrain, "stone", { color: [0.34, 0.3, 0.22], roughness: 0.95, scale: 3 })];
+  if (pointCountOf(treePts) > 0) {
+    const trees = copyAssembliesToPoints(treePts, treeAsm, {
+      scale: pointAttribute("scale", 1),
+      yaw: pointAttribute("yaw", 0),
+      alignToNormal: false,
+    });
+    parts.push(surfPart("trees", trees, "foliage", { color: [0.22, 0.44, 0.18], season: 0.15, translucency: 0.4 }));
+  }
+  if (pointCountOf(rockPts) > 0) {
+    const rocks = copyAssembliesToPoints(rockPts, rockAsm, {
+      scale: pointAttribute("scale", 1),
+      yaw: pointAttribute("yaw", 0),
+      alignToNormal: false,
+    });
+    parts.push(surfPart("rocks", rocks, "stone", { color: [0.5, 0.48, 0.45], scale: 2 }));
+  }
+  return parts;
+}
+
+function pointCountOf(pc) {
+  return pc && pc.points ? pc.points.length : 0;
+}
+
+/** Keep only points whose "variant" attribute equals `v` (compacts attributes). */
+function filterByVariant(pc, v) {
+  const variant = pc.attributes.variant;
+  if (!variant) return v === 0 ? pc : makePointCloud({ points: [] });
+  const keep = [];
+  for (let i = 0; i < pc.points.length; i++) {
+    if (Math.round(variant[i]) === v) keep.push(i);
+  }
+  const attributes = {};
+  for (const name of Object.keys(pc.attributes)) {
+    attributes[name] = keep.map((i) => pc.attributes[name][i]);
+  }
+  return makePointCloud({
+    points: keep.map((i) => pc.points[i]),
+    normals: keep.map((i) => pc.normals[i]),
+    attributes,
+  });
+}
 
 // ---- a procedural tower: arrayed, scaled boxes ----
 const tower = {
@@ -492,6 +768,117 @@ const gear = {
       parts.push(surfPart(`tooth_${i}`, tooth, "metal", { color: [0.55, 0.56, 0.58], roughness: 0.25 }));
     }
     return parts;
+  },
+};
+
+// ---- procedural road: ribbon swept along a spline (ported from UE Quick Road PCG) ----
+const road = {
+  id: "road",
+  name: "程序化道路",
+  schema: [
+    { key: "halfWidth", label: "路面半宽", min: 1, max: 6, step: 0.25, default: 3 },
+    { key: "curve", label: "弯曲程度", min: 0, max: 12, step: 0.5, default: 6 },
+    { key: "length", label: "道路长度", min: 10, max: 40, step: 2, default: 24 },
+    { key: "sample", label: "采样间距", min: 0.5, max: 4, step: 0.25, default: 1.5 },
+    { key: "widthSub", label: "路宽细分", min: 1, max: 8, step: 1, default: 4 },
+    { key: "curbH", label: "路缘高", min: 0, max: 0.5, step: 0.05, default: 0.2 },
+    { key: "showLine", label: "中线(0/1)", min: 0, max: 1, step: 1, default: 1 },
+  ],
+  build(p) {
+    const parts = [];
+    const half = p.length / 2;
+    const bend = p.curve;
+    // S-shaped centerline via a cubic bezier on the XZ ground plane.
+    const centerline = bezier(
+      vec3(-bend, 0, -half),
+      vec3(bend, 0, -half / 3),
+      vec3(-bend, 0, half / 3),
+      vec3(bend, 0, half),
+      48,
+    );
+    const opts = {
+      halfWidth: p.halfWidth,
+      sampleDistance: p.sample,
+      widthSubdivisions: Math.round(p.widthSub),
+      adaptiveCurvature: true,
+      curvatureThresholdDeg: 6,
+      verticalOffset: 0.02,
+    };
+    // Asphalt surface (uniform dark ceramic reads as tarmac against the ground).
+    parts.push(surfPart("road_surface", roadRibbon(centerline, opts), "ceramic", { color: [0.09, 0.09, 0.1], roughness: 0.92 }));
+    // Raised curbs on both edges (light concrete via stone).
+    if (p.curbH > 0.001) {
+      parts.push(surfPart("curbs", roadCurbs(centerline, { ...opts, curbHeight: p.curbH, curbWidth: 0.3 }), "stone", { color: [0.62, 0.62, 0.64], roughness: 0.7 }));
+    }
+    // Painted centerline (glossy ceramic yellow).
+    if (p.showLine > 0.5) {
+      parts.push(surfPart("center_line", roadCenterLine(centerline, { ...opts, lineWidth: 0.2 }), "ceramic", { color: [0.95, 0.82, 0.15] }));
+    }
+    // Ground plane under the road for context.
+    parts.push(surfPart("ground", transform(plane(p.length * 1.6, p.length * 1.6, 1, 1), { translate: vec3(0, 0, 0) }), "stone", { color: [0.2, 0.28, 0.16], roughness: 1 }));
+    return parts;
+  },
+};
+
+// ---- procedural freeway: dual carriageway + median barrier + guardrails ----
+const freeway = {
+  id: "freeway",
+  name: "程序化高速",
+  schema: [
+    { key: "length", label: "路段长度", min: 20, max: 120, step: 2, default: 64 },
+    { key: "bend", label: "弯曲幅度", min: 0, max: 20, step: 0.5, default: 9 },
+    { key: "lanesPerSide", label: "单向车道数", min: 1, max: 5, step: 1, default: 3 },
+    { key: "laneWidth", label: "车道宽", min: 2.5, max: 4.5, step: 0.1, default: 3.5 },
+    { key: "medianWidth", label: "中央带宽", min: 0.6, max: 4, step: 0.1, default: 1.4 },
+    { key: "elevation", label: "高架高度", min: 0, max: 12, step: 0.5, default: 0 },
+    { key: "guardrails", label: "护栏(0/1)", min: 0, max: 1, step: 1, default: 1 },
+    { key: "pillars", label: "桥墩(0/1)", min: 0, max: 1, step: 1, default: 1 },
+    { key: "pillarSpacing", label: "桥墩间距", min: 6, max: 24, step: 1, default: 12 },
+    { key: "deckThickness", label: "桥面厚度", min: 0.3, max: 1.5, step: 0.1, default: 0.6 },
+    { key: "signGantry", label: "标志架(0/1)", min: 0, max: 1, step: 1, default: 1 },
+    { key: "signSpacing", label: "标志架间距", min: 12, max: 80, step: 2, default: 36 },
+    { key: "sample", label: "采样间距", min: 0.6, max: 3, step: 0.2, default: 1.2 },
+  ],
+  build(p) {
+    return buildFreewayParts({
+      length: p.length,
+      bend: p.bend,
+      lanesPerSide: Math.round(p.lanesPerSide),
+      laneWidth: p.laneWidth,
+      medianWidth: p.medianWidth,
+      elevation: p.elevation,
+      guardrails: Math.round(p.guardrails) === 1,
+      pillars: Math.round(p.pillars) === 1,
+      pillarSpacing: p.pillarSpacing,
+      deckThickness: p.deckThickness,
+      signGantry: Math.round(p.signGantry) === 1,
+      signSpacing: p.signSpacing,
+      sample: p.sample,
+    });
+  },
+};
+
+// ---- procedural railway: ballast bed + sleepers + two steel rails ----
+const railway = {
+  id: "railway",
+  name: "程序化铁路",
+  schema: [
+    { key: "length", label: "线路长度", min: 12, max: 100, step: 2, default: 40 },
+    { key: "bend", label: "弯曲幅度", min: 0, max: 16, step: 0.5, default: 6 },
+    { key: "gauge", label: "轨距", min: 0.6, max: 2, step: 0.005, default: 1.435 },
+    { key: "sleeperSpacing", label: "轨枕间距", min: 0.4, max: 1.5, step: 0.05, default: 0.6 },
+    { key: "concreteSleepers", label: "混凝土枕(0/1)", min: 0, max: 1, step: 1, default: 0 },
+    { key: "sample", label: "采样间距", min: 0.4, max: 2, step: 0.1, default: 0.8 },
+  ],
+  build(p) {
+    return buildRailwayParts({
+      length: p.length,
+      bend: p.bend,
+      gauge: p.gauge,
+      sleeperSpacing: p.sleeperSpacing,
+      concreteSleepers: Math.round(p.concreteSleepers) === 1,
+      sample: p.sample,
+    });
   },
 };
 
@@ -1211,6 +1598,115 @@ const building = {
   },
 };
 
+// ---- urban city buildings: CitySample-style modular towers (podium/shaft/crown) ----
+const URBAN_FACADE = ["punched", "ribbon"];
+const URBAN_CROWN = ["flat", "stepped", "spire", "mansard", "watertank"];
+
+/**
+ * Build a ProcModel for one urban-building style. Each style gets the same
+ * schema (footprint / floors / bays / podium / setback / facade / crown), with
+ * defaults pulled from the library preset so the slider starting point already
+ * reads as that city type.
+ */
+function makeUrbanModel(id, name, style) {
+  const d = urbanDefaults(style);
+  return {
+    id,
+    name,
+    schema: [
+      { key: "floors", label: "标准层数", min: 1, max: 40, step: 1, default: d.floors },
+      { key: "floorHeight", label: "层高", min: 0.6, max: 1.6, step: 0.02, default: d.floorHeight },
+      { key: "width", label: "面宽", min: 2, max: 8, step: 0.1, default: d.width },
+      { key: "depth", label: "进深", min: 2, max: 8, step: 0.1, default: d.depth },
+      { key: "baysX", label: "面宽开间", min: 1, max: 10, step: 1, default: d.baysX },
+      { key: "baysZ", label: "进深开间", min: 1, max: 10, step: 1, default: d.baysZ },
+      { key: "podiumFloors", label: "裙楼层数", min: 0, max: 4, step: 1, default: d.podiumFloors },
+      { key: "podiumOverhang", label: "裙楼外扩", min: 0, max: 1.6, step: 0.05, default: d.podiumOverhang },
+      { key: "setbackEvery", label: "每N层收分(0关)", min: 0, max: 10, step: 1, default: d.setbackEvery },
+      { key: "setbackAmount", label: "收分量", min: 0, max: 1, step: 0.05, default: d.setbackAmount },
+      { key: "facade", label: "立面(0冲孔窗/1带形窗)", min: 0, max: 1, step: 1, default: URBAN_FACADE.indexOf(d.facade) },
+      { key: "windowRatio", label: "窗墙比", min: 0.2, max: 0.95, step: 0.01, default: d.windowRatio },
+      { key: "verticalPiers", label: "竖向壁柱(0关/1开)", min: 0, max: 1, step: 1, default: d.verticalPiers ? 1 : 0 },
+      { key: "crown", label: "塔冠(0平/1退台/2尖顶/3孟莎/4水塔)", min: 0, max: 4, step: 1, default: URBAN_CROWN.indexOf(d.crown) },
+      { key: "crownHeight", label: "塔冠高", min: 0.3, max: 3.5, step: 0.05, default: d.crownHeight },
+      { key: "seed", label: "变体种子", min: 0, max: 120, step: 1, default: d.seed },
+    ],
+    build(p) {
+      return buildUrbanBuildingParts({
+        style,
+        floors: p.floors,
+        floorHeight: p.floorHeight,
+        width: p.width,
+        depth: p.depth,
+        baysX: p.baysX,
+        baysZ: p.baysZ,
+        podiumFloors: p.podiumFloors,
+        podiumOverhang: p.podiumOverhang,
+        setbackEvery: Math.round(p.setbackEvery),
+        setbackAmount: p.setbackAmount,
+        facade: URBAN_FACADE[Math.round(p.facade)] || "punched",
+        windowRatio: p.windowRatio,
+        verticalPiers: Math.round(p.verticalPiers) === 1,
+        crown: URBAN_CROWN[Math.round(p.crown)] || "flat",
+        crownHeight: p.crownHeight,
+        seed: p.seed,
+      });
+    },
+  };
+}
+
+const urbanArtDeco = makeUrbanModel("urban-artdeco", "都市·装饰艺术摩天楼", "artDeco");
+const urbanGlassTower = makeUrbanModel("urban-glass", "都市·玻璃幕墙塔", "glassTower");
+const urbanBrickWalkup = makeUrbanModel("urban-brick", "都市·砖砌公寓", "brickWalkup");
+const urbanModernOffice = makeUrbanModel("urban-office", "都市·现代办公楼", "modernOffice");
+const urbanBrownstone = makeUrbanModel("urban-brownstone", "都市·褐石排屋", "brownstone");
+const urbanCorporate = makeUrbanModel("urban-corporate", "都市·企业总部塔", "corporate");
+
+// ---- Chinese classical timber hall (殿堂): curved hip roof + dougong ----
+const CHINESE_ROOF_TYPES = ["hip", "hipGable", "gable"];
+const chineseHall = {
+  id: "chinese-hall",
+  name: "中式古建·殿堂",
+  schema: [
+    { key: "baysX", label: "面阔间数", min: 1, max: 9, step: 1, default: 5 },
+    { key: "baysZ", label: "进深间数", min: 1, max: 6, step: 1, default: 3 },
+    { key: "bayWidth", label: "间广(X)", min: 1.2, max: 3.5, step: 0.1, default: 2.2 },
+    { key: "bayDepth", label: "间深(Z)", min: 1.0, max: 3.0, step: 0.1, default: 1.9 },
+    { key: "columnHeight", label: "檐柱高", min: 1.8, max: 4.5, step: 0.1, default: 3.0 },
+    { key: "columnRadius", label: "柱径", min: 0.1, max: 0.3, step: 0.01, default: 0.16 },
+    { key: "baseHeight", label: "台基高", min: 0.3, max: 1.6, step: 0.05, default: 0.7 },
+    { key: "eaveOverhang", label: "出檐", min: 0.6, max: 2.2, step: 0.05, default: 1.25 },
+    { key: "roofRise", label: "举高比", min: 0.2, max: 0.7, step: 0.02, default: 0.36 },
+    { key: "roofConcavity", label: "举架曲度", min: 0, max: 1, step: 0.05, default: 0.55 },
+    { key: "cornerUpturn", label: "翼角起翘", min: 0, max: 1.6, step: 0.05, default: 0.7 },
+    { key: "roofType", label: "屋顶(0庑殿/1歇山/2硬山)", min: 0, max: 2, step: 1, default: 0 },
+    { key: "dougong", label: "斗拱(0关/1开)", min: 0, max: 1, step: 1, default: 1 },
+    { key: "ridgeBeasts", label: "脊兽(0关/1开)", min: 0, max: 1, step: 1, default: 1 },
+    { key: "walls", label: "墙与隔扇(0关/1开)", min: 0, max: 1, step: 1, default: 1 },
+    { key: "seed", label: "变体种子", min: 0, max: 60, step: 1, default: 9 },
+  ],
+  build(p) {
+    return buildChineseHallParts({
+      baysX: p.baysX,
+      baysZ: p.baysZ,
+      bayWidth: p.bayWidth,
+      bayDepth: p.bayDepth,
+      columnHeight: p.columnHeight,
+      columnRadius: p.columnRadius,
+      baseHeight: p.baseHeight,
+      eaveOverhang: p.eaveOverhang,
+      roofRise: p.roofRise,
+      roofConcavity: p.roofConcavity,
+      cornerUpturn: p.cornerUpturn,
+      roof: CHINESE_ROOF_TYPES[Math.round(p.roofType)] || "hip",
+      dougong: Math.round(p.dougong) === 1,
+      ridgeBeasts: Math.round(p.ridgeBeasts) === 1,
+      walls: Math.round(p.walls) === 1,
+      seed: p.seed,
+    });
+  },
+};
+
 // ---- procedural city block: grid of seeded building variants ----
 const cityBlock = {
   id: "cityblock",
@@ -1242,6 +1738,34 @@ const cityBlock = {
       roadWidth: p.roadWidth,
       sidewalkWidth: p.sidewalkWidth,
       faceStreet: Math.round(p.faceStreet) === 1,
+      seed: p.seed,
+    });
+  },
+};
+
+// ---- procedural streetscene: modular street-furniture kit scattered along a road ----
+const streetscene = {
+  id: "streetscene",
+  name: "程序化街景",
+  schema: [
+    { key: "length", label: "街段长度", min: 8, max: 48, step: 1, default: 26 },
+    { key: "roadHalfWidth", label: "车道半宽", min: 1.5, max: 6, step: 0.1, default: 3.2 },
+    { key: "sidewalkWidth", label: "人行道宽", min: 0.8, max: 4, step: 0.1, default: 2.0 },
+    { key: "spacing", label: "布设间距", min: 1.5, max: 6, step: 0.1, default: 3.0 },
+    { key: "jitter", label: "位置抖动", min: 0, max: 0.8, step: 0.05, default: 0.35 },
+    { key: "bothSides", label: "双侧(0关/1开)", min: 0, max: 1, step: 1, default: 1 },
+    { key: "ground", label: "地面(0关/1开)", min: 0, max: 1, step: 1, default: 1 },
+    { key: "seed", label: "街景种子", min: 0, max: 120, step: 1, default: 21 },
+  ],
+  build(p) {
+    return buildStreetsceneParts({
+      length: p.length,
+      roadHalfWidth: p.roadHalfWidth,
+      sidewalkWidth: p.sidewalkWidth,
+      spacing: p.spacing,
+      jitter: p.jitter,
+      bothSides: Math.round(p.bothSides) === 1,
+      ground: Math.round(p.ground) === 1,
       seed: p.seed,
     });
   },
@@ -1351,10 +1875,366 @@ const terrainIsland = {
   },
 };
 
+// ---- procedural cumulus cloud: scatter blobs -> iso-surface -> puff noise ----
+const cloud = {
+  id: "cloud",
+  name: "程序化积云",
+  schema: [
+    { key: "size", label: "云团尺寸", min: 1.5, max: 6, step: 0.1, default: 3.2 },
+    { key: "blobs", label: "团块数量", min: 4, max: 30, step: 1, default: 14 },
+    { key: "flatten", label: "底部压平", min: 0.25, max: 1, step: 0.05, default: 0.55 },
+    { key: "resolution", label: "网格密度", min: 24, max: 72, step: 4, default: 48 },
+    { key: "iso", label: "等值面", min: 0.3, max: 0.8, step: 0.02, default: 0.5 },
+    { key: "smooth", label: "平滑次数", min: 0, max: 2, step: 1, default: 1 },
+    { key: "puff", label: "蓬松强度", min: 0, max: 0.4, step: 0.01, default: 0.18 },
+    { key: "puffScale", label: "蓬松频率", min: 0.6, max: 3.5, step: 0.05, default: 1.6 },
+    { key: "seed", label: "云团种子", min: 0, max: 160, step: 1, default: 7 },
+  ],
+  build(p) {
+    return buildCloudParts({
+      size: p.size,
+      blobs: p.blobs,
+      flatten: p.flatten,
+      resolution: p.resolution,
+      iso: p.iso,
+      smooth: p.smooth,
+      puff: p.puff,
+      puffScale: p.puffScale,
+      seed: p.seed,
+    });
+  },
+};
+
+// ---- cloud sky: several distinct cloud shapes laid out in the air ----
+const cloudSky = {
+  id: "cloud-sky",
+  name: "程序化云海",
+  schema: [
+    { key: "seed", label: "布局种子", min: 0, max: 160, step: 1, default: 11 },
+  ],
+  build(p) {
+    return buildCloudSkyParts(p.seed);
+  },
+};
+
+// ---- polygon island: Voronoi graph + biomes + rivers (42arch-style) ----
+const polygonIsland = {
+  id: "polygon-island",
+  name: "多边形岛屿(biome)",
+  schema: [
+    { key: "size", label: "岛屿尺寸", min: 6, max: 20, step: 0.5, default: 12 },
+    { key: "points", label: "单元数量", min: 200, max: 2400, step: 100, default: 900 },
+    { key: "height", label: "山体高度", min: 0.6, max: 6, step: 0.1, default: 2.2 },
+    { key: "seaLevel", label: "海平面阈值", min: 0.05, max: 0.5, step: 0.01, default: 0.2 },
+    { key: "islandFactor", label: "海岸收边", min: 0.4, max: 2.2, step: 0.02, default: 0.72 },
+    { key: "jitter", label: "站点抖动", min: 0, max: 1, step: 0.02, default: 0.62 },
+    { key: "rivers", label: "河流数量", min: 0, max: 24, step: 1, default: 8 },
+    { key: "seed", label: "地貌种子", min: 0, max: 200, step: 1, default: 7 },
+  ],
+  build(p) {
+    return buildPolygonIslandParts({
+      size: p.size,
+      points: Math.round(p.points),
+      height: p.height,
+      seaLevel: p.seaLevel,
+      islandFactor: p.islandFactor,
+      jitter: p.jitter,
+      rivers: Math.round(p.rivers),
+      seed: Math.round(p.seed),
+    });
+  },
+};
+
+// ---- pcg world: heightfield -> discrete biomes -> best-candidate resources ----
+const pcgWorld = {
+  id: "pcg-world",
+  name: "PCG 生物群系世界",
+  schema: [
+    { key: "size", label: "世界尺寸", min: 6, max: 18, step: 0.5, default: 12 },
+    { key: "resolution", label: "网格密度", min: 32, max: 160, step: 8, default: 112 },
+    { key: "height", label: "地形起伏", min: 0.6, max: 4, step: 0.05, default: 2.9 },
+    { key: "noiseScale", label: "噪声频率", min: 0.5, max: 3, step: 0.05, default: 1.05 },
+    { key: "ridgeStrength", label: "山脊强度", min: 0, max: 1.2, step: 0.02, default: 0.28 },
+    { key: "islandFalloff", label: "海岸收边", min: 0, max: 3, step: 0.05, default: 2.3 },
+    { key: "terraceStrength", label: "台阶化强度", min: 0, max: 1, step: 0.02, default: 0.82 },
+    { key: "terraceSteps", label: "台阶层数", min: 4, max: 20, step: 1, default: 11 },
+    { key: "iterations", label: "侵蚀迭代", min: 0, max: 40, step: 1, default: 3 },
+    { key: "waterLevel", label: "海平面阈值", min: 0.1, max: 0.6, step: 0.01, default: 0.3 },
+    { key: "slopeLevel", label: "崖壁坡度阈值", min: 0.3, max: 0.95, step: 0.02, default: 0.72 },
+    { key: "resources", label: "资源点数量", min: 0, max: 240, step: 2, default: 30 },
+    { key: "seed", label: "世界种子", min: 0, max: 200, step: 1, default: 7 },
+  ],
+  build(p) {
+    const size = p.size;
+    const terrain = buildTerrainField({
+      size,
+      resolution: Math.round(p.resolution),
+      seed: Math.round(p.seed),
+      height: p.height,
+      noiseScale: p.noiseScale,
+      ridgeStrength: p.ridgeStrength,
+      islandFalloff: p.islandFalloff,
+      terraceStrength: p.terraceStrength,
+      terraceSteps: Math.round(p.terraceSteps),
+      iterations: Math.round(p.iterations),
+      waterLevel: p.waterLevel,
+      shoreWidth: 0.04,
+    });
+    const table = overworldBiomeTable();
+    table.waterLevel = p.waterLevel;
+    table.slopeLevel = p.slopeLevel;
+    const biomes = classifyBiomes(terrain.height, table, {
+      water: terrain.masks.water,
+      slope: terrain.masks.slope,
+    });
+    const W = terrain.height.width;
+    const H = terrain.height.height;
+    const half = size * 0.5;
+    const parts = [
+      { name: "terrain", label: "地形", mesh: terrain.mesh, colors: biomes.colors.slice() },
+    ];
+    const count = Math.round(p.resources);
+    if (count > 0) {
+      const pts = scatterPointsOnField(terrain.masks.water, {
+        width: W, height: H, count, seed: Math.round(p.seed) + 500,
+        accept: (water) => water < 0.4,
+      });
+      const markers = pts.map((pt) => {
+        const wx = -half + (pt.x / (W - 1)) * size;
+        const wz = -half + (pt.y / (H - 1)) * size;
+        const gx = Math.min(W - 1, Math.max(0, Math.round(pt.x)));
+        const gy = Math.min(H - 1, Math.max(0, Math.round(pt.y)));
+        const wy = terrain.height.data[gy * W + gx] + 0.09;
+        return translateMesh(box(0.1, 0.18, 0.1), vec3(wx, wy, wz));
+      });
+      if (markers.length > 0) {
+        parts.push({
+          name: "resources", label: "资源点",
+          mesh: markers.length === 1 ? markers[0] : merge(...markers),
+          color: [0.82, 0.72, 0.95],
+        });
+      }
+    }
+    return parts;
+  },
+};
+
+// ---- mountain village: square sandy plateau + winding dirt roads +
+//      macaron low-poly buildings + conifers, all draped on terrain height ----
+const mountainVillage = {
+  id: "mountain-village",
+  name: "山村聚落",
+  schema: [
+    { key: "size", label: "地块尺寸", min: 8, max: 18, step: 0.5, default: 12 },
+    { key: "resolution", label: "网格密度", min: 48, max: 160, step: 8, default: 128 },
+    { key: "height", label: "地形起伏", min: 0.6, max: 3, step: 0.05, default: 1.6 },
+    { key: "noiseScale", label: "噪声频率", min: 0.5, max: 2.5, step: 0.05, default: 1.05 },
+    { key: "roads", label: "山路数量", min: 0, max: 16, step: 1, default: 9 },
+    { key: "buildings", label: "建筑数量", min: 0, max: 320, step: 5, default: 190 },
+    { key: "trees", label: "树木数量", min: 0, max: 200, step: 5, default: 60 },
+    { key: "seed", label: "随机种子", min: 0, max: 200, step: 1, default: 21 },
+  ],
+  build(p) {
+    return buildMountainVillageParts({
+      size: p.size,
+      resolution: Math.round(p.resolution),
+      height: p.height,
+      noiseScale: p.noiseScale,
+      roads: Math.round(p.roads),
+      buildings: Math.round(p.buildings),
+      trees: Math.round(p.trees),
+      seed: Math.round(p.seed),
+    });
+  },
+};
+
 // ---- P7 vegetation: SpeedTree-style recursive spline tree ----
 const BARK_COL = [0.32, 0.22, 0.14];
 const LEAF_COL = [0.18, 0.42, 0.13];
 const BLADE_COL = [0.24, 0.5, 0.16];
+
+function authoredTreeParts(label, plant, barkColor, leafColor, seed, tag) {
+  const parts = [
+    speedTreePart("wood", plant.wood, "wood", { color: barkColor, roughness: 0.9 }, "wood", seed),
+  ];
+  parts[0].label = `${label} 枝干`;
+  parts[0].metadata = { generator: "authoring-levels-stratified-bark-uv", tag };
+  if (plant.leaves.positions.length > 0) {
+    const leaf = speedTreePart("foliage", plant.leaves, "fabric", { color: leafColor, roughness: 0.72 }, "foliage", seed + 1);
+    leaf.label = `${label} 叶冠`;
+    leaf.metadata = { generator: "rounded-leaf-normals-stratified", tag };
+    parts.push(leaf);
+  }
+  return parts;
+}
+
+function trellisFrameMesh(width, height, spacing) {
+  const rails = [];
+  const half = width * 0.5;
+  const postR = 0.025;
+  const railR = 0.018;
+  for (let x = -half; x <= half + 1e-6; x += spacing) {
+    rails.push(transform(cylinder(postR, height, 8, true), { translate: vec3(x, height * 0.5, 0) }));
+  }
+  for (let y = spacing; y <= height + 1e-6; y += spacing) {
+    rails.push(transform(cylinder(railR, width, 8, true), {
+      rotate: vec3(0, 0, Math.PI / 2),
+      translate: vec3(0, y, 0),
+    }));
+  }
+  return merge(...rails);
+}
+
+function fruitMeshFromBranches(branches, count, radius) {
+  const terminals = branches.filter((b) => b.terminal && b.curve.points.length > 0);
+  if (!terminals.length || count <= 0) return merge();
+  const fruits = [];
+  const n = Math.min(Math.round(count), terminals.length);
+  for (let i = 0; i < n; i++) {
+    const bi = Math.min(terminals.length - 1, Math.floor(((i + 0.5) / n) * terminals.length));
+    const branch = terminals[bi];
+    const pt = branch.curve.points[branch.curve.points.length - 1];
+    fruits.push(transform(sphere(radius, 12, 8), { translate: vec3(pt.x, pt.y - radius * 0.45, pt.z) }));
+  }
+  return merge(...fruits);
+}
+
+function offsetParts(parts, prefix, label, x, z = 0) {
+  return parts.map((p) => ({
+    ...p,
+    name: `${prefix}_${p.name}`,
+    label: `${label} ${p.label || p.name}`,
+    mesh: translateMesh(p.mesh, vec3(x, 0, z)),
+  }));
+}
+
+function buildAuthoredBroadleafParts(p) {
+  const seed = Math.round(p.seed);
+  const height = p.height;
+  const plant = tree({
+    seed,
+    height,
+    trunkRadius: p.trunkRadius,
+    gnarl: p.gnarl,
+    leaves: p.leafDensity > 0,
+    leafDensity: Math.round(p.leafDensity),
+    leafSize: p.leafSize,
+    leafShape: "oval",
+    leafCurl: 0.12,
+    leafFold: 0.08,
+    barkUv: { longitudinalScale: 0.72, radialScale: 0.38 },
+    branchFlareScale: 1.9,
+    branchFeatures: p.featureCount > 0 ? { count: Math.round(p.featureCount), kind: "mixed", size: 0.95, minBranchRadius: 0.035 } : false,
+    branchLengthProfile: [{ t: 0, value: 0.72 }, { t: 0.42, value: 1.25 }, { t: 1, value: 0.55 }],
+    leafDensityProfile: [{ t: 0, value: 0.18 }, { t: 0.62, value: 1.18 }, { t: 1, value: 0.9 }],
+    canopy: {
+      shape: "ellipsoid",
+      baseY: height * 0.24,
+      height: height * 0.82,
+      radiusX: p.crownWidth * 0.5,
+      radiusZ: p.crownDepth * 0.5,
+      strength: 0.85,
+      minScale: 0.14,
+      power: 0.82,
+    },
+    authoring: {
+      placement: "stratified-shuffled",
+      leafPlacement: "stratified-shuffled",
+      roundedLeafNormals: true,
+      levels: [
+        { count: Math.round(p.primaryBranches), startPct: 0.18, endPct: 0.84, angle: p.primaryAngle, angleJitter: 8, lengthScale: p.spread, radiusScale: 0.52, phototropism: 0.34, gravity: 0.04, segments: 7, gnarl: p.gnarl * 1.4 },
+        { count: Math.round(p.secondaryBranches), startPct: 0.14, endPct: 0.94, angle: p.secondaryAngle, angleJitter: 12, lengthScale: 0.66, radiusScale: 0.55, phototropism: 0.36, gravity: 0.04, segments: 5, gnarl: p.gnarl * 1.1 },
+        { count: Math.round(p.twigBranches), startPct: 0.28, endPct: 0.98, angle: p.twigAngle, angleJitter: 18, lengthScale: 0.48, radiusScale: 0.5, phototropism: 0.55, gravity: 0.02, segments: 4, gnarl: p.gnarl * 0.8 },
+      ],
+    },
+  });
+  return authoredTreeParts("分层阔叶树", plant, [0.32, 0.21, 0.13], [0.18, 0.43, 0.14], seed, "authored-broadleaf");
+}
+
+function buildTrellisFruitParts(p) {
+  const seed = Math.round(p.seed);
+  const height = p.height;
+  const plant = tree({
+    seed,
+    height,
+    trunkRadius: p.trunkRadius,
+    gnarl: p.gnarl,
+    leaves: p.leafDensity > 0,
+    leafDensity: Math.round(p.leafDensity),
+    leafSize: p.leafSize,
+    leafShape: "round",
+    leafCurl: 0.08,
+    barkUv: { longitudinalScale: 0.62, radialScale: 0.32 },
+    branchFlareScale: 1.75,
+    branchLengthProfile: [{ t: 0, value: 0.55 }, { t: 0.55, value: 1.2 }, { t: 1, value: 0.75 }],
+    leafDensityProfile: [{ t: 0, value: 0.1 }, { t: 0.7, value: 1.05 }, { t: 1, value: 1.15 }],
+    trellis: {
+      kind: "grid",
+      origin: vec3(0, 0, 0),
+      axisU: vec3(1, 0, 0),
+      axisV: vec3(0, 1, 0),
+      spacing: p.gridSpacing,
+      strength: p.trellisPull,
+      maxPull: 1.25,
+      startPct: 0.18,
+      depthMin: 1,
+    },
+    authoring: {
+      placement: "stratified-shuffled",
+      leafPlacement: "stratified-shuffled",
+      roundedLeafNormals: true,
+      levels: [
+        { count: Math.round(p.primaryBranches), startPct: 0.22, endPct: 0.9, angle: 72, angleJitter: 6, lengthScale: p.spread, radiusScale: 0.52, phototropism: 0.18, gravity: 0.02, segments: 7, gnarl: p.gnarl * 0.8 },
+        { count: Math.round(p.secondaryBranches), startPct: 0.18, endPct: 0.94, angle: 56, angleJitter: 14, lengthScale: 0.58, radiusScale: 0.54, phototropism: 0.26, gravity: 0.02, segments: 5, gnarl: p.gnarl },
+        { count: Math.round(p.twigBranches), startPct: 0.35, endPct: 0.98, angle: 42, angleJitter: 16, lengthScale: 0.42, radiusScale: 0.5, phototropism: 0.35, gravity: 0.02, segments: 4, gnarl: p.gnarl * 0.7 },
+      ],
+    },
+  });
+  const parts = authoredTreeParts("棚架果树", plant, [0.34, 0.22, 0.12], [0.22, 0.44, 0.16], seed, "trellis-fruit");
+  parts.push(surfPart("trellis_frame", transform(trellisFrameMesh(p.frameWidth, height * 0.92, p.gridSpacing), { translate: vec3(0, 0.05, -0.06) }), "wood", { color: [0.42, 0.27, 0.13], roughness: 0.86 }));
+  if (p.fruitCount > 0) parts.push(surfPart("fruit", fruitMeshFromBranches(plant.branches, p.fruitCount, p.fruitSize), "ceramic", { color: [0.78, 0.12, 0.08], roughness: 0.48 }));
+  return parts;
+}
+
+function buildColumnCypressParts(p) {
+  const seed = Math.round(p.seed);
+  const height = p.height;
+  const plant = tree({
+    seed,
+    height,
+    trunkRadius: p.trunkRadius,
+    gnarl: p.gnarl,
+    leaves: p.leafDensity > 0,
+    leafDensity: Math.round(p.leafDensity),
+    leafSize: p.leafSize,
+    leafShape: "lanceolate",
+    leafCurl: 0.18,
+    leafFold: 0.16,
+    barkUv: { longitudinalScale: 0.55, radialScale: 0.3 },
+    branchFlareScale: 1.55,
+    leafDensityProfile: [{ t: 0, value: 0.45 }, { t: 0.6, value: 1.05 }, { t: 1, value: 0.8 }],
+    canopy: {
+      shape: "column",
+      baseY: height * 0.08,
+      height: height * 0.9,
+      radiusX: p.crownRadius,
+      radiusZ: p.crownRadius * 0.86,
+      strength: 0.96,
+      minScale: 0.28,
+    },
+    authoring: {
+      placement: "stratified-shuffled",
+      leafPlacement: "stratified-shuffled",
+      roundedLeafNormals: true,
+      levels: [
+        { count: Math.round(p.primaryBranches), startPct: 0.08, endPct: 0.96, angle: 30, angleJitter: 8, lengthScale: 0.42, radiusScale: 0.45, phototropism: 0.78, gravity: 0.0, segments: 6, gnarl: p.gnarl },
+        { count: Math.round(p.secondaryBranches), startPct: 0.25, endPct: 0.96, angle: 34, angleJitter: 10, lengthScale: 0.38, radiusScale: 0.48, phototropism: 0.72, gravity: 0.0, segments: 4, gnarl: p.gnarl * 0.8 },
+        { count: Math.round(p.twigBranches), startPct: 0.35, endPct: 0.98, angle: 38, angleJitter: 14, lengthScale: 0.3, radiusScale: 0.5, phototropism: 0.74, gravity: 0.0, segments: 3, gnarl: p.gnarl * 0.55 },
+      ],
+    },
+  });
+  return authoredTreeParts("柱形柏树", plant, [0.29, 0.2, 0.13], [0.07, 0.27, 0.15], seed, "column-cypress");
+}
 
 const treeModel = {
   id: "veg-tree",
@@ -1386,6 +2266,235 @@ const treeModel = {
     const parts = [surfPart("trunk", t.wood, "wood", { color: BARK_COL, roughness: 0.9 })];
     if (p.leafDensity > 0) parts.push(windSurfPart("leaves", t.leaves, "fabric", { color: LEAF_COL, roughness: 0.7 }, "foliage"));
     return parts;
+  },
+};
+
+// 复刻 Blender geometry-nodes 教程 "Procedural Tree.blend" 的风格化树：
+// gnarl 主干 + 4 级贝塞尔子枝 + Float-Curve 半径/长度/叶密度锥化 + 圆润叶法线。
+const stylizedTreeModel = {
+  id: "veg-stylized-tree",
+  name: "风格化树 (Blender复刻)",
+  schema: [
+    { key: "height", label: "树高", min: 2.5, max: 7, step: 0.1, default: 4.4 },
+    { key: "trunkRadius", label: "主干半径", min: 0.12, max: 0.5, step: 0.01, default: 0.26 },
+    { key: "gnarl", label: "主干扭曲", min: 0, max: 0.45, step: 0.01, default: 0.18 },
+    { key: "branchAngle", label: "出枝角", min: 30, max: 75, step: 1, default: 46 },
+    { key: "l0count", label: "一级枝数", min: 3, max: 12, step: 1, default: 6 },
+    { key: "l0children", label: "每枝分叉数", min: 2, max: 6, step: 1, default: 4 },
+    { key: "phototropism", label: "向光弯曲", min: 0, max: 0.8, step: 0.02, default: 0.42 },
+    { key: "gravity", label: "重力下垂", min: 0, max: 0.4, step: 0.01, default: 0.06 },
+    { key: "radiusTaper", label: "枝端锥化", min: 0.2, max: 0.6, step: 0.02, default: 0.4 },
+    { key: "leafDensity", label: "叶密度", min: 0, max: 12, step: 1, default: 5 },
+    { key: "leafSize", label: "叶片大小", min: 0.1, max: 0.32, step: 0.01, default: 0.2 },
+    { key: "leafShape", label: "叶形(0水滴1椭圆2圆)", min: 0, max: 2, step: 1, default: 0 },
+    { key: "leafCurl", label: "叶片卷曲", min: 0, max: 0.4, step: 0.02, default: 0.16 },
+    { key: "seed", label: "种子", min: 0, max: 200, step: 1, default: 614 },
+  ],
+  build(p) {
+    const shapes = ["teardrop", "oval", "round"];
+    const levels = [
+      { count: Math.round(p.l0count), children: Math.round(p.l0children), angle: p.branchAngle, lengthScale: 0.72, radiusScale: 0.55 },
+      { count: 4, children: 3, angle: p.branchAngle + 6, lengthScale: 0.7, radiusScale: 0.52 },
+      { count: 3, children: 2, angle: p.branchAngle + 12, lengthScale: 0.66, radiusScale: 0.5 },
+      { count: 2, children: 0, angle: p.branchAngle + 18, lengthScale: 0.6, radiusScale: 0.48 },
+    ];
+    const wantLeaves = p.leafDensity > 0;
+    const t = tree({
+      seed: Math.round(p.seed),
+      height: p.height,
+      trunkRadius: p.trunkRadius,
+      gnarl: p.gnarl,
+      branchAngle: p.branchAngle,
+      branchPhototropism: p.phototropism,
+      branchGravity: p.gravity,
+      leafDensity: Math.round(p.leafDensity),
+      leafSize: p.leafSize,
+      leaves: wantLeaves,
+      leafShape: shapes[Math.round(p.leafShape)] || "teardrop",
+      leafCurl: p.leafCurl,
+      leafFold: 0.08,
+      roundedLeafNormals: true,
+      branchFlareScale: 1.4,
+      authoring: { levels },
+      branchRadiusProfile: [{ t: 0, value: 0.92 }, { t: 1, value: p.radiusTaper }],
+      branchLengthProfile: { stops: [{ t: 0, value: 0.7 }, { t: 0.5, value: 1.05 }, { t: 1, value: 0.6 }], smooth: true },
+      leafDensityProfile: [{ t: 0, value: 0.2 }, { t: 0.6, value: 1.1 }, { t: 1, value: 1.3 }],
+    });
+    const parts = [surfPart("trunk", t.wood, "wood", { color: BARK_COL, roughness: 0.9 })];
+    if (wantLeaves) parts.push(windSurfPart("leaves", t.leaves, "fabric", { color: LEAF_COL, roughness: 0.7 }, "foliage"));
+    return parts;
+  },
+};
+
+// ---- Growing tree: a single `growth` slider animates a tree from sprout to full ----
+function buildGrowingTreeParts(p) {
+  const seed = Math.round(p.seed);
+  const plant = growingTree({
+    seed,
+    height: p.height,
+    trunkRadius: p.trunkRadius,
+    gnarl: p.gnarl,
+    branchCount: Math.round(p.branchCount),
+    depth: Math.round(p.depth),
+    branchAngle: p.branchAngle,
+    leaves: p.leafDensity > 0,
+    leafDensity: Math.round(p.leafDensity),
+    leafSize: p.leafSize,
+    leafShape: "oval",
+    leafCurl: 0.12,
+    leafFold: 0.08,
+    barkUv: { longitudinalScale: 0.72, radialScale: 0.38 },
+    branchFlareScale: 1.6,
+    growth: p.growth,
+    depthDelay: p.depthDelay,
+    heightDelay: p.heightDelay,
+    leafStart: p.leafStart,
+  });
+  const parts = [
+    speedTreePart("wood", plant.wood, "wood", { color: [0.32, 0.22, 0.14], roughness: 0.9 }, "wood", seed),
+  ];
+  parts[0].label = "生长树 枝干";
+  parts[0].metadata = { generator: "growing-tree", growth: p.growth };
+  if (plant.leaves.positions.length > 0) {
+    const leaf = speedTreePart("foliage", plant.leaves, "fabric", { color: [0.18, 0.43, 0.14], roughness: 0.72 }, "foliage", seed + 1);
+    leaf.label = "生长树 叶冠";
+    leaf.metadata = { generator: "growing-tree", growth: p.growth };
+    parts.push(leaf);
+  }
+  return parts;
+}
+
+const growingTreeModel = {
+  id: "veg-growing-tree",
+  name: "生长树",
+  schema: [
+    { key: "growth", label: "生长阶段", min: 0, max: 1, step: 0.01, default: 1 },
+    { key: "height", label: "成树高度", min: 2.5, max: 8, step: 0.1, default: 5 },
+    { key: "trunkRadius", label: "主干半径", min: 0.12, max: 0.5, step: 0.01, default: 0.3 },
+    { key: "branchCount", label: "一级枝数", min: 3, max: 14, step: 1, default: 8 },
+    { key: "depth", label: "分枝层级", min: 1, max: 4, step: 1, default: 3 },
+    { key: "branchAngle", label: "出枝角", min: 25, max: 75, step: 1, default: 48 },
+    { key: "gnarl", label: "枝干弯曲", min: 0, max: 0.4, step: 0.01, default: 0.14 },
+    { key: "leafDensity", label: "叶密度", min: 0, max: 16, step: 1, default: 9 },
+    { key: "leafSize", label: "叶片大小", min: 0.08, max: 0.32, step: 0.01, default: 0.18 },
+    { key: "depthDelay", label: "分层延迟", min: 0.2, max: 0.9, step: 0.02, default: 0.6 },
+    { key: "heightDelay", label: "沿枝延迟", min: 0, max: 1, step: 0.05, default: 0.5 },
+    { key: "leafStart", label: "出叶时刻", min: 0.2, max: 0.9, step: 0.02, default: 0.55 },
+    { key: "seed", label: "种子", min: 0, max: 200, step: 1, default: 7 },
+  ],
+  build(p) {
+    return buildGrowingTreeParts(p);
+  },
+};
+
+const authoredBroadleafModel = {
+  id: "veg-authored-broadleaf",
+  name: "分层阔叶树",
+  schema: [
+    { key: "height", label: "树高", min: 2.5, max: 7.5, step: 0.1, default: 4.4 },
+    { key: "trunkRadius", label: "主干半径", min: 0.12, max: 0.55, step: 0.01, default: 0.28 },
+    { key: "crownWidth", label: "树冠宽度", min: 1.2, max: 5.5, step: 0.05, default: 4.2 },
+    { key: "crownDepth", label: "树冠厚度", min: 1.0, max: 5.0, step: 0.05, default: 3.1 },
+    { key: "primaryBranches", label: "一级枝数", min: 3, max: 12, step: 1, default: 8 },
+    { key: "secondaryBranches", label: "二级枝数", min: 1, max: 8, step: 1, default: 4 },
+    { key: "twigBranches", label: "末级枝数", min: 0, max: 6, step: 1, default: 3 },
+    { key: "primaryAngle", label: "一级出枝角", min: 32, max: 78, step: 1, default: 68 },
+    { key: "secondaryAngle", label: "二级出枝角", min: 25, max: 72, step: 1, default: 52 },
+    { key: "twigAngle", label: "末级出枝角", min: 20, max: 70, step: 1, default: 36 },
+    { key: "spread", label: "横向展开", min: 0.45, max: 1.35, step: 0.02, default: 1.08 },
+    { key: "gnarl", label: "枝干弯曲", min: 0, max: 0.42, step: 0.01, default: 0.14 },
+    { key: "leafDensity", label: "叶密度", min: 0, max: 16, step: 1, default: 10 },
+    { key: "leafSize", label: "叶片大小", min: 0.08, max: 0.32, step: 0.01, default: 0.17 },
+    { key: "featureCount", label: "树皮特征", min: 0, max: 28, step: 1, default: 10 },
+    { key: "seed", label: "种子", min: 0, max: 200, step: 1, default: 41 },
+  ],
+  build(p) {
+    return buildAuthoredBroadleafParts(p);
+  },
+};
+
+const trellisFruitModel = {
+  id: "veg-trellis-fruit",
+  name: "棚架果树",
+  schema: [
+    { key: "height", label: "树高", min: 2.0, max: 5.4, step: 0.1, default: 3.6 },
+    { key: "trunkRadius", label: "主干半径", min: 0.08, max: 0.35, step: 0.01, default: 0.18 },
+    { key: "frameWidth", label: "棚架宽度", min: 1.6, max: 5.5, step: 0.1, default: 3.6 },
+    { key: "gridSpacing", label: "棚架网格", min: 0.35, max: 1.1, step: 0.05, default: 0.6 },
+    { key: "trellisPull", label: "吸附强度", min: 0, max: 1, step: 0.02, default: 0.82 },
+    { key: "primaryBranches", label: "一级枝数", min: 3, max: 10, step: 1, default: 6 },
+    { key: "secondaryBranches", label: "二级枝数", min: 1, max: 7, step: 1, default: 4 },
+    { key: "twigBranches", label: "末级枝数", min: 0, max: 6, step: 1, default: 2 },
+    { key: "spread", label: "横向展开", min: 0.5, max: 1.55, step: 0.02, default: 1.05 },
+    { key: "gnarl", label: "枝干弯曲", min: 0, max: 0.34, step: 0.01, default: 0.08 },
+    { key: "leafDensity", label: "叶密度", min: 0, max: 14, step: 1, default: 8 },
+    { key: "leafSize", label: "叶片大小", min: 0.07, max: 0.24, step: 0.01, default: 0.13 },
+    { key: "fruitCount", label: "果实数量", min: 0, max: 24, step: 1, default: 12 },
+    { key: "fruitSize", label: "果实大小", min: 0.035, max: 0.14, step: 0.005, default: 0.07 },
+    { key: "seed", label: "种子", min: 0, max: 200, step: 1, default: 73 },
+  ],
+  build(p) {
+    return buildTrellisFruitParts(p);
+  },
+};
+
+const columnCypressAuthoringModel = {
+  id: "veg-column-cypress",
+  name: "柱形柏树",
+  schema: [
+    { key: "height", label: "树高", min: 3.0, max: 9.0, step: 0.1, default: 5.8 },
+    { key: "trunkRadius", label: "主干半径", min: 0.06, max: 0.28, step: 0.01, default: 0.16 },
+    { key: "crownRadius", label: "冠柱半径", min: 0.35, max: 1.4, step: 0.02, default: 0.72 },
+    { key: "primaryBranches", label: "一级枝数", min: 5, max: 18, step: 1, default: 12 },
+    { key: "secondaryBranches", label: "二级枝数", min: 1, max: 7, step: 1, default: 3 },
+    { key: "twigBranches", label: "末级枝数", min: 0, max: 5, step: 1, default: 2 },
+    { key: "gnarl", label: "枝干弯曲", min: 0, max: 0.22, step: 0.01, default: 0.06 },
+    { key: "leafDensity", label: "叶密度", min: 0, max: 16, step: 1, default: 11 },
+    { key: "leafSize", label: "叶片大小", min: 0.05, max: 0.22, step: 0.01, default: 0.11 },
+    { key: "seed", label: "种子", min: 0, max: 200, step: 1, default: 97 },
+  ],
+  build(p) {
+    return buildColumnCypressParts(p);
+  },
+};
+
+const authoringLineupModel = {
+  id: "veg-authoring-lineup",
+  name: "新树木技术对比",
+  schema: [
+    { key: "heightScale", label: "整体高度倍率", min: 0.65, max: 1.35, step: 0.05, default: 1 },
+    { key: "leafScale", label: "叶量倍率", min: 0, max: 1.5, step: 0.05, default: 0.9 },
+    { key: "spacing", label: "间距", min: 2.6, max: 5.2, step: 0.1, default: 3.5 },
+    { key: "seedOffset", label: "种子偏移", min: 0, max: 120, step: 1, default: 0 },
+  ],
+  build(p) {
+    const broad = defaultParams(authoredBroadleafModel);
+    broad.height *= p.heightScale;
+    broad.trunkRadius *= p.heightScale;
+    broad.crownWidth *= p.heightScale;
+    broad.crownDepth *= p.heightScale;
+    broad.leafDensity = Math.round(broad.leafDensity * p.leafScale);
+    broad.seed += Math.round(p.seedOffset);
+
+    const trellis = defaultParams(trellisFruitModel);
+    trellis.height *= p.heightScale;
+    trellis.trunkRadius *= p.heightScale;
+    trellis.frameWidth *= p.heightScale;
+    trellis.leafDensity = Math.round(trellis.leafDensity * p.leafScale);
+    trellis.seed += Math.round(p.seedOffset) + 7;
+
+    const cypress = defaultParams(columnCypressAuthoringModel);
+    cypress.height *= p.heightScale;
+    cypress.trunkRadius *= p.heightScale;
+    cypress.crownRadius *= p.heightScale;
+    cypress.leafDensity = Math.round(cypress.leafDensity * p.leafScale);
+    cypress.seed += Math.round(p.seedOffset) + 13;
+
+    return [
+      ...offsetParts(buildAuthoredBroadleafParts(broad), "broadleaf", "阔叶", -p.spacing),
+      ...offsetParts(buildTrellisFruitParts(trellis), "trellis", "棚架", 0),
+      ...offsetParts(buildColumnCypressParts(cypress), "cypress", "柏树", p.spacing),
+    ];
   },
 };
 
@@ -2147,7 +3256,274 @@ const dragonfly = {
   },
 };
 
-export const PROC_MODELS = { sphere: sphereModel, teddy, rock, tower, pagoda, building, cityblock: cityBlock, "interior-room": interiorRoom, "hard-surface-kit": hardSurfaceKit, "terrain-island": terrainIsland, mushroom, gear, officechair: officeChair, dragonfly, "sports-car": sportsCar, "gmc-canyon-at4x": gmcCanyonAt4x, "buick-riviera-1965": buickRiviera1965, "midnight-horse": midnightHorse, "reference-dog": referenceDog, "cartoon-mech-pilot": cartoonMechPilot, "stylized-humanoid": stylizedHumanoid, tshirt: tshirtModel, skirt: skirtModel, pants: pantsModel, dress: dressModel, hoodie: hoodieModel, smooth: smoothModel, spring: springModel, vine: vineModel, meadow: meadowModel, csg: csgModel, fterrain: terrainModel, wineglass: wineGlassModel, "veg-tree": treeModel, "veg-shrub": shrubModel, "veg-grass": grassModel, "veg-conifer": coniferModel, "veg-palm": palmModel, ...SPEEDTREE_MODELS, ...SPEEDTREE_TUTORIAL_MODELS };
+// ---- reference-image inspired procedural town: terrain mound + road network
+//      + clustered colorful buildings + tree clumps + field patches ----------
+const townScene = (() => {
+  // Palette pulled from the reference bird's-eye render.
+  const GROUND = [0.83, 0.76, 0.57];      // beige earth (ridge tops)
+  const GROUND_LOW = [0.7, 0.63, 0.45];   // darker valleys -> readable relief
+  const ROAD_COL = [0.8, 0.76, 0.68];     // cool pale-grey track: reads on warm beige ground
+  const TREE_TRUNK = [0.34, 0.26, 0.16];
+  const TREE_LEAF = [0.16, 0.34, 0.16];   // dark green clumps
+  const BLD_COLORS = [
+    [0.32, 0.74, 0.7],   // teal/cyan
+    [0.9, 0.62, 0.72],   // pink
+    [0.93, 0.82, 0.4],   // yellow
+    [0.92, 0.92, 0.88],  // white
+    [0.55, 0.72, 0.82],  // pale blue
+    [0.86, 0.5, 0.42],   // terracotta
+  ];
+  const FIELD_COLORS = [
+    [0.86, 0.55, 0.62], [0.6, 0.78, 0.5], [0.92, 0.8, 0.42],
+    [0.5, 0.68, 0.78], [0.88, 0.86, 0.8], [0.78, 0.55, 0.72],
+  ];
+
+  // Sample terrain world-height at (wx, wz). Field grid maps linearly to
+  // [-half, +half] on both axes (see heightfieldToTerrainMesh).
+  function heightAt(field, size, heightScale, baseY, wx, wz) {
+    const w = field.width, h = field.height;
+    const half = size * 0.5;
+    const gx = ((wx + half) / size) * (w - 1);
+    const gy = ((wz + half) / size) * (h - 1);
+    return baseY + sampleField2DBilinear(field, gx, gy) * heightScale;
+  }
+
+  return {
+    id: "town-scene",
+    name: "程序化小镇场景",
+    schema: [
+      { key: "size", label: "场景尺寸", min: 20, max: 60, step: 2, default: 40 },
+      { key: "resolution", label: "地形密度", min: 32, max: 128, step: 8, default: 96 },
+      { key: "moundHeight", label: "山体高度", min: 1, max: 10, step: 0.25, default: 5.5 },
+      { key: "islandFalloff", label: "边缘收平", min: 0.8, max: 3, step: 0.1, default: 2.0 },
+      { key: "noiseScale", label: "地形起伏", min: 0.6, max: 3.5, step: 0.1, default: 2.0 },
+      { key: "buildings", label: "建筑数量", min: 20, max: 320, step: 10, default: 170 },
+      { key: "clusters", label: "建筑簇数", min: 3, max: 14, step: 1, default: 9 },
+      { key: "trees", label: "树丛数量", min: 0, max: 200, step: 10, default: 70 },
+      { key: "roads", label: "道路条数", min: 2, max: 8, step: 1, default: 5 },
+      { key: "fields", label: "田块数量", min: 0, max: 24, step: 2, default: 12 },
+      { key: "seed", label: "随机种子", min: 0, max: 200, step: 1, default: 17 },
+    ],
+    build(p) {
+      const parts = [];
+      const size = p.size;
+      const half = size * 0.5;
+      const heightScale = 1;
+      const baseY = 0;
+      const seed = Math.round(p.seed) >>> 0;
+
+      // --- terrain: central mound flattening toward the edges -------------
+      const field = makeTerrainPrimitiveField({
+        resolution: Math.round(p.resolution),
+        seed,
+        height: p.moundHeight,
+        base: 0,
+        noiseScale: p.noiseScale,
+        ridgeScale: p.noiseScale * 2.4,
+        ridgeStrength: 0.9,          // sharper ridges -> plateau/spur look
+        islandFalloff: p.islandFalloff,
+      });
+      const terrain = heightfieldToTerrainMesh(field, { size, heightScale, baseY });
+      // per-vertex color: beige, slightly lighter on the flats
+      const tcolors = [];
+      for (let i = 0; i < terrain.positions.length; i++) {
+        const y = terrain.positions[i].y;
+        const t = Math.min(1, Math.max(0, y / (p.moundHeight * 0.8)));
+        const c = [
+          GROUND_LOW[0] * (1 - t) + GROUND[0] * t,
+          GROUND_LOW[1] * (1 - t) + GROUND[1] * t,
+          GROUND_LOW[2] * (1 - t) + GROUND[2] * t,
+        ];
+        tcolors.push(c[0], c[1], c[2]);
+      }
+      parts.push({
+        name: "terrain",
+        mesh: terrain,
+        color: GROUND,
+        colors: tcolors,
+        surface: { type: "sand", params: { color: GROUND, roughness: 1, seed } },
+      });
+
+      const rng = mulberry32(seed || 1);
+      const hAt = (x, z) => heightAt(field, size, heightScale, baseY, x, z);
+
+      // --- winding dirt roads: swept ribbons, then per-vertex draped onto
+      //     the terrain so every point sits on the ground (no cutting into
+      //     slopes or floating). No curbs/markings -> reads as a hill trail.
+      //     Roads wander loosely for a tangled, organic layout. -----------
+      // Re-set every ribbon vertex Y to terrain height + small lift, so the
+      // road hugs the mound laterally as well as along its length.
+      const drape = (mesh, lift) => {
+        const pos = mesh.positions.map((v) => {
+          const gy = hAt(v.x, v.z);
+          return vec3(v.x, gy + lift, v.z);
+        });
+        return recomputeNormals(makeMesh({
+          positions: pos,
+          normals: mesh.normals,
+          uvs: mesh.uvs,
+          indices: mesh.indices,
+        }));
+      };
+      const roadN = Math.round(p.roads);
+      const surfMeshes = [];
+      for (let r = 0; r < roadN; r++) {
+        // start somewhere on the mound and wander outward with random turns,
+        // so paths cross and tangle like the reference instead of clean radials
+        const a0 = rng() * Math.PI * 2;
+        const r0 = rng() * half * 0.35;
+        let cxp = Math.cos(a0) * r0;
+        let czp = Math.sin(a0) * r0;
+        let dir = rng() * Math.PI * 2;
+        const pts = [vec3(cxp, hAt(cxp, czp), czp)];
+        const steps = 14 + Math.floor(rng() * 8);
+        const stepLen = size * 0.09;
+        for (let s = 0; s < steps; s++) {
+          dir += (rng() - 0.5) * 1.1;              // meander
+          cxp += Math.cos(dir) * stepLen;
+          czp += Math.sin(dir) * stepLen;
+          if (Math.abs(cxp) > half * 0.98 || Math.abs(czp) > half * 0.98) break;
+          pts.push(vec3(cxp, hAt(cxp, czp), czp));
+        }
+        if (pts.length < 3) continue;
+        const centerline = smoothCurve(polyline(pts), 3);
+        const halfW = 1.0 + rng() * 0.5;
+        const ribbon = roadRibbon(centerline, {
+          halfWidth: halfW,
+          sampleDistance: 0.6,
+          widthSubdivisions: 3,
+          adaptiveCurvature: true,
+          curvatureThresholdDeg: 5,
+        });
+        surfMeshes.push(drape(ribbon, 0.05));
+      }
+      if (surfMeshes.length) {
+        // pale sandy track: slightly lighter than ground, reads as the
+        // washed-out roads in the reference (not dark cut-in trenches)
+        parts.push(surfPart("dirt_roads", merge(...surfMeshes), "sand", { color: ROAD_COL, roughness: 1 }));
+      }
+
+      // --- clustered colorful buildings spread across the ridges ----------
+      // Reference shows dense-but-separated little houses blanketing the
+      // whole raised terrain, not one crowded blob. Spread cluster centers
+      // over a wide radius and reject placements that overlap an already
+      // placed footprint (min-distance packing) so houses read individually.
+      const clusters = [];
+      const nClusters = Math.round(p.clusters);
+      for (let c = 0; c < nClusters; c++) {
+        // spread centers across most of the mound (up to ~0.85*half),
+        // near-uniform in area so no single blob dominates
+        const a = rng() * Math.PI * 2;
+        const rr = Math.sqrt(rng()) * half * 0.85;
+        clusters.push({ x: Math.cos(a) * rr, z: Math.sin(a) * rr, spread: size * (0.07 + rng() * 0.07) });
+      }
+      const bldByColor = BLD_COLORS.map(() => []);
+      const placedB = [];                         // {x,z,r} for spacing test
+      const minGap = size * 0.018;                // clearance between houses
+      const nB = Math.round(p.buildings);
+      let tries = 0;
+      const maxTries = nB * 8;
+      while (placedB.length < nB && tries < maxTries) {
+        tries++;
+        const cl = clusters[Math.floor(rng() * clusters.length)];
+        const bx = cl.x + (rng() - 0.5) * cl.spread * 2;
+        const bz = cl.z + (rng() - 0.5) * cl.spread * 2;
+        if (Math.abs(bx) > half * 0.92 || Math.abs(bz) > half * 0.92) continue;
+        const bw = 0.45 + rng() * 0.4;
+        const bd = 0.45 + rng() * 0.4;
+        const bh = 0.4 + rng() * 0.9;
+        const rad = Math.max(bw, bd) * 0.5;
+        // reject if too close to an existing house
+        let ok = true;
+        for (let k = 0; k < placedB.length; k++) {
+          const q = placedB[k];
+          const dx = q.x - bx, dz = q.z - bz;
+          if (dx * dx + dz * dz < (q.r + rad + minGap) * (q.r + rad + minGap)) { ok = false; break; }
+        }
+        if (!ok) continue;
+        placedB.push({ x: bx, z: bz, r: rad });
+        const gy = hAt(bx, bz);
+        const yaw = rng() * Math.PI;
+        const ci = Math.floor(rng() * BLD_COLORS.length);
+        let m = box(bw, bh, bd);
+        m = transform(m, { rotate: vec3(0, yaw, 0), translate: vec3(bx, gy + bh * 0.5, bz) });
+        bldByColor[ci].push(m);
+      }
+      for (let ci = 0; ci < BLD_COLORS.length; ci++) {
+        if (bldByColor[ci].length) {
+          parts.push(surfPart(`buildings_${ci}`, merge(...bldByColor[ci]), "ceramic", { color: BLD_COLORS[ci], roughness: 0.7 }));
+        }
+      }
+
+      // --- dark-green tree clumps (trunk + conical canopy) ----------------
+      const trunkMeshes = [];
+      const leafMeshes = [];
+      const nT = Math.round(p.trees);
+      for (let i = 0; i < nT; i++) {
+        // trees favor the flanks/edges of the mound
+        const a = rng() * Math.PI * 2;
+        const rr = (0.35 + rng() * 0.55) * half * 0.9;
+        const tx = Math.cos(a) * rr;
+        const tz = Math.sin(a) * rr;
+        if (Math.abs(tx) > half * 0.95 || Math.abs(tz) > half * 0.95) continue;
+        const gy = hAt(tx, tz);
+        const th = 0.4 + rng() * 0.4;
+        const cr = 0.35 + rng() * 0.3;
+        const ch = 0.9 + rng() * 0.7;
+        trunkMeshes.push(transform(cylinder(0.06, th, 6, true), { translate: vec3(tx, gy + th * 0.5, tz) }));
+        leafMeshes.push(transform(cone(cr, ch, 7, true), { translate: vec3(tx, gy + th + ch * 0.5, tz) }));
+      }
+      if (trunkMeshes.length) parts.push(surfPart("tree_trunks", merge(...trunkMeshes), "bark", { color: TREE_TRUNK, roughness: 0.95 }));
+      if (leafMeshes.length) parts.push(surfPart("tree_canopies", merge(...leafMeshes), "leaf", { color: TREE_LEAF, roughness: 0.85 }));
+
+      // --- colorful field patches: a tidy grid tucked in the -x,-z corner,
+      //     matching the reference's little quilt of farm plots ------------
+      const fieldByColor = FIELD_COLORS.map(() => []);
+      const nF = Math.round(p.fields);
+      if (nF > 0) {
+        const cols = Math.max(2, Math.round(Math.sqrt(nF)));
+        const rows = Math.ceil(nF / cols);
+        const cell = size * 0.055;                 // plot size
+        const gap = cell * 0.14;
+        const gridW = cols * (cell + gap);
+        const gridD = rows * (cell + gap);
+        // anchor near the lower-left corner of the map
+        const ox = -half * 0.82;
+        const oz = -half * 0.82;
+        const tilt = -0.35;                          // whole quilt rotated a bit
+        let placed = 0;
+        for (let ry = 0; ry < rows && placed < nF; ry++) {
+          for (let cx = 0; cx < cols && placed < nF; cx++) {
+            const lx = cx * (cell + gap) - gridW * 0.5;
+            const lz = ry * (cell + gap) - gridD * 0.5;
+            // rotate the local grid coord by tilt around the anchor
+            const rx = lx * Math.cos(tilt) - lz * Math.sin(tilt);
+            const rz = lx * Math.sin(tilt) + lz * Math.cos(tilt);
+            const fx = ox + gridW * 0.5 + rx;
+            const fz = oz + gridD * 0.5 + rz;
+            const gy = hAt(fx, fz);
+            const jw = cell * (0.85 + rng() * 0.3);
+            const jd = cell * (0.85 + rng() * 0.3);
+            const ci = placed % FIELD_COLORS.length;
+            let m = plane(jw, jd, 1, 1);
+            m = transform(m, { rotate: vec3(0, tilt, 0), translate: vec3(fx, gy + 0.04, fz) });
+            fieldByColor[ci].push(m);
+            placed++;
+          }
+        }
+      }
+      for (let ci = 0; ci < FIELD_COLORS.length; ci++) {
+        if (fieldByColor[ci].length) {
+          parts.push(surfPart(`fields_${ci}`, merge(...fieldByColor[ci]), "fabric", { color: FIELD_COLORS[ci], roughness: 0.9 }));
+        }
+      }
+
+      return parts;
+    },
+  };
+})();
+
+export const PROC_MODELS = { "town-scene": townScene, sphere: sphereModel, teddy, rock, "rock-pile": rockPile, "pcg-vegetation": pcgVegetation, tower, pagoda, building, "urban-artdeco": urbanArtDeco, "urban-glass": urbanGlassTower, "urban-brick": urbanBrickWalkup, "urban-office": urbanModernOffice, "urban-brownstone": urbanBrownstone, "urban-corporate": urbanCorporate, "chinese-hall": chineseHall, cityblock: cityBlock, streetscene, "interior-room": interiorRoom, "hard-surface-kit": hardSurfaceKit, "terrain-island": terrainIsland, cloud, "cloud-sky": cloudSky, "polygon-island": polygonIsland, "pcg-world": pcgWorld, "mountain-village": mountainVillage, mushroom, gear, road, freeway, railway, officechair: officeChair, dragonfly, "sports-car": sportsCar, "gmc-canyon-at4x": gmcCanyonAt4x, "buick-riviera-1965": buickRiviera1965, "midnight-horse": midnightHorse, "reference-dog": referenceDog, "cartoon-mech-pilot": cartoonMechPilot, "stylized-humanoid": stylizedHumanoid, tshirt: tshirtModel, skirt: skirtModel, pants: pantsModel, dress: dressModel, hoodie: hoodieModel, smooth: smoothModel, spring: springModel, vine: vineModel, meadow: meadowModel, csg: csgModel, fterrain: terrainModel, wineglass: wineGlassModel, "veg-tree": treeModel, "veg-growing-tree": growingTreeModel, "veg-stylized-tree": stylizedTreeModel, "veg-authored-broadleaf": authoredBroadleafModel, "veg-trellis-fruit": trellisFruitModel, "veg-column-cypress": columnCypressAuthoringModel, "veg-authoring-lineup": authoringLineupModel, "veg-shrub": shrubModel, "veg-grass": grassModel, "veg-conifer": coniferModel, "veg-palm": palmModel, ...SPEEDTREE_MODELS, ...SPEEDTREE_TUTORIAL_MODELS };
 
 /** Default param object from a schema. */
 export function defaultParams(model) {

@@ -104,11 +104,29 @@ export const SCRIPT_API: Record<string, unknown> = {
   selectFacesByNormal: M.selectFacesByNormal,
   toTopo: M.toTopo,
   diagnose: M.diagnose,
+  hardEdges: M.hardEdges,
   // advanced geometry
   catmullClark: M.catmullClark,
   union: M.union,
   subtract: M.subtract,
   intersect: M.intersect,
+  subtractAll: M.subtractAll,
+  unionAll: M.unionAll,
+  // mechanical hard-surface parts kit (nuts/bolts/gears/threads/flanges)
+  prism: M.prism,
+  regularPolygon: M.regularPolygon,
+  hexPrism: M.hexPrism,
+  hexNut: M.hexNut,
+  boredPrism: M.boredPrism,
+  gear: M.gear,
+  gearOutline: M.gearOutline,
+  threadedRod: M.threadedRod,
+  bolt: M.bolt,
+  ringGear: M.ringGear,
+  annularPrism: M.annularPrism,
+  flange: M.flange,
+  boltHoleCircle: M.boltHoleCircle,
+  punchHoles: M.punchHoles,
   poissonScatter: M.poissonScatter,
   // Houdini-style middle layer
   scalarRamp: M.scalarRamp,
@@ -132,6 +150,37 @@ export const SCRIPT_API: Record<string, unknown> = {
   resampleCurve: M.resampleCurve,
   curveLength: M.curveLength,
   sweep: M.sweep,
+  // procedural roads (ribbon swept along a centerline, ported from UE Quick Road PCG)
+  roadRibbon: M.roadRibbon,
+  roadCurbs: M.roadCurbs,
+  roadCenterLine: M.roadCenterLine,
+  roadLaneLines: M.roadLaneLines,
+  roadEdgeLines: M.roadEdgeLines,
+  // freeway / viaduct kit (CitySample Kit_Freeway_A parts)
+  roadMedianBarrier: M.roadMedianBarrier,
+  roadGuardrail: M.roadGuardrail,
+  roadPillars: M.roadPillars,
+  roadDeck: M.roadDeck,
+  roadPierCaps: M.roadPierCaps,
+  roadSignGantry: M.roadSignGantry,
+  // procedural railway kit (ballast bed + sleepers + steel rails swept along a centerline)
+  railwayBallast: M.railwayBallast,
+  railwaySleepers: M.railwaySleepers,
+  railwayRails: M.railwayRails,
+  railwayTrack: M.railwayTrack,
+  // SliceAndDice-style scatter rule DSL (composable point-cloud layout rules)
+  scatterAlongCurve: M.scatterAlongCurve,
+  scatterGrid: M.scatterGrid,
+  applyRules: M.applyRules,
+  ruleCadence: M.ruleCadence,
+  ruleWeightedFill: M.ruleWeightedFill,
+  ruleScale: M.ruleScale,
+  ruleScaleJitter: M.ruleScaleJitter,
+  ruleJitterPosition: M.ruleJitterPosition,
+  ruleYawJitter: M.ruleYawJitter,
+  ruleMask: M.ruleMask,
+  ruleThin: M.ruleThin,
+  pruneMasked: M.pruneMasked,
   // vegetation (P7: procedural trees/shrubs/grass/conifer/palm — SpeedTree-style generator)
   tree: M.tree,
   shrub: M.shrub,
@@ -216,6 +265,11 @@ export const SCRIPT_API: Record<string, unknown> = {
   // procedural architecture (parametric building generator)
   buildBuildingParts: M.buildBuildingParts,
   buildCityBlockParts: M.buildCityBlockParts,
+  // urban city buildings (CitySample-style podium/shaft/crown modular towers)
+  buildUrbanBuildingParts: M.buildUrbanBuildingParts,
+  urbanDefaults: M.urbanDefaults,
+  // Chinese classical timber hall (台基/柱/额枋/斗拱/曲面屋顶/墙/脊兽)
+  buildChineseHallParts: M.buildChineseHallParts,
   // procedural quadrupeds (skeleton + cross-section skin template)
   buildQuadrupedParts: M.buildQuadrupedParts,
   buildReferenceDogParts: M.buildReferenceDogParts,
@@ -284,8 +338,33 @@ CUT / SELECTION (deterministic knife + DCC component selection):
   selectFacesByNormal(toTopo(mesh),dir:vec3,angleDeg?) -> [faceIndex]
   growSelection(topo,faces[],steps?) shrinkSelection(topo,faces[],steps?) selectionBoundary(topo,faces[])
   toTopo(mesh) -> topology view; diagnose(topo) -> {borderEdges,nonManifoldEdges,isClosed,...}
+  hardEdges(toTopo(mesh),angleDeg?) -> [{a,b,faces}] the sharp (crease) edges — the ones worth beveling
+  // Crisp hard-surface edges: bevelEdges(mesh,{width,segments}) chamfers/rounds ALL edges;
+  // roundedBox(...) is the fast path for a chamfered block. Selective per-edge bevel isn't
+  // available yet, so model crisp+soft by ASSEMBLING beveled parts rather than one bevel pass.
 BOOLEAN:
   union(a,b) subtract(a,b) intersect(a,b)
+  subtractAll(base, cutters:[mesh]) drill/cut MANY tools at once (merges them, subtracts once)
+  unionAll([mesh]) combine many solids into one (cleans between steps)
+  // Chained subtracts on the SAME solid can fail (CSG cracks). For many holes,
+  // use subtractAll(...) or punchHoles(...) instead of a subtract loop.
+MECHANICAL PARTS (hard-surface kit — build engineered models by ASSEMBLING these
+  parametric parts + boolean, the way OpenSCAD/BOSL2 do; far cleaner than blobs):
+  prism(outline:[vec2(x,z)], height?) extrude a closed CCW 2D outline into a solid along Y
+  regularPolygon(sides, size, acrossFlats?) -> [vec2] ; acrossFlats sizes by wrench flat-to-flat (nuts)
+  hexPrism(acrossFlats?, height?) solid hex prism (bolt head / standoff / spacer)
+  hexNut({acrossFlats?,height?,boreRadius?,boreSegments?}) hex prism with a concentric through-bore
+  boredPrism(outline:[vec2], height, boreRadius, boreSegments?) any prism with a centered round bore (washers/rings)
+  gear({teeth?,module?,thickness?,pressureAngle?,boreRadius?,boreSegments?}) spur gear disk (module=pitchDia/teeth)
+  gearOutline({teeth?,module?,pressureAngle?}) -> [vec2] just the toothed profile (feed to prism/extrude)
+  threadedRod({radius?,length?,pitch?,depth?,segments?}) shaft with a helical V-thread ridge (screws/rods)
+  bolt({radius?,length?,pitch?,headAcrossFlats?,headHeight?}) threaded shaft + hex head, ready to place
+  ringGear({teeth?,module?,thickness?,pressureAngle?,rimWidth?}) internal ring gear (planetary housing; match module to sun/planet)
+  annularPrism(outer:[vec2], inner:[vec2], height) solid between two concentric CCW outlines (any bore/tooth profile)
+  flange({radius?,thickness?,boreRadius?,boltHoles?,boltHoleRadius?,boltCircleRadius?,segments?}) pipe flange w/ bolt-hole ring
+  boltHoleCircle(count, boltCircleRadius, y?, phase?) -> [vec3] evenly spaced fastener centers (feed copyToPoints or punchHoles)
+  punchHoles(solid, centers:[vec3], holeRadius, depth, segments?) drill vertical holes through a solid (unions cutters, subtracts once)
+  // Parts stand along +Y; translateMesh/transform them into an assembly, then merge or boolean.
 SCATTER:
   poissonScatter(target,instance,{count,seed,scaleRange?,randomYaw?,alignToNormal?})
 HOUDINI-STYLE FLOW:
@@ -300,6 +379,40 @@ CURVES:
   polyline(points[],closed?) bezier(p0,p1,p2,p3,seg) helix({radius,height,turns,segments})
   smoothCurve(curve,subdiv) resampleCurve(curve,{count?,segmentLength?}) curveLength(curve)
   sweep(curve,{radius,sides,radiusAt?,caps?})  // resample BEFORE sweep for even tubes (ropes/pipes/vines)
+
+ROADS (flat ribbon swept along a centerline curve on the XZ ground plane):
+  roadRibbon(centerline,{halfWidth,sampleDistance,widthSubdivisions,adaptiveCurvature,curvatureThresholdDeg,verticalOffset,uvLengthScale}) road surface
+  roadCurbs(centerline,{halfWidth,curbHeight,curbWidth,...}) raised edge curbs; merge with the ribbon
+  roadCenterLine(centerline,{halfWidth,lineWidth,...}) thin painted centerline strip lifted above the road
+  roadLaneLines(centerline,{halfWidth,lanes,lineWidth,dashed,dashLength,gapLength,skipCenter}) dashed lane-divider lines
+    for a multi-lane road (lanes-1 dividers; skipCenter leaves the middle for a separate double line)
+  roadEdgeLines(centerline,{halfWidth,lineWidth,edgeInset}) solid white lines bounding both outer edges
+  // Paint lines with surfacePart(...,"plastic",{color:[1,1,1]}) (white) or [0.8,0.7,0.1] (yellow center).
+FREEWAY / VIADUCT KIT (CitySample Kit_Freeway_A; sweep along the same centerline as the ribbon):
+  roadMedianBarrier(centerline,{halfWidth,barrierHeight,barrierWidth,...}) central Jersey crash barrier
+  roadGuardrail(centerline,{side(+1/-1),lateral,postSpacing,railHeight,postSize,...}) posts + rail beam along one edge
+  roadDeck(centerline,{halfWidth,thickness,...}) solid box-beam slab with a real underside (elevated bridge deck)
+  roadPillars(centerline,{spacing,radius,groundY,deckThickness,verticalOffset,...}) cylindrical support columns to the ground
+  roadPierCaps(centerline,{spacing,capWidth,capHeight,capLength,deckThickness,...}) transverse cross-beams on top of the columns
+  roadSignGantry(centerline,{spacing,halfWidth,clearance,poleRadius,beamThickness,panelSpan,panelHeight,overhang}) overhead sign bridge
+RAILWAY KIT (ballast bed + sleepers + two steel rails, swept along a centerline; ground-aligned so rails stay upright on curves):
+  railwayBallast(centerline,{ballastTopWidth,ballastShoulder,ballastHeight,sampleDistance,verticalOffset}) trapezoidal crushed-stone embankment
+  railwaySleepers(centerline,{gauge,sleeperSpacing,sleeperLength,sleeperWidth,sleeperHeight,...}) cross-ties arrayed at a pitch (wood/concrete)
+  railwayRails(centerline,{gauge,railHeight,railHeadWidth,railFootWidth,...}) two I-beam steel rails offset by half the gauge
+  railwayTrack(centerline,opts) ballast+sleepers+rails merged into one mesh (use the three builders for separate stone/wood/steel materials)
+SCATTER RULE DSL (SliceAndDice-style: build a layout point cloud, pass it through composable
+  deterministic rules, then copyToPoints to place a prop library. variant->which mesh, scale, yaw, mask):
+  scatterAlongCurve(curve,{spacing,offset,bothSides,endPadding}) -> point cloud rowed along a curve
+    (sidewalk/fence/planting), with "along"(0..1),"side"(+/-1),"yaw"(faces the curve) attributes
+  scatterGrid({cols,rows,cellX,cellZ,y}) -> regular XZ grid cloud (plaza/lot/orchard) with "gx","gz"
+  applyRules(pc,[rule,...]) -> run a point cloud through an ordered rule chain
+  ruleCadence(every,feature,base?) every Nth slot gets variant=feature (lamp rhythm), rest keep base
+  ruleWeightedFill(choices,{weights?,seed?}) fill still-unassigned points (variant<0) with a seeded weighted pick
+  ruleScale(field,{multiply?}) / ruleScaleJitter(amount,seed) set/vary per-point "scale"
+  ruleJitterPosition(amount,seed) / ruleYawJitter(amountRad,seed) break row/grid regularity, seeded
+  ruleMask((ctx)=>bool) / ruleThin(keepProb,seed) mark points for removal; pruneMasked({dropUnassigned?}) drops them
+  // Then: copyToPoints(prunedCloud, [meshA,meshB,...], {variant:pointAttribute("variant"),
+  //   scale:pointAttribute("scale",1), yaw:pointAttribute("yaw"), alignToNormal:false})
 VEGETATION (P7: procedural trees/shrubs/grass — recursive spline branches + leaf cards):
   tree({seed,height?,trunkRadius?,branchCount?,depth?,branchAngle?,leafDensity?,leafSize?,leaves?,leafShape?,leafCurl?,leafFold?,branchFlare?,
     branchLengthProfile?,branchRadiusProfile?,branchAngleProfile?,branchCountProfile?,leafDensityProfile?,
@@ -372,6 +485,25 @@ ARCHITECTURE (parametric building: footprint -> floors -> facade grid -> windows
   roads (rows>=2) adds a central carriageway + sidewalks + dashed centre line, splitting
   rows into two bands lining the street; faceStreet rotates the far band so every front
   faces the road. base is a Partial building-params applied to every building.
+  buildUrbanBuildingParts({style,floors?,floorHeight?,width?,depth?,baysX?,baysZ?,
+    podiumFloors?,podiumOverhang?,setbackEvery?,setbackAmount?,facade?:"punched"|"ribbon",
+    windowRatio?,verticalPiers?,crown?:"flat"|"stepped"|"spire"|"mansard"|"watertank",crownHeight?,seed?})
+  Modern CITY building (CitySample-style modular kit): a wider PODIUM base -> a repeated
+  SHAFT of standard floors (stepped back in tiers when setbackEvery>0) -> a CROWN
+  (flat parapet / stepped ziggurat / spire / mansard / rooftop water tank). Facade is a
+  bay grid: "punched" = discrete framed windows, "ribbon" = horizontal vision bands.
+  style is one of "artDeco"|"glassTower"|"brickWalkup"|"modernOffice"|"brownstone"|"corporate"
+  and pre-sets a matched palette + massing; override any field. verticalPiers adds
+  art-deco piers between bays; lit windows + roof plant are seeded (deterministic).
+  urbanDefaults(style) returns the preset params. Spread: return [...buildUrbanBuildingParts({style:"artDeco",floors:20})].
+  buildChineseHallParts({baysX?,baysZ?,bayWidth?,bayDepth?,columnHeight?,columnRadius?,
+    baseHeight?,baseOverhang?,eaveOverhang?,roofRise?,roofConcavity?,cornerUpturn?,
+    roof?:"hip"|"hipGable"|"gable",dougong?,ridgeBeasts?,walls?,seed?})
+  Chinese classical timber HALL (殿堂): stone platform + steps, cinnabar column grid,
+  green architrave tie-beams, 斗拱 bracket sets, and the defining CURVED HIP ROOF —
+  concave 举架 pitch + upturned 翼角 corners + ridge/hip beasts + lattice front doors.
+  Returns matched materials (stone/wood/ceramic tiles). roofConcavity bows the roof
+  line; cornerUpturn lifts the corners. Spread into your return: return [...buildChineseHallParts({baysX:7})].
 QUADRUPEDS (animal template: skeleton curve + cross-section skin, not sphere piles):
   buildQuadrupedParts({scale?,bodyLength?,bodyWidth?,legLength?,
     neckArch?,maneLength?,tailLength?,stride?}) -> NamedPart[]

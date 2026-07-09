@@ -17,10 +17,21 @@ import type { Mesh } from "../geometry/mesh.js";
 import { merge } from "../geometry/mesh.js";
 import { makeRng } from "../random/prng.js";
 import { gnarlCurve, curveFrameAt } from "./curve-frame.js";
-import { growBranches, branchesToMesh, type BranchSegment, type BranchMeshOptions, type GrowBranchesOptions } from "./branch.js";
+import {
+  growBranches,
+  branchesToMesh,
+  sweepBarkTube,
+  type BarkUvOptions,
+  type BranchLevelOptions,
+  type BranchPlacementMode,
+  type BranchSegment,
+  type BranchMeshOptions,
+  type GrowBranchesOptions,
+} from "./branch.js";
 import { scatterLeaves, type LeafShape, type ScatterLeavesOptions } from "./leaf.js";
 import { frond, needleCluster } from "./frond.js";
 import { shapeBranchesToEnvelope, type CanopyEnvelope } from "./envelope.js";
+import { shapeBranchesToTrellis, type TrellisEnvelope } from "./trellis.js";
 import { branchFeatureMeshes, type BranchFeatureOptions } from "./feature.js";
 import type { Curve1DInput } from "./curve-param.js";
 
@@ -49,8 +60,18 @@ export interface TreeOptions {
   branchCount?: number;
   /** Recursion depth of branching. */
   depth?: number;
+  /** ez-tree-style authoring params; per-level values override branchCount/depth/etc. */
+  authoring?: TreeAuthoringOptions;
+  /** Branch + leaf placement mode. */
+  placement?: BranchPlacementMode;
   /** Branch out-going angle (degrees). */
   branchAngle?: number;
+  /** Bend branches toward +Y light. */
+  branchPhototropism?: number;
+  /** Bend branches toward -Y gravity. */
+  branchGravity?: number;
+  /** Base child branch length multiplier. */
+  branchLengthScale?: number;
   /** Leaves per terminal branch. */
   leafDensity?: number;
   /** Leaf card size. */
@@ -67,6 +88,8 @@ export interface TreeOptions {
   branchFlare?: boolean;
   /** Root collar radius multiplier. */
   branchFlareScale?: number;
+  /** Bark-friendly UV repeat mode for trunk + branches. */
+  barkUv?: boolean | BarkUvOptions;
   /** SpeedTree-style branch length multiplier over parent t. */
   branchLengthProfile?: Curve1DInput;
   /** SpeedTree-style branch radius multiplier over parent t. */
@@ -79,8 +102,22 @@ export interface TreeOptions {
   leafDensityProfile?: Curve1DInput;
   /** Clamp branch tips into a crown silhouette. */
   canopy?: CanopyEnvelope;
+  /** Pull branch curves toward wall/grid/wire support. */
+  trellis?: TrellisEnvelope;
   /** Add knots/scars/burls on branches. */
   branchFeatures?: boolean | BranchFeatureOptions;
+  /** Fake leaf normals into a rounded crown for fuller lighting. */
+  roundedLeafNormals?: boolean;
+}
+
+export interface TreeAuthoringOptions {
+  /** Per-generation branch params, level 0 = first-order branches off trunk. */
+  levels?: BranchLevelOptions[];
+  placement?: BranchPlacementMode;
+  barkUv?: boolean | BarkUvOptions;
+  leafPlacement?: BranchPlacementMode;
+  roundedLeafNormals?: boolean;
+  trellis?: TrellisEnvelope;
 }
 
 /** Build a single-trunk tree. */
@@ -89,40 +126,47 @@ export function tree(opts: TreeOptions = {}): PlantResult {
   const height = opts.height ?? (opts.trunkCurve ? curveYSpan(opts.trunkCurve) : 4);
   const trunkRadius = opts.trunkRadius ?? 0.28;
   const rng = makeRng(seed);
+  const barkUv = opts.barkUv ?? opts.authoring?.barkUv;
 
   // Trunk: vertical polyline, gnarled, swept with taper + root flare.
   const raw = opts.trunkCurve ?? polyline([vec3(0, 0, 0), vec3(0, height * 0.5, 0), vec3(0, height, 0)]);
   const trunkCurve = gnarlCurve(raw, { seed: (rng.next() * 1e9) | 0, amount: (opts.gnarl ?? 0.12) * height * 0.15 });
-  const trunkMesh = sweep(trunkCurve, {
+  const trunkSweep = {
     sides: 8,
     radius: trunkRadius,
-    radiusAt: (t) => trunkTaper(t),
+    radiusAt: (t: number) => trunkTaper(t),
     caps: true,
-  });
+  };
+  const trunkMesh = barkUv ? sweepBarkTube(trunkCurve, { ...trunkSweep, barkUv: barkUv === true ? {} : barkUv }) : sweep(trunkCurve, trunkSweep);
 
   const growOpts: GrowBranchesOptions = {
     seed: (rng.next() * 1e9) | 0,
-    count: opts.branchCount ?? 7,
-    depth: opts.depth ?? 3,
+    count: opts.authoring?.levels?.[0]?.count ?? opts.authoring?.levels?.[0]?.children ?? opts.branchCount ?? 7,
+    depth: authoringDepth(opts.authoring, opts.depth),
     angle: opts.branchAngle ?? 48,
-    phototropism: 0.4,
-    gravity: 0.08,
+    phototropism: opts.branchPhototropism ?? 0.4,
+    gravity: opts.branchGravity ?? 0.08,
     startPct: 0.35,
     endPct: 0.96,
     radiusScale: 0.58,
-    lengthScale: 0.7,
+    lengthScale: opts.branchLengthScale ?? 0.7,
   };
+  const branchPlacement = opts.placement ?? opts.authoring?.placement;
+  if (branchPlacement !== undefined) growOpts.placement = branchPlacement;
+  if (opts.authoring?.levels !== undefined) growOpts.levels = opts.authoring.levels;
   if (opts.branchLengthProfile !== undefined) growOpts.lengthProfile = opts.branchLengthProfile;
   if (opts.branchRadiusProfile !== undefined) growOpts.radiusProfile = opts.branchRadiusProfile;
   if (opts.branchAngleProfile !== undefined) growOpts.angleProfile = opts.branchAngleProfile;
   if (opts.branchCountProfile !== undefined) growOpts.countProfile = opts.branchCountProfile;
   let branches = growBranches(trunkCurve, trunkRadius, growOpts);
   branches = shapeBranchesToEnvelope(branches, opts.canopy);
+  branches = shapeBranchesToTrellis(branches, opts.trellis ?? opts.authoring?.trellis);
   const branchMeshOpts: BranchMeshOptions = {
     sides: 6,
     flare: opts.branchFlare ?? true,
   };
   if (opts.branchFlareScale !== undefined) branchMeshOpts.flareScale = opts.branchFlareScale;
+  if (barkUv !== undefined) branchMeshOpts.barkUv = barkUv;
   const branchMesh = branchesToMesh(branches, branchMeshOpts);
   const featureOpts = opts.branchFeatures === true ? {} : opts.branchFeatures;
   const features = featureOpts
@@ -142,6 +186,10 @@ export function tree(opts: TreeOptions = {}): PlantResult {
       cross: true,
       shape: opts.leafShape ?? "quad",
     };
+    const leafPlacement = opts.authoring?.leafPlacement ?? opts.placement ?? opts.authoring?.placement;
+    const roundedNormals = opts.roundedLeafNormals ?? opts.authoring?.roundedLeafNormals;
+    if (leafPlacement !== undefined) leafOpts.placement = leafPlacement;
+    if (roundedNormals !== undefined) leafOpts.roundedNormals = roundedNormals;
     if (opts.leafDensityProfile !== undefined) leafOpts.densityProfile = opts.leafDensityProfile;
     if (opts.leafCurl !== undefined) leafOpts.curl = opts.leafCurl;
     if (opts.leafFold !== undefined) leafOpts.fold = opts.leafFold;
@@ -149,6 +197,10 @@ export function tree(opts: TreeOptions = {}): PlantResult {
   }
 
   return opts.branchFeatures ? { wood, leaves, branches, features } : { wood, leaves, branches };
+}
+
+function authoringDepth(authoring: TreeAuthoringOptions | undefined, fallback?: number): number {
+  return authoring?.levels && authoring.levels.length > 0 ? authoring.levels.length : fallback ?? 3;
 }
 
 function curveYSpan(curve: Curve): number {
