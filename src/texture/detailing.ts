@@ -24,6 +24,7 @@
  * of the texture DSL: patterns are (u,v)->scalar, colors are RGB tuples.
  */
 import type { RGB } from "./color.js";
+import type { Vec3 } from "../math/vec3.js";
 import { makeNoise, fbm2, type FbmOptions } from "../random/noise.js";
 import { makeRng } from "../random/prng.js";
 import { clamp, smoothstep } from "../math/scalar.js";
@@ -248,5 +249,156 @@ export function heightBlendMask(
     // amount drives the threshold: amount=1 => B everywhere, 0 => A everywhere
     const threshold = 1 - amount;
     return smoothstep(threshold - band, threshold + band, h);
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Triplanar projection — the standard "no-UV" mapping for terrain and rocks.
+// Sample a 2D pattern from the three world axis planes (XY/YZ/XZ) and blend by
+// the surface normal so vertical faces don't stretch. UE uses this on cliffs
+// and its auto-landscape material (ProjectionTransition). Works on any mesh
+// without UVs: feed world position + normal.
+// ---------------------------------------------------------------------------
+
+export interface TriplanarOptions {
+  /** World-space frequency (tiles per world unit). */
+  scale?: number;
+  /** Blend sharpness between planes; higher = crisper axis transitions. */
+  sharpness?: number;
+}
+
+function triplanarWeights(normal: Vec3, sharpness: number): [number, number, number] {
+  let wx = Math.pow(Math.abs(normal.x), sharpness);
+  let wy = Math.pow(Math.abs(normal.y), sharpness);
+  let wz = Math.pow(Math.abs(normal.z), sharpness);
+  const s = wx + wy + wz || 1;
+  wx /= s;
+  wy /= s;
+  wz /= s;
+  return [wx, wy, wz];
+}
+
+/**
+ * Triplanar-sample a scalar pattern at a world position. The pattern is read on
+ * the three axis planes (projecting away X, Y, Z respectively) and blended by
+ * the normal's squared components, so a wall samples the vertical planes and a
+ * floor samples the horizontal one — no UV stretching on steep faces.
+ */
+export function triplanar(
+  pattern: TexScalarField,
+  opts: TriplanarOptions = {},
+): (pos: Vec3, normal: Vec3) => number {
+  const scale = opts.scale ?? 1;
+  const sharp = opts.sharpness ?? 4;
+  return (pos, normal) => {
+    const [wx, wy, wz] = triplanarWeights(normal, sharp);
+    // plane samples: X-normal reads (z,y); Y-normal reads (x,z); Z-normal reads (x,y)
+    const sx = pattern(pos.z * scale, pos.y * scale);
+    const sy = pattern(pos.x * scale, pos.z * scale);
+    const sz = pattern(pos.x * scale, pos.y * scale);
+    return sx * wx + sy * wy + sz * wz;
+  };
+}
+
+/** Triplanar variant for RGB color fields (rock albedo, moss, etc.). */
+export function triplanarColor(
+  pattern: TexColorField,
+  opts: TriplanarOptions = {},
+): (pos: Vec3, normal: Vec3) => RGB {
+  const scale = opts.scale ?? 1;
+  const sharp = opts.sharpness ?? 4;
+  return (pos, normal) => {
+    const [wx, wy, wz] = triplanarWeights(normal, sharp);
+    const cx = pattern(pos.z * scale, pos.y * scale);
+    const cy = pattern(pos.x * scale, pos.z * scale);
+    const cz = pattern(pos.x * scale, pos.y * scale);
+    return [
+      cx[0] * wx + cy[0] * wy + cz[0] * wz,
+      cx[1] * wx + cy[1] * wy + cz[1] * wz,
+      cx[2] * wx + cy[2] * wy + cz[2] * wz,
+    ];
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Slope/height auto-material — UE M_BGLandscape_Auto.
+// Assign a layer color per surface point from slope (normal.y) and height, with
+// noise break-up on the boundaries. Returns (pos,normal)->RGB, ready to feed
+// bakeVertexColors so a bare terrain mesh gets grass/dirt/rock/snow banding for
+// free — the material-side sibling of ruleNormalToDensity.
+// ---------------------------------------------------------------------------
+
+export interface TerrainLayer {
+  /** Layer color (linear RGB). */
+  color: RGB;
+  /** Min up-facing-ness (normal.y, 0..1) this layer needs. Grass ~0.7, rock ~0. */
+  minSlope?: number;
+  /** Height band [min,max] in world Y this layer occupies. Default full range. */
+  heightRange?: [number, number];
+  /** Relative priority when several layers qualify (higher wins). Default 0. */
+  priority?: number;
+}
+
+export interface TerrainAutoOptions {
+  /** Noise amount that jitters the layer boundaries (0..1). */
+  breakup?: number;
+  /** World-space frequency of the break-up noise. */
+  breakupScale?: number;
+  /** Blend softness between layers (0 = hard, 1 = very soft). Default 0.15. */
+  softness?: number;
+  seed?: number;
+}
+
+/**
+ * Build a slope+height driven terrain color function. Each layer declares the
+ * up-facing-ness and height band where it applies; the steepest-qualifying,
+ * highest-priority layer wins, with soft noise-broken transitions. Steep faces
+ * fall through to low-minSlope layers (rock), flat tops to high-minSlope layers
+ * (grass/snow) — exactly UE's auto-landscape logic, as pure code.
+ */
+export function terrainAutoMaterial(
+  layers: ReadonlyArray<TerrainLayer>,
+  opts: TerrainAutoOptions = {},
+): (pos: Vec3, normal: Vec3) => RGB {
+  const breakup = clamp(opts.breakup ?? 0, 0, 1);
+  const bScale = opts.breakupScale ?? 0.15;
+  const softness = clamp(opts.softness ?? 0.15, 0.001, 1);
+  const noise = makeNoise((opts.seed ?? 0) >>> 0);
+  const fallback: RGB = [0.5, 0.5, 0.5];
+  return (pos, normal) => {
+    // jitter the slope reading so layer edges wander instead of following contours
+    let up = normal.y;
+    if (breakup > 0) {
+      const n = fbm2(noise, pos.x * bScale, pos.z * bScale, { octaves: 3 });
+      up = clamp(up + n * 0.3 * breakup, -1, 1);
+    }
+    // weighted accumulation: each layer contributes by how well it qualifies
+    let r = 0;
+    let g = 0;
+    let b = 0;
+    let wsum = 0;
+    for (const layer of layers) {
+      const minSlope = layer.minSlope ?? 0;
+      // slope qualification: smooth ramp above minSlope
+      const slopeW = smoothstep(minSlope - softness, minSlope + softness, up);
+      if (slopeW <= 0) continue;
+      let heightW = 1;
+      if (layer.heightRange) {
+        const [lo, hi] = layer.heightRange;
+        const mid = (lo + hi) * 0.5;
+        const half = Math.max(1e-4, (hi - lo) * 0.5);
+        // 1 in the band, fading out over `softness*band` at the edges
+        const d = Math.abs(pos.y - mid) / half;
+        heightW = 1 - smoothstep(1 - softness, 1 + softness, d);
+      }
+      const w = slopeW * heightW * (1 + (layer.priority ?? 0));
+      if (w <= 0) continue;
+      r += layer.color[0] * w;
+      g += layer.color[1] * w;
+      b += layer.color[2] * w;
+      wsum += w;
+    }
+    if (wsum <= 0) return fallback;
+    return [r / wsum, g / wsum, b / wsum];
   };
 }

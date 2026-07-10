@@ -65,8 +65,22 @@ function startServer() {
       res.writeHead(404).end("not found");
     }
   });
-  return new Promise((res) => {
-    server.listen(0, () => res({ server, port: server.address().port }));
+  // Bind a fixed, browser-safe port range instead of listen(0): a random port
+  // can land on Chromium's UNSAFE_PORT list (e.g. 2049) and fail navigation.
+  return new Promise((res, rej) => {
+    let candidate = 5390;
+    const tryListen = () => {
+      server.once("error", (err) => {
+        if (err && err.code === "EADDRINUSE" && candidate < 5450) {
+          candidate += 1;
+          tryListen();
+        } else {
+          rej(err);
+        }
+      });
+      server.listen(candidate, "127.0.0.1", () => res({ server, port: candidate }));
+    };
+    tryListen();
   });
 }
 

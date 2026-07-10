@@ -25,9 +25,18 @@ const CATEGORY = {
   "hard-surface-kit": "硬表面",
   officechair: "家具", wineglass: "家具", "interior-room": "家具",
   tower: "建筑", pagoda: "建筑", building: "建筑", cityblock: "建筑", streetscene: "建筑", freeway: "建筑",
+  road: "基建", railway: "基建", viaduct: "基建", pylon: "基建", "tower-crane": "基建", "wind-turbine": "基建",
+  "toll-station": "基建", "tunnel-portal": "基建", intersection: "基建",
+  "titan-rail": "Titan复刻", "titan-fence": "Titan复刻", "titan-cable": "Titan复刻",
+  "titan-adboard": "Titan复刻", "titan-shrub": "Titan复刻", "titan-platform": "Titan复刻",
+  "titan-building": "Titan复刻", "titan-stacking": "Titan复刻",
   "urban-artdeco": "建筑", "urban-glass": "建筑", "urban-brick": "建筑",
   "urban-office": "建筑", "urban-brownstone": "建筑", "urban-corporate": "建筑",
-  rock: "自然", mushroom: "自然", meadow: "自然", vine: "自然",
+  "rooftop-kit": "城市", scaffolding: "城市", "bus-stop": "城市", bicycle: "城市",
+  billboard: "城市", "container-yard": "城市", "manhole-cover": "城市", "barrier-run": "城市",
+  "fire-escape": "城市", newsstand: "城市", "traffic-signal": "城市",
+  "umbrella-table": "城市", "street-tree": "城市", "wfc-rooftop": "城市",
+  rock: "自然", mushroom: "自然", meadow: "自然", vine: "自然", "vine-slope": "自然", "ivy-ruins": "自然",
   fterrain: "地形", "terrain-island": "地形",
   "veg-tree": "植被", "veg-shrub": "植被", "veg-grass": "植被",
   "veg-conifer": "植被", "veg-palm": "植被", "veg-tree-lod": "植被", "veg-garden": "植被",
@@ -48,7 +57,7 @@ const catOf = (id, fallback) => {
 function isGeneratedLibraryEntry(m) {
   if (!m || !m.id || !m.file || PROC_MODELS[m.id] || !isGalleryModelVisible(m.id)) return false;
   const id = String(m.id);
-  return m.category === "meshova" || id.startsWith("speedtree-") || id.startsWith("terrain-") || id.startsWith("veg-") || id.startsWith("mech-") || m.category === "地形" || m.category === "植被" || m.category === "机械";
+  return m.category === "meshova" || id.startsWith("speedtree-") || id.startsWith("terrain-") || id.startsWith("veg-") || id.startsWith("mech-") || id.startsWith("rt-") || m.category === "地形" || m.category === "植被" || m.category === "机械";
 }
 
 async function loadGeneratedEntries() {
@@ -340,10 +349,53 @@ function renderViewerModelThumb(viewerModel) {
   return { url, verts, tris };
 }
 
+// ---- 单模型预览模态：内嵌 iframe 渲染，避免整页跳转 ----
+const modalEl = document.getElementById("modal");
+const modalFrame = document.getElementById("modal-frame");
+const modalTitle = document.getElementById("modal-title");
+const modalSub = document.getElementById("modal-sub");
+const modalOpen = document.getElementById("modal-open");
+const modalClose = document.getElementById("modal-close");
+
+function openModal({ url, title, sub }) {
+  modalTitle.textContent = title || "";
+  modalSub.textContent = sub || "";
+  modalOpen.href = url;
+  modalFrame.src = url;
+  modalEl.classList.add("on");
+  document.body.style.overflow = "hidden";
+}
+
+// iframe 内的子页面自带“← 模型库”返回链接，嵌在模态里会造成嵌套画廊，隐藏它。
+// 同源可直接访问 contentDocument。
+modalFrame.addEventListener("load", () => {
+  if (modalFrame.src.endsWith("about:blank")) return;
+  try {
+    const doc = modalFrame.contentDocument;
+    if (!doc) return;
+    // 隐藏子页面里所有指向模型库的返回链接（.back 或 href 指到 gallery.html）。
+    doc.querySelectorAll('.back, a[href*="gallery.html"]').forEach((el) => {
+      el.style.display = "none";
+    });
+  } catch { /* 跨源时忽略 */ }
+});
+
+function closeModal() {
+  modalEl.classList.remove("on");
+  modalFrame.src = "about:blank"; // 释放 iframe 内的 WebGL 上下文
+  document.body.style.overflow = "";
+}
+
+modalClose.onclick = closeModal;
+// 点遮罩空白处（box 之外）关闭。
+modalEl.addEventListener("click", (ev) => { if (ev.target === modalEl) closeModal(); });
+document.addEventListener("keydown", (ev) => {
+  if (ev.key === "Escape" && modalEl.classList.contains("on")) closeModal();
+});
+
 // ---- 构建卡片网格 + 搜索 + 分类过滤 ----
 const grid = document.getElementById("grid");
 const countEl = document.getElementById("count");
-const catsEl = document.getElementById("cats");
 const searchEl = document.getElementById("search");
 
 const generatedEntries = await loadGeneratedEntries();
@@ -365,28 +417,48 @@ for (const cat of MATERIAL_CATS) {
   }
 }
 
+// rt-* 是规则树/查询层的演示模型，置顶方便查看。
+const pinnedGenerated = generatedEntries.filter((e) => e.id.startsWith("rt-"));
+const restGenerated = generatedEntries.filter((e) => !e.id.startsWith("rt-"));
+
 const entries = [
+  ...pinnedGenerated,
   ...procEntries.filter((e) => !e.id.startsWith("speedtree-")),
   ...procEntries.filter((e) => e.id.startsWith("speedtree-")),
-  ...generatedEntries,
+  ...restGenerated,
   ...materialEntries,
 ];
 let activeCat = "全部";
 let query = "";
 
-// 分类标签栏（按出现顺序，去重）。
-const cats = ["全部", ...[...new Set(entries.map((e) => e.cat))]];
-for (const cat of cats) {
-  const el = document.createElement("div");
-  el.className = "cat" + (cat === activeCat ? " on" : "");
-  el.textContent = cat;
-  el.onclick = () => {
-    activeCat = cat;
-    [...catsEl.children].forEach((c) => c.classList.toggle("on", c.textContent === cat));
-    applyFilter();
-  };
-  catsEl.appendChild(el);
-}
+// ---- Sketchfab 风格下拉 mega 菜单：左侧来源列 + 右侧主题分组网格 ----
+// 每个分类计数（含当前 entries 里实际出现的分类）。
+const catCount = {};
+for (const e of entries) catCount[e.cat] = (catCount[e.cat] || 0) + 1;
+const presentCats = new Set(Object.keys(catCount));
+
+// 分类图标（emoji，找不到用默认圆点）。
+const CAT_ICON = {
+  角色: "🧍", 服装: "👕", 载具: "🚗", 硬表面: "🔩", 家具: "🛋️", 建筑: "🏙️",
+  基建: "🌉", 城市: "🏗️", 自然: "🌿", 地形: "⛰️", 植被: "🌳", 机械: "🤖",
+  基础: "🔷", "Titan复刻": "🗼", SpeedTree教程复刻: "🌲", "SpeedTree-lite": "🌴",
+  "SpeedTree-lite 新树型": "🌱", "Meshova 生成": "✨", 生成模型: "📦", 其它: "🔸",
+  "材质·SBS复现": "🎛️", "材质·内置预设": "🎨", "材质·拼接": "🧩",
+};
+const iconFor = (c) => CAT_ICON[c] || "•";
+
+// 主题分组：把分类归到便于浏览的大组，只显示实际存在的分类。
+const MATERIAL_LABELS = MATERIAL_CATS.map((c) => c.label);
+const CAT_GROUPS = [
+  { label: "角色 & 服装", cats: ["角色", "服装"] },
+  { label: "载具 & 机械", cats: ["载具", "机械", "硬表面"] },
+  { label: "建筑 & 城市", cats: ["建筑", "城市", "基建"] },
+  { label: "自然 & 植被", cats: ["自然", "地形", "植被"] },
+  { label: "复刻 & 教程", cats: ["Titan复刻", "SpeedTree教程复刻", "SpeedTree-lite", "SpeedTree-lite 新树型"] },
+  { label: "家具 & 基础", cats: ["家具", "基础"] },
+  { label: "生成 & 其它", cats: ["Meshova 生成", "生成模型", "其它"] },
+  { label: "材质", cats: MATERIAL_LABELS },
+];
 
 // 为每个模型建卡片骨架，缩略图后台逐个填充。
 const cards = entries.map((e) => {
@@ -402,11 +474,19 @@ const cards = entries.map((e) => {
     `<span class="sub">${sub}</span></div>`;
   card.onclick = () => {
     if (e.isMaterial) {
-      location.href = `/web/matlab.html?cat=${encodeURIComponent(e.matCat)}&mat=${encodeURIComponent(e.matName)}`;
+      openModal({
+        url: `/web/matlab.html?cat=${encodeURIComponent(e.matCat)}&mat=${encodeURIComponent(e.matName)}`,
+        title: e.model.name,
+        sub: e.cat,
+      });
       return;
     }
     const modelParam = e.generated ? (e.file || `${e.id}.json`) : e.id;
-    location.href = `/web/index.html?model=${encodeURIComponent(modelParam)}`;
+    openModal({
+      url: `/web/index.html?model=${encodeURIComponent(modelParam)}`,
+      title: e.model.name,
+      sub: `${e.cat} · ${e.id}`,
+    });
   };
   grid.appendChild(card);
   return { ...e, card };
@@ -417,12 +497,20 @@ empty.id = "empty";
 empty.textContent = "没有匹配的模型";
 grid.appendChild(empty);
 
+function catMatch(entry) {
+  if (activeCat === "全部") return true;
+  if (activeCat === "__models") return !entry.isMaterial;
+  if (activeCat === "__materials") return !!entry.isMaterial;
+  return entry.cat === activeCat;
+}
+
 function applyFilter() {
   const q = query.trim().toLowerCase();
   let shown = 0;
-  for (const { card, model, id, cat } of cards) {
+  for (const entry of cards) {
+    const { card, model, id, cat } = entry;
     const match =
-      (activeCat === "全部" || cat === activeCat) &&
+      catMatch(entry) &&
       (!q || model.name.toLowerCase().includes(q) || id.includes(q) || cat.toLowerCase().includes(q));
     card.style.display = match ? "" : "none";
     if (match) shown++;
@@ -430,6 +518,78 @@ function applyFilter() {
   empty.style.display = shown ? "none" : "block";
   countEl.textContent = `${shown} / ${cards.length} 个模型`;
 }
+
+// ---- mega 菜单构建 ----
+const toggleEl = document.getElementById("cat-toggle");
+const toggleLabelEl = document.getElementById("cat-toggle-label");
+const menuEl = document.getElementById("megamenu");
+const sideEl = document.getElementById("mega-side");
+const mainEl = document.getElementById("mega-main");
+const activeTagEl = document.getElementById("active-tag");
+const activeTagLabelEl = document.getElementById("active-tag-label");
+const activeTagClearEl = document.getElementById("active-tag-clear");
+
+// 左侧“来源列”：跨分类的快捷视图（全部 / 模型 / 材质）。
+const SOURCES = [
+  { key: "全部", ic: "▦", label: "全部", count: () => cards.length },
+  { key: "__models", ic: "📦", label: "仅模型", count: () => cards.filter((c) => !c.isMaterial).length },
+  { key: "__materials", ic: "🎨", label: "仅材质", count: () => cards.filter((c) => c.isMaterial).length },
+];
+for (const s of SOURCES) {
+  const el = document.createElement("div");
+  el.className = "src" + (s.key === activeCat ? " on" : "");
+  el.dataset.key = s.key;
+  el.innerHTML = `<span class="ic">${s.ic}</span><span>${s.label}</span><span class="n">${s.count()}</span>`;
+  el.onclick = () => selectCat(s.key);
+  sideEl.appendChild(el);
+}
+
+// 右侧主题分组网格：只列出实际存在的分类。
+for (const grp of CAT_GROUPS) {
+  const present = grp.cats.filter((c) => presentCats.has(c));
+  if (present.length === 0) continue;
+  const box = document.createElement("div");
+  box.className = "grp";
+  box.innerHTML = `<div class="gt">${grp.label}</div>`;
+  for (const c of present) {
+    const it = document.createElement("div");
+    it.className = "it" + (c === activeCat ? " on" : "");
+    it.dataset.key = c;
+    it.innerHTML = `<span class="ic">${iconFor(c)}</span><span>${c}</span><span class="n">${catCount[c]}</span>`;
+    it.onclick = () => selectCat(c);
+    box.appendChild(it);
+  }
+  mainEl.appendChild(box);
+}
+
+function labelForCat(key) {
+  const src = SOURCES.find((s) => s.key === key);
+  return src ? src.label : key;
+}
+
+function selectCat(key) {
+  activeCat = key;
+  // 高亮同步：来源列 + 主题网格。
+  sideEl.querySelectorAll(".src").forEach((el) => el.classList.toggle("on", el.dataset.key === key));
+  mainEl.querySelectorAll(".it").forEach((el) => el.classList.toggle("on", el.dataset.key === key));
+  const isAll = key === "全部";
+  toggleLabelEl.textContent = isAll ? "全部分类" : labelForCat(key);
+  activeTagEl.classList.toggle("on", !isAll);
+  if (!isAll) activeTagLabelEl.textContent = labelForCat(key);
+  closeMenu();
+  applyFilter();
+}
+
+function openMenu() { menuEl.classList.add("open"); toggleEl.classList.add("open"); }
+function closeMenu() { menuEl.classList.remove("open"); toggleEl.classList.remove("open"); }
+toggleEl.onclick = (ev) => {
+  ev.stopPropagation();
+  menuEl.classList.contains("open") ? closeMenu() : openMenu();
+};
+menuEl.addEventListener("click", (ev) => ev.stopPropagation());
+document.addEventListener("click", () => closeMenu());
+document.addEventListener("keydown", (ev) => { if (ev.key === "Escape") closeMenu(); });
+activeTagClearEl.onclick = (ev) => { ev.stopPropagation(); selectCat("全部"); };
 
 searchEl.oninput = () => { query = searchEl.value; applyFilter(); };
 applyFilter();
@@ -442,14 +602,19 @@ async function fillGeneratedCard(entry) {
     const model = await res.json();
     let tris = Math.round(model?.meta?.tris ?? 0);
     let verts = Math.round(model?.meta?.verts ?? 0);
-    const img = await firstLoadableImage(generatedThumbCandidates(entry));
-    let thumbUrl = img;
-    if (!thumbUrl) {
+    // 统一背景：优先用 gallery 深色离屏渲染，跟其余卡片一致。
+    // 离线截图（/out/shots/*.png）背景是 viewer 的 env 天空，色调不一致，
+    // 只在离屏渲染失败（几何缺失等）时兜底。
+    let thumbUrl = null;
+    try {
       const rendered = renderViewerModelThumb(model);
       thumbUrl = rendered.url;
       if (!tris) tris = Math.round(rendered.tris);
       if (!verts) verts = Math.round(rendered.verts);
+    } catch {
+      thumbUrl = await firstLoadableImage(generatedThumbCandidates(entry));
     }
+    if (!thumbUrl) throw new Error("无缩略图");
     thumb.innerHTML = `<img src="${thumbUrl}" alt="${entry.model.name}" />`;
     thumb.innerHTML += `<span class="badge">${tris} 面</span>`;
     const meta = model?.meta || {};

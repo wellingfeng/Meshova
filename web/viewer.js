@@ -1445,6 +1445,15 @@ function applyMaterial(presetName, { size = 256, skipPanel = false } = {}) {
         const ov = surfaceOverrides[o.name];
         const ref = ov ? { type: surf.type, params: { ...(surf.params || {}), ...ov } } : surf;
         const m = bakeSurface(ref, size, o.userData.baseColor || [0.8, 0.8, 0.8]);
+        // If the part also ships per-vertex colors (e.g. a triplanar-baked rock),
+        // let those drive the albedo and keep only the surface's roughness/normal/
+        // ao质感: drop the UV-space color map (which would stretch on unwrapped
+        // meshes) and multiply the physical material by the vertex colors instead.
+        if (m && o.userData.vertexColors) {
+          m.vertexColors = true;
+          m.map = null;
+          m.color = new THREE.Color(1, 1, 1);
+        }
         o.material = m || makePartMaterial(o.userData.baseColor, o.userData.vertexColors);
         // Skin uses cylindrical UVs that pinch at the head crown -> triplanar.
         if (surf.type === "skin") attachTriplanar(o.material);

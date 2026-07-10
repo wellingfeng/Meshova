@@ -22,11 +22,43 @@
     background:#1c2330;color:var(--txt);border:1px solid var(--line);
     border-radius:8px;padding:8px 12px;font:inherit;}
   #search:focus{outline:none;border-color:var(--acc);}
-  #cats{display:flex;gap:6px;flex-wrap:wrap;padding:10px 20px 0;}
-  .cat{background:#1c2330;color:var(--mut);border:1px solid var(--line);
-    border-radius:20px;padding:4px 14px;font-size:12px;cursor:pointer;user-select:none;}
-  .cat:hover{border-color:var(--acc);color:var(--txt);}
-  .cat.on{background:#15263b;border-color:var(--acc);color:var(--acc);}
+  /* 分类：Sketchfab 风格下拉 mega 菜单（来源列 + 主题分组网格）。 */
+  #cats{position:relative;display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 20px 0;}
+  #cat-toggle{display:inline-flex;align-items:center;gap:8px;background:#1c2330;color:var(--txt);
+    border:1px solid var(--line);border-radius:8px;padding:7px 14px;font:inherit;font-size:13px;cursor:pointer;
+    user-select:none;transition:border-color .12s,background .12s;}
+  #cat-toggle:hover,#cat-toggle.open{border-color:var(--acc);background:#15263b;}
+  #cat-toggle .chev{color:var(--mut);transition:transform .15s;}
+  #cat-toggle.open .chev{transform:rotate(180deg);}
+  #active-tag{display:none;align-items:center;gap:8px;background:#15263b;border:1px solid var(--acc);
+    color:var(--acc);border-radius:20px;padding:4px 6px 4px 12px;font-size:12px;}
+  #active-tag.on{display:inline-flex;}
+  #active-tag .x{cursor:pointer;font-weight:700;opacity:.7;line-height:1;padding:0 4px;}
+  #active-tag .x:hover{opacity:1;}
+  #megamenu{position:absolute;top:calc(100% + 6px);left:20px;z-index:20;display:none;
+    grid-template-columns:210px 1fr;min-width:min(780px,94vw);
+    background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    overflow:hidden;box-shadow:0 16px 48px #000b;}
+  #megamenu.open{display:grid;animation:fade .12s ease;}
+  #megamenu .side{background:linear-gradient(160deg,#1b3a5c,#12202f);padding:14px;
+    display:flex;flex-direction:column;gap:2px;}
+  #megamenu .side .src{display:flex;align-items:center;gap:10px;color:#cfe3ff;border-radius:8px;
+    padding:9px 11px;font-size:13px;font-weight:600;cursor:pointer;transition:background .12s;}
+  #megamenu .side .src:hover{background:#ffffff1a;}
+  #megamenu .side .src.on{background:#ffffff26;color:#fff;}
+  #megamenu .side .src .ic{font-size:16px;width:20px;text-align:center;}
+  #megamenu .side .src .n{margin-left:auto;font-size:11px;font-weight:500;opacity:.7;
+    font-variant-numeric:tabular-nums;}
+  #megamenu .main{padding:16px 18px;display:grid;grid-template-columns:repeat(2,1fr);
+    gap:16px 26px;max-height:min(70vh,520px);overflow:auto;align-content:start;}
+  #megamenu .grp .gt{font-size:11px;font-weight:700;letter-spacing:.6px;color:var(--acc2);
+    text-transform:uppercase;margin-bottom:4px;}
+  #megamenu .grp .it{display:flex;align-items:center;gap:9px;color:var(--txt);border-radius:6px;
+    padding:6px 8px;font-size:13px;cursor:pointer;transition:background .1s,color .1s;}
+  #megamenu .grp .it:hover{background:#1c2330;color:var(--acc);}
+  #megamenu .grp .it.on{color:var(--acc);background:#15263b;}
+  #megamenu .grp .it .ic{width:18px;text-align:center;}
+  #megamenu .grp .it .n{margin-left:auto;color:var(--mut);font-size:11px;font-variant-numeric:tabular-nums;}
   #grid{display:grid;gap:16px;padding:18px 20px 40px;
     grid-template-columns:repeat(auto-fill,minmax(220px,1fr));}
   .card{background:var(--card);border:1px solid var(--line);border-radius:10px;
@@ -47,6 +79,28 @@
   .meta .name{font-size:14px;font-weight:600;}
   .meta .sub{font-size:11px;color:var(--mut);}
   #empty{display:none;color:var(--mut);text-align:center;padding:60px 20px;grid-column:1/-1;}
+  /* 单模型预览模态：点击卡片在原页弹窗内嵌渲染，关闭即返回，无跳转。 */
+  #modal{position:fixed;inset:0;z-index:100;display:none;
+    background:#04070bcc;backdrop-filter:blur(3px);
+    align-items:center;justify-content:center;padding:12px;}
+  #modal.on{display:flex;animation:fade .15s ease;}
+  @keyframes fade{from{opacity:0;}to{opacity:1;}}
+  #modal .box{position:relative;width:min(1680px,98vw);height:min(1040px,97vh);
+    background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    overflow:hidden;display:flex;flex-direction:column;box-shadow:0 20px 60px #000b;}
+  #modal .head{display:flex;align-items:center;gap:12px;padding:10px 14px;
+    border-bottom:1px solid var(--line);background:#12161d;flex-shrink:0;}
+  #modal .head .title{font-size:14px;font-weight:600;color:var(--txt);
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  #modal .head .sub{font-size:12px;color:var(--mut);white-space:nowrap;}
+  #modal .head .grow{flex:1;}
+  #modal .head a,#modal .head button{background:#1c2330;color:var(--mut);
+    border:1px solid var(--line);border-radius:6px;padding:6px 12px;font:inherit;
+    font-size:13px;cursor:pointer;text-decoration:none;transition:background .12s,color .12s,border-color .12s;}
+  #modal .head a:hover,#modal .head button:hover{border-color:var(--acc);color:var(--txt);}
+  #modal .head .close{font-size:16px;line-height:1;padding:6px 11px;}
+  #modal .head .close:hover{background:#3a1d1d;border-color:#ff7b72;color:#ff7b72;}
+  #modal iframe{flex:1;width:100%;border:0;background:#0a0d12;}
 </style>
 </head>
 <body>
@@ -55,8 +109,27 @@
     <span class="count" id="count"></span>
     <input id="search" type="search" placeholder="搜索模型名 / 分类…" />
   </header>
-  <div id="cats"></div>
+  <div id="cats">
+    <div id="cat-toggle"><span class="ic">▦</span><span id="cat-toggle-label">全部分类</span><span class="chev">▾</span></div>
+    <div id="active-tag"><span id="active-tag-label"></span><span class="x" id="active-tag-clear">✕</span></div>
+    <div id="megamenu">
+      <div class="side" id="mega-side"></div>
+      <div class="main" id="mega-main"></div>
+    </div>
+  </div>
   <div id="grid"></div>
+  <div id="modal">
+    <div class="box">
+      <div class="head">
+        <span class="title" id="modal-title"></span>
+        <span class="sub" id="modal-sub"></span>
+        <span class="grow"></span>
+        <a id="modal-open" href="#" target="_blank" title="在新标签页打开">新窗口 ↗</a>
+        <button class="close" id="modal-close" title="关闭 (Esc)">✕</button>
+      </div>
+      <iframe id="modal-frame" title="单模型预览"></iframe>
+    </div>
+  </div>
   <script type="importmap">
   { "imports": {
     "three": "/web/vendor/three.module.js",

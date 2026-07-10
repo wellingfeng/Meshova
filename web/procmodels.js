@@ -44,7 +44,16 @@ import {
   pointAttribute,
   copyToPoints,
   surfacePointCloud,
+  scatterAlongCurve,
+  scatterGrid,
   applyRules,
+  ruleCadence,
+  ruleLookAt,
+  ruleDistanceToNeighbors,
+  ruleClipToPolygon,
+  ruleScale,
+  ruleJitterPosition,
+  partitionByAttribute,
   ruleNormalToDensity,
   ruleDensityNoise,
   ruleDensityPrune,
@@ -55,6 +64,11 @@ import {
   ruleWeightedFill,
   pruneMasked,
   copyAssembliesToPoints,
+  scatterToLayers,
+  bakeVertexColors,
+  triplanarColor,
+  terrainAutoMaterial,
+  fbmPattern,
   makeNoise,
   fbm2,
   vec2,
@@ -78,6 +92,14 @@ import {
   buildTerrainIslandParts,
   buildCloudParts,
   buildCloudSkyParts,
+  buildVineParts,
+  buildVineStemMesh,
+  buildIvyRuinsParts,
+  buildRootsParts,
+  buildRootMesh,
+  buildRockFormationParts,
+  buildRockFormationMesh,
+  ruleVariantBySlope,
   buildPolygonIslandParts,
   buildTerrainField,
   classifyBiomes,
@@ -120,6 +142,41 @@ import {
   roadCenterLine,
   buildFreewayParts,
   buildRailwayParts,
+  buildViaductParts,
+  buildTitanRailParts,
+  buildTitanFenceParts,
+  buildTitanCableParts,
+  buildTitanAdBoardParts,
+  buildTitanShrubParts,
+  buildTitanPlatformParts,
+  buildTitanBuildingParts,
+  buildTitanStackingParts,
+  buildTitanTrainParts,
+  buildTitanTreeParts,
+  buildTitanClothParts,
+  buildPylonParts,
+  buildTowerCraneParts,
+  buildWindTurbineParts,
+  buildTollStationParts,
+  buildTunnelPortalParts,
+  buildRooftopKitParts,
+  buildScaffoldingParts,
+  buildBusStopParts,
+  buildBicycleParts,
+  buildBillboardParts,
+  buildContainerYardParts,
+  buildManholeCoverParts,
+  buildBarrierRunParts,
+  buildFireEscapeParts,
+  buildNewsstandParts,
+  buildTrafficSignalParts,
+  buildUmbrellaTableParts,
+  buildStreetTreeParts,
+  buildFreewaySignParts,
+  buildMaterialStackParts,
+  buildWaterTowerParts,
+  buildWfcRooftopParts,
+  buildIntersectionParts,
   makeTerrainPrimitiveField,
   heightfieldToTerrainMesh,
   sampleField2DBilinear,
@@ -490,6 +547,69 @@ function buildPcgVegetationParts(p, terrain, size) {
   return parts;
 }
 
+// ---- Slope-zoned vines: UE PointMatchAndSet (ruleVariantBySlope) demo ----
+// A hill is surface-sampled, then ruleVariantBySlope picks a vine species per
+// point by how steep the ground is: flat = ground creeper, mid = climbing ivy,
+// cliff = woody liana. Each species is a small pre-grown vine stem instanced by
+// copyToPoints. This is "陡坡长藤本、平地长匍匐藤" as a two-line rule chain.
+const vineSlopeModel = {
+  id: "vine-slope",
+  name: "PCG 坡度选藤",
+  schema: [
+    { key: "size", label: "地形尺寸", min: 8, max: 24, step: 0.5, default: 14 },
+    { key: "relief", label: "地形起伏", min: 1, max: 8, step: 0.1, default: 4.5 },
+    { key: "count", label: "撒点密度", min: 40, max: 400, step: 10, default: 160 },
+    { key: "flatMax", label: "平地坡度上限°", min: 5, max: 35, step: 1, default: 18 },
+    { key: "midMax", label: "斜坡坡度上限°", min: 35, max: 70, step: 1, default: 52 },
+    { key: "spacing", label: "最小间距", min: 0.4, max: 2.5, step: 0.1, default: 1.1 },
+    { key: "vineScale", label: "藤蔓大小", min: 0.15, max: 0.6, step: 0.05, default: 0.35 },
+    { key: "seed", label: "随机种子", min: 0, max: 60, step: 1, default: 9 },
+  ],
+  build(p) {
+    const size = p.size;
+    const field = makeTerrainPrimitiveField({
+      resolution: 96, seed: p.seed | 0, height: 1,
+      noiseScale: 1.4, ridgeStrength: 0.7, islandFalloff: 1.4,
+    });
+    const terrain = heightfieldToTerrainMesh(field, { size, heightScale: p.relief, baseY: 0 });
+
+    // scatter + de-clump, then zone by slope into 3 vine variants.
+    const raw = surfacePointCloud(terrain, { count: Math.round(p.count), seed: (p.seed | 0) + 1 });
+    const scattered = applyRules(raw, [
+      ruleSelfPruning({ radius: p.spacing }),
+      ruleVariantBySlope({
+        thresholds: [(p.flatMax * Math.PI) / 180, (p.midMax * Math.PI) / 180],
+        variants: [0, 1, 2], // 0=匍匐 1=攀爬 2=木质藤本
+      }),
+      ruleYawJitter(Math.PI, (p.seed | 0) + 5),
+    ]);
+
+    // three small pre-grown vine species (just stems, kept light for instancing).
+    const sc = p.vineScale;
+    const lib = [
+      buildVineStemMesh({ seed: 3, mode: "creeping", length: 1.6 * sc / 0.35, radius: 0.04, branches: 2, sides: 5 }),
+      buildVineStemMesh({ seed: 7, mode: "climbing", length: 2.0 * sc / 0.35, radius: 0.035, branches: 3, sides: 5 }),
+      buildVineStemMesh({ seed: 11, mode: "hanging", length: 2.2 * sc / 0.35, radius: 0.06, branches: 2, sides: 5 }),
+    ];
+
+    const parts = [surfPart("terrain", terrain, "stone", { color: [0.33, 0.29, 0.22], roughness: 0.95, scale: 3 })];
+    const names = ["creeper", "ivy", "liana"];
+    const labels = ["匍匐藤", "攀爬藤", "木质藤本"];
+    const tones = [[0.28, 0.5, 0.2], [0.24, 0.46, 0.2], [0.35, 0.24, 0.14]];
+    for (let v = 0; v < 3; v++) {
+      const pts = filterByVariant(scattered, v);
+      if (pointCountOf(pts) === 0) continue;
+      const mesh = copyToPoints(pts, [lib[v]], {
+        yaw: pointAttribute("yaw", 0),
+        alignToNormal: true,
+      });
+      parts.push(surfPart(names[v], mesh, v === 2 ? "wood" : "foliage",
+        v === 2 ? { tone: tones[v] } : { color: tones[v], season: 0.15, translucency: 0.4 }));
+    }
+    return parts;
+  },
+};
+
 function pointCountOf(pc) {
   return pc && pc.points ? pc.points.length : 0;
 }
@@ -512,6 +632,420 @@ function filterByVariant(pc, v) {
     attributes,
   });
 }
+
+// ---- Roots: grown-from-recipe root systems (mirror of the vine walk) --------
+// UE Electric Dreams ships baked SM_Roots_* meshes; Meshova grows them live by
+// a seeded gravity+wander walk that dives DOWN and OUT from a flare collar.
+const rootsModel = {
+  id: "roots",
+  name: "根系 / 板根",
+  schema: [
+    { key: "mode", label: "模式(0板根/1裸根/2主根)", min: 0, max: 2, step: 1, default: 0 },
+    { key: "count", label: "主根数量", min: 3, max: 14, step: 1, default: 7 },
+    { key: "collarRadius", label: "根盘半径", min: 0.15, max: 1.2, step: 0.05, default: 0.4 },
+    { key: "length", label: "根长", min: 1.2, max: 4, step: 0.1, default: 2.6 },
+    { key: "radius", label: "根粗", min: 0.05, max: 0.25, step: 0.01, default: 0.13 },
+    { key: "branches", label: "分叉数", min: 0, max: 6, step: 1, default: 3 },
+    { key: "wander", label: "蜿蜒程度", min: 0, max: 1, step: 0.05, default: 0.5 },
+    { key: "seed", label: "随机种子", min: 0, max: 60, step: 1, default: 7 },
+  ],
+  build(p) {
+    const modes = ["flare", "erosion", "taproot"];
+    return buildRootsParts({
+      mode: modes[Math.round(p.mode)] || "flare",
+      count: Math.round(p.count),
+      collarRadius: p.collarRadius,
+      length: p.length,
+      radius: p.radius,
+      branches: Math.round(p.branches),
+      wander: p.wander,
+      seed: p.seed | 0,
+    });
+  },
+};
+
+// ---- Rock formation: fuse spheres -> fBm noise -> strata plane-cut ----------
+// UE ships baked SM_RockFormation_* / SM_ForestRockShelf_* meshes; Meshova grows
+// the rock from primitives + seeded noise so it stays a re-runnable script.
+const rockFormationModel = {
+  id: "rock-formation",
+  name: "岩层 / 岩壁",
+  schema: [
+    { key: "mode", label: "模式(0巨砾/1岩台/2岩壁)", min: 0, max: 2, step: 1, default: 0 },
+    { key: "radius", label: "底盘半径", min: 0.8, max: 3, step: 0.1, default: 1.5 },
+    { key: "height", label: "高度", min: 0.6, max: 4, step: 0.1, default: 1.5 },
+    { key: "blobs", label: "融球数", min: 3, max: 9, step: 1, default: 5 },
+    { key: "crag", label: "崎岖度", min: 0.05, max: 0.35, step: 0.01, default: 0.2 },
+    { key: "strata", label: "岩层切数", min: 0, max: 5, step: 1, default: 0 },
+    { key: "resolution", label: "网格精度", min: 24, max: 56, step: 4, default: 40 },
+    { key: "seed", label: "随机种子", min: 0, max: 60, step: 1, default: 3 },
+  ],
+  build(p) {
+    const modes = ["boulder", "shelf", "cliff"];
+    return buildRockFormationParts({
+      mode: modes[Math.round(p.mode)] || "boulder",
+      radius: p.radius,
+      height: p.height,
+      blobs: Math.round(p.blobs),
+      crag: p.crag,
+      strata: Math.round(p.strata),
+      resolution: Math.round(p.resolution),
+      seed: p.seed | 0,
+    });
+  },
+};
+
+// ---- PCG colonnade: scatter along a spline, cadence + look-at orientation ----
+// A boulevard built with scatterAlongCurve -> ruleCadence (every Nth slot is a
+// lamp) -> ruleLookAt (props face the central axis) -> copyToPoints. Shows the
+// UE PCG "spline sampler + LookAt" flow end to end.
+const pcgColonnade = {
+  id: "pcg-colonnade",
+  name: "PCG 林荫大道",
+  schema: [
+    { key: "length", label: "大道长度", min: 12, max: 40, step: 1, default: 26 },
+    { key: "curve", label: "弯曲程度", min: 0, max: 6, step: 0.1, default: 2.5 },
+    { key: "spacing", label: "间距", min: 1, max: 4, step: 0.1, default: 2.2 },
+    { key: "width", label: "道宽", min: 1.5, max: 6, step: 0.1, default: 3.2 },
+    { key: "lampEvery", label: "灯柱间隔", min: 2, max: 8, step: 1, default: 4 },
+    { key: "seed", label: "随机种子", min: 0, max: 100, step: 1, default: 5 },
+  ],
+  build(p) {
+    const half = p.length / 2;
+    const path = smoothCurve(
+      polyline([
+        vec3(-half, 0, -p.curve),
+        vec3(-half * 0.35, 0, p.curve),
+        vec3(half * 0.35, 0, -p.curve),
+        vec3(half, 0, p.curve),
+      ]),
+      8,
+    );
+    // rows of points on both sides of the boulevard, facing the centerline.
+    const cloud = scatterAlongCurve(path, {
+      spacing: p.spacing,
+      offset: p.width / 2,
+      bothSides: true,
+      endPadding: 0.5,
+    });
+    const laid = applyRules(cloud, [
+      ruleCadence(Math.round(p.lampEvery), 1, 0), // variant 1 = lamp, 0 = tree
+      ruleLookAt({ target: vec3(0, 0, 0) }),
+      ruleScaleJitter(0.2, (p.seed | 0) + 1),
+    ]);
+    // library: variant 0 = small tree, variant 1 = lamp post.
+    const treeMesh = merge(
+      translateMesh(cylinder(0.06, 0.8, 6), vec3(0, 0.4, 0)),
+      translateMesh(icosphere(0.4, 1), vec3(0, 1.1, 0)),
+    );
+    const lampMesh = merge(
+      translateMesh(cylinder(0.04, 1.3, 6), vec3(0, 0.65, 0)),
+      translateMesh(icosphere(0.13, 1), vec3(0, 1.4, 0)),
+    );
+    const trees = copyToPoints(cloud0(laid, 0), [treeMesh], {
+      scale: pointAttribute("scale", 1),
+      yaw: pointAttribute("yaw", 0),
+      alignToNormal: false,
+    });
+    const lamps = copyToPoints(cloud0(laid, 1), [lampMesh], {
+      yaw: pointAttribute("yaw", 0),
+      alignToNormal: false,
+    });
+    // the road ribbon itself.
+    const ribbon = roadRibbon(path, { halfWidth: p.width / 2 + 0.4, sampleDistance: 0.5 });
+    return [
+      surfPart("road", ribbon, "plastic", { color: [0.22, 0.22, 0.24], roughness: 0.9 }),
+      part("trees", trees, [0.28, 0.5, 0.2]),
+      surfPart("lamps", lamps, "brushedMetal", { color: [0.7, 0.7, 0.72] }),
+    ];
+  },
+};
+
+// keep only points whose "variant" attribute equals v (post-cadence split).
+function cloud0(pc, v) {
+  const keep = [];
+  const va = pc.attributes && pc.attributes.variant ? pc.attributes.variant : null;
+  for (let i = 0; i < pc.points.length; i++) {
+    if (!va || Math.round(va[i]) === v) keep.push(i);
+  }
+  const attributes = {};
+  if (pc.attributes) {
+    for (const k of Object.keys(pc.attributes)) {
+      attributes[k] = keep.map((i) => pc.attributes[k][i]);
+    }
+  }
+  return makePointCloud({
+    points: keep.map((i) => pc.points[i]),
+    normals: keep.map((i) => pc.normals[i]),
+    attributes,
+  });
+}
+
+// ---- PCG plaza: grid clipped to a circle, hierarchical assemblies placed ----
+// scatterGrid -> ruleClipToPolygon (circular boundary = UE Intersection) ->
+// copyAssembliesToPoints. Each stamp is a composed unit (trunk + canopy or a
+// planter box + shrub) so detail travels together — the ApplyHierarchy idea.
+const pcgPlaza = {
+  id: "pcg-plaza",
+  name: "PCG 圆形广场",
+  schema: [
+    { key: "radius", label: "广场半径", min: 4, max: 14, step: 0.5, default: 9 },
+    { key: "cell", label: "网格间距", min: 1, max: 3, step: 0.1, default: 1.6 },
+    { key: "ringGap", label: "中心留空", min: 0, max: 6, step: 0.2, default: 2.4 },
+    { key: "jitter", label: "位置抖动", min: 0, max: 0.6, step: 0.02, default: 0.25 },
+    { key: "treeRatio", label: "乔木占比", min: 0, max: 1, step: 0.05, default: 0.5 },
+    { key: "seed", label: "随机种子", min: 0, max: 100, step: 1, default: 9 },
+  ],
+  build(p) {
+    const n = Math.ceil((p.radius * 2) / p.cell) + 1;
+    const grid = scatterGrid({ cols: n, rows: n, cellX: p.cell, cellZ: p.cell, y: 0 });
+    // circle boundary as a closed polygon (XZ).
+    const ring = [];
+    for (let i = 0; i < 48; i++) {
+      const a = (i / 48) * Math.PI * 2;
+      ring.push(vec3(Math.cos(a) * p.radius, 0, Math.sin(a) * p.radius));
+    }
+    const inner = [];
+    for (let i = 0; i < 32; i++) {
+      const a = (i / 32) * Math.PI * 2;
+      inner.push(vec3(Math.cos(a) * p.ringGap, 0, Math.sin(a) * p.ringGap));
+    }
+    const rules = [
+      ruleClipToPolygon(ring, { mode: "keep" }), // intersection with the disc
+    ];
+    if (p.ringGap > 0) rules.push(ruleClipToPolygon(inner, { mode: "remove" })); // punch center
+    rules.push(
+      pruneMasked(), // drop everything outside the ring / inside the center
+      ruleJitterPosition(p.jitter, (p.seed | 0) + 1),
+      ruleWeightedFill([0, 1], { weights: [p.treeRatio, 1 - p.treeRatio], seed: (p.seed | 0) + 2 }),
+      ruleScaleJitter(0.25, (p.seed | 0) + 3),
+      ruleYawJitter(Math.PI, (p.seed | 0) + 4),
+    );
+    const placed = applyRules(grid, rules);
+    // two hierarchical assemblies: variant 0 = tree, variant 1 = planter + shrub.
+    const treeAsm = {
+      parts: [
+        { mesh: cylinder(0.07, 1.0, 6), offset: vec3(0, 0.5, 0) },
+        { mesh: icosphere(0.5, 1), offset: vec3(0, 1.35, 0) },
+        { mesh: icosphere(0.34, 1), offset: vec3(0.14, 1.7, 0.05), scale: 0.8 },
+      ],
+    };
+    const planterAsm = {
+      parts: [
+        { mesh: box(0.55, 0.35, 0.55), offset: vec3(0, 0.17, 0) },
+        { mesh: icosphere(0.32, 1), offset: vec3(0, 0.55, 0), scale: 0.9 },
+      ],
+    };
+    const props = copyAssembliesToPoints(placed, [treeAsm, planterAsm], {
+      variant: pointAttribute("variant", 0),
+      scale: pointAttribute("scale", 1),
+      yaw: pointAttribute("yaw", 0),
+      alignToNormal: false,
+    });
+    // paved disc.
+    const disc = scaleMesh(cylinder(p.radius + 0.5, 0.15, 48), vec3(1, 1, 1));
+    return [
+      surfPart("plaza", translateMesh(disc, vec3(0, -0.075, 0)), "plastic", {
+        color: [0.55, 0.52, 0.48],
+        roughness: 0.85,
+      }),
+      part("props", props, [0.32, 0.5, 0.24]),
+    ];
+  },
+};
+
+// ---- PCG boulder field: neighbor spacing + self-pruning, layered by size ----
+// surfacePointCloud on a bumpy terrain -> ruleDistanceToNeighbors (measure
+// crowding) -> ruleSelfPruning (Poisson de-clump) -> partition by size into
+// two layers (UE PCG DistanceToNeighbors + density partitioning).
+const pcgBoulders = {
+  id: "pcg-boulders",
+  name: "PCG 岩石阵",
+  schema: [
+    { key: "size", label: "地形尺寸", min: 8, max: 24, step: 0.5, default: 16 },
+    { key: "relief", label: "地形起伏", min: 0.3, max: 4, step: 0.1, default: 1.6 },
+    { key: "count", label: "初始撒点", min: 200, max: 2000, step: 50, default: 900 },
+    { key: "spacing", label: "最小间距", min: 0.6, max: 3, step: 0.1, default: 1.4 },
+    { key: "bigRatio", label: "巨石占比", min: 0, max: 1, step: 0.05, default: 0.3 },
+    { key: "seed", label: "随机种子", min: 0, max: 100, step: 1, default: 3 },
+  ],
+  build(p) {
+    const field = makeTerrainPrimitiveField({
+      resolution: 80,
+      seed: p.seed | 0,
+      height: 1,
+      noiseScale: 1.4,
+      ridgeStrength: 0.35,
+      islandFalloff: 1.4,
+    });
+    const terrain = heightfieldToTerrainMesh(field, { size: p.size, heightScale: p.relief, baseY: 0 });
+    const raw = surfacePointCloud(terrain, { count: Math.round(p.count), seed: (p.seed | 0) + 1 });
+    const declumped = applyRules(raw, [
+      ruleDistanceToNeighbors({ attr: "nd", cellSize: p.spacing }),
+      ruleSelfPruning({ radius: p.spacing }),
+      pruneMasked(), // actually drop the clashing points self-pruning marked
+      // size = big/small, jitter scale + yaw for rock variety.
+      ruleWeightedFill([1, 0], { weights: [p.bigRatio, 1 - p.bigRatio], seed: (p.seed | 0) + 2 }),
+      ruleScaleJitter(0.4, (p.seed | 0) + 3),
+      ruleYawJitter(Math.PI, (p.seed | 0) + 4),
+    ]);
+    // split into big/small layers, each with its own rock mesh.
+    const smallRock = displaceByNoise(icosphere(0.3, 1), { amount: 0.09, scale: 3, seed: 11 });
+    const bigRock = displaceByNoise(icosphere(0.75, 2), { amount: 0.22, scale: 2, seed: 21 });
+    const layers = partitionByAttribute(declumped, "variant", 2);
+    const smallMesh = copyToPoints(layers[0], [smallRock], {
+      scale: pointAttribute("scale", 1),
+      yaw: pointAttribute("yaw", 0),
+      alignToNormal: false,
+    });
+    const bigMesh = copyToPoints(layers[1], [bigRock], {
+      scale: pointAttribute("scale", 1),
+      yaw: pointAttribute("yaw", 0),
+      alignToNormal: false,
+    });
+    return [
+      part("terrain", terrain, [0.45, 0.42, 0.36]),
+      surfPart("small-rocks", smallMesh, "plastic", { color: [0.5, 0.48, 0.45], roughness: 0.95 }),
+      surfPart("big-rocks", bigMesh, "plastic", { color: [0.42, 0.4, 0.38], roughness: 0.95 }),
+    ];
+  },
+};
+
+// ---- Terrain with slope/height auto-material (UE M_BGLandscape_Auto) ----
+// A heightfield mesh vertex-colored by slope + altitude: grass on flat tops,
+// dirt on medium slopes, rock on cliffs, snow on the peaks. Pure code, per the
+// same "陡坡不长草" idea as ruleNormalToDensity but on the material side.
+const terrainLayered = {
+  id: "terrain-layered",
+  name: "坡度分层地形",
+  schema: [
+    { key: "size", label: "地形尺寸", min: 10, max: 40, step: 1, default: 24 },
+    { key: "relief", label: "地形起伏", min: 1, max: 12, step: 0.2, default: 6 },
+    { key: "snowLine", label: "雪线高度", min: 0, max: 1, step: 0.02, default: 0.72 },
+    { key: "grassSlope", label: "草地坡度阈", min: 0.4, max: 0.95, step: 0.01, default: 0.8 },
+    { key: "breakup", label: "边界噪声", min: 0, max: 1, step: 0.02, default: 0.5 },
+    { key: "seed", label: "随机种子", min: 0, max: 100, step: 1, default: 12 },
+  ],
+  build(p) {
+    const field = makeTerrainPrimitiveField({
+      resolution: 128,
+      seed: p.seed | 0,
+      height: 1,
+      noiseScale: 1.15,
+      ridgeStrength: 0.6,
+      islandFalloff: 1.4,
+    });
+    const terrain = heightfieldToTerrainMesh(field, { size: p.size, heightScale: p.relief, baseY: 0 });
+    const hi = p.relief; // peaks approach ~relief
+    const auto = terrainAutoMaterial(
+      [
+        { color: [0.32, 0.28, 0.22], minSlope: 0 },                                   // rock/cliff base
+        { color: [0.4, 0.3, 0.18], minSlope: 0.55, priority: 1 },                     // dirt on medium slopes
+        { color: [0.22, 0.46, 0.16], minSlope: p.grassSlope, priority: 2 },           // grass on flat ground
+        { color: [0.92, 0.94, 0.98], minSlope: 0.5, heightRange: [hi * p.snowLine, hi * 1.4], priority: 4 }, // snow caps
+      ],
+      { breakup: p.breakup, breakupScale: 0.18, softness: 0.12, seed: (p.seed | 0) + 5 },
+    );
+    const colors = bakeVertexColors(withAttributes(terrain), (ctx) => {
+      const c = auto(ctx.position, ctx.normal);
+      return vec3(c[0], c[1], c[2]);
+    });
+    return [{ name: "terrain", mesh: terrain, color: [0.4, 0.4, 0.4], colors }];
+  },
+};
+
+// ---- Forest floor built as layered scatter (UE Asmbly organization) ----
+// One scatter pass, split into layers by variant: a pebble layer, a mushroom
+// layer, and a fallen-branch layer, each with its own assemblies + material,
+// merged back — the "Stones / Foliage / FallenTrees" pattern.
+const forestFloor = {
+  id: "forest-floor",
+  name: "分层林地地面",
+  schema: [
+    { key: "size", label: "地面尺寸", min: 4, max: 16, step: 0.5, default: 9 },
+    { key: "count", label: "撒点密度", min: 100, max: 1500, step: 50, default: 700 },
+    { key: "spacing", label: "最小间距", min: 0.15, max: 1, step: 0.05, default: 0.35 },
+    { key: "pebbleRatio", label: "碎石占比", min: 0, max: 1, step: 0.05, default: 0.5 },
+    { key: "mushRatio", label: "蘑菇占比", min: 0, max: 1, step: 0.05, default: 0.3 },
+    { key: "seed", label: "随机种子", min: 0, max: 100, step: 1, default: 3 },
+  ],
+  build(p) {
+    const ground = plane(p.size, p.size, 1, 1);
+    const raw = surfacePointCloud(ground, { count: Math.round(p.count), seed: (p.seed | 0) + 1 });
+    // three-way weighted layer choice: 0 pebble, 1 mushroom, 2 branch
+    const branchRatio = Math.max(0, 1 - p.pebbleRatio - p.mushRatio);
+    const scattered = applyRules(raw, [
+      ruleSelfPruning({ radius: p.spacing }),
+      ruleWeightedFill([0, 1, 2], { weights: [p.pebbleRatio, p.mushRatio, branchRatio], seed: (p.seed | 0) + 2 }),
+      ruleScaleJitter(0.4, (p.seed | 0) + 3),
+      ruleYawJitter(Math.PI, (p.seed | 0) + 4),
+      pruneMasked(),
+    ]);
+    const pebble = { parts: [{ mesh: catmullClark(box(0.18, 0.1, 0.22), 1), offset: vec3(0, 0.04, 0) }] };
+    const mushroom = {
+      parts: [
+        { mesh: cylinder(0.03, 0.16, 6), offset: vec3(0, 0.08, 0) },
+        { mesh: scaleMesh(sphere(0.09, 10, 8), vec3(1, 0.55, 1)), offset: vec3(0, 0.17, 0) },
+      ],
+    };
+    const branch = { parts: [{ mesh: transform(cylinder(0.035, 0.7, 6), { rotate: vec3(0, 0, Math.PI / 2) }), offset: vec3(0, 0.035, 0) }] };
+    const layers = scatterToLayers(scattered, "variant", [
+      { name: "pebbles", library: pebble, options: { scale: pointAttribute("scale", 1), yaw: pointAttribute("yaw", 0), alignToNormal: false } },
+      { name: "mushrooms", library: mushroom, options: { scale: pointAttribute("scale", 1), yaw: pointAttribute("yaw", 0), alignToNormal: false } },
+      { name: "branches", library: branch, options: { scale: pointAttribute("scale", 1), yaw: pointAttribute("yaw", 0), alignToNormal: false } },
+    ]);
+    const parts = [surfPart("ground", ground, "stone", { color: [0.26, 0.2, 0.13], roughness: 0.95, scale: 3 })];
+    const mat = { pebbles: ["stone", { color: [0.5, 0.48, 0.44] }], mushrooms: ["plastic", { color: [0.75, 0.28, 0.2], roughness: 0.5 }], branches: ["foliage", { color: [0.32, 0.22, 0.12], translucency: 0.1 }] };
+    for (const L of layers) {
+      const [type, params] = mat[L.name] || ["stone", {}];
+      parts.push(surfPart(L.name, L.mesh, type, params));
+    }
+    return parts;
+  },
+};
+
+// ---- Triplanar-textured boulder: no-UV world-projected rock detail ----
+const triplanarBoulder = {
+  id: "triplanar-boulder",
+  name: "三平面巨石",
+  schema: [
+    { key: "size", label: "尺寸", min: 0.6, max: 3, step: 0.05, default: 1.6 },
+    { key: "detail", label: "细分级数", min: 1, max: 3, step: 1, default: 2 },
+    { key: "rough", label: "崎岖程度", min: 0, max: 0.6, step: 0.02, default: 0.32 },
+    { key: "texScale", label: "纹理密度", min: 0.5, max: 6, step: 0.1, default: 2.2 },
+    { key: "seed", label: "随机种子", min: 0, max: 100, step: 1, default: 9 },
+  ],
+  build(p) {
+    let m = subdivide(icosphere(p.size, 1), p.detail | 0);
+    m = displaceByNoise(m, { amount: p.rough, scale: 2.2, seed: p.seed | 0 });
+    // triplanar rock albedo: two-tone fbm blended over world position + normal
+    const light = fbmPattern((p.seed | 0) + 1, 5);
+    const tp = triplanarColor(
+      (u, v) => {
+        // sharpen fbm into crevice/face bands for clear contrast
+        const n = Math.pow(light(u, v), 1.6);
+        // dark shadowed crevice -> warm lit rock face (strong enough to read
+        // under the bright sky IBL without washing out)
+        const dark = [0.06, 0.055, 0.05];
+        const lite = [0.42, 0.36, 0.29];
+        return [
+          dark[0] + (lite[0] - dark[0]) * n,
+          dark[1] + (lite[1] - dark[1]) * n,
+          dark[2] + (lite[2] - dark[2]) * n,
+        ];
+      },
+      { scale: p.texScale, sharpness: 4 },
+    );
+    const colors = bakeVertexColors(withAttributes(m), (ctx) => {
+      const c = tp(ctx.position, ctx.normal);
+      return vec3(c[0], c[1], c[2]);
+    });
+    // stone surface for full PBR (roughness/normal/ao), triplanar vertex colors
+    // drive the albedo so there is no UV stretching on the unwrapped icosphere.
+    const p0 = surfPart("boulder", m, "stone", { color: [0.4, 0.38, 0.35], roughness: 0.92, scale: 3 });
+    return [{ ...p0, colors }];
+  },
+};
 
 // ---- a procedural tower: arrayed, scaled boxes ----
 const tower = {
@@ -878,6 +1412,582 @@ const railway = {
       sleeperSpacing: p.sleeperSpacing,
       concreteSleepers: Math.round(p.concreteSleepers) === 1,
       sample: p.sample,
+    });
+  },
+};
+
+// ---- procedural elevated viaduct / overpass (CitySample FreewayBridge) ----
+const viaduct = {
+  id: "viaduct",
+  name: "高架桥",
+  schema: [
+    { key: "length", label: "总长度", min: 40, max: 160, step: 4, default: 80 },
+    { key: "halfWidth", label: "桥面半宽", min: 3, max: 10, step: 0.5, default: 6 },
+    { key: "clearance", label: "净空高度", min: 4, max: 16, step: 0.5, default: 8 },
+    { key: "rampFraction", label: "引桥占比", min: 0.05, max: 0.45, step: 0.01, default: 0.28 },
+    { key: "pierSpacing", label: "桥墩间距", min: 6, max: 24, step: 1, default: 12 },
+    { key: "pierRadius", label: "桥墩半径", min: 0.5, max: 1.6, step: 0.1, default: 0.9 },
+    { key: "pierShape", label: "墩型(0圆1方)", min: 0, max: 1, step: 1, default: 0 },
+    { key: "pierTaper", label: "墩身收分", min: 0.6, max: 1, step: 0.05, default: 1 },
+    { key: "deckThickness", label: "梁体厚度", min: 0.4, max: 2, step: 0.1, default: 0.9 },
+    { key: "barriers", label: "护栏(0/1)", min: 0, max: 1, step: 1, default: 1 },
+    { key: "abutments", label: "桥台(0/1)", min: 0, max: 1, step: 1, default: 1 },
+    { key: "sample", label: "采样间距", min: 0.6, max: 3, step: 0.2, default: 1.2 },
+  ],
+  build(p) {
+    return buildViaductParts({
+      length: p.length,
+      halfWidth: p.halfWidth,
+      clearance: p.clearance,
+      rampFraction: p.rampFraction,
+      pierSpacing: p.pierSpacing,
+      pierRadius: p.pierRadius,
+      pierShape: Math.round(p.pierShape) === 1 ? "square" : "round",
+      pierTaper: p.pierTaper,
+      deckThickness: p.deckThickness,
+      barriers: Math.round(p.barriers) === 1,
+      abutments: Math.round(p.abutments) === 1,
+      sample: p.sample,
+    });
+  },
+};
+
+// ---- procedural lattice transmission pylon ----
+const pylon = {
+  id: "pylon",
+  name: "高压输电塔",
+  schema: [
+    { key: "height", label: "塔高", min: 12, max: 48, step: 2, default: 24 },
+    { key: "baseWidth", label: "底部半宽", min: 1.5, max: 5, step: 0.25, default: 3 },
+    { key: "topWidth", label: "顶部半宽", min: 0.5, max: 2.5, step: 0.1, default: 1.1 },
+    { key: "levels", label: "格构层数", min: 3, max: 12, step: 1, default: 6 },
+    { key: "crossArms", label: "横担数", min: 1, max: 5, step: 1, default: 3 },
+    { key: "armSpan", label: "横担半跨", min: 2, max: 8, step: 0.5, default: 4.5 },
+    { key: "strut", label: "杆件粗细", min: 0.08, max: 0.4, step: 0.02, default: 0.18 },
+  ],
+  build(p) {
+    return buildPylonParts({
+      height: p.height,
+      baseWidth: p.baseWidth,
+      topWidth: p.topWidth,
+      levels: Math.round(p.levels),
+      crossArms: Math.round(p.crossArms),
+      armSpan: p.armSpan,
+      strut: p.strut,
+    });
+  },
+};
+
+// ---- procedural construction tower crane ----
+const towerCrane = {
+  id: "tower-crane",
+  name: "塔式起重机",
+  schema: [
+    { key: "mastHeight", label: "塔身高", min: 15, max: 60, step: 2, default: 30 },
+    { key: "mastWidth", label: "塔身半宽", min: 0.5, max: 1.6, step: 0.1, default: 0.9 },
+    { key: "jibLength", label: "起重臂长", min: 10, max: 40, step: 1, default: 22 },
+    { key: "counterJibLength", label: "平衡臂长", min: 4, max: 16, step: 1, default: 8 },
+    { key: "trolley", label: "小车位置", min: 0.1, max: 1, step: 0.05, default: 0.7 },
+    { key: "hookDrop", label: "吊钩下垂", min: 2, max: 25, step: 1, default: 12 },
+    { key: "strut", label: "杆件粗细", min: 0.08, max: 0.3, step: 0.02, default: 0.16 },
+  ],
+  build(p) {
+    return buildTowerCraneParts({
+      mastHeight: p.mastHeight,
+      mastWidth: p.mastWidth,
+      jibLength: p.jibLength,
+      counterJibLength: p.counterJibLength,
+      trolley: p.trolley,
+      hookDrop: p.hookDrop,
+      strut: p.strut,
+    });
+  },
+};
+
+// ---- procedural horizontal-axis wind turbine ----
+const windTurbine = {
+  id: "wind-turbine",
+  name: "风力发电机",
+  schema: [
+    { key: "towerHeight", label: "塔高", min: 15, max: 50, step: 2, default: 28 },
+    { key: "towerRadius", label: "塔底半径", min: 0.6, max: 2, step: 0.1, default: 1.1 },
+    { key: "blades", label: "叶片数", min: 2, max: 5, step: 1, default: 3 },
+    { key: "bladeLength", label: "叶片长度", min: 8, max: 28, step: 1, default: 16 },
+    { key: "bladeChord", label: "叶根弦长", min: 0.6, max: 2.5, step: 0.1, default: 1.4 },
+    { key: "tipChordRatio", label: "叶尖收窄", min: 0.15, max: 0.8, step: 0.05, default: 0.32 },
+    { key: "bladeTwist", label: "气动扭转", min: 0, max: 1.2, step: 0.05, default: 0.55 },
+    { key: "airfoilThickness", label: "翼型厚度", min: 0.08, max: 0.28, step: 0.02, default: 0.16 },
+    { key: "rotorPhase", label: "转子相位", min: 0, max: 6.28, step: 0.1, default: 0 },
+  ],
+  build(p) {
+    return buildWindTurbineParts({
+      towerHeight: p.towerHeight,
+      towerRadius: p.towerRadius,
+      blades: Math.round(p.blades),
+      bladeLength: p.bladeLength,
+      bladeChord: p.bladeChord,
+      tipChordRatio: p.tipChordRatio,
+      bladeTwist: p.bladeTwist,
+      airfoilThickness: p.airfoilThickness,
+      rotorPhase: p.rotorPhase,
+    });
+  },
+};
+
+// ---- procedural highway toll plaza ----
+const tollStation = {
+  id: "toll-station",
+  name: "高速收费站",
+  schema: [
+    { key: "lanes", label: "车道数", min: 2, max: 10, step: 1, default: 5 },
+    { key: "laneWidth", label: "车道宽", min: 2.8, max: 4.5, step: 0.1, default: 3.5 },
+    { key: "canopyDepth", label: "顶棚进深", min: 4, max: 16, step: 1, default: 8 },
+    { key: "clearance", label: "净空高度", min: 4, max: 8, step: 0.5, default: 5.5 },
+    { key: "booths", label: "收费亭(0/1)", min: 0, max: 1, step: 1, default: 1 },
+  ],
+  build(p) {
+    return buildTollStationParts({
+      lanes: Math.round(p.lanes),
+      laneWidth: p.laneWidth,
+      canopyDepth: p.canopyDepth,
+      clearance: p.clearance,
+      booths: Math.round(p.booths) === 1,
+    });
+  },
+};
+
+// ---- procedural highway tunnel portal ----
+const tunnelPortal = {
+  id: "tunnel-portal",
+  name: "隧道洞口",
+  schema: [
+    { key: "openingHalfWidth", label: "洞口半宽", min: 3, max: 10, step: 0.5, default: 6 },
+    { key: "wallHeight", label: "边墙高", min: 2, max: 7, step: 0.5, default: 4 },
+    { key: "facadeDepth", label: "洞门厚度", min: 0.6, max: 2.5, step: 0.1, default: 1.2 },
+    { key: "boreDepth", label: "洞身深度", min: 6, max: 30, step: 1, default: 14 },
+    { key: "margin", label: "洞门边宽", min: 1, max: 5, step: 0.25, default: 2.5 },
+  ],
+  build(p) {
+    return buildTunnelPortalParts({
+      openingHalfWidth: p.openingHalfWidth,
+      wallHeight: p.wallHeight,
+      facadeDepth: p.facadeDepth,
+      boreDepth: p.boreDepth,
+      margin: p.margin,
+    });
+  },
+};
+
+// ---- procedural rooftop mechanical kit (CitySample Kit_roof_*) ----
+const rooftopKit = {
+  id: "rooftop-kit",
+  name: "屋顶设备包",
+  schema: [
+    { key: "roofWidth", label: "屋面半宽", min: 5, max: 16, step: 0.5, default: 9 },
+    { key: "roofDepth", label: "屋面半深", min: 4, max: 14, step: 0.5, default: 7 },
+    { key: "hvacUnits", label: "空调机组数", min: 1, max: 6, step: 1, default: 3 },
+    { key: "parapet", label: "女儿墙高", min: 0.3, max: 2, step: 0.1, default: 0.9 },
+    { key: "waterTank", label: "水箱(0/1)", min: 0, max: 1, step: 1, default: 1 },
+    { key: "accessHut", label: "楼梯间(0/1)", min: 0, max: 1, step: 1, default: 1 },
+  ],
+  build(p) {
+    return buildRooftopKitParts({
+      roofWidth: p.roofWidth,
+      roofDepth: p.roofDepth,
+      hvacUnits: Math.round(p.hvacUnits),
+      parapet: p.parapet,
+      waterTank: Math.round(p.waterTank) === 1,
+      accessHut: Math.round(p.accessHut) === 1,
+    });
+  },
+};
+
+// ---- procedural tube-and-frame scaffolding (CitySample Kit_Scaffolding) ----
+const scaffolding = {
+  id: "scaffolding",
+  name: "施工脚手架",
+  schema: [
+    { key: "bays", label: "跨数", min: 1, max: 8, step: 1, default: 4 },
+    { key: "lifts", label: "层数", min: 1, max: 6, step: 1, default: 3 },
+    { key: "bayWidth", label: "跨宽", min: 1.5, max: 3, step: 0.1, default: 2.4 },
+    { key: "liftHeight", label: "层高", min: 1.6, max: 2.4, step: 0.1, default: 2.0 },
+    { key: "depth", label: "进深", min: 0.8, max: 2, step: 0.1, default: 1.2 },
+    { key: "tube", label: "钢管粗细", min: 0.03, max: 0.09, step: 0.01, default: 0.05 },
+    { key: "planks", label: "脚手板(0/1)", min: 0, max: 1, step: 1, default: 1 },
+  ],
+  build(p) {
+    return buildScaffoldingParts({
+      bays: Math.round(p.bays),
+      lifts: Math.round(p.lifts),
+      bayWidth: p.bayWidth,
+      liftHeight: p.liftHeight,
+      depth: p.depth,
+      tube: p.tube,
+      planks: Math.round(p.planks) === 1,
+    });
+  },
+};
+
+// ---- procedural city bus shelter (CitySample Kit_BusStop) ----
+const busStop = {
+  id: "bus-stop",
+  name: "公交候车亭",
+  schema: [
+    { key: "length", label: "亭长", min: 2.5, max: 7, step: 0.2, default: 4.2 },
+    { key: "depth", label: "亭深", min: 1, max: 2.4, step: 0.1, default: 1.5 },
+    { key: "height", label: "净空高", min: 2, max: 3, step: 0.1, default: 2.4 },
+    { key: "bench", label: "座椅(0/1)", min: 0, max: 1, step: 1, default: 1 },
+    { key: "adPanel", label: "广告灯箱(0/1)", min: 0, max: 1, step: 1, default: 1 },
+  ],
+  build(p) {
+    return buildBusStopParts({
+      length: p.length,
+      depth: p.depth,
+      height: p.height,
+      bench: Math.round(p.bench) === 1,
+      adPanel: Math.round(p.adPanel) === 1,
+    });
+  },
+};
+
+// ---- procedural parked bicycle (CitySample Kit_Bicycle_A) ----
+const bicycle = {
+  id: "bicycle",
+  name: "自行车",
+  schema: [
+    { key: "wheelRadius", label: "车轮半径", min: 0.25, max: 0.4, step: 0.01, default: 0.34 },
+    { key: "wheelbase", label: "轴距", min: 0.9, max: 1.2, step: 0.02, default: 1.02 },
+    { key: "tyre", label: "轮胎粗细", min: 0.02, max: 0.06, step: 0.005, default: 0.035 },
+    { key: "frameTube", label: "车架管径", min: 0.015, max: 0.035, step: 0.005, default: 0.022 },
+    { key: "spokes", label: "辐条数", min: 6, max: 20, step: 1, default: 12 },
+  ],
+  build(p) {
+    return buildBicycleParts({
+      wheelRadius: p.wheelRadius,
+      wheelbase: p.wheelbase,
+      tyre: p.tyre,
+      frameTube: p.frameTube,
+      spokes: Math.round(p.spokes),
+    });
+  },
+};
+
+// ---- procedural roadside billboard (CitySample Kit_Billboard) ----
+const billboard = {
+  id: "billboard",
+  name: "广告牌",
+  schema: [
+    { key: "panelWidth", label: "面板宽", min: 4, max: 20, step: 0.5, default: 12 },
+    { key: "panelHeight", label: "面板高", min: 2, max: 9, step: 0.25, default: 5 },
+    { key: "clearance", label: "离地高", min: 2, max: 12, step: 0.5, default: 6 },
+    { key: "singleMast", label: "单立柱(0/1)", min: 0, max: 1, step: 1, default: 1 },
+    { key: "truss", label: "桁架(0/1)", min: 0, max: 1, step: 1, default: 1 },
+    { key: "lights", label: "投光灯(0/1)", min: 0, max: 1, step: 1, default: 1 },
+  ],
+  build(p) {
+    return buildBillboardParts({
+      panelWidth: p.panelWidth,
+      panelHeight: p.panelHeight,
+      clearance: p.clearance,
+      singleMast: Math.round(p.singleMast) === 1,
+      truss: Math.round(p.truss) === 1,
+      lights: Math.round(p.lights) === 1,
+    });
+  },
+};
+
+// ---- procedural container yard + pallets (CitySample Kit_ShippingContainer/Kit_Pallet) ----
+const containerYard = {
+  id: "container-yard",
+  name: "集装箱堆场",
+  schema: [
+    { key: "containers", label: "集装箱数", min: 1, max: 12, step: 1, default: 4 },
+    { key: "stackHeight", label: "最大堆高", min: 1, max: 4, step: 1, default: 2 },
+    { key: "pallets", label: "托盘数", min: 0, max: 8, step: 1, default: 3 },
+    { key: "cargo", label: "堆料(0/1)", min: 0, max: 1, step: 1, default: 1 },
+    { key: "seed", label: "随机种子", min: 0, max: 64, step: 1, default: 7 },
+  ],
+  build(p) {
+    return buildContainerYardParts({
+      containers: Math.round(p.containers),
+      stackHeight: Math.round(p.stackHeight),
+      pallets: Math.round(p.pallets),
+      cargo: Math.round(p.cargo) === 1,
+      seed: Math.round(p.seed),
+    });
+  },
+};
+
+// ---- procedural cast-iron manhole cover (CitySample Kit_ManholeCover) ----
+const manholeCover = {
+  id: "manhole-cover",
+  name: "井盖",
+  schema: [
+    { key: "radius", label: "半径", min: 0.2, max: 0.5, step: 0.01, default: 0.32 },
+    { key: "thickness", label: "厚度", min: 0.02, max: 0.08, step: 0.005, default: 0.04 },
+    { key: "spokes", label: "花纹条数", min: 4, max: 24, step: 1, default: 12 },
+    { key: "frame", label: "座圈(0/1)", min: 0, max: 1, step: 1, default: 1 },
+    { key: "proud", label: "凸出(0/1)", min: 0, max: 1, step: 1, default: 1 },
+  ],
+  build(p) {
+    return buildManholeCoverParts({
+      radius: p.radius,
+      thickness: p.thickness,
+      spokes: Math.round(p.spokes),
+      frame: Math.round(p.frame) === 1,
+      proud: Math.round(p.proud) === 1,
+    });
+  },
+};
+
+// ---- procedural construction barrier run (CitySample Kit_Barricade/Kit_Fence) ----
+const barrierRun = {
+  id: "barrier-run",
+  name: "施工围挡",
+  schema: [
+    { key: "style", label: "样式", type: "select", options: ["jersey", "aframe", "chainlink"], default: "jersey" },
+    { key: "segments", label: "段数", min: 1, max: 12, step: 1, default: 5 },
+    { key: "segLength", label: "段长", min: 1, max: 3, step: 0.1, default: 2.0 },
+    { key: "height", label: "高度", min: 0.6, max: 2.4, step: 0.1, default: 1.0 },
+  ],
+  build(p) {
+    return buildBarrierRunParts({
+      style: p.style,
+      segments: Math.round(p.segments),
+      segLength: p.segLength,
+      height: p.height,
+    });
+  },
+};
+
+// ---- procedural wall-mounted fire escape (CitySample Kit_Prop_FireEscape) ----
+const fireEscape = {
+  id: "fire-escape",
+  name: "消防逃生梯",
+  schema: [
+    { key: "floors", label: "楼层数", min: 1, max: 8, step: 1, default: 4 },
+    { key: "floorHeight", label: "层高", min: 2.6, max: 4, step: 0.1, default: 3.2 },
+    { key: "platformDepth", label: "平台进深", min: 0.8, max: 2, step: 0.1, default: 1.2 },
+    { key: "width", label: "宽度", min: 1.6, max: 4, step: 0.2, default: 2.6 },
+    { key: "stairs", label: "楼梯(0/1)", min: 0, max: 1, step: 1, default: 1 },
+  ],
+  build(p) {
+    return buildFireEscapeParts({
+      floors: Math.round(p.floors),
+      floorHeight: p.floorHeight,
+      platformDepth: p.platformDepth,
+      width: p.width,
+      stairs: Math.round(p.stairs) === 1,
+    });
+  },
+};
+
+// ---- procedural sidewalk newsstand (CitySample Kit_NewsBooth/Kit_NewsDispenser) ----
+const newsstand = {
+  id: "newsstand",
+  name: "报刊亭",
+  schema: [
+    { key: "width", label: "亭宽", min: 1.8, max: 4, step: 0.2, default: 2.6 },
+    { key: "depth", label: "亭深", min: 1.2, max: 2.6, step: 0.1, default: 1.8 },
+    { key: "height", label: "亭高", min: 2, max: 3, step: 0.1, default: 2.4 },
+    { key: "awning", label: "遮阳棚(0/1)", min: 0, max: 1, step: 1, default: 1 },
+    { key: "dispensers", label: "报箱数", min: 0, max: 5, step: 1, default: 2 },
+  ],
+  build(p) {
+    return buildNewsstandParts({
+      width: p.width,
+      depth: p.depth,
+      height: p.height,
+      awning: Math.round(p.awning) === 1,
+      dispensers: Math.round(p.dispensers),
+    });
+  },
+};
+
+// ---- CitySample cantilever traffic signal ----
+const trafficSignal = {
+  id: "traffic-signal",
+  name: "交通信号灯",
+  schema: [
+    { key: "mastHeight", label: "立杆高", min: 4.5, max: 8, step: 0.1, default: 6.2 },
+    { key: "armReach", label: "悬臂长", min: 3, max: 8, step: 0.2, default: 5.5 },
+    { key: "heads", label: "信号头数", min: 1, max: 4, step: 1, default: 2 },
+    { key: "pedestrian", label: "人行灯(0/1)", min: 0, max: 1, step: 1, default: 1 },
+    { key: "streetSign", label: "路名牌(0/1)", min: 0, max: 1, step: 1, default: 1 },
+  ],
+  build(p) {
+    return buildTrafficSignalParts({
+      mastHeight: p.mastHeight,
+      armReach: p.armReach,
+      heads: Math.round(p.heads),
+      pedestrian: Math.round(p.pedestrian) === 1,
+      streetSign: Math.round(p.streetSign) === 1,
+    });
+  },
+};
+
+// ---- CitySample cafe umbrella + stone table set ----
+const umbrellaTable = {
+  id: "umbrella-table",
+  name: "遮阳伞石桌",
+  schema: [
+    { key: "tableRadius", label: "桌半径", min: 0.35, max: 0.9, step: 0.05, default: 0.55 },
+    { key: "umbrellaRadius", label: "伞半径", min: 1, max: 2.4, step: 0.1, default: 1.5 },
+    { key: "stools", label: "凳子数", min: 0, max: 6, step: 1, default: 4 },
+  ],
+  build(p) {
+    return buildUmbrellaTableParts({
+      tableRadius: p.tableRadius,
+      umbrellaRadius: p.umbrellaRadius,
+      stools: Math.round(p.stools),
+    });
+  },
+};
+
+// ---- CitySample street tree with tree pit ----
+const streetTree = {
+  id: "street-tree",
+  name: "行道树",
+  schema: [
+    { key: "trunkHeight", label: "树干高", min: 1.4, max: 3.5, step: 0.1, default: 2.2 },
+    { key: "canopyRadius", label: "树冠半径", min: 1.2, max: 3.2, step: 0.1, default: 2.0 },
+    { key: "clusters", label: "树冠团数", min: 3, max: 12, step: 1, default: 7 },
+    { key: "pit", label: "树池护栏(0/1)", min: 0, max: 1, step: 1, default: 1 },
+    { key: "seed", label: "随机种子", min: 1, max: 64, step: 1, default: 7 },
+  ],
+  build(p) {
+    return buildStreetTreeParts({
+      trunkHeight: p.trunkHeight,
+      canopyRadius: p.canopyRadius,
+      clusters: Math.round(p.clusters),
+      pit: Math.round(p.pit) === 1,
+      seed: Math.round(p.seed),
+    });
+  },
+};
+
+// ---- CitySample freeway overhead sign gantry (Kit_FreewaySign) ----
+const freewaySign = {
+  id: "freeway-sign",
+  name: "高速龙门牌",
+  schema: [
+    { key: "span", label: "跨度", min: 8, max: 20, step: 0.5, default: 12 },
+    { key: "postHeight", label: "立柱高", min: 5, max: 8, step: 0.1, default: 6.2 },
+    { key: "signCount", label: "牌面数", min: 1, max: 4, step: 1, default: 2 },
+    { key: "signHeight", label: "牌面高", min: 1.4, max: 3, step: 0.1, default: 2.2 },
+    { key: "truss", label: "桁架梁(0/1)", min: 0, max: 1, step: 1, default: 1 },
+    { key: "lights", label: "照明灯(0/1)", min: 0, max: 1, step: 1, default: 1 },
+    { key: "seed", label: "随机种子", min: 0, max: 64, step: 1, default: 5 },
+  ],
+  build(p) {
+    return buildFreewaySignParts({
+      span: p.span,
+      postHeight: p.postHeight,
+      signCount: Math.round(p.signCount),
+      signHeight: p.signHeight,
+      truss: Math.round(p.truss) === 1,
+      lights: Math.round(p.lights) === 1,
+      seed: Math.round(p.seed),
+    });
+  },
+};
+
+// ---- CitySample construction material stack (Kit_Pallet/Lumber/Plywood/SandBag) ----
+const materialStack = {
+  id: "material-stack",
+  name: "施工物料堆",
+  schema: [
+    { key: "pallets", label: "托盘数", min: 1, max: 6, step: 1, default: 3 },
+    { key: "cargo", label: "货物", type: "select", options: ["mixed", "lumber", "plywood", "sandbag"], default: "mixed" },
+    { key: "palletSize", label: "托盘尺寸", min: 0.9, max: 1.6, step: 0.1, default: 1.2 },
+    { key: "stack", label: "堆高系数", min: 0.5, max: 2, step: 0.1, default: 1 },
+    { key: "straps", label: "捆扎带(0/1)", min: 0, max: 1, step: 1, default: 1 },
+    { key: "seed", label: "随机种子", min: 0, max: 64, step: 1, default: 11 },
+  ],
+  build(p) {
+    return buildMaterialStackParts({
+      pallets: Math.round(p.pallets),
+      cargo: p.cargo,
+      palletSize: p.palletSize,
+      stack: p.stack,
+      straps: Math.round(p.straps) === 1,
+      seed: Math.round(p.seed),
+    });
+  },
+};
+
+// ---- CitySample rooftop wooden water tower (Kit_roof_tank) ----
+const waterTower = {
+  id: "water-tower",
+  name: "屋顶木水塔",
+  schema: [
+    { key: "radius", label: "罐体半径", min: 1, max: 2.4, step: 0.1, default: 1.6 },
+    { key: "tankHeight", label: "罐体高", min: 2, max: 4.5, step: 0.1, default: 3.2 },
+    { key: "staves", label: "木条数", min: 12, max: 40, step: 1, default: 24 },
+    { key: "hoops", label: "钢箍数", min: 2, max: 8, step: 1, default: 4 },
+    { key: "legHeight", label: "支架高", min: 1.5, max: 4, step: 0.1, default: 2.4 },
+    { key: "roofPitch", label: "锥顶坡度", min: 0.3, max: 0.9, step: 0.05, default: 0.55 },
+    { key: "ladder", label: "爬梯(0/1)", min: 0, max: 1, step: 1, default: 1 },
+    { key: "seed", label: "随机种子", min: 0, max: 64, step: 1, default: 9 },
+  ],
+  build(p) {
+    return buildWaterTowerParts({
+      radius: p.radius,
+      tankHeight: p.tankHeight,
+      staves: Math.round(p.staves),
+      hoops: Math.round(p.hoops),
+      legHeight: p.legHeight,
+      roofPitch: p.roofPitch,
+      ladder: Math.round(p.ladder) === 1,
+      seed: Math.round(p.seed),
+    });
+  },
+};
+
+// ---- WFC-tiled building rooftop (CitySample WFC_Rooftop) ----
+const wfcRooftop = {
+  id: "wfc-rooftop",
+  name: "WFC屋顶",
+  schema: [
+    { key: "cols", label: "网格列", min: 2, max: 12, step: 1, default: 6 },
+    { key: "rows", label: "网格行", min: 2, max: 12, step: 1, default: 5 },
+    { key: "cell", label: "格尺寸", min: 1.6, max: 3.2, step: 0.1, default: 2.4 },
+    { key: "parapet", label: "女儿墙高", min: 0.4, max: 1.6, step: 0.1, default: 0.9 },
+    { key: "equipmentDensity", label: "设备密度", min: 0, max: 1, step: 0.05, default: 0.35 },
+    { key: "seed", label: "随机种子", min: 1, max: 64, step: 1, default: 11 },
+  ],
+  build(p) {
+    return buildWfcRooftopParts({
+      cols: Math.round(p.cols),
+      rows: Math.round(p.rows),
+      cell: p.cell,
+      parapet: p.parapet,
+      equipmentDensity: p.equipmentDensity,
+      seed: Math.round(p.seed),
+    });
+  },
+};
+
+// ---- four-arm road intersection kit (CitySample Kit_City_Road) ----
+const intersection = {
+  id: "intersection",
+  name: "十字路口",
+  schema: [
+    { key: "roadHalfWidth", label: "路面半宽", min: 3, max: 8, step: 0.5, default: 5 },
+    { key: "armLength", label: "路臂长", min: 5, max: 18, step: 1, default: 10 },
+    { key: "lanes", label: "单向车道", min: 1, max: 4, step: 1, default: 2 },
+    { key: "crosswalks", label: "斑马线(0/1)", min: 0, max: 1, step: 1, default: 1 },
+    { key: "sidewalks", label: "人行道(0/1)", min: 0, max: 1, step: 1, default: 1 },
+    { key: "west", label: "西臂(0/1)", min: 0, max: 1, step: 1, default: 1 },
+  ],
+  build(p) {
+    return buildIntersectionParts({
+      roadHalfWidth: p.roadHalfWidth,
+      armLength: p.armLength,
+      lanes: Math.round(p.lanes),
+      crosswalks: Math.round(p.crosswalks) === 1,
+      sidewalks: Math.round(p.sidewalks) === 1,
+      arms: { north: true, south: true, east: true, west: Math.round(p.west) === 1 },
     });
   },
 };
@@ -1338,67 +2448,62 @@ const springModel = {
   },
 };
 
+// Ivy-covered ruins: stone columns + wall with ivy that ADHERES to each surface
+// and climbs up (cylinderSurface/wallSurface + buildClimbingVineParts). Modeled
+// on the UE PCG demo screenshot: broken classical columns wrapped in ivy.
+const ivyRuinsModel = {
+  id: "ivy-ruins",
+  name: "藤蔓石柱废墟",
+  schema: [
+    { key: "columns", label: "石柱数", min: 1, max: 5, step: 1, default: 3 },
+    { key: "columnRadius", label: "柱身半径", min: 0.3, max: 0.7, step: 0.05, default: 0.45 },
+    { key: "ivyPerColumn", label: "每柱藤蔓数", min: 2, max: 12, step: 1, default: 6 },
+    { key: "leafDensity", label: "叶片密度", min: 2, max: 14, step: 0.5, default: 9 },
+    { key: "lushness", label: "繁茂度", min: 0.4, max: 1.6, step: 0.1, default: 1 },
+    { key: "seed", label: "随机种子", min: 0, max: 40, step: 1, default: 7 },
+  ],
+  build(p) {
+    return buildIvyRuinsParts({
+      seed: Math.round(p.seed),
+      columns: Math.round(p.columns),
+      columnRadius: p.columnRadius,
+      ivyPerColumn: Math.round(p.ivyPerColumn),
+      leafDensity: p.leafDensity,
+      lushness: p.lushness,
+    });
+  },
+};
+
 const vineModel = {
   id: "vine",
   name: "程序化藤蔓",
+  // Driven by the real vine generator (src/geometry/vine.ts): a seeded
+  // gravity + wander growth walk, swept into tapering tubes, with recursive
+  // branches and phyllotaxis leaves. mode 0=垂吊 1=攀爬 2=匍匐.
   schema: [
-    { key: "length", label: "长度", min: 1.5, max: 4, step: 0.1, default: 2.5 },
-    { key: "wiggle", label: "弯曲", min: 0, max: 1.2, step: 0.05, default: 0.6 },
-    { key: "thick", label: "根部粗细", min: 0.05, max: 0.25, step: 0.01, default: 0.12 },
-    { key: "leaves", label: "叶片数量", min: 0, max: 40, step: 1, default: 16 },
-    { key: "leafSize", label: "叶片大小", min: 0.08, max: 0.5, step: 0.01, default: 0.26 },
-    { key: "seed", label: "形态种子", min: 0, max: 30, step: 1, default: 4 },
+    { key: "mode", label: "生长模式(0垂1爬2匍)", min: 0, max: 2, step: 1, default: 0 },
+    { key: "length", label: "主茎长度", min: 1.5, max: 4.5, step: 0.1, default: 3 },
+    { key: "radius", label: "根部粗细", min: 0.03, max: 0.14, step: 0.005, default: 0.06 },
+    { key: "wander", label: "弯曲随机", min: 0, max: 1.2, step: 0.05, default: 0.5 },
+    { key: "branches", label: "分叉数", min: 0, max: 6, step: 1, default: 3 },
+    { key: "branchDepth", label: "分叉层级", min: 1, max: 3, step: 1, default: 2 },
+    { key: "leafDensity", label: "叶片密度", min: 0, max: 12, step: 0.5, default: 6 },
+    { key: "leafSize", label: "叶片大小", min: 0.06, max: 0.3, step: 0.01, default: 0.13 },
+    { key: "seed", label: "形态种子", min: 0, max: 40, step: 1, default: 5 },
   ],
   build(p) {
-    // build a wiggly control polyline, smooth it, sweep with taper
-    const segs = 6;
-    const pts = [];
-    let h = (n) => (((n * 2654435761) ^ (p.seed * 40503)) >>> 0) / 4294967295 - 0.5;
-    for (let i = 0; i <= segs; i++) {
-      const t = i / segs;
-      pts.push(vec3(h(i) * p.wiggle, t * p.length, h(i + 99) * p.wiggle));
-    }
-    const curve = smoothCurve(polyline(pts), 10);
-    const m = sweep(curve, { radius: p.thick, sides: 10, radiusAt: (t) => 1 - t * 0.8, caps: true });
-    const parts = [surfPart("vine", m, "wood", { tone: [0.3, 0.2, 0.12] })];
-
-    // Leaves: sample positions along the smoothed curve, place a flattened
-    // ellipsoid leaf at each, rotating around the stem by a phyllotaxis-like
-    // angle so they spiral. Each leaf tilts outward and gets a slight pitch.
-    const cp = curve.points;
-    const nLeaves = Math.round(p.leaves);
-    const goldenAngle = 2.39996; // ~137.5° in radians
-    const tangentAt = (idx) => {
-      const a = cp[Math.max(0, idx - 1)];
-      const b = cp[Math.min(cp.length - 1, idx + 1)];
-      return vec3(b.x - a.x, b.y - a.y, b.z - a.z);
-    };
-    const leafMeshes = [];
-    for (let i = 0; i < nLeaves; i++) {
-      // skip the very base; spread leaves over the upper 85% of the vine
-      const t = 0.12 + (i + 0.5) / Math.max(1, nLeaves) * 0.85;
-      const ci = Math.min(cp.length - 1, Math.round(t * (cp.length - 1)));
-      const base = cp[ci];
-      const stemR = p.thick * (1 - t * 0.8);
-      const yaw = i * goldenAngle + h(i) * 0.4;
-      // leaf base shape: a flat teardrop-ish ellipsoid (long in local +X)
-      const sz = p.leafSize * (0.7 + (1 - t) * 0.5) * (0.85 + h(i + 7) * 0.3);
-      let leaf = scaleMesh(sphere(1, 12, 8), vec3(sz * 1.6, sz * 0.08, sz));
-      // shift so the leaf grows outward from the stem, then tilt up and spin
-      leaf = transform(leaf, {
-        translate: vec3(sz * 1.4 + stemR, 0, 0),
-        rotate: vec3(0, 0, 0.5 + h(i + 31) * 0.3),
-      });
-      leaf = transform(leaf, {
-        rotate: vec3(0, yaw, 0),
-        translate: vec3(base.x, base.y, base.z),
-      });
-      leafMeshes.push(leaf);
-    }
-    if (leafMeshes.length > 0) {
-      parts.push(surfPart("leaves", merge(...leafMeshes), "fabric", { color: [0.24, 0.5, 0.18] }));
-    }
-    return parts;
+    const modes = ["hanging", "climbing", "creeping"];
+    return buildVineParts({
+      seed: Math.round(p.seed),
+      mode: modes[Math.round(p.mode)] ?? "hanging",
+      length: p.length,
+      radius: p.radius,
+      wander: p.wander,
+      branches: Math.round(p.branches),
+      branchDepth: Math.round(p.branchDepth),
+      leafDensity: p.leafDensity,
+      leafSize: p.leafSize,
+    });
   },
 };
 
@@ -3523,7 +4628,262 @@ const townScene = (() => {
   };
 })();
 
-export const PROC_MODELS = { "town-scene": townScene, sphere: sphereModel, teddy, rock, "rock-pile": rockPile, "pcg-vegetation": pcgVegetation, tower, pagoda, building, "urban-artdeco": urbanArtDeco, "urban-glass": urbanGlassTower, "urban-brick": urbanBrickWalkup, "urban-office": urbanModernOffice, "urban-brownstone": urbanBrownstone, "urban-corporate": urbanCorporate, "chinese-hall": chineseHall, cityblock: cityBlock, streetscene, "interior-room": interiorRoom, "hard-surface-kit": hardSurfaceKit, "terrain-island": terrainIsland, cloud, "cloud-sky": cloudSky, "polygon-island": polygonIsland, "pcg-world": pcgWorld, "mountain-village": mountainVillage, mushroom, gear, road, freeway, railway, officechair: officeChair, dragonfly, "sports-car": sportsCar, "gmc-canyon-at4x": gmcCanyonAt4x, "buick-riviera-1965": buickRiviera1965, "midnight-horse": midnightHorse, "reference-dog": referenceDog, "cartoon-mech-pilot": cartoonMechPilot, "stylized-humanoid": stylizedHumanoid, tshirt: tshirtModel, skirt: skirtModel, pants: pantsModel, dress: dressModel, hoodie: hoodieModel, smooth: smoothModel, spring: springModel, vine: vineModel, meadow: meadowModel, csg: csgModel, fterrain: terrainModel, wineglass: wineGlassModel, "veg-tree": treeModel, "veg-growing-tree": growingTreeModel, "veg-stylized-tree": stylizedTreeModel, "veg-authored-broadleaf": authoredBroadleafModel, "veg-trellis-fruit": trellisFruitModel, "veg-column-cypress": columnCypressAuthoringModel, "veg-authoring-lineup": authoringLineupModel, "veg-shrub": shrubModel, "veg-grass": grassModel, "veg-conifer": coniferModel, "veg-palm": palmModel, ...SPEEDTREE_MODELS, ...SPEEDTREE_TUTORIAL_MODELS };
+// ---- project_titan HDA reproductions (curve-pieces + fracture kernels) ----
+const titanRail = {
+  id: "titan-rail",
+  name: "泰坦轨道",
+  schema: [
+    { key: "length", label: "总长", min: 20, max: 96, step: 4, default: 48 },
+    { key: "bend", label: "弯曲", min: 0, max: 16, step: 1, default: 8 },
+    { key: "segmentLength", label: "段长", min: 1, max: 8, step: 0.5, default: 6 },
+    { key: "concreteSleepers", label: "混凝土枕(0/1)", min: 0, max: 1, step: 1, default: 0 },
+  ],
+  build(p) {
+    return buildTitanRailParts({
+      length: p.length,
+      bend: p.bend,
+      segmentLength: p.segmentLength,
+      concreteSleepers: Math.round(p.concreteSleepers) === 1,
+    });
+  },
+};
+
+const titanFence = {
+  id: "titan-fence",
+  name: "泰坦栅栏",
+  schema: [
+    { key: "length", label: "总长", min: 16, max: 80, step: 4, default: 40 },
+    { key: "bend", label: "弯曲", min: 0, max: 12, step: 1, default: 5 },
+    { key: "postSpacing", label: "立柱间距", min: 1, max: 4, step: 0.2, default: 2.2 },
+    { key: "height", label: "高度", min: 0.8, max: 2.4, step: 0.1, default: 1.5 },
+    { key: "rails", label: "横档数", min: 1, max: 6, step: 1, default: 3 },
+    { key: "lean", label: "倾斜抖动", min: 0, max: 0.2, step: 0.01, default: 0.04 },
+    { key: "metal", label: "金属(0/1)", min: 0, max: 1, step: 1, default: 0 },
+    { key: "seed", label: "随机种子", min: 0, max: 64, step: 1, default: 7 },
+  ],
+  build(p) {
+    return buildTitanFenceParts({
+      length: p.length,
+      bend: p.bend,
+      postSpacing: p.postSpacing,
+      height: p.height,
+      rails: Math.round(p.rails),
+      lean: p.lean,
+      metal: Math.round(p.metal) === 1,
+      seed: Math.round(p.seed),
+    });
+  },
+};
+
+const titanCable = {
+  id: "titan-cable",
+  name: "泰坦电缆",
+  schema: [
+    { key: "poles", label: "电杆数", min: 2, max: 10, step: 1, default: 4 },
+    { key: "span", label: "跨距", min: 6, max: 24, step: 1, default: 12 },
+    { key: "poleHeight", label: "杆高", min: 3, max: 12, step: 0.5, default: 6 },
+    { key: "sag", label: "垂度", min: 0, max: 0.4, step: 0.02, default: 0.16 },
+    { key: "subCables", label: "子缆数", min: 0, max: 6, step: 1, default: 2 },
+    { key: "metalPoles", label: "金属杆(0/1)", min: 0, max: 1, step: 1, default: 0 },
+  ],
+  build(p) {
+    return buildTitanCableParts({
+      poles: Math.round(p.poles),
+      span: p.span,
+      poleHeight: p.poleHeight,
+      sag: p.sag,
+      subCables: Math.round(p.subCables),
+      metalPoles: Math.round(p.metalPoles) === 1,
+    });
+  },
+};
+
+const titanAdBoard = {
+  id: "titan-adboard",
+  name: "泰坦广告牌",
+  schema: [
+    { key: "width", label: "板宽", min: 3, max: 12, step: 0.5, default: 6 },
+    { key: "height", label: "板高", min: 1.5, max: 6, step: 0.5, default: 3 },
+    { key: "postHeight", label: "立柱高", min: 2, max: 8, step: 0.5, default: 4 },
+    { key: "tilt", label: "俯仰", min: -0.3, max: 0.3, step: 0.02, default: 0.08 },
+    { key: "twinPosts", label: "双柱(0/1)", min: 0, max: 1, step: 1, default: 1 },
+  ],
+  build(p) {
+    return buildTitanAdBoardParts({
+      width: p.width,
+      height: p.height,
+      postHeight: p.postHeight,
+      tilt: p.tilt,
+      twinPosts: Math.round(p.twinPosts) === 1,
+    });
+  },
+};
+
+const titanShrub = {
+  id: "titan-shrub",
+  name: "泰坦灌木",
+  schema: [
+    { key: "branches", label: "枝数", min: 3, max: 16, step: 1, default: 7 },
+    { key: "height", label: "高度", min: 0.6, max: 3, step: 0.1, default: 1.4 },
+    { key: "spread", label: "张开角", min: 0.2, max: 1.4, step: 0.05, default: 0.7 },
+    { key: "leavesPerBranch", label: "每枝叶数", min: 2, max: 30, step: 1, default: 14 },
+    { key: "dryRatio", label: "枯叶比例", min: 0, max: 1, step: 0.05, default: 0.2 },
+    { key: "bend", label: "整体弯曲", min: 0, max: 0.5, step: 0.02, default: 0.15 },
+    { key: "seed", label: "随机种子", min: 0, max: 64, step: 1, default: 11 },
+  ],
+  build(p) {
+    return buildTitanShrubParts({
+      branches: Math.round(p.branches),
+      height: p.height,
+      spread: p.spread,
+      leavesPerBranch: Math.round(p.leavesPerBranch),
+      dryRatio: p.dryRatio,
+      bend: p.bend,
+      seed: Math.round(p.seed),
+    });
+  },
+};
+
+const titanPlatform = {
+  id: "titan-platform",
+  name: "泰坦平台",
+  schema: [
+    { key: "length", label: "长度", min: 4, max: 20, step: 1, default: 8 },
+    { key: "width", label: "宽度", min: 3, max: 14, step: 1, default: 5 },
+    { key: "height", label: "离地高", min: 0.2, max: 2, step: 0.1, default: 0.6 },
+    { key: "plankWidth", label: "板宽", min: 0.2, max: 1, step: 0.05, default: 0.5 },
+    { key: "border", label: "围栏(0/1)", min: 0, max: 1, step: 1, default: 1 },
+    { key: "railHeight", label: "栏高", min: 0.4, max: 1.6, step: 0.1, default: 1 },
+  ],
+  build(p) {
+    return buildTitanPlatformParts({
+      length: p.length,
+      width: p.width,
+      height: p.height,
+      plankWidth: p.plankWidth,
+      border: Math.round(p.border) === 1,
+      railHeight: p.railHeight,
+    });
+  },
+};
+
+const titanBuilding = {
+  id: "titan-building",
+  name: "泰坦建筑",
+  schema: [
+    { key: "width", label: "面宽", min: 6, max: 24, step: 1, default: 12 },
+    { key: "depth", label: "进深", min: 5, max: 20, step: 1, default: 9 },
+    { key: "floors", label: "楼层", min: 1, max: 12, step: 1, default: 4 },
+    { key: "floorHeight", label: "层高", min: 2.2, max: 4.5, step: 0.1, default: 3 },
+    { key: "bayWidth", label: "开间宽", min: 1, max: 4, step: 0.25, default: 2 },
+    { key: "roof", label: "女儿墙(0/1)", min: 0, max: 1, step: 1, default: 1 },
+  ],
+  build(p) {
+    return buildTitanBuildingParts({
+      width: p.width,
+      depth: p.depth,
+      floors: Math.round(p.floors),
+      floorHeight: p.floorHeight,
+      bayWidth: p.bayWidth,
+      roof: Math.round(p.roof) === 1,
+    });
+  },
+};
+
+const titanStacking = {
+  id: "titan-stacking",
+  name: "泰坦碎石堆",
+  schema: [
+    { key: "shards", label: "碎块数", min: 3, max: 24, step: 1, default: 12 },
+    { key: "fractureSeed", label: "断裂种子", min: 0, max: 64, step: 1, default: 5 },
+    { key: "stackSeed", label: "堆叠种子", min: 0, max: 64, step: 1, default: 2 },
+    { key: "spread", label: "散布半径", min: 0.5, max: 5, step: 0.1, default: 2.2 },
+    { key: "focusBias", label: "冲击聚集", min: 0, max: 0.9, step: 0.05, default: 0 },
+  ],
+  build(p) {
+    return buildTitanStackingParts({
+      shards: Math.round(p.shards),
+      fractureSeed: Math.round(p.fractureSeed),
+      stackSeed: Math.round(p.stackSeed),
+      spread: p.spread,
+      focusBias: p.focusBias,
+    });
+  },
+};
+
+const titanTrain = {
+  id: "titan-train",
+  name: "泰坦火车",
+  schema: [
+    { key: "wagons", label: "车厢数", min: 0, max: 8, step: 1, default: 3 },
+    { key: "carLength", label: "车长", min: 4, max: 14, step: 0.5, default: 8 },
+    { key: "carWidth", label: "车宽", min: 1.8, max: 3.4, step: 0.1, default: 2.6 },
+    { key: "carHeight", label: "车高", min: 1.8, max: 4, step: 0.1, default: 2.8 },
+    { key: "damage", label: "破损量", min: 0, max: 1, step: 0.05, default: 0 },
+    { key: "seed", label: "种子", min: 0, max: 64, step: 1, default: 7 },
+  ],
+  build(p) {
+    return buildTitanTrainParts({
+      wagons: Math.round(p.wagons),
+      carLength: p.carLength,
+      carWidth: p.carWidth,
+      carHeight: p.carHeight,
+      damage: p.damage,
+      seed: Math.round(p.seed),
+    });
+  },
+};
+
+const titanTree = {
+  id: "titan-tree",
+  name: "泰坦树",
+  schema: [
+    { key: "levels", label: "分支层数", min: 1, max: 5, step: 1, default: 4 },
+    { key: "trunkLength", label: "主干长", min: 1, max: 6, step: 0.25, default: 3 },
+    { key: "branching", label: "每节分支", min: 2, max: 5, step: 1, default: 3 },
+    { key: "spread", label: "张角", min: 0.2, max: 1.2, step: 0.05, default: 0.6 },
+    { key: "leafSize", label: "叶片大小", min: 0, max: 0.8, step: 0.05, default: 0.4 },
+    { key: "seed", label: "种子", min: 0, max: 64, step: 1, default: 11 },
+  ],
+  build(p) {
+    return buildTitanTreeParts({
+      levels: Math.round(p.levels),
+      trunkLength: p.trunkLength,
+      branching: Math.round(p.branching),
+      spread: p.spread,
+      leafSize: p.leafSize,
+      seed: Math.round(p.seed),
+    });
+  },
+};
+
+const titanCloth = {
+  id: "titan-cloth",
+  name: "泰坦布料",
+  schema: [
+    { key: "width", label: "宽", min: 2, max: 8, step: 0.5, default: 4 },
+    { key: "depth", label: "深", min: 2, max: 8, step: 0.5, default: 4 },
+    { key: "resolution", label: "网格分辨率", min: 10, max: 60, step: 2, default: 40 },
+    { key: "pinMode", label: "固定点(0角/1顶/2中/3两角)", min: 0, max: 3, step: 1, default: 0 },
+    { key: "sag", label: "垂坠深度", min: 0, max: 3, step: 0.1, default: 1.6 },
+    { key: "wrinkle", label: "褶皱", min: 0, max: 0.4, step: 0.02, default: 0.12 },
+    { key: "seed", label: "种子", min: 0, max: 64, step: 1, default: 3 },
+  ],
+  build(p) {
+    const modes = ["corners", "top-edge", "center", "two-corners"];
+    return buildTitanClothParts({
+      width: p.width,
+      depth: p.depth,
+      resolution: Math.round(p.resolution),
+      pinMode: modes[Math.round(p.pinMode)] ?? "corners",
+      sag: p.sag,
+      wrinkle: p.wrinkle,
+      seed: Math.round(p.seed),
+    });
+  },
+};
+
+export const PROC_MODELS = { "town-scene": townScene, sphere: sphereModel, teddy, rock, "rock-pile": rockPile, "pcg-vegetation": pcgVegetation, "vine-slope": vineSlopeModel, "ivy-ruins": ivyRuinsModel, roots: rootsModel, "rock-formation": rockFormationModel, "pcg-colonnade": pcgColonnade, "pcg-plaza": pcgPlaza, "pcg-boulders": pcgBoulders, "terrain-layered": terrainLayered, "forest-floor": forestFloor, "triplanar-boulder": triplanarBoulder, tower, pagoda, building, "urban-artdeco": urbanArtDeco, "urban-glass": urbanGlassTower, "urban-brick": urbanBrickWalkup, "urban-office": urbanModernOffice, "urban-brownstone": urbanBrownstone, "urban-corporate": urbanCorporate, "chinese-hall": chineseHall, cityblock: cityBlock, streetscene, "interior-room": interiorRoom, "hard-surface-kit": hardSurfaceKit, "terrain-island": terrainIsland, cloud, "cloud-sky": cloudSky, "polygon-island": polygonIsland, "pcg-world": pcgWorld, "mountain-village": mountainVillage, mushroom, gear, road, freeway, railway, viaduct, "titan-rail": titanRail, "titan-fence": titanFence, "titan-cable": titanCable, "titan-adboard": titanAdBoard, "titan-shrub": titanShrub, "titan-platform": titanPlatform, "titan-building": titanBuilding, "titan-stacking": titanStacking, "titan-train": titanTrain, "titan-tree": titanTree, "titan-cloth": titanCloth, pylon, "tower-crane": towerCrane, "wind-turbine": windTurbine, "toll-station": tollStation, "tunnel-portal": tunnelPortal, "rooftop-kit": rooftopKit, scaffolding, "bus-stop": busStop, bicycle, billboard, "container-yard": containerYard, "manhole-cover": manholeCover, "barrier-run": barrierRun, "fire-escape": fireEscape, newsstand, "traffic-signal": trafficSignal, "umbrella-table": umbrellaTable, "street-tree": streetTree, "freeway-sign": freewaySign, "material-stack": materialStack, "water-tower": waterTower, "wfc-rooftop": wfcRooftop, intersection, officechair: officeChair, dragonfly, "sports-car": sportsCar, "gmc-canyon-at4x": gmcCanyonAt4x, "buick-riviera-1965": buickRiviera1965, "midnight-horse": midnightHorse, "reference-dog": referenceDog, "cartoon-mech-pilot": cartoonMechPilot, "stylized-humanoid": stylizedHumanoid, tshirt: tshirtModel, skirt: skirtModel, pants: pantsModel, dress: dressModel, hoodie: hoodieModel, smooth: smoothModel, spring: springModel, vine: vineModel, meadow: meadowModel, csg: csgModel, fterrain: terrainModel, wineglass: wineGlassModel, "veg-tree": treeModel, "veg-growing-tree": growingTreeModel, "veg-stylized-tree": stylizedTreeModel, "veg-authored-broadleaf": authoredBroadleafModel, "veg-trellis-fruit": trellisFruitModel, "veg-column-cypress": columnCypressAuthoringModel, "veg-authoring-lineup": authoringLineupModel, "veg-shrub": shrubModel, "veg-grass": grassModel, "veg-conifer": coniferModel, "veg-palm": palmModel, ...SPEEDTREE_MODELS, ...SPEEDTREE_TUTORIAL_MODELS };
 
 /** Default param object from a schema. */
 export function defaultParams(model) {

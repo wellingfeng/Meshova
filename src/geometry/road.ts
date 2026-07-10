@@ -619,6 +619,10 @@ export function roadPillars(
     radius?: number;
     groundY?: number;
     deckThickness?: number;
+    /** Column cross-section: "round" cylinder (default) or "square" pier. */
+    shape?: "round" | "square";
+    /** Taper factor at the top (1 = straight, <1 = narrower top). */
+    taper?: number;
   } = {},
 ): Mesh {
   const opt = resolve(options);
@@ -626,6 +630,8 @@ export function roadPillars(
   const radius = options.radius ?? 0.5;
   const groundY = options.groundY ?? 0;
   const deckT = options.deckThickness ?? 0.4;
+  const shape = options.shape ?? "round";
+  const taper = options.taper ?? 1;
   const dense = resampleCurve(centerline, { segmentLength: opt.sampleDistance });
   const points = dense.points;
   if (points.length < 2) return makeMesh({ positions: [], normals: [], uvs: [], indices: [] });
@@ -635,7 +641,11 @@ export function roadPillars(
   const positions: Vec3[] = [];
   const uvList: ReturnType<typeof vec2>[] = [];
   const indices: number[] = [];
-  const seg = 12;
+  // Round columns use a smooth 12-gon ring; square piers use a 4-gon with the
+  // ring radius scaled so the flat side length matches the requested radius*2.
+  const seg = shape === "square" ? 4 : 12;
+  const angleOffset = shape === "square" ? Math.PI / 4 : 0;
+  const ringScale = shape === "square" ? Math.SQRT2 : 1;
 
   const emitPillar = (d: number): void => {
     const center = pointAtDistance(points, cum, d);
@@ -645,10 +655,12 @@ export function roadPillars(
     const base = positions.length;
     for (let y = 0; y < 2; y++) {
       const py = y === 0 ? groundY : deckBottom;
+      // Optional taper: the top ring (y=1) can be narrower than the base.
+      const rScale = (y === 0 ? 1 : taper) * ringScale;
       for (let i = 0; i <= seg; i++) {
-        const a = (i / seg) * Math.PI * 2;
+        const a = angleOffset + (i / seg) * Math.PI * 2;
         const nx = Math.cos(a), nz = Math.sin(a);
-        positions.push(vec3(center.x + nx * radius, py, center.z + nz * radius));
+        positions.push(vec3(center.x + nx * radius * rScale, py, center.z + nz * radius * rScale));
         uvList.push(vec2(i / seg, y));
       }
     }

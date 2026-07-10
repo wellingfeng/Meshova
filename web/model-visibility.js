@@ -19,7 +19,6 @@ export const HIDDEN_GALLERY_MODEL_IDS = new Set([
   "hoodie",
   "smooth",
   "spring",
-  "vine",
   "meadow",
   "csg",
   "fterrain",

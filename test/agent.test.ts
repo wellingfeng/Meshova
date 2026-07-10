@@ -98,6 +98,14 @@ describe("script runner", () => {
     expect(SCRIPT_API_NAMES).toContain("sweep");
     expect(SCRIPT_API_NAMES).toContain("weatheredColor");
     expect(SCRIPT_API_NAMES).toContain("coloredPart");
+    // point-cloud query + rule-tree surface (RuleProcessor port)
+    expect(SCRIPT_API_NAMES).toContain("partition");
+    expect(SCRIPT_API_NAMES).toContain("groupBy");
+    expect(SCRIPT_API_NAMES).toContain("aggregate");
+    expect(SCRIPT_API_NAMES).toContain("filter");
+    expect(SCRIPT_API_NAMES).toContain("iterate");
+    expect(SCRIPT_API_NAMES).toContain("emitNode");
+    expect(SCRIPT_API_NAMES).toContain("evalRuleTree");
     expect(SCRIPT_API_NAMES).not.toContain("require");
   });
 

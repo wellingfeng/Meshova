@@ -5,11 +5,15 @@ import {
   upwardMask,
   heightBlendMask,
   heightBlendMaterials,
+  triplanar,
+  triplanarColor,
+  terrainAutoMaterial,
   materialFromFields,
   validateMaterial,
   buildSurface,
   fbmPattern,
 } from "../src/index.js";
+import { vec3 } from "../src/math/vec3.js";
 
 describe("hexTile", () => {
   it("stays in [0,1] and is deterministic per seed", () => {
@@ -129,5 +133,51 @@ describe("foliage surface", () => {
     const cf = fresh.fields.baseColor!(0.5, 0.5);
     const ca = fall.fields.baseColor!(0.5, 0.5);
     expect(ca[0]).toBeGreaterThan(cf[0]); // autumn redder
+  });
+});
+
+describe("triplanar", () => {
+  it("a floor samples the XZ plane, a wall samples a vertical plane", () => {
+    // pattern that returns u so we can tell which coords were used
+    const pat = (u: number) => (u % 1 + 1) % 1;
+    const tp = triplanar(pat, { scale: 1, sharpness: 8 });
+    const pos = vec3(0.3, 0.7, 0.9);
+    const floor = tp(pos, vec3(0, 1, 0)); // Y-normal -> reads (x,z) -> u=x=0.3
+    const wallZ = tp(pos, vec3(0, 0, 1)); // Z-normal -> reads (x,y) -> u=x=0.3
+    const wallX = tp(pos, vec3(1, 0, 0)); // X-normal -> reads (z,y) -> u=z=0.9
+    expect(floor).toBeCloseTo(0.3, 4);
+    expect(wallZ).toBeCloseTo(0.3, 4);
+    expect(wallX).toBeCloseTo(0.9, 4);
+  });
+
+  it("triplanarColor blends without leaving [0,1]", () => {
+    const pat = (u: number, v: number) => [Math.abs(u % 1), Math.abs(v % 1), 0.5] as [number, number, number];
+    const tp = triplanarColor(pat, { scale: 1 });
+    const c = tp(vec3(0.2, 0.4, 0.6), vec3(0.5, 0.5, 0.7));
+    for (const x of c) {
+      expect(x).toBeGreaterThanOrEqual(0);
+      expect(x).toBeLessThanOrEqual(1);
+    }
+  });
+});
+
+describe("terrainAutoMaterial", () => {
+  const grass: [number, number, number] = [0.2, 0.5, 0.15];
+  const rock: [number, number, number] = [0.4, 0.38, 0.35];
+  const auto = terrainAutoMaterial(
+    [
+      { color: rock, minSlope: 0 },       // rock everywhere as base
+      { color: grass, minSlope: 0.7, priority: 2 }, // grass only on flat tops
+    ],
+    { softness: 0.05 },
+  );
+
+  it("flat ground reads grass, steep faces read rock", () => {
+    const flat = auto(vec3(0, 0, 0), vec3(0, 1, 0)); // up -> grass wins
+    const steep = auto(vec3(0, 0, 0), vec3(1, 0, 0)); // vertical -> only rock qualifies
+    // grass greener than rock
+    expect(flat[1]).toBeGreaterThan(flat[0]);
+    // steep is rock: red ~>= green
+    expect(steep[0]).toBeGreaterThanOrEqual(steep[1]);
   });
 });

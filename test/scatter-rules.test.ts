@@ -19,6 +19,9 @@ import {
   ruleLookAt,
   ruleClipToPolygon,
   ruleClipToCurveBand,
+  ruleMatchAndSet,
+  ruleVariantBySlope,
+  ruleVariantByHeight,
   copyAssembliesToPoints,
   realizeAssembly,
   makePointCloud,
@@ -306,6 +309,67 @@ describe("copyAssembliesToPoints (hierarchy)", () => {
     const b = copyAssembliesToPoints(grid, clump, { alignToNormal: false });
     expect(a.positions).toEqual(b.positions);
     expect(a.indices).toEqual(b.indices);
+  });
+});
+
+describe("ruleMatchAndSet (PointMatchAndSet)", () => {
+  it("assigns variant by first matching case, else fallback", () => {
+    const pc = makePointCloud({
+      points: [vec3(0, 0, 0), vec3(0, 5, 0), vec3(0, 10, 0)],
+    });
+    const out = ruleMatchAndSet({
+      cases: [
+        { when: (c) => c.point.y >= 10, variant: 2 },
+        { when: (c) => c.point.y >= 5, variant: 1 },
+      ],
+      fallback: 0,
+    })(pc);
+    expect(out.attributes.variant).toEqual([0, 1, 2]);
+  });
+
+  it("writes a custom attribute name", () => {
+    const pc = makePointCloud({ points: [vec3(0, 0, 0)] });
+    const out = ruleMatchAndSet({ cases: [], fallback: 3, attribute: "species" })(pc);
+    expect(out.attributes.species).toEqual([3]);
+  });
+});
+
+describe("ruleVariantBySlope", () => {
+  it("buckets points into variants by surface slope", () => {
+    // three points: flat up-normal, 45° normal, near-horizontal normal
+    const pc = makePointCloud({
+      points: [vec3(0, 0, 0), vec3(1, 0, 0), vec3(2, 0, 0)],
+      normals: [vec3(0, 1, 0), vec3(1, 1, 0), vec3(1, 0.05, 0)],
+    });
+    const out = ruleVariantBySlope({
+      thresholds: [(20 * Math.PI) / 180, (60 * Math.PI) / 180],
+      variants: [0, 1, 2],
+    })(pc);
+    // flat -> 0, ~45° -> 1, ~87° -> 2
+    expect(out.attributes.variant).toEqual([0, 1, 2]);
+  });
+});
+
+describe("ruleVariantByHeight", () => {
+  it("buckets points into variants by world height", () => {
+    const pc = makePointCloud({
+      points: [vec3(0, -1, 0), vec3(0, 3, 0), vec3(0, 9, 0)],
+    });
+    const out = ruleVariantByHeight({ thresholds: [0, 5], variants: [0, 1, 2] })(pc);
+    // y=-1 below 0 -> 0, y=3 in [0,5) -> 1, y=9 above 5 -> 2
+    expect(out.attributes.variant).toEqual([0, 1, 2]);
+  });
+
+  it("feeds copyToPoints variant selection deterministically", () => {
+    const grid = scatterGrid({ cols: 3, rows: 1, cellX: 2, cellZ: 2 });
+    const withVariant = applyRules(grid, [
+      ruleVariantByHeight({ thresholds: [0], variants: [0, 1] }),
+    ]);
+    const lib = [box(0.5, 0.5, 0.5), cylinder(0.3, 1, 8)];
+    const a = copyToPoints(withVariant, lib, { variant: pointAttribute("variant"), alignToNormal: false });
+    const b = copyToPoints(withVariant, lib, { variant: pointAttribute("variant"), alignToNormal: false });
+    expect(triangleCount(a)).toBe(triangleCount(b));
+    expect(a.positions).toEqual(b.positions);
   });
 });
 

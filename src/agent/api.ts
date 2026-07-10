@@ -71,6 +71,13 @@ export const SCRIPT_API: Record<string, unknown> = {
   indentCreases: M.indentCreases,
   array: M.array,
   extrude: M.extrude,
+  // UV projection / unwrap
+  planarUV: M.planarUV,
+  boxUV: M.boxUV,
+  cylindricalUV: M.cylindricalUV,
+  sphericalUV: M.sphericalUV,
+  normalizeUV: M.normalizeUV,
+  transformUV: M.transformUV,
   // DCC-style topology edit operators (P1)
   extrudeRegion: M.extrudeRegion,
   insetFaces: M.insetFaces,
@@ -130,6 +137,7 @@ export const SCRIPT_API: Record<string, unknown> = {
   poissonScatter: M.poissonScatter,
   // Houdini-style middle layer
   scalarRamp: M.scalarRamp,
+  vectorRamp: M.vectorRamp,
   rampF: M.rampF,
   makePointCloud: M.makePointCloud,
   pointCount: M.pointCount,
@@ -142,6 +150,13 @@ export const SCRIPT_API: Record<string, unknown> = {
   instanceCount: M.instanceCount,
   realizeInstances: M.realizeInstances,
   copyToPoints: M.copyToPoints,
+  // hierarchical assembly (UE PCG "ApplyHierarchy / CopyPointsWithHierarchy"):
+  // pre-bake a group of meshes (mesh + prop) into one unit, then scatter as a
+  // whole so composed detail travels together under one parent transform.
+  realizeAssembly: M.realizeAssembly,
+  copyAssembliesToPoints: M.copyAssembliesToPoints,
+  partitionByAttribute: M.partitionByAttribute,
+  scatterToLayers: M.scatterToLayers,
   // curves
   polyline: M.polyline,
   bezier: M.bezier,
@@ -150,6 +165,26 @@ export const SCRIPT_API: Record<string, unknown> = {
   resampleCurve: M.resampleCurve,
   curveLength: M.curveLength,
   sweep: M.sweep,
+  // procedural vines / creepers / hanging plants (grown, not baked)
+  buildVineParts: M.buildVineParts,
+  buildVineStemMesh: M.buildVineStemMesh,
+  buildVinePreset: M.buildVinePreset,
+  growVineStrands: M.growVineStrands,
+  // surface-climbing ivy: grow vines that adhere to a column/wall and climb up
+  cylinderSurface: M.cylinderSurface,
+  wallSurface: M.wallSurface,
+  growClimbingStrands: M.growClimbingStrands,
+  buildClimbingVineParts: M.buildClimbingVineParts,
+  buildIvyRuinsParts: M.buildIvyRuinsParts,
+  // procedural roots / root-flare / erosion roots (grown down+out, not baked)
+  buildRootsParts: M.buildRootsParts,
+  buildRootMesh: M.buildRootMesh,
+  buildRootPreset: M.buildRootPreset,
+  growRootStrands: M.growRootStrands,
+  // procedural rock formations / cliffs / shelves (fuse + noise + strata cut)
+  buildRockFormationParts: M.buildRockFormationParts,
+  buildRockFormationMesh: M.buildRockFormationMesh,
+  buildRockPreset: M.buildRockPreset,
   // procedural roads (ribbon swept along a centerline, ported from UE Quick Road PCG)
   roadRibbon: M.roadRibbon,
   roadCurbs: M.roadCurbs,
@@ -181,6 +216,42 @@ export const SCRIPT_API: Record<string, unknown> = {
   ruleMask: M.ruleMask,
   ruleThin: M.ruleThin,
   pruneMasked: M.pruneMasked,
+  // density-driven layout (noise/normal -> density -> prune): natural thinning
+  ruleDensityNoise: M.ruleDensityNoise,
+  ruleNormalToDensity: M.ruleNormalToDensity,
+  ruleDensityPrune: M.ruleDensityPrune,
+  // proximity + orientation (UE PCG DistanceToNeighbors / LookAt) + self-pruning
+  ruleDistanceToNeighbors: M.ruleDistanceToNeighbors,
+  ruleLookAt: M.ruleLookAt,
+  ruleSelfPruning: M.ruleSelfPruning,
+  ruleSlopeFilter: M.ruleSlopeFilter,
+  // spline / polygon clipping (keep points inside a boundary or curve band)
+  ruleClipToPolygon: M.ruleClipToPolygon,
+  ruleClipToCurveBand: M.ruleClipToCurveBand,
+  // variant selection (UE PCG PointMatchAndSet): pick which library mesh per point
+  ruleMatchAndSet: M.ruleMatchAndSet,
+  ruleVariantBySlope: M.ruleVariantBySlope,
+  ruleVariantByHeight: M.ruleVariantByHeight,
+  // point-cloud query layer (RuleProcessor PointCloudQuery/SQL): inspect + slice
+  where: M.where,
+  selectRows: M.selectRows,
+  pointRow: M.pointRow,
+  gatherPoints: M.gatherPoints,
+  aggregate: M.aggregate,
+  pointCloudBounds: M.pointCloudBounds,
+  groupBy: M.groupBy,
+  partition: M.partition,
+  histogram: M.histogram,
+  // SliceAndDice rule TREE (Filter/Iterator/Generator branching layout)
+  seq: M.seq,
+  filter: M.filter,
+  iterate: M.iterate,
+  emitNode: M.emitNode,
+  evalRuleTree: M.evalRuleTree,
+  evalRuleTreeCached: M.evalRuleTreeCached,
+  emptyRuleTreeCache: M.emptyRuleTreeCache,
+  ruleKind: M.ruleKind,
+  describeRuleTree: M.describeRuleTree,
   // vegetation (P7: procedural trees/shrubs/grass/conifer/palm — SpeedTree-style generator)
   tree: M.tree,
   shrub: M.shrub,
@@ -300,6 +371,13 @@ OPS:
   indentCreases(mesh,[{from:vec3(...),to:vec3(...),depth?,width?}],{direction?,surfaceNormal?,normalThreshold?})
   array(mesh,count,offsetVec3)
   extrude(mesh,selection,distance) catmullClark(mesh,iterations)
+UV PROJECTION (fix stretched textures after boolean/extrude/sweep — reproject before surfacePart):
+  planarUV(mesh,{axis?:"x"|"y"|"z",scale?,offset?:vec2}) flat drop onto a world plane (floors/walls/decals), keeps vertex count
+  boxUV(mesh,{scale?,offset?:vec2}) tri-planar: per-face pick nearest axis -> shear-free UVs on ANY shape (unwelds faces)
+  cylindricalUV(mesh,{axis?,center?:vec3,vScale?,uRepeat?}) angle=u height=v, seam-fixed (pipes/cables/trunks)
+  sphericalUV(mesh,{center?:vec3,uRepeat?}) lat-long mapping (balls/domes/gems), seam-fixed
+  normalizeUV(mesh) rescale existing UVs into the [0,1] tile, aspect-preserving
+  transformUV(mesh,{scale?:number|vec2,rotateDeg?,offset?:vec2}) tile/rotate/shift existing UVs
 DCC EDIT (topology operators — clean panels, hard-surface edges, shells):
   extrudeRegion(mesh,{faces?:[i],normalDir?:vec3,angleDeg?},{distance?,direction?:vec3,taper?})
     lift a connected face region along its normal; side walls only on the region border
@@ -375,10 +453,35 @@ HOUDINI-STYLE FLOW:
   filterPoints(pc,field,threshold=0.5)
   instancePlanFromPoints(pc,meshOrMeshes,{scale?,yaw?,variant?,alignToNormal?})
   instanceCount(plan) realizeInstances(plan) copyToPoints(pc,meshOrMeshes,opts)
+  vectorRamp([{t,value:[r,g,b]},...],{smooth?}) -> (t)=>vec3  // gradient of colors/vectors
+HIERARCHICAL ASSEMBLY (UE PCG ApplyHierarchy / CopyPointsWithHierarchy — scatter a composed unit, not one mesh):
+  realizeAssembly({parts:[{mesh,offset?,rotate?,scale?},...]}) -> Mesh  // pre-bake a group into one unit
+  copyAssembliesToPoints(pc, assemblyOrAssemblies, opts) -> Mesh  // scatter whole assemblies (variant picks which)
+  partitionByAttribute(pc,attr,count) -> [pc,...]  // split a cloud into N sub-clouds by a floored attribute
+  scatterToLayers(pc,attr,[{name,library,options?},...]) -> [{name,mesh,count},...]  // one mesh per layer
 CURVES:
   polyline(points[],closed?) bezier(p0,p1,p2,p3,seg) helix({radius,height,turns,segments})
   smoothCurve(curve,subdiv) resampleCurve(curve,{count?,segmentLength?}) curveLength(curve)
   sweep(curve,{radius,sides,radiusAt?,caps?})  // resample BEFORE sweep for even tubes (ropes/pipes/vines)
+VINES / CREEPERS (grown by a seeded gravity+wander walk, then swept — never baked meshes):
+  buildVineParts({seed,mode,length,radius,branches,branchDepth,leafDensity,leafSize,wander,gravity,origin,heading}) -> [stem,leaves]
+  buildVineStemMesh(opts) -> Mesh   // just the woody tube(s), no leaves
+  buildVinePreset("hanging"|"ivy"|"creeper"|"liana",override?) -> parts
+  growVineStrands(opts) -> [{curve,radius,depth}]  // strand centerlines for custom sweeping/scatter
+  // mode: "hanging"(droops under gravity) | "climbing"(grows up a wall) | "creeping"(ground runner)
+SURFACE-CLIMBING IVY (vines that ADHERE to a column/wall and spiral up — for ruins/architecture):
+  cylinderSurface({center,radius,height}) / wallSurface({origin,normal,up,width,height}) -> ClimbSurface
+  buildClimbingVineParts(surface,{seed,strands,radius,climb,weave,wander,leafDensity,branches,length}) -> [stem,leaves]
+  growClimbingStrands(surface,opts) -> strands  // climb=up drive, weave=winding (helix on a column)
+  buildIvyRuinsParts({seed,columns,columnRadius,ivyPerColumn,leafDensity,lushness}) -> ivy-covered ruin scene
+ROOTS (grown DOWN+OUT by the same gravity+wander walk, then swept — mirror of vines):
+  buildRootsParts({seed,mode,count,collarRadius,length,radius,branches,branchDepth,wander,spread,origin}) -> [roots]
+  buildRootMesh(opts) -> Mesh   buildRootPreset("flare"|"erosion"|"taproot",override?) -> parts
+  growRootStrands(opts) -> [{curve,radius,depth}]  // mode: flare(buttress) | erosion(exposed embankment) | taproot(plunge)
+ROCK FORMATIONS (fuse spheres -> fBm noise displace -> strata plane-cut — grown, never scanned):
+  buildRockFormationParts({seed,mode,radius,height,blobs,resolution,crag,cragFrequency,strata,color}) -> [rock]
+  buildRockFormationMesh(opts) -> Mesh   buildRockPreset("boulder"|"shelf"|"cliff",override?) -> parts
+  // mode: boulder(rounded blob) | shelf(flat-top ledge) | cliff(tall stacked strata)
 
 ROADS (flat ribbon swept along a centerline curve on the XZ ground plane):
   roadRibbon(centerline,{halfWidth,sampleDistance,widthSubdivisions,adaptiveCurvature,curvatureThresholdDeg,verticalOffset,uvLengthScale}) road surface
@@ -411,8 +514,39 @@ SCATTER RULE DSL (SliceAndDice-style: build a layout point cloud, pass it throug
   ruleScale(field,{multiply?}) / ruleScaleJitter(amount,seed) set/vary per-point "scale"
   ruleJitterPosition(amount,seed) / ruleYawJitter(amountRad,seed) break row/grid regularity, seeded
   ruleMask((ctx)=>bool) / ruleThin(keepProb,seed) mark points for removal; pruneMasked({dropUnassigned?}) drops them
+  ruleDensityNoise({scale?,seed?,attr?,...}) noise-driven "density" attribute; ruleNormalToDensity({...}) slope->density
+  ruleDensityPrune(seed) drop points where density is low (natural thinning on steep/sparse areas)
+  ruleDistanceToNeighbors({attr?,maxDistance?,cellSize?}) store distance to nearest neighbor (spacing/crowding)
+  ruleLookAt({target?,direction?}) orient each point (yaw toward a target or a fixed direction) — UE PCG LookAt
+  ruleSelfPruning({radius,...}) remove points too close to a kept neighbor (Poisson-like de-clumping)
+  ruleSlopeFilter({maxSlope?,minSlope?,up?}) HARD 0/1 slope gate: keep only points in [minSlope,maxSlope] (陡坡不长草 / cliff-only ivy) — UE NormalToDensity as a cutoff
+  // maxSlope alone = "flat ground only"; minSlope alone = "steep faces only"; both = a slope band
+  ruleClipToPolygon([[x,z],...],{inside?}) / ruleClipToCurveBand(curve,{halfWidth,inside?}) keep points inside a boundary
+  ruleMatchAndSet({cases:[{when:(ctx)=>bool,variant:int},...],fallback?,attribute?}) per-point variant by first matching case (UE PointMatchAndSet)
+  ruleVariantBySlope({thresholds:[rad,...],variants:[int,...],up?}) pick variant by surface slope (flat->climb->cliff)
+  ruleVariantByHeight({thresholds:[y,...],variants:[int,...]}) pick variant by world height (altitude zoning)
   // Then: copyToPoints(prunedCloud, [meshA,meshB,...], {variant:pointAttribute("variant"),
   //   scale:pointAttribute("scale",1), yaw:pointAttribute("yaw"), alignToNormal:false})
+POINT-CLOUD QUERY (RuleProcessor PointCloudQuery/SQL — inspect & slice a cloud; all pure, deterministic):
+  where(pc,(ctx)=>bool) -> keep matching points (WHERE), carries all attributes
+  selectRows(pc,(ctx)=>bool?) -> [{index,x,y,z,...attrs}] flat records (SELECT); pointRow(pc,i) for one
+  gatherPoints(pc,[i,...]) -> rebuild a cloud from source indices (reorder/subset/duplicate)
+  aggregate(pc,field) -> {count,sum,min,max,mean} over a scalar column (COUNT/SUM/AVG)
+  pointCloudBounds(pc) -> {min,max,center,size} XYZ box of the live points
+  groupBy(pc,keyField) -> Map<intKey,PointCloud> bucket by a floored key column (GROUP BY)
+  partition(pc,(ctx)=>bool) -> {inside,outside} split by predicate (the FILTER split)
+  histogram(pc,field,bins=10) -> {counts,min,max,binWidth} bucket a column
+    field is a number, an attribute via pointAttribute("h"), or (ctx)=>number.
+SLICEANDDICE RULE TREE (branching layout, the UE RuleProcessor node types; build a tree, then evalRuleTree):
+  seq([rule,...], then?, label?) SEQUENCE: apply linear ScatterRules, then descend into the then-child
+  filter((ctx)=>bool, {inside?,outside?}, label?) FILTER: split points; route each half to a subtree
+  iterate(keyField, body, label?) ITERATOR: group by key, run the body once per group
+  emitNode((pc)=>items[], label?) GENERATOR: leaf that turns its points into output items (any type T)
+  evalRuleTree(pc, node) -> items[]  // walk the tree, collect all generator output (inside before outside)
+  evalRuleTreeCached(pc, node, cache?) -> {items,recomputed,reused}  // reuses unchanged subtrees
+  emptyRuleTreeCache() -> cache to thread across iterations; describeRuleTree(node) -> outline; ruleKind(node)
+  // Pattern for a city: grid cloud of lots -> filter(big vs small) -> per-branch emitNode returns
+  //   [...buildUrbanBuildingParts({...})] positioned at the lot; flatten to a NamedPart[] scene.
 VEGETATION (P7: procedural trees/shrubs/grass — recursive spline branches + leaf cards):
   tree({seed,height?,trunkRadius?,branchCount?,depth?,branchAngle?,leafDensity?,leafSize?,leaves?,leafShape?,leafCurl?,leafFold?,branchFlare?,
     branchLengthProfile?,branchRadiusProfile?,branchAngleProfile?,branchCountProfile?,leafDensityProfile?,

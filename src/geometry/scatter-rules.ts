@@ -695,3 +695,161 @@ export function ruleClipToCurveBand(
   };
 }
 
+// ---------------------------------------------------------------------------
+// Variant selection — UE PCG "PointMatchAndSet". Instead of "one mesh for the
+// whole scatter", pick per-point which library variant to place by matching a
+// condition (slope, height, an attribute, or any custom predicate). This is
+// what keeps a forest from being one cloned tree, and lets "陡坡长藤本、平地长
+// 匍匐藤" fall out of a rule chain. Writes the integer "variant" attribute that
+// copyToPoints / copyAssembliesToPoints already read.
+// ---------------------------------------------------------------------------
+
+/** One match case: if `when(ctx)` is true, set variant to `variant`. */
+export interface MatchCase {
+  when: (ctx: PointContext) => boolean;
+  variant: number;
+}
+
+export interface MatchAndSetOptions {
+  /** Ordered cases; the first matching case wins (like a switch). */
+  cases: ReadonlyArray<MatchCase>;
+  /** Variant used when no case matches. Default 0. */
+  fallback?: number;
+  /** Attribute name to write. Default "variant". */
+  attribute?: string;
+}
+
+/**
+ * UE PCG "PointMatchAndSet": assign each point an integer variant by the first
+ * matching case. Cases read the point context (position, normal, existing
+ * attributes) so you can branch on slope, height, density, or anything upstream
+ * rules stored. Deterministic — no randomness of its own.
+ */
+export function ruleMatchAndSet(opts: MatchAndSetOptions): ScatterRule {
+  const attr = opts.attribute ?? "variant";
+  const fallback = opts.fallback ?? 0;
+  return (pc) => {
+    const values = pc.points.map((_, i) => {
+      const ctx = pointContext(pc, i);
+      for (const c of opts.cases) {
+        if (c.when(ctx)) return c.variant;
+      }
+      return fallback;
+    });
+    return withAttribute(pc, attr, values);
+  };
+}
+
+export interface VariantBySlopeOptions {
+  /** Up vector to measure slope against. Default world up. */
+  up?: Vec3;
+  /**
+   * Slope thresholds in radians, ascending. A point with slope below the first
+   * threshold gets variant 0, below the second gets variant 1, and so on; steeper
+   * than the last threshold gets the final variant. `variants.length` should be
+   * `thresholds.length + 1`.
+   */
+  thresholds: ReadonlyArray<number>;
+  /** Variant index per slope band. */
+  variants: ReadonlyArray<number>;
+  /** Attribute name to write. Default "variant". */
+  attribute?: string;
+}
+
+/**
+ * Convenience over ruleMatchAndSet: bucket points into variants by surface
+ * slope. E.g. flat ground -> creeping vine, mid slope -> climbing ivy, steep
+ * cliff -> woody liana. The slope-driven analogue of ruleNormalToDensity.
+ */
+export function ruleVariantBySlope(opts: VariantBySlopeOptions): ScatterRule {
+  const up = normalize(opts.up ?? vec3(0, 1, 0));
+  const attr = opts.attribute ?? "variant";
+  const thresholds = opts.thresholds;
+  const variants = opts.variants;
+  return (pc) => {
+    const values = pc.points.map((_, i) => {
+      const angle = Math.acos(Math.max(-1, Math.min(1, dot(pc.normals[i]!, up))));
+      let band = thresholds.length; // steeper than all thresholds
+      for (let t = 0; t < thresholds.length; t++) {
+        if (angle < thresholds[t]!) {
+          band = t;
+          break;
+        }
+      }
+      return variants[Math.min(band, variants.length - 1)] ?? 0;
+    });
+    return withAttribute(pc, attr, values);
+  };
+}
+
+export interface VariantByHeightOptions {
+  /**
+   * Y thresholds, ascending. Below the first -> variant 0, below the second ->
+   * variant 1, etc. `variants.length` should be `thresholds.length + 1`.
+   */
+  thresholds: ReadonlyArray<number>;
+  /** Variant index per height band. */
+  variants: ReadonlyArray<number>;
+  /** Attribute name to write. Default "variant". */
+  attribute?: string;
+}
+
+/**
+ * Convenience over ruleMatchAndSet: bucket points into variants by world height
+ * (point.y). E.g. low = one species, high = another — the altitude-zoning read
+ * from the Electric Dreams forest-to-mountain switch.
+ */
+export function ruleVariantByHeight(opts: VariantByHeightOptions): ScatterRule {
+  const attr = opts.attribute ?? "variant";
+  const thresholds = opts.thresholds;
+  const variants = opts.variants;
+  return (pc) => {
+    const values = pc.points.map((p) => {
+      let band = thresholds.length;
+      for (let t = 0; t < thresholds.length; t++) {
+        if (p.y < thresholds[t]!) {
+          band = t;
+          break;
+        }
+      }
+      return variants[Math.min(band, variants.length - 1)] ?? 0;
+    });
+    return withAttribute(pc, attr, values);
+  };
+}
+
+export interface SlopeFilterOptions {
+  /** Up vector to measure slope against. Default world up. */
+  up?: Vec3;
+  /** Keep points whose slope (radians from up) is at or below this. Default π (no upper bound). */
+  maxSlope?: number;
+  /** Keep points whose slope is at or above this. Default 0 (no lower bound). */
+  minSlope?: number;
+}
+
+/**
+ * UE PCG "NormalToDensity" used as a HARD gate (the "陡坡不长草" cutoff). Where
+ * `ruleNormalToDensity` softens density across a slope band, this writes a 0/1
+ * "mask": a point survives only when its surface slope sits inside
+ * [minSlope, maxSlope]. Combines with any prior mask so it chains with density
+ * and self-pruning; realize with pruneMasked. Deterministic — pure geometry.
+ *
+ *   - maxSlope alone  -> "only plant on ground flatter than N degrees"
+ *   - minSlope alone  -> "only cling to faces steeper than N degrees" (cliff ivy)
+ *   - both            -> a slope band (embankments, terraces)
+ */
+export function ruleSlopeFilter(opts: SlopeFilterOptions = {}): ScatterRule {
+  const up = normalize(opts.up ?? vec3(0, 1, 0));
+  const maxS = opts.maxSlope ?? Math.PI;
+  const minS = opts.minSlope ?? 0;
+  return (pc) => {
+    const prev = pc.attributes["mask"];
+    const mask = pc.points.map((_, i) => {
+      if (prev && (prev[i] ?? 1) < 0.5) return 0;
+      const angle = Math.acos(Math.max(-1, Math.min(1, dot(pc.normals[i]!, up))));
+      return angle >= minS && angle <= maxS ? 1 : 0;
+    });
+    return withAttribute(pc, "mask", mask);
+  };
+}
+

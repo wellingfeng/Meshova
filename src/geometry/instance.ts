@@ -8,6 +8,7 @@ import type { Mesh } from "./mesh.js";
 import { makeMesh, merge } from "./mesh.js";
 import {
   evalPointScalar,
+  makePointCloud,
   pointContext,
   type PointCloud,
   type PointScalar,
@@ -186,4 +187,85 @@ function alignYTo(mesh: Mesh, dir: Vec3): Mesh {
     uvs: mesh.uvs.map((uv) => ({ ...uv })),
     indices: mesh.indices.slice(),
   });
+}
+
+// ---------------------------------------------------------------------------
+// Layered scatter — UE Asmbly organization (Stones / Roots / Foliage / Trees
+// as separate layers built on the same ground). Split one scattered point
+// cloud into per-layer sub-clouds by an integer attribute, so each layer can
+// take its own instance library and material and be merged back coherently.
+// ---------------------------------------------------------------------------
+
+/**
+ * Partition a point cloud into `count` sub-clouds keyed by the rounded integer
+ * value of `attr` (e.g. "variant" or "layer"). Index i of the result holds all
+ * points whose attribute rounds to i; out-of-range values are dropped. Each
+ * sub-cloud carries all other attributes, compacted, so it feeds straight into
+ * copyToPoints / copyAssembliesToPoints.
+ */
+export function partitionByAttribute(
+  pc: PointCloud,
+  attr: string,
+  count: number,
+): PointCloud[] {
+  const n = Math.max(0, Math.floor(count));
+  const values = pc.attributes[attr];
+  const buckets: number[][] = Array.from({ length: n }, () => []);
+  for (let i = 0; i < pc.points.length; i++) {
+    const k = Math.round(values?.[i] ?? 0);
+    if (k >= 0 && k < n) buckets[k]!.push(i);
+  }
+  return buckets.map((keep) => {
+    const attributes: Record<string, number[]> = {};
+    for (const [name, arr] of Object.entries(pc.attributes)) {
+      attributes[name] = keep.map((i) => arr[i] ?? 0);
+    }
+    return makePointCloud({
+      points: keep.map((i) => pc.points[i]!),
+      normals: keep.map((i) => pc.normals[i]!),
+      attributes,
+    });
+  });
+}
+
+export interface ScatterLayer {
+  /** Layer name (becomes the emitted part name). */
+  name: string;
+  /** Instance library for this layer (meshes or hierarchical assemblies). */
+  library: Assembly | ReadonlyArray<Assembly>;
+  /** InstancePlan options (scale/yaw/variant/alignToNormal fields). */
+  options?: InstancePlanOptions;
+}
+
+export interface LayeredPart {
+  readonly name: string;
+  readonly mesh: Mesh;
+  readonly count: number;
+}
+
+/**
+ * Realize a layered scatter: given a point cloud whose `attr` selects a layer
+ * index, build each layer's assemblies on its own points and return one named
+ * mesh per non-empty layer. This is the "Asmbly" pattern — carpet the same
+ * ground with a stones layer, a roots layer, a foliage layer, each with its own
+ * look — driven by a single scatter pass.
+ */
+export function scatterToLayers(
+  pc: PointCloud,
+  attr: string,
+  layers: ReadonlyArray<ScatterLayer>,
+): LayeredPart[] {
+  const parts = partitionByAttribute(pc, attr, layers.length);
+  const out: LayeredPart[] = [];
+  for (let i = 0; i < layers.length; i++) {
+    const layer = layers[i]!;
+    const sub = parts[i]!;
+    if (sub.points.length === 0) continue;
+    out.push({
+      name: layer.name,
+      mesh: copyAssembliesToPoints(sub, layer.library, layer.options ?? {}),
+      count: sub.points.length,
+    });
+  }
+  return out;
 }
