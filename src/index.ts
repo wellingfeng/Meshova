@@ -27,5 +27,6 @@ export * from "./clothing/index.js";
 export * from "./models/index.js";
 export * from "./optimization/index.js";
 export * from "./simulation/index.js";
+export * from "./dungeon/index.js";
 
 export const VERSION = "0.0.0";

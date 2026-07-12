@@ -94,10 +94,13 @@ import {
   buildXianxiaMountainsParts,
   buildHouseGardenParts,
   HOUSE_GARDEN_VARIANTS,
+  buildPcgCartoonHouseParts,
   buildMidnightHorseParts,
   buildReferenceDogParts,
   buildCityBlockParts,
   buildCityDistrictParts,
+  buildNightMetropolisParts,
+  buildGardenMetropolisParts,
   buildRomanTownParts,
   CITYGEN_DEFAULTS,
   buildCitygenParts,
@@ -177,8 +180,11 @@ import {
   buildSciFiPanelParts,
   buildGrowthUrchinParts,
   buildBspDungeonParts,
+  buildDungeonArchitectParts,
+  buildRandomDungeonParts,
   buildVoronoiVaseParts,
   buildHoudiniHowtosShowcaseParts,
+  buildGradationalCrystalParts,
   buildFabcafeWavySurfaceParts,
   buildFabcafeTwistTowerParts,
   buildFabcafeHoudiniShowcaseParts,
@@ -282,6 +288,7 @@ import {
   buildFreewaySignParts,
   buildMaterialStackParts,
   buildWaterTowerParts,
+  buildProceduralWaterwheelParts,
   buildSidefxModularHouseParts,
   buildSolarisMarketParts,
   buildProceduralCactusParts,
@@ -1863,6 +1870,81 @@ const houdiniHowtosBspDungeon = {
       corridorWidth: p.corridorWidth,
       wallHeight: p.wallHeight,
       floorThickness: p.floorThickness,
+      seed: Math.round(p.seed),
+    });
+  },
+};
+
+const randomDungeon = {
+  id: "random-dungeon",
+  name: "随机地牢",
+  critiqueGoal: "seeded branching dungeon with connected rooms, corridors, loops and readable entry/exit",
+  schema: [
+    { key: "roomCount", label: "房间数量", min: 4, max: 40, step: 1, default: 22 },
+    { key: "minRoomSize", label: "最小房间", min: 3, max: 8, step: 1, default: 4 },
+    { key: "maxRoomSize", label: "最大房间", min: 4, max: 12, step: 1, default: 9 },
+    { key: "corridorWidth", label: "走廊宽度", min: 1, max: 4, step: 1, default: 2 },
+    { key: "branchiness", label: "分支程度", min: 0, max: 1, step: 0.01, default: 0.68 },
+    { key: "loopChance", label: "环路概率", min: 0, max: 1, step: 0.01, default: 0.22 },
+    { key: "cellSize", label: "格子尺寸", min: 0.35, max: 1.5, step: 0.05, default: 0.72 },
+    { key: "wallHeight", label: "墙体高度", min: 0.15, max: 2.2, step: 0.05, default: 0.8 },
+    { key: "seed", label: "随机种子", min: 0, max: 999999, step: 1, default: 147 },
+  ],
+  build(p) {
+    return buildRandomDungeonParts({
+      roomCount: Math.round(p.roomCount),
+      minRoomSize: Math.round(p.minRoomSize),
+      maxRoomSize: Math.max(Math.round(p.minRoomSize), Math.round(p.maxRoomSize)),
+      corridorWidth: Math.round(p.corridorWidth),
+      branchiness: p.branchiness,
+      loopChance: p.loopChance,
+      cellSize: p.cellSize,
+      wallHeight: p.wallHeight,
+      seed: Math.round(p.seed),
+    });
+  },
+};
+
+const dungeonArchitectGrid = {
+  id: "dungeon-architect-grid",
+  name: "Meshova Dungeon Architect",
+  category: "程序地牢",
+  critiqueGoal: "connected themed grid dungeon with semantic rooms, corridors, doors, entry and exit",
+  assetMeta: {
+    description: "布局模型、房间连接图、回环、语义 Marker、可替换 Theme。受地牢生成器工作流启发，Meshova 独立实现。",
+    tags: ["程序地牢", "Grid", "MST", "Marker", "Theme"],
+    capabilities: ["种子复现", "连通房间图", "回环控制", "主题替换", "语义部件"],
+    materialClasses: ["石材", "墓穴", "科幻金属"],
+  },
+  scenePreset: {
+    environment: "studio",
+    camera: "top",
+    grid: true,
+  },
+  schema: [
+    { key: "width", label: "地牢宽度", min: 16, max: 60, step: 1, default: 34 },
+    { key: "depth", label: "地牢深度", min: 16, max: 50, step: 1, default: 26 },
+    { key: "roomCount", label: "目标房间数", min: 3, max: 28, step: 1, default: 12 },
+    { key: "minRoomSize", label: "最小房间尺寸", min: 3, max: 8, step: 1, default: 4 },
+    { key: "maxRoomSize", label: "最大房间尺寸", min: 4, max: 14, step: 1, default: 8 },
+    { key: "roomPadding", label: "房间间隔", min: 0, max: 3, step: 1, default: 1 },
+    { key: "loopChance", label: "回环密度", min: 0, max: 1, step: 0.05, default: 0.18 },
+    { key: "wallHeight", label: "墙体高度", min: 0.3, max: 3, step: 0.05, default: 1.25 },
+    { key: "themeIndex", label: "主题：石材/墓穴/科幻", min: 0, max: 2, step: 1, default: 0 },
+    { key: "seed", label: "布局种子", min: 0, max: 9999, step: 1, default: 1337 },
+  ],
+  build(p) {
+    const themes = ["stone", "crypt", "tech"];
+    return buildDungeonArchitectParts({
+      width: Math.round(p.width),
+      depth: Math.round(p.depth),
+      roomCount: Math.round(p.roomCount),
+      minRoomSize: Math.round(p.minRoomSize),
+      maxRoomSize: Math.round(p.maxRoomSize),
+      roomPadding: Math.round(p.roomPadding),
+      loopChance: p.loopChance,
+      wallHeight: p.wallHeight,
+      theme: themes[Math.max(0, Math.min(2, Math.round(p.themeIndex)))],
       seed: Math.round(p.seed),
     });
   },
@@ -5089,6 +5171,224 @@ const cityDistrict = {
       crosswalks: Math.round(p.crosswalks) === 1,
       lotJitter: p.lotJitter,
       seed: Math.round(p.seed),
+    });
+  },
+};
+
+const houdiniHowtosGradationalCrystal = {
+  id: "houdini-howtos-gradational-crystal",
+  name: "HoudiniHowtos 渐变晶簇",
+  critiqueGoal: "faceted transmissive crystal cluster with readable height gradients and seeded composition",
+  schema: [
+    { key: "sides", label: "晶柱棱数", min: 3, max: 12, step: 1, default: 6 },
+    { key: "count", label: "晶柱数量", min: 1, max: 48, step: 1, default: 17 },
+    { key: "height", label: "主晶高度", min: 1, max: 7, step: 0.05, default: 3.8 },
+    { key: "radius", label: "主晶粗细", min: 0.15, max: 1.2, step: 0.02, default: 0.58 },
+    { key: "tipRatio", label: "晶尖比例", min: 0.12, max: 0.62, step: 0.01, default: 0.28 },
+    { key: "spread", label: "晶簇展开", min: 0.5, max: 5, step: 0.05, default: 2.5 },
+    { key: "lean", label: "伴晶倾斜", min: 0, max: 0.9, step: 0.01, default: 0.34 },
+    { key: "twist", label: "切面扭转", min: -1.4, max: 1.4, step: 0.01, default: 0.08 },
+    { key: "hueShift", label: "渐变色相", min: 0, max: 360, step: 1, default: 0 },
+    { key: "roughness", label: "切面粗糙度", min: 0, max: 0.3, step: 0.005, default: 0.035 },
+    { key: "ior", label: "折射率", min: 1, max: 2.6, step: 0.01, default: 2.4 },
+    { key: "dispersion", label: "色散", min: 0, max: 8, step: 0.1, default: 4 },
+    { key: "seed", label: "随机种子", min: 0, max: 9999, step: 1, default: 145 },
+  ],
+  build(p) {
+    return buildGradationalCrystalParts({
+      ...p,
+      sides: Math.round(p.sides),
+      count: Math.round(p.count),
+      seed: Math.round(p.seed),
+    });
+  },
+};
+
+const pcgCartoonHouse = {
+  id: "pcg-cartoon-house",
+  name: "PCG 卡通小房子",
+  category: "风格复刻",
+  critiqueGoal: "mint tiled cartoon cottage with cross gables, timber framing, bay windows and chimneys",
+  scenePreset: {
+    environment: "studio",
+    background: { mode: "gradient", color: "#8fb8b1", color2: "#d8ddd2" },
+    exposure: 1.05,
+    bloom: { enabled: false, strength: 0, radius: 0, threshold: 1 },
+    fog: { enabled: false },
+    camera: "persp",
+    grid: true,
+    renderMode: "toon",
+    toon: { steps: 4, outline: 0.0025, color: "#342923" },
+  },
+  assetMeta: {
+    description: "参考 UE PCG 模块化建筑视频原创重写：L 形体块、十字山墙、薄荷瓦顶、深棕木构、凸窗与可调烟囱。",
+    tags: ["PCG", "卡通房屋", "十字山墙", "木构立面", "程序化建筑"],
+    capabilities: ["参数化体块", "种子变体", "语义部件", "程序化 PBR"],
+    materialClasses: ["卡通灰泥", "薄荷瓦", "木构", "玻璃", "石材"],
+    sourceStudy: "https://www.bilibili.com/video/BV1b3j4zmEkq/",
+  },
+  schema: [
+    { key: "width", label: "房屋宽度", min: 3.6, max: 9, step: 0.1, default: 5.8 },
+    { key: "depth", label: "房屋进深", min: 2.8, max: 6.5, step: 0.1, default: 3.8 },
+    { key: "wallHeight", label: "墙体高度", min: 1.8, max: 4.2, step: 0.1, default: 2.5 },
+    { key: "roofPitch", label: "屋顶坡度", min: 0.35, max: 1.2, step: 0.02, default: 0.78 },
+    { key: "wingScale", label: "前翼比例", min: 0.32, max: 0.68, step: 0.02, default: 0.48 },
+    { key: "roofRows", label: "瓦片行数", min: 4, max: 16, step: 1, default: 9 },
+    { key: "timberDensity", label: "木构密度", min: 0, max: 1, step: 0.05, default: 0.82 },
+    { key: "chimneyCount", label: "烟囱数量", min: 0, max: 3, step: 1, default: 2 },
+    { key: "windowCount", label: "窗户数量", min: 3, max: 12, step: 1, default: 7 },
+    { key: "seed", label: "布局种子", min: 0, max: 999, step: 1, default: 23 },
+  ],
+  build(p) {
+    return buildPcgCartoonHouseParts({
+      ...p,
+      roofRows: Math.round(p.roofRows),
+      chimneyCount: Math.round(p.chimneyCount),
+      windowCount: Math.round(p.windowCount),
+      seed: Math.round(p.seed),
+    });
+  },
+};
+
+// ---- Houdini planning-study procedural waterwheel ----
+const proceduralWaterwheel = {
+  id: "procedural-waterwheel",
+  name: "程序化水车",
+  category: "机械构造",
+  critiqueGoal: "coherent timber waterwheel with linked trough, paddles, axle, frame and visible water path",
+  assetMeta: {
+    description: "按 Houdini 水车规划课拆解：外轮、内轮、轮辐、轮轴、叶板、支架、曲线水槽全部参数联动。",
+    tags: ["Houdini", "水车", "程序化机械", "曲线水槽", "参数联动"],
+    capabilities: ["轮圈分段", "径向阵列", "弯折叶板", "曲线木槽", "水流示意"],
+    materialClasses: ["木材", "铁件", "水体"],
+    sourceStudy: "https://www.bilibili.com/video/BV1nwKZ6UECd/",
+  },
+  schema: [
+    { key: "radius", label: "水车半径", min: 1.2, max: 4, step: 0.05, default: 2.35 },
+    { key: "wheelWidth", label: "轮体宽度", min: 0.45, max: 1.8, step: 0.05, default: 0.95 },
+    { key: "ringThickness", label: "轮圈厚度", min: 0.1, max: 0.5, step: 0.01, default: 0.24 },
+    { key: "spokeCount", label: "轮辐数量", min: 4, max: 16, step: 1, default: 8 },
+    { key: "paddleCount", label: "叶板数量", min: 8, max: 28, step: 1, default: 16 },
+    { key: "paddleLength", label: "叶板伸出", min: 0.2, max: 1, step: 0.02, default: 0.52 },
+    { key: "paddleBend", label: "叶板弯折角", min: 0, max: 55, step: 1, default: 25 },
+    { key: "wheelAngle", label: "水车旋转角", min: 0, max: 360, step: 1, default: 12 },
+    { key: "axleLength", label: "轮轴长度", min: 1.8, max: 5, step: 0.05, default: 2.8 },
+    { key: "axleRadius", label: "轮轴粗细", min: 0.06, max: 0.34, step: 0.01, default: 0.16 },
+    { key: "troughPlanks", label: "水槽木板数", min: 4, max: 24, step: 1, default: 12 },
+    { key: "troughSlope", label: "水槽入口抬升", min: -0.15, max: 0.55, step: 0.01, default: 0.16 },
+    { key: "water", label: "显示水流(0/1)", min: 0, max: 1, step: 1, default: 1 },
+  ],
+  build(p) {
+    return buildProceduralWaterwheelParts({
+      radius: p.radius,
+      wheelWidth: p.wheelWidth,
+      ringThickness: p.ringThickness,
+      spokeCount: Math.round(p.spokeCount),
+      paddleCount: Math.round(p.paddleCount),
+      paddleLength: p.paddleLength,
+      paddleBend: p.paddleBend * Math.PI / 180,
+      wheelAngle: p.wheelAngle * Math.PI / 180,
+      axleLength: p.axleLength,
+      axleRadius: p.axleRadius,
+      troughPlanks: Math.round(p.troughPlanks),
+      troughSlope: p.troughSlope,
+      water: Math.round(p.water) === 1,
+    });
+  },
+};
+
+// ---- reference-inspired night metropolis: dense skyline + luminous roads ----
+export const NIGHT_METROPOLIS_MODEL = {
+  id: "night-metropolis",
+  name: "夜间都市天际线",
+  category: "城市",
+  critiqueGoal: "large dense night metropolis skyline with central high-rise cluster, luminous windows, road grid, and distant mountains",
+  scenePreset: {
+    environment: "night",
+    background: { mode: "gradient", color: "#01030a", color2: "#111827" },
+    exposure: 0.82,
+    bloom: { enabled: true, strength: 0.72, radius: 0.58, threshold: 0.68 },
+    fog: { enabled: false, density: 0.0035, height: 18, shaft: 0.08 },
+    camera: "city",
+    grid: false,
+  },
+  assetMeta: {
+    description: "数百栋中高层建筑组成的夜间都市群，含中心商务区、冷暖窗光、道路灯带与外围远山。",
+    tags: ["都市天际线", "夜景", "程序化城市", "摩天楼", "城市群"],
+    capabilities: ["确定性布局", "中心高度场", "实例化楼体", "程序化窗光", "夜景渲染预设"],
+    materialClasses: ["深色玻璃", "混凝土", "金属", "自发光窗户", "湿地面"],
+  },
+  schema: [
+    { key: "blocksX", label: "横向街坊", min: 3, max: 10, step: 1, default: 8 },
+    { key: "blocksZ", label: "纵向街坊", min: 3, max: 9, step: 1, default: 7 },
+    { key: "blockSize", label: "街坊尺寸", min: 26, max: 52, step: 1, default: 38 },
+    { key: "streetWidth", label: "道路宽度", min: 6, max: 16, step: 0.5, default: 10 },
+    { key: "lotsPerBlock", label: "每边地块数", min: 2, max: 4, step: 1, default: 3 },
+    { key: "density", label: "建筑密度", min: 0.3, max: 1, step: 0.02, default: 0.82 },
+    { key: "minFloors", label: "最低层数", min: 3, max: 18, step: 1, default: 7 },
+    { key: "maxFloors", label: "最高层数", min: 18, max: 72, step: 1, default: 48 },
+    { key: "centerBoost", label: "中心高度聚集", min: 0.5, max: 1.8, step: 0.05, default: 1.35 },
+    { key: "litWindowRatio", label: "亮窗比例", min: 0.1, max: 1, step: 0.02, default: 0.72 },
+    { key: "mountains", label: "外围远山(0关/1开)", min: 0, max: 1, step: 1, default: 1 },
+    { key: "seed", label: "城市种子", min: 0, max: 9999, step: 1, default: 2026 },
+  ],
+  build(params) {
+    return buildNightMetropolisParts({
+      ...params,
+      blocksX: Math.round(params.blocksX),
+      blocksZ: Math.round(params.blocksZ),
+      lotsPerBlock: Math.round(params.lotsPerBlock),
+      minFloors: Math.round(params.minFloors),
+      maxFloors: Math.round(params.maxFloors),
+      mountains: Math.round(params.mountains) === 1,
+      seed: Math.round(params.seed),
+    });
+  },
+};
+
+// ---- reference-inspired garden metropolis: lake park + villas + skyline ----
+export const GARDEN_METROPOLIS_MODEL = {
+  id: "garden-metropolis",
+  name: "湖畔花园都市群",
+  category: "城市与建筑",
+  critiqueGoal: "lush daylight metropolis with a central lake, park vegetation, low-rise waterfront villas, and a dense varied high-rise skyline behind them",
+  scenePreset: {
+    environment: "studio",
+    background: { mode: "gradient", color: "#8fc4df", color2: "#d9edf4" },
+    exposure: 1.02,
+    bloom: { enabled: false, strength: 0.18, radius: 0.3, threshold: 0.9 },
+    fog: { enabled: true, density: 0.0015, height: 22, shaft: 0.04 },
+    camera: "city",
+    grid: false,
+  },
+  assetMeta: {
+    description: "中央景观湖、环湖道路、低密湖畔住宅、大量热带绿化与后景异形高层共同组成的白昼花园都市群。",
+    tags: ["都市群", "花园城市", "湖区", "天际线", "住宅", "程序化城市"],
+    capabilities: ["确定性分区", "实例化植被", "分层城市天际线", "湖岸构图", "语义分件"],
+    materialClasses: ["水体", "草地", "玻璃幕墙", "混凝土", "住宅灰泥", "植被"],
+  },
+  schema: [
+    { key: "width", label: "城区宽度", min: 140, max: 360, step: 5, default: 240 },
+    { key: "depth", label: "城区深度", min: 120, max: 300, step: 5, default: 190 },
+    { key: "lakeRadiusX", label: "湖泊横向半径", min: 16, max: 64, step: 1, default: 38 },
+    { key: "lakeRadiusZ", label: "湖泊纵向半径", min: 10, max: 48, step: 1, default: 25 },
+    { key: "villaCount", label: "湖畔住宅数", min: 8, max: 72, step: 1, default: 36 },
+    { key: "treeCount", label: "树木数量", min: 80, max: 800, step: 10, default: 420 },
+    { key: "skylineCount", label: "高层建筑数", min: 16, max: 100, step: 1, default: 58 },
+    { key: "minTowerFloors", label: "最低塔楼层数", min: 5, max: 24, step: 1, default: 10 },
+    { key: "maxTowerFloors", label: "最高塔楼层数", min: 24, max: 80, step: 1, default: 52 },
+    { key: "floorHeight", label: "塔楼层高", min: 0.9, max: 1.8, step: 0.05, default: 1.28 },
+    { key: "seed", label: "城市种子", min: 0, max: 9999, step: 1, default: 1783 },
+  ],
+  build(params) {
+    return buildGardenMetropolisParts({
+      ...params,
+      villaCount: Math.round(params.villaCount),
+      treeCount: Math.round(params.treeCount),
+      skylineCount: Math.round(params.skylineCount),
+      minTowerFloors: Math.round(params.minTowerFloors),
+      maxTowerFloors: Math.round(params.maxTowerFloors),
+      seed: Math.round(params.seed),
     });
   },
 };
@@ -8622,6 +8922,11 @@ const messengerToonPlanet = {
 
 export const PROC_MODELS = { "town-scene": townScene, "drawable-path-fence": drawablePathFence, "masked-region-grove": maskedRegionGrove, "scatter-path-lights": scatterPathLights, sphere: sphereModel, teddy, rock, "rock-pile": rockPile, "attractor-grid": attractorGridModel, "blender-howtos": blenderHowtos, "blender-spiral-scales": blenderSpiralScales, "blender-dna-helix": blenderDnaHelix, "blender-gradient-box": blenderGradientBox, "blender-raining-garden": blenderRainingGarden, "grasshopper-howtos": grasshopperHowtos, "grasshopper-rock-tile": grasshopperRockTile, "grasshopper-voronoi-pipe": grasshopperVoronoiPipe, "grasshopper-waffle-pattern": grasshopperWafflePattern, "grasshopper-reaction-diffusion": grasshopperReactionDiffusion, "grasshopper-packed-circle": grasshopperPackedCircle, "grasshopper-landscape-contour": grasshopperLandscapeContour, "grasshopper-ribbon-loop": grasshopperRibbonLoop, "houdini-howtos": houdiniHowtos, "houdini-howtos-field": houdiniHowtosField, "houdini-howtos-curve-graph": houdiniHowtosCurveGraph, "houdini-howtos-weave-pot": houdiniHowtosWeavePot, "houdini-howtos-sci-fi-panel": houdiniHowtosSciFiPanel, "houdini-howtos-growth-urchin": houdiniHowtosGrowthUrchin, "houdini-howtos-bsp-dungeon": houdiniHowtosBspDungeon, "houdini-howtos-voronoi-vase": houdiniHowtosVoronoiVase, "braid-rope": braidRopeModel, "roof-generator": roofGeneratorModel, "pcg-vegetation": pcgVegetation, "vine-slope": vineSlopeModel, "ivy-ruins": ivyRuinsModel, "ivy-lowpoly-vol23": lowPolyIvyModel, "ivy-lowpoly-vol23-kit": lowPolyIvyKitModel, roots: rootsModel, "rock-formation": rockFormationModel, "pcg-colonnade": pcgColonnade, "pcg-plaza": pcgPlaza, "pcg-boulders": pcgBoulders, "pcg-forest": pcgForest, "pcg-brick-wall": pcgBrickWall, "terrain-layered": terrainLayered, "forest-floor": forestFloor, "triplanar-boulder": triplanarBoulder, tower, pagoda, building, "urban-artdeco": urbanArtDeco, "urban-glass": urbanGlassTower, "urban-brick": urbanBrickWalkup, "urban-office": urbanModernOffice, "urban-brownstone": urbanBrownstone, "urban-corporate": urbanCorporate, "japanese-street-building": japaneseStreetBuilding, "hong-kong-cyber-house": hongKongCyberHouse, "kowloon-cyber-courtyard": kowloonCyberCourtyard, "chinese-hall": chineseHall, cityblock: cityBlock, "city-district": cityDistrict, "city-district-roadnet": cityDistrictRoadnet, "watabou-city": watabouCity, "citygen-road-growth": citygenRoadGrowth, "citygen-residential": citygenResidential, "citygen-downtown": citygenDowntown, "residential-community": residentialCommunity, "road-network": roadNetworkModel, "procedural-game-map": proceduralGameMap, streetscene, "interior-room": interiorRoom, "hard-surface-kit": hardSurfaceKit, "terrain-island": terrainIsland, "lunar-crater-surface": lunarCraterSurface, ...CROPOUT_ISLAND_MODELS, cloud, "cloud-sky": cloudSky, "polygon-island": polygonIsland, "pcg-world": pcgWorld, "mountain-village": mountainVillage, ...HOUSE_GARDEN_MODELS, fern: fernModel, mushroom, gear, road, freeway, railway, viaduct, "titan-rail": titanRail, "titan-fence": titanFence, "titan-cable": titanCable, "titan-adboard": titanAdBoard, "titan-shrub": titanShrub, "titan-platform": titanPlatform, "titan-building": titanBuilding, "titan-stacking": titanStacking, "titan-train": titanTrain, "titan-tree": titanTree, "titan-cloth": titanCloth, pylon, "tower-crane": towerCrane, "wind-turbine": windTurbine, "toll-station": tollStation, "tunnel-portal": tunnelPortal, "rooftop-kit": rooftopKit, scaffolding, "bus-stop": busStop, bicycle, billboard, "container-yard": containerYard, "manhole-cover": manholeCover, "barrier-run": barrierRun, "fire-escape": fireEscape, newsstand, "traffic-signal": trafficSignal, "umbrella-table": umbrellaTable, "street-tree": streetTree, "street-lamp": streetLamp, "fire-hydrant": fireHydrant, "park-bench": parkBench, trashcan, "traffic-cone": trafficCone, "freeway-sign": freewaySign, "material-stack": materialStack, "water-tower": waterTower, "wfc-rooftop": wfcRooftop, intersection, officechair: officeChair, dragonfly, "sports-car": sportsCar, "gmc-canyon-at4x": gmcCanyonAt4x, "buick-riviera-1965": buickRiviera1965, "midnight-horse": midnightHorse, "reference-dog": referenceDog, "cartoon-mech-pilot": cartoonMechPilot, "stylized-humanoid": stylizedHumanoid, tshirt: tshirtModel, skirt: skirtModel, pants: pantsModel, dress: dressModel, hoodie: hoodieModel, smooth: smoothModel, spring: springModel, vine: vineModel, meadow: meadowModel, csg: csgModel, remesh: remeshModel, fterrain: terrainModel, wineglass: wineGlassModel, bonsai: bonsaiModel, "veg-tree": treeModel, "veg-growing-tree": growingTreeModel, "veg-stylized-tree": stylizedTreeModel, "veg-authored-broadleaf": authoredBroadleafModel, "veg-trellis-fruit": trellisFruitModel, "veg-column-cypress": columnCypressAuthoringModel, "veg-authoring-lineup": authoringLineupModel, "veg-shrub": shrubModel, "veg-grass": grassModel, "veg-conifer": coniferModel, "veg-palm": palmModel, ...SPEEDTREE_MODELS, ...SPEEDTREE_TUTORIAL_MODELS };
 
+PROC_MODELS["random-dungeon"] = randomDungeon;
+PROC_MODELS[houdiniHowtosGradationalCrystal.id] = houdiniHowtosGradationalCrystal;
+PROC_MODELS["dungeon-architect-grid"] = dungeonArchitectGrid;
+PROC_MODELS["procedural-waterwheel"] = proceduralWaterwheel;
+PROC_MODELS[NIGHT_METROPOLIS_MODEL.id] = NIGHT_METROPOLIS_MODEL;
 PROC_MODELS["townscaper-harbour"] = townscaperHarbour;
 PROC_MODELS["chinese-townscaper"] = chineseTownscaper;
 PROC_MODELS["low-poly-village"] = lowPolyVillage;
@@ -8654,6 +8959,7 @@ PROC_MODELS["fabcafe-twist-tower"] = fabcafeTwistTower;
 PROC_MODELS["procedural-silo"] = proceduralSilo;
 PROC_MODELS["procedural-cactus"] = proceduralCactus;
 PROC_MODELS["sidefx-modular-house"] = sidefxModularHouse;
+PROC_MODELS["pcg-cartoon-house"] = pcgCartoonHouse;
 PROC_MODELS["sidefx-solaris-market"] = sidefxSolarisMarket;
 PROC_MODELS["procedural-building"] = proceduralBuilding;
 PROC_MODELS["image-remesh"] = imageRemeshModel;
@@ -8720,6 +9026,7 @@ PROC_MODELS["assembly-flower-island"] = assemblyFlowerIsland;
 PROC_MODELS["assembly-woodland-edge"] = assemblyWoodlandEdge;
 PROC_MODELS["assembly-dry-rockery"] = assemblyDryRockery;
 PROC_MODELS["procedural-planet"] = proceduralPlanet;
+PROC_MODELS["garden-metropolis"] = GARDEN_METROPOLIS_MODEL;
 
 export function defaultParams(model) {
   const p = {};

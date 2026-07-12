@@ -52,21 +52,25 @@ const CATEGORY_WEIGHT = {
 
 const SIGNALS = [
   {
+    label: "色彩/生态",
     weight: 4,
     max: 16,
     terms: ["color", "colour", "彩色", "花", "garden", "blossom", "market", "biome", "生态", "湿地", "雪", "traffic"],
   },
   {
+    label: "完整场景",
     weight: 4,
     max: 20,
     terms: ["scene", "场景", "world", "世界", "city", "城市", "district", "街区", "village", "村", "garden", "花园", "forest", "森林", "market", "市集", "map", "地图"],
   },
   {
+    label: "曲线/有机形态",
     weight: 3,
     max: 15,
     terms: ["curve", "曲线", "spline", "path", "路径", "river", "河", "vine", "藤", "ivy", "helix", "螺旋", "ribbon", "willow", "waterfall", "瀑布", "roadnet", "路网"],
   },
   {
+    label: "分层/组合",
     weight: 3,
     max: 15,
     terms: ["layer", "分层", "scatter", "散布", "assembly", "组合", "lineup", "群", "district", "街区", "plaza", "广场", "bridge", "桥", "cave", "洞"],
@@ -96,17 +100,55 @@ function signalScore(text, signal) {
   return Math.min(score, signal.max);
 }
 
-export function scoreModelEntry(entry) {
-  if (entry.isMaterial) return -1;
+export function scoreModelEntryDetails(entry) {
+  if (entry.isMaterial) {
+    return { score: -1, mode: "material", reasons: ["材质条目不参与模型评分。"] };
+  }
   const curated = CURATED_VISUAL_SCORES.get(entry.id);
-  if (curated !== undefined) return curated;
+  if (curated !== undefined) {
+    return {
+      score: curated,
+      mode: "curated",
+      reasons: [
+        `人工校准视觉排序分为 ${curated}，低于 85 阈值。`,
+        "原评分表只保存总分，未记录逐项扣分原因。",
+      ],
+    };
+  }
 
   const text = entryText(entry);
-  let score = 34 + (CATEGORY_WEIGHT[entry.cat] || 0);
-  for (const signal of SIGNALS) score += signalScore(text, signal);
-  if (SIMPLE_TERMS.some((term) => text.includes(term))) score -= 10;
-  if (entry.specialUrl) score += 4;
-  return Math.max(0, Math.min(70, Math.round(score)));
+  const categoryWeight = CATEGORY_WEIGHT[entry.cat] || 0;
+  const signalDetails = SIGNALS.map((signal) => ({
+    label: signal.label,
+    score: signalScore(text, signal),
+    matches: signal.terms.filter((term) => text.includes(term)),
+  }));
+  const signalTotal = signalDetails.reduce((sum, signal) => sum + signal.score, 0);
+  const simpleMatches = SIMPLE_TERMS.filter((term) => text.includes(term));
+  const simplePenalty = simpleMatches.length ? -10 : 0;
+  const specialBonus = entry.specialUrl ? 4 : 0;
+  const rawScore = 34 + categoryWeight + signalTotal + simplePenalty + specialBonus;
+  const score = Math.max(0, Math.min(70, Math.round(rawScore)));
+  const missingSignals = signalDetails.filter((signal) => signal.score === 0).map((signal) => signal.label);
+  const formula = [
+    "起始 34",
+    `分类“${entry.cat || "未分类"}” ${categoryWeight >= 0 ? "+" : ""}${categoryWeight}`,
+    `丰富度信号 +${signalTotal}`,
+    simplePenalty ? `简化词“${simpleMatches.join("、")}” -10` : null,
+    specialBonus ? "专用展示页 +4" : null,
+    `最终 ${score}`,
+  ].filter(Boolean).join("；");
+  const reasons = [
+    "采用规则估分；规则分上限 70，天然低于 85，不等于逐图质量验收失败。",
+    formula,
+  ];
+  if (missingSignals.length) reasons.push(`未命中${missingSignals.join("、")}信号，未获得对应加分。`);
+
+  return { score, mode: "rule", reasons };
+}
+
+export function scoreModelEntry(entry) {
+  return scoreModelEntryDetails(entry).score;
 }
 
 export function rankModelEntries(entries) {

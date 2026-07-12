@@ -747,7 +747,15 @@ export function velvet(p: SurfaceParams & { color?: [number, number, number] } =
 }
 
 /** Cut gemstone — high IOR transmissive with dispersion (diamond/ruby/emerald). */
-export function gem(p: SurfaceParams & { tint?: [number, number, number]; ior?: number; dispersion?: number } = {}): SurfaceMaterial {
+export function gem(p: SurfaceParams & {
+  tint?: [number, number, number];
+  roughness?: number;
+  transmission?: number;
+  thickness?: number;
+  attenuationDistance?: number;
+  ior?: number;
+  dispersion?: number;
+} = {}): SurfaceMaterial {
   const tint = p.tint ?? p.color ?? [0.98, 0.98, 1.0];
   return makeSurface({
     type: "gem",
@@ -755,16 +763,16 @@ export function gem(p: SurfaceParams & { tint?: [number, number, number]; ior?: 
     fields: {
       baseColor: () => tint,
       metallic: () => 0,
-      roughness: () => 0.02,
+      roughness: () => clamp(p.roughness ?? 0.02, 0, 1),
       height: () => 0.5,
     },
     physical: {
-      transmission: 1,
-      ior: p.ior ?? 2.4, // diamond
-      thickness: 0.6,
+      transmission: clamp(p.transmission ?? 1, 0, 1),
+      ior: clamp(p.ior ?? 2.4, 1, 2.6), // diamond
+      thickness: Math.max(0, p.thickness ?? 0.6),
       attenuationColor: tint,
-      attenuationDistance: 0.8,
-      dispersion: p.dispersion ?? 4.0,
+      attenuationDistance: Math.max(0.001, p.attenuationDistance ?? 0.8),
+      dispersion: clamp(p.dispersion ?? 4.0, 0, 10),
       specularIntensity: 1,
     },
     transparent: true,
@@ -1930,6 +1938,10 @@ export const SURFACE_PARAM_SCHEMA: Record<string, SurfaceParamSpec[]> = {
   ],
   gem: [
     { key: "tint", label: "宝石色", type: "rgb", default: [0.98, 0.98, 1.0] },
+    { key: "roughness", label: "切面粗糙度", type: "range", min: 0, max: 0.45, step: 0.005, default: 0.02 },
+    { key: "transmission", label: "透射", type: "range", min: 0, max: 1, step: 0.01, default: 1 },
+    { key: "thickness", label: "折射厚度", type: "range", min: 0, max: 3, step: 0.02, default: 0.6 },
+    { key: "attenuationDistance", label: "吸收距离", type: "range", min: 0.05, max: 5, step: 0.05, default: 0.8 },
     { key: "ior", label: "折射率", type: "range", min: 1, max: 2.6, step: 0.01, default: 2.4 },
     { key: "dispersion", label: "色散", type: "range", min: 0, max: 8, step: 0.1, default: 4.0 },
   ],

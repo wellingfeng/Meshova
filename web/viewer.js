@@ -4288,6 +4288,15 @@ function applyModelScenePreset(model) {
     updateCameraClipPlanes();
     controls.update();
     if (bokeh) bokeh.uniforms["focus"].value = camera.position.distanceTo(controls.target);
+  } else if (preset.camera === "city") {
+    const radius = Math.max(lastSize.x, lastSize.z);
+    camera.fov = 47;
+    camera.updateProjectionMatrix();
+    camera.position.set(radius * 0.48, Math.max(lastSize.y * 0.9, radius * 0.25), radius * 0.66);
+    controls.target.set(0, lastSize.y * 0.22, -lastSize.z * 0.05);
+    updateCameraClipPlanes();
+    controls.update();
+    if (bokeh) bokeh.uniforms["focus"].value = camera.position.distanceTo(controls.target);
   } else if (preset.camera === "planet") {
     const radius = Math.max(lastSize.x, lastSize.y, lastSize.z);
     const centerY = lastSize.y * 0.5;

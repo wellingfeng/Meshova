@@ -1,7 +1,9 @@
 import { mkdir, readFile, readdir, rm, writeFile, cp } from "node:fs/promises";
 import { existsSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
+import { gunzip } from "node:zlib";
 import { HIDDEN_GALLERY_MODEL_IDS } from "../web/model-visibility.js";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -9,6 +11,8 @@ const outDir = resolve(root, process.env.MESHOVA_PAGES_DIR || ".site");
 const webDir = join(root, "web");
 const distDir = join(root, "dist");
 const procModelsPath = join(webDir, "procmodels.js");
+const publishedModelsDir = join(root, "pages-models");
+const gunzipAsync = promisify(gunzip);
 
 function assertInsideRoot(path) {
   const rel = path.slice(root.length);
@@ -24,6 +28,31 @@ async function readText(path) {
 async function writeText(path, text) {
   await mkdir(dirname(path), { recursive: true });
   await writeFile(path, text, "utf8");
+}
+
+async function installPublishedModels() {
+  const manifestPath = join(publishedModelsDir, "models.json");
+  if (!existsSync(manifestPath)) {
+    await writeText(join(outDir, "out", "models.json"), `${JSON.stringify({ models: [] }, null, 2)}\n`);
+    return 0;
+  }
+
+  const manifest = JSON.parse(await readText(manifestPath));
+  const models = Array.isArray(manifest.models) ? manifest.models : [];
+  for (const model of models) {
+    const filename = String(model?.file || "");
+    if (!filename.endsWith(".json") || basename(filename) !== filename) {
+      throw new Error(`invalid published model filename: ${filename}`);
+    }
+    const compressed = await readFile(join(publishedModelsDir, "data", `${filename}.gz`));
+    const decoded = await gunzipAsync(compressed);
+    JSON.parse(decoded.toString("utf8"));
+    const target = join(outDir, "out", filename);
+    await mkdir(dirname(target), { recursive: true });
+    await writeFile(target, decoded);
+  }
+  await writeText(join(outDir, "out", "models.json"), `${JSON.stringify({ models }, null, 2)}\n`);
+  return models.length;
 }
 
 function rewriteHtmlForRoot(html, kind) {
@@ -228,7 +257,7 @@ async function main() {
   await cp(distDir, join(outDir, "dist"), { recursive: true });
 
   await writeText(join(outDir, ".nojekyll"), "");
-  await writeText(join(outDir, "out", "models.json"), `${JSON.stringify({ models: [] }, null, 2)}\n`);
+  const publishedModelCount = await installPublishedModels();
   await writeText(join(outDir, "favicon.ico"), "");
   await writeText(join(outDir, "index.html"), rewriteHtmlForRoot(await readText(join(webDir, "gallery.html")), "gallery"));
   await writeText(join(outDir, "viewer.html"), rewriteHtmlForRoot(await readText(join(webDir, "index.html")), "viewer"));
@@ -262,6 +291,7 @@ async function main() {
 
   console.log(`Meshova Pages built: ${outDir}`);
   console.log(`Model entry pages: ${ids.length}`);
+  console.log(`Published generated models: ${publishedModelCount}`);
 }
 
 main().catch((err) => {

@@ -73,6 +73,30 @@ try {
   }
   await page.click("#modal-close");
 
+  const generatedCard = page.locator('#grid .card[data-generated="true"]').first();
+  if (await generatedCard.count()) {
+    await generatedCard.click();
+    await page.waitForSelector("#modal.on");
+    const generatedFrame = page.frameLocator("#modal-frame");
+    await generatedFrame.locator("#stage canvas").waitFor({ state: "visible", timeout: 120_000 });
+    const generatedMeta = await generatedFrame.locator("body").evaluate(async () => {
+      await window.__meshovaReady;
+      await window.__meshova?.settle?.(2);
+      return window.__meshova?.meta?.();
+    });
+    if (!generatedMeta?.parts) {
+      throw new Error("Published generated model did not finish loading");
+    }
+    const generatedFrameUrl = page.frames().find((candidate) => candidate !== page.mainFrame())?.url() || "";
+    if (!new URL(generatedFrameUrl).pathname.endsWith("/viewer.html")) {
+      throw new Error(`Generated model preview opened wrong page: ${generatedFrameUrl}`);
+    }
+    if (await generatedFrame.locator("#grid .card").count()) {
+      throw new Error("Generated model preview contains nested gallery");
+    }
+    await page.click("#modal-close");
+  }
+
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.waitForFunction(() => {
     const captureBottom = window.innerHeight + 300;

@@ -1,4 +1,6 @@
-import { PROC_MODELS } from "/web/procmodels.js?v=gamemap1";
+import { PROC_MODELS, NIGHT_METROPOLIS_MODEL } from "/web/procmodels.js?v=gamemap1";
+
+PROC_MODELS[NIGHT_METROPOLIS_MODEL.id] = NIGHT_METROPOLIS_MODEL;
 
 self.onmessage = async (event) => {
   const { requestId, modelId, params, context } = event.data || {};

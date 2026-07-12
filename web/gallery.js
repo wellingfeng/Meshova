@@ -25,7 +25,7 @@ const CATEGORY = {
   "sports-car": "载具",
   "hard-surface-kit": "硬表面",
   officechair: "家具", wineglass: "家具", "interior-room": "家具", "procedural-building": "建筑",
-  tower: "建筑", pagoda: "建筑", building: "建筑", "japanese-street-building": "建筑", cityblock: "建筑", "city-district": "城市", "city-district-roadnet": "城市", "watabou-city": "城市", "road-network": "基建", "procedural-game-map": "程序化地图", streetscene: "建筑", freeway: "建筑",
+  tower: "建筑", pagoda: "建筑", building: "建筑", "japanese-street-building": "建筑", cityblock: "建筑", "city-district": "城市", "night-metropolis": "城市", "garden-metropolis": "城市", "city-district-roadnet": "城市", "watabou-city": "城市", "road-network": "基建", "procedural-game-map": "程序化地图", "random-dungeon": "程序化地图", streetscene: "建筑", freeway: "建筑",
   road: "基建", railway: "基建", viaduct: "基建", pylon: "基建", "tower-crane": "基建", "wind-turbine": "基建",
   "toll-station": "基建", "tunnel-portal": "基建", intersection: "基建",
   "titan-rail": "Titan复刻", "titan-fence": "Titan复刻", "titan-cable": "Titan复刻",
@@ -628,6 +628,8 @@ const cards = entries.map((e) => {
   card.dataset.name = e.model.name;
   card.dataset.id = e.id;
   card.dataset.cat = e.cat;
+  card.dataset.specialUrl = e.specialUrl || "";
+  card.dataset.generated = e.generated ? "true" : "false";
   const semantic = semanticMeta(e.model);
   card.dataset.semantic = semantic.searchText;
   // 骨架屏：缩略图区先显示等尺寸的占位块（含微光扫过），避免加载时布局跳动。

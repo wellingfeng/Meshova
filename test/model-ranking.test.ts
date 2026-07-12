@@ -3,6 +3,7 @@ import {
   createRankedModelLibrary,
   rankModelEntries,
   scoreModelEntry,
+  scoreModelEntryDetails,
 } from "../web/model-ranking.js";
 
 describe("model gallery ranking", () => {
@@ -32,6 +33,16 @@ describe("model gallery ranking", () => {
     const isolatedAsset = { id: "plain-prop", model: { name: "单体道具" }, cat: "基础" };
 
     expect(scoreModelEntry(richScene)).toBeGreaterThan(scoreModelEntry(isolatedAsset));
+  });
+
+  it("explains rule scores without presenting them as visual review", () => {
+    const entry = { id: "plain-box", model: { name: "基础盒" }, cat: "基础" };
+    const details = scoreModelEntryDetails(entry);
+
+    expect(details.score).toBe(scoreModelEntry(entry));
+    expect(details.mode).toBe("rule");
+    expect(details.reasons.join(" ")).toContain("规则分上限 70");
+    expect(details.reasons.join(" ")).toContain("简化词");
   });
 
   it("keeps materials after every model", () => {

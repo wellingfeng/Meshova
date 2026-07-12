@@ -1,10 +1,12 @@
 import { chromium } from "playwright";
 import { createServer } from "node:http";
-import { readFile, stat } from "node:fs/promises";
+import { mkdir, readFile, stat } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { extname, join, normalize, resolve } from "node:path";
 
 const ROOT = resolve(process.cwd());
+const captureScreenshots = process.argv.includes("--screenshots");
+const screenshotDir = join(ROOT, "out", "audit-z-fighting");
 const MIME = {
   ".html": "text/html; charset=utf-8",
   ".js": "text/javascript; charset=utf-8",
@@ -57,13 +59,25 @@ const browser = await chromium.launch({
 const page = await browser.newPage();
 const errors = [];
 page.on("pageerror", (error) => errors.push(String(error)));
-await page.goto(`http://127.0.0.1:${port}/web/procmodels.js`, { waitUntil: "domcontentloaded" });
+await page.goto(`http://127.0.0.1:${port}/${captureScreenshots ? "web/index.html" : "web/procmodels.js"}`, {
+  waitUntil: captureScreenshots ? "networkidle" : "domcontentloaded",
+});
+if (captureScreenshots) {
+  await mkdir(screenshotDir, { recursive: true });
+  await page.waitForFunction(() => Boolean(window.__meshova));
+  await page.evaluate(() => window.__meshovaReady);
+  await page.addStyleTag({ content: "#critiqueBadge{display:none!important}" });
+}
 
 let ids = await page.evaluate(async () => {
   const { PROC_MODELS } = await import("/web/procmodels.js");
   return Object.keys(PROC_MODELS).sort();
 });
-const requestedIds = (process.argv[2] || "").split(/[,\s]+/).map((id) => id.trim()).filter(Boolean);
+const requestedIds = process.argv.slice(2)
+  .filter((arg) => !arg.startsWith("--"))
+  .flatMap((arg) => arg.split(/[,\s]+/))
+  .map((id) => id.trim())
+  .filter(Boolean);
 if (requestedIds.length) ids = ids.filter((id) => requestedIds.includes(id));
 const offenders = [];
 const buildErrors = [];
@@ -97,6 +111,17 @@ for (let index = 0; index < ids.length; index++) {
       };
     }, id);
     if (result.pairs > 0) offenders.push({ id, ...result });
+    if (captureScreenshots) {
+      await page.evaluate(async (modelId) => {
+        await window.__meshova.loadModelById(modelId);
+        window.__meshova.setAutorot(false);
+        window.__meshova.setWind(false);
+        window.__meshova.setPost(false);
+        window.__meshova.setView("persp");
+        await window.__meshova.settle(2);
+      }, id);
+      await page.locator("canvas").screenshot({ path: join(screenshotDir, `${id}.png`) });
+    }
   } catch (error) {
     buildErrors.push({ id, error: error?.message || String(error) });
   }
@@ -113,5 +138,6 @@ for (const item of offenders) {
 for (const item of buildErrors) console.error(`ERROR ${item.id}: ${item.error}`);
 for (const error of errors) console.error(`PAGE ERROR ${error}`);
 console.log(`Audited ${ids.length} viewer models: ${offenders.length} offender(s), ${buildErrors.length} build error(s).`);
+if (captureScreenshots) console.log(`Screenshots: ${screenshotDir}`);
 
 if (offenders.length || buildErrors.length || errors.length) process.exitCode = 1;

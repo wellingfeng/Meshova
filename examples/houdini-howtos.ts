@@ -8,6 +8,7 @@ import {
   buildBspDungeonParts,
   buildField3DBlobParts,
   buildGrowthUrchinParts,
+  buildGradationalCrystalParts,
   buildPipeNetworkParts,
   buildReactionDiffusionReliefParts,
   buildSciFiPanelParts,
@@ -41,6 +42,12 @@ interface SceneSpec {
 }
 
 const scenes: SceneSpec[] = [
+  {
+    id: "houdini-howtos-gradational-crystal",
+    name: "HoudiniHowtos 渐变晶簇",
+    description: "Live-0145 启发：封闭切面晶柱、颜色渐变、折射色散与确定性晶簇散布",
+    parts: buildGradationalCrystalParts({ seed: 145 }),
+  },
   {
     id: "houdini-howtos-field",
     name: "HoudiniHowtos 场与等值面",

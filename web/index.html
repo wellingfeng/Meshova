@@ -134,6 +134,30 @@
   #script-panel pre{flex:1;overflow:auto;padding:12px;background:#1e2530;color:#dbe8ff;
     font:12px/1.55 "Cascadia Code","Consolas","SFMono-Regular",monospace;white-space:pre;}
   #script-panel code{font:inherit;}
+  @media (max-width:720px){
+    :root{--mobile-panel-h:265px;}
+    #bar{height:48px;flex-basis:48px;}
+    .bar-home{padding:0 8px;gap:4px;}
+    #bar .brand{font-size:15px;}
+    #bar .back{padding:0 5px;}
+    #bar .seg{padding:0 7px;}
+    #main{position:relative;display:block;}
+    #side{display:none;}
+    #stage{position:absolute;inset:0 0 var(--mobile-panel-h) 0;}
+    #right{position:absolute;left:0;right:0;bottom:0;width:100%;height:var(--mobile-panel-h);
+      padding:10px 12px;border:0;border-top:1px solid var(--line);z-index:6;gap:8px;
+      box-shadow:0 -2px 10px #00000012;}
+    #right > .label{position:sticky;top:-10px;z-index:2;padding:7px 0 5px;background:var(--panel-sub);}
+    #params,#matparams{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 12px;}
+    .pgroup{min-width:0;gap:4px;}
+    .pgroup .row{gap:6px;}
+    .pgroup .row > span:first-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    #opt-panel{display:none;}
+    #hud{left:8px;bottom:8px;max-width:calc(100% - 16px);}
+    #draw-status{max-width:calc(100% - 16px);overflow:hidden;text-overflow:ellipsis;}
+    #critiqueBadge{display:none!important;}
+    #script-panel{top:8px;right:8px;bottom:8px;width:calc(100% - 16px);}
+  }
 </style>
 </head>
 <body>

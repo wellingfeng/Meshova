@@ -112,6 +112,7 @@ page.on("console", (m) => { if (m.type() === "error") errors.push(m.text()); });
 await page.goto(base + "/", { waitUntil: "networkidle" });
 await page.addStyleTag({ content: "#critiqueBadge{display:none!important}" });
 await page.waitForFunction(() => !!window.__meshova, null, { timeout: 90000 });
+await page.evaluate(() => window.__meshovaReady);
 
 function findModelFile(modelArg) {
   const candidates = [
