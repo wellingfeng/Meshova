@@ -58,6 +58,7 @@
   .pgroup{display:flex;flex-direction:column;gap:6px;padding-bottom:4px;}
   .pgroup .row{display:flex;justify-content:space-between;align-items:center;font-size:12px;}
   .pgroup .row .val{color:var(--acc2);font-variant-numeric:tabular-nums;}
+  .pgroup .param-select{min-width:112px;max-width:58%;height:28px;padding:0 7px;font-size:12px;}
   .pgroup.toggle-group .row{align-items:center;gap:12px;}
   .param-toggle{position:relative;width:40px;height:20px;padding:0;border-radius:10px;
     background:#d8dde0;border-color:#cdd2d5;}
@@ -98,6 +99,12 @@
     color:#075d78;font-size:12px;background:#e7f6fbf2;border:1px solid #8bd7eb;border-radius:3px;
     padding:7px 11px;box-shadow:0 2px 9px #0002;pointer-events:none;white-space:nowrap;}
   #draw-status.show{display:block;}
+  #curve-point-panel{position:absolute;right:12px;top:12px;z-index:5;display:none;min-width:210px;
+    padding:9px 10px;border:1px solid #b9e4f1;border-radius:var(--r);background:#fffffff2;box-shadow:0 6px 20px #0002;}
+  #curve-point-panel.show{display:grid;grid-template-columns:64px 1fr;gap:6px 8px;align-items:center;}
+  #curve-point-panel .title{grid-column:1/-1;color:var(--acc2);font-size:11px;font-weight:600;}
+  #curve-point-panel label{font-size:11px;color:var(--mut);}
+  #curve-point-panel input{width:100%;height:25px;box-sizing:border-box;border:1px solid var(--line);border-radius:2px;padding:0 6px;}
   canvas.drawing{cursor:crosshair;}
   canvas.binding-edit{cursor:default;}
   canvas.binding-drag{cursor:grabbing;}
@@ -193,6 +200,21 @@
     </div>
       <div class="seg" id="draw-tools" style="display:none">
       <span class="label">工作流</span>
+      <select id="curve-type" class="mini" title="曲线插值类型">
+        <option value="catmull-rom">Catmull-Rom</option>
+        <option value="bezier">贝塞尔</option>
+        <option value="b-spline">B 样条</option>
+        <option value="polyline">折线</option>
+      </select>
+      <select id="tangent-mode" class="mini" title="当前点贝塞尔切线模式" style="display:none">
+        <option value="auto">自动切线</option>
+        <option value="aligned">对齐切线</option>
+        <option value="mirrored">镜像切线</option>
+        <option value="free">自由切线</option>
+        <option value="corner">折角</option>
+      </select>
+      <button id="arc-length" class="mini" title="按弧长均匀采样">弧长采样</button>
+      <button id="add-branch" class="mini" title="从选中节点新增分支" style="display:none">新增分支</button>
       <button id="edit-binding" class="mini">编辑路径</button>
       <button id="draw-binding" class="mini">重绘路径</button>
       <button id="draw-undo" class="mini" title="撤销绑定编辑（Ctrl+Z）">撤销</button>
@@ -237,6 +259,7 @@
       <div class="seg">
       <span class="label">地面</span>
       <select id="floor">
+        <option value="none">无地面</option>
         <option value="shadow">仅阴影</option>
         <option value="glossy">光泽</option>
         <option value="mirror">镜面</option>
@@ -264,6 +287,13 @@
     <main id="stage">
       <div id="hud"></div>
       <div id="draw-status"></div>
+      <div id="curve-point-panel">
+        <div class="title">控制点属性</div>
+        <label for="curve-width">宽度</label><input id="curve-width" type="number" min="0.01" step="0.05" value="1">
+        <label for="curve-height">高度偏移</label><input id="curve-height" type="number" step="0.05" value="0">
+        <label for="curve-tilt">倾斜 °</label><input id="curve-tilt" type="number" step="1" value="0">
+        <label for="curve-twist">扭转 °</label><input id="curve-twist" type="number" step="1" value="0">
+      </div>
       <div id="err"></div>
       <div id="loading" aria-live="polite" aria-hidden="true">
         <div class="loading-copy">
@@ -350,6 +380,6 @@
   "three/addons/": "/web/vendor/addons/"
 } }
 </script>
-<script type="module" src="/web/viewer.js?v=water7"></script>
+<script type="module" src="/web/viewer.js?v=curve2"></script>
 </body>
 </html>

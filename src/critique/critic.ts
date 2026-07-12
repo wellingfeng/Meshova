@@ -150,6 +150,7 @@ const NOT_LEAF_RE = /column|pillar|post|pole|beam|frame|truss|mast|support|trunk
  * SHOULD be closed — those still get the hole check.
  */
 const WOODY_NAME_RE = /wood|trunk|branch|twig|bough|stem|stalk|root|vine|liana/i;
+const CLOSED_TRANSMISSIVE_SURFACES = new Set(["glass", "frostedGlass", "liquid", "gem", "ice", "jade"]);
 
 const TRANSLUCENT_SURFACE_INTENT: Record<string, RegExp> = {
   glass: /glass|window|windshield|lens|headlight|fog.?light|tail(?:.?light|_)|lamp|screen|jar|玻璃|窗|灯罩|灯泡|灯面/i,
@@ -898,14 +899,15 @@ export function critique(parts: NamedPart[], opts: CritiqueOptions): CritiqueRep
       part.metadata?.weathered === true ||
       part.metadata?.ruined === true ||
       /\bruin|ruined|rubble|debris|wreck|crumbl|weathered|broken\b/i.test(part.name);
+    const transparency = partTransparency(part);
+    const closedTransmission = !!transparency && CLOSED_TRANSMISSIVE_SURFACES.has(transparency.type);
     const intendedThin =
       part.metadata?.thin === true ||
       part.metadata?.surface === "panel" ||
-      isThinName(part.name) ||
+      (!closedTransmission && isThinName(part.name)) ||
       WOODY_NAME_RE.test(part.name) ||
       intentionallyBroken ||
-      isFlatGeometry(mm.size);
-    const transparency = partTransparency(part);
+      (!closedTransmission && isFlatGeometry(mm.size));
     if (transparency && !transparency.expected) {
       issues.push({
         axis: "realism", severity: "hard", part: part.name,
@@ -922,7 +924,22 @@ export function critique(parts: NamedPart[], opts: CritiqueOptions): CritiqueRep
       });
       materialPenalty += HARD_PENALTY;
     }
-    if (mm.boundaryEdges > 0 && !intendedThin) {
+    if (part.doubleSided && closedTransmission) {
+      issues.push({
+        axis: "realism", severity: "hard", part: part.name,
+        finding: `transmissive solid "${part.name}" is forced double-sided; closed glass/liquid volumes must render their real outer and inner walls`,
+        suggestion: `remove doubleSided from "${part.name}"; add geometric thickness if its back faces are otherwise missing`,
+      });
+      materialPenalty += HARD_PENALTY;
+    }
+    if (mm.boundaryEdges > 0 && closedTransmission) {
+      issues.push({
+        axis: "geometry", severity: "hard", part: part.name,
+        finding: `"${part.name}" is a single-sided/open transmissive shell (${mm.boundaryEdges} boundary edges over ${mm.triangles} faces)`,
+        suggestion: `solidify "${part.name}" into a watertight shell with real wall thickness; do not hide the defect with doubleSided`,
+      });
+      geomPenalty += HARD_PENALTY;
+    } else if (mm.boundaryEdges > 0 && !intendedThin) {
       const openRatio = mm.boundaryEdges / Math.max(1, mm.triangles);
       // Distinguish a genuinely BROKEN mesh (fractured rubble that came out as
       // gappy shells: many triangles yet a large boundary — holes riddle the

@@ -296,7 +296,10 @@ function buildFishParts(): NamedPart[] {
     parts.push({
       name: `ocean_fish_${index + 1}`,
       label: `跃出水面的鱼 ${index + 1}`,
-      mesh: merge(body, tail),
+      mesh: transform(merge(body, tail), {
+        rotate: vec3(0, index * 0.07, 0),
+        translate: vec3(0, index * 0.03, 0),
+      }),
       color: FISH,
       surface: { type: "plastic", params: { color: FISH, roughness: 0.28 } },
       metadata: { fxRole: "ocean-fish", index },

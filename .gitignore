@@ -2,6 +2,8 @@ node_modules/
 dist/
 ref/
 *.log
+__pycache__/
+*.py[cod]
 .DS_Store
 out/
 .site/

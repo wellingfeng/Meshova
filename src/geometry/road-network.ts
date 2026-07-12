@@ -1188,7 +1188,7 @@ export function cityBlocks(
       if (isRoundabout) {
         const islandR = Math.max(maxHalf * 0.45, opts.roundaboutIslandRadius ?? radius * 0.38);
         roundabouts.push(circlePlate(node.point, radius, groundY + 0.031, 56));
-        islands.push(circlePlate(node.point, islandR, groundY + 0.102, 40));
+        islands.push(circlePlate(node.point, islandR, groundY + 0.16, 40));
         markings.push(annulusPlate(node.point, islandR + 0.28, islandR + 0.42, raisedMarkingY, 56));
       } else if (wantPads && node.arms.length >= 3) {
         intersections.push(transform(

@@ -8,27 +8,27 @@
     },
     {
       "id": "blender-howtos-dna-helix",
-      "name": "BlenderHowtos DNA 双螺旋",
+      "name": "DNA 双螺旋",
       "file": "blender-howtos-dna-helix.json",
-      "category": "BlenderHowtos复刻"
+      "category": "技术演示"
     },
     {
       "id": "blender-howtos-gradient-box",
-      "name": "BlenderHowtos 渐变盒阵",
+      "name": "渐变盒阵",
       "file": "blender-howtos-gradient-box.json",
-      "category": "BlenderHowtos复刻"
+      "category": "技术演示"
     },
     {
       "id": "blender-howtos-raining-garden",
-      "name": "BlenderHowtos 雨中花园",
+      "name": "雨中花园",
       "file": "blender-howtos-raining-garden.json",
-      "category": "BlenderHowtos复刻"
+      "category": "环境场景"
     },
     {
       "id": "blender-howtos-spiral-scales",
-      "name": "BlenderHowtos 螺旋鳞片",
+      "name": "螺旋鳞片",
       "file": "blender-howtos-spiral-scales.json",
-      "category": "BlenderHowtos复刻"
+      "category": "技术演示"
     },
     {
       "id": "eroded-terrain",
@@ -817,7 +817,7 @@
     },
     {
       "id": "ue57-vegetation-editor",
-      "name": "UE5.7 植被编辑器流程复刻",
+      "name": "UE5.7 植被编辑器流程",
       "file": "ue57-vegetation-editor.json",
       "category": "植被"
     },

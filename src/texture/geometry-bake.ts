@@ -1,5 +1,5 @@
 import type { Vec3 } from "../math/vec3.js";
-import { add, dot, normalize, scale, vec3 } from "../math/vec3.js";
+import { add, cross, dot, normalize, scale, sub, vec3 } from "../math/vec3.js";
 import type { Mesh } from "../geometry/mesh.js";
 import { makeTexture, type TextureBuffer } from "./buffer.js";
 import { heightToNormal, type Material } from "./pbr.js";
@@ -9,17 +9,23 @@ export interface GeometryTextureBakeOptions {
   readonly height?: number;
   readonly heightAxis?: Vec3;
   readonly primitiveIds?: ReadonlyArray<number>;
+  readonly materialIds?: ReadonlyArray<number>;
   readonly curvatureAoStrength?: number;
 }
 
 export interface GeometryTextureBake {
   readonly height: TextureBuffer;
   readonly id: TextureBuffer;
+  readonly materialId: TextureBuffer;
+  readonly position: TextureBuffer;
   readonly normal: TextureBuffer;
+  readonly worldNormal: TextureBuffer;
+  readonly thickness: TextureBuffer;
   readonly ao: TextureBuffer;
   readonly curvature: TextureBuffer;
   readonly coverage: TextureBuffer;
   readonly idRange: readonly [number, number];
+  readonly materialIdRange: readonly [number, number];
 }
 
 export interface GeometryBakeMaterialOptions {
@@ -41,6 +47,9 @@ export function bakeGeometryToTextures(
   if (options.primitiveIds && options.primitiveIds.length !== triangleCount) {
     throw new Error("primitiveIds length must equal triangle count");
   }
+  if (options.materialIds && options.materialIds.length !== triangleCount) {
+    throw new Error("materialIds length must equal triangle count");
+  }
 
   const projected = mesh.positions.map((position) => dot(position, axis));
   const minProjection = projected.length > 0 ? Math.min(...projected) : 0;
@@ -50,11 +59,20 @@ export function bakeGeometryToTextures(
   const idMin = primitiveIds.length > 0 ? Math.min(...primitiveIds) : 0;
   const idMax = primitiveIds.length > 0 ? Math.max(...primitiveIds) : 0;
   const idRange = Math.max(1, idMax - idMin);
+  const materialIds = Array.from({ length: triangleCount }, (_, index) => options.materialIds?.[index] ?? primitiveIds[index]!);
+  const materialIdMin = materialIds.length > 0 ? Math.min(...materialIds) : 0;
+  const materialIdMax = materialIds.length > 0 ? Math.max(...materialIds) : 0;
+  const materialIdRange = Math.max(1, materialIdMax - materialIdMin);
   const vertexCurvature = computeVertexCurvature(mesh);
+  const vertexThickness = computeVertexThickness(mesh);
+  const positionBounds = computePositionBounds(mesh);
 
   const heightMap = makeTexture(width, height, 1);
   const idMap = makeTexture(width, height, 1);
+  const materialIdMap = makeTexture(width, height, 1);
+  const positionMap = makeTexture(width, height, 3);
   const normalMap = makeTexture(width, height, 3);
+  const thicknessMap = makeTexture(width, height, 1);
   const aoMap = makeTexture(width, height, 1);
   const curvatureMap = makeTexture(width, height, 1);
   const coverageMap = makeTexture(width, height, 1);
@@ -91,6 +109,10 @@ export function bakeGeometryToTextures(
         if (projection < zBuffer[pixel]!) continue;
         zBuffer[pixel] = projection;
         const normalizedHeight = (projection - minProjection) / projectionRange;
+        const position = add(
+          add(scale(mesh.positions[ia]!, w0), scale(mesh.positions[ib]!, w1)),
+          scale(mesh.positions[ic]!, w2),
+        );
         const normal = normalize(add(
           add(scale(mesh.normals[ia]!, w0), scale(mesh.normals[ib]!, w1)),
           scale(mesh.normals[ic]!, w2),
@@ -104,11 +126,18 @@ export function bakeGeometryToTextures(
         );
         heightMap.data[pixel] = normalizedHeight;
         idMap.data[pixel] = (primitiveIds[triangle]! - idMin) / idRange;
+        materialIdMap.data[pixel] = (materialIds[triangle]! - materialIdMin) / materialIdRange;
+        positionMap.data[pixel * 3] = normalizeRange(position.x, positionBounds.min.x, positionBounds.max.x);
+        positionMap.data[pixel * 3 + 1] = normalizeRange(position.y, positionBounds.min.y, positionBounds.max.y);
+        positionMap.data[pixel * 3 + 2] = normalizeRange(position.z, positionBounds.min.z, positionBounds.max.z);
         normalMap.data[pixel * 3] = normal.x * 0.5 + 0.5;
         normalMap.data[pixel * 3 + 1] = normal.y * 0.5 + 0.5;
         normalMap.data[pixel * 3 + 2] = normal.z * 0.5 + 0.5;
         aoMap.data[pixel] = ao;
         curvatureMap.data[pixel] = curvature;
+        thicknessMap.data[pixel] = clamp01(
+          vertexThickness[ia]! * w0 + vertexThickness[ib]! * w1 + vertexThickness[ic]! * w2,
+        );
         coverageMap.data[pixel] = 1;
       }
     }
@@ -117,12 +146,78 @@ export function bakeGeometryToTextures(
   return {
     height: heightMap,
     id: idMap,
+    materialId: materialIdMap,
+    position: positionMap,
     normal: normalMap,
+    worldNormal: normalMap,
+    thickness: thicknessMap,
     ao: aoMap,
     curvature: curvatureMap,
     coverage: coverageMap,
     idRange: [idMin, idMax],
+    materialIdRange: [materialIdMin, materialIdMax],
   };
+}
+
+function computePositionBounds(mesh: Mesh): { min: Vec3; max: Vec3 } {
+  if (mesh.positions.length === 0) return { min: vec3(0, 0, 0), max: vec3(1, 1, 1) };
+  const xs = mesh.positions.map((position) => position.x);
+  const ys = mesh.positions.map((position) => position.y);
+  const zs = mesh.positions.map((position) => position.z);
+  return {
+    min: vec3(Math.min(...xs), Math.min(...ys), Math.min(...zs)),
+    max: vec3(Math.max(...xs), Math.max(...ys), Math.max(...zs)),
+  };
+}
+
+function computeVertexThickness(mesh: Mesh): number[] {
+  const thickness = mesh.positions.map(() => 0);
+  let maximum = 0;
+  for (let vertex = 0; vertex < mesh.positions.length; vertex++) {
+    const direction = scale(normalize(mesh.normals[vertex]!), -1);
+    const origin = add(mesh.positions[vertex]!, scale(direction, 1e-5));
+    let nearest = Infinity;
+    for (let index = 0; index < mesh.indices.length; index += 3) {
+      const ia = mesh.indices[index]!;
+      const ib = mesh.indices[index + 1]!;
+      const ic = mesh.indices[index + 2]!;
+      if (ia === vertex || ib === vertex || ic === vertex) continue;
+      const distance = rayTriangleDistance(
+        origin,
+        direction,
+        mesh.positions[ia]!,
+        mesh.positions[ib]!,
+        mesh.positions[ic]!,
+      );
+      if (distance > 1e-4 && distance < nearest) nearest = distance;
+    }
+    if (Number.isFinite(nearest)) {
+      thickness[vertex] = nearest;
+      maximum = Math.max(maximum, nearest);
+    }
+  }
+  if (maximum <= 1e-9) return thickness;
+  return thickness.map((value) => value / maximum);
+}
+
+function rayTriangleDistance(origin: Vec3, direction: Vec3, a: Vec3, b: Vec3, c: Vec3): number {
+  const edgeA = sub(b, a);
+  const edgeB = sub(c, a);
+  const perpendicular = cross(direction, edgeB);
+  const determinant = dot(edgeA, perpendicular);
+  if (Math.abs(determinant) < 1e-9) return Infinity;
+  const inverse = 1 / determinant;
+  const offset = sub(origin, a);
+  const u = dot(offset, perpendicular) * inverse;
+  if (u < 0 || u > 1) return Infinity;
+  const crossOffset = cross(offset, edgeA);
+  const v = dot(direction, crossOffset) * inverse;
+  if (v < 0 || u + v > 1) return Infinity;
+  return dot(edgeB, crossOffset) * inverse;
+}
+
+function normalizeRange(value: number, minimum: number, maximum: number): number {
+  return (value - minimum) / Math.max(1e-9, maximum - minimum);
 }
 
 export function materialFromGeometryBake(

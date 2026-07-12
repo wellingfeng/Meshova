@@ -46,6 +46,7 @@ const BARRIER_RED: RGB = [0.55, 0.09, 0.11];
 const FRAME_DARK: RGB = [0.14, 0.14, 0.16];
 
 export interface FreewayParams {
+  readonly controlPoints?: ReadonlyArray<Vec3>;
   /** Total run length (metres). */
   length: number;
   /** Lateral bend amplitude of the S-curve centerline (0 = straight). */
@@ -104,6 +105,9 @@ export const FREEWAY_DEFAULTS: FreewayParams = {
 
 /** Build the S-curve centerline on the XZ plane, lifted to `elevation`. */
 function freewayCenterline(p: FreewayParams): Curve {
+  if (p.controlPoints && p.controlPoints.length >= 2) {
+    return polyline(p.controlPoints.map((point) => vec3(point.x, point.y, point.z)));
+  }
   const half = p.length / 2;
   const y = p.elevation;
   if (p.bend <= 0.001) {
@@ -169,7 +173,11 @@ function carriageway(
     parts.push({
       name: `slab_${tag}`,
       label: `桥面板-${tag}`,
-      mesh: roadDeck(cw, { ...opt, thickness: p.deckThickness }),
+      mesh: roadDeck(cw, {
+        ...opt,
+        verticalOffset: opt.verticalOffset - 0.04,
+        thickness: p.deckThickness,
+      }),
       color: CONCRETE,
       surface: { type: "concrete", params: { color: CONCRETE, roughness: 0.85 } },
     });
@@ -282,7 +290,7 @@ export function buildFreewayParts(params: Partial<FreewayParams> = {}): NamedPar
       halfWidth: totalHalf,
       verticalOffset: 0.02,
       spacing: p.lightSpacing,
-      lateral: totalHalf + 0.8,
+      lateral: totalHalf + (p.noiseBarrier ? 1.05 : 0.8),
       poleHeight: p.elevation > 0.01 ? 7 : 6,
       poleRadius: 0.14,
       armLength: totalHalf * 0.7,

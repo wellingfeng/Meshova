@@ -31,6 +31,7 @@ export interface ProceduralRiverParams {
   trees: number;
   flowStreaks: number;
   seed: number;
+  readonly controlPoints?: ReadonlyArray<Vec3>;
 }
 
 export const PROCEDURAL_RIVER_DEFAULTS: ProceduralRiverParams = {
@@ -67,6 +68,7 @@ export function buildProceduralRiverParts(
     meander: p.meander,
     terrainHeight: p.relief,
     seed: p.seed,
+    ...(p.controlPoints ? { controlPoints: p.controlPoints } : {}),
   });
   const terrain = terrainMesh(system);
   const terrainColors = terrainVertexColors(system);
@@ -245,6 +247,9 @@ function resolveParams(params: Partial<ProceduralRiverParams>): ProceduralRiverP
     trees: clampInt(p.trees, 0, 320),
     flowStreaks: clampInt(p.flowStreaks, 0, 80),
     seed: Math.round(p.seed),
+    ...(p.controlPoints && p.controlPoints.length >= 2
+      ? { controlPoints: p.controlPoints.map((point) => vec3(point.x, point.y, point.z)) }
+      : {}),
   };
 }
 

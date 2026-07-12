@@ -9,7 +9,7 @@ import { BokehPass } from "three/addons/postprocessing/BokehPass.js";
 import { ShaderPass } from "three/addons/postprocessing/ShaderPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { Reflector } from "three/addons/objects/Reflector.js";
-import { bakeMaterial, bakeSurface, bakeWaterSurface, bakeSurfaceByName, isSurface, SURFACE_NAMES, SURFACE_LABEL_MAP, PRESET_NAMES, BUILDER_NAMES, SURFACE_PARAM_SCHEMA, defaultSurfaceParams } from "/web/materials.js?v=water7";
+import { bakeMaterial, bakeSurface, bakeWaterSurface, bakeSurfaceByName, isSurface, SURFACE_NAMES, SURFACE_LABEL_MAP, PRESET_NAMES, BUILDER_NAMES, SURFACE_PARAM_SCHEMA, defaultSurfaceParams } from "/web/materials.js?v=water8";
 import {
   PRESET_PARAM_SCHEMA,
   defaultMatParams,
@@ -28,8 +28,12 @@ import {
   canonicalizeHumanoidPartsToTPose,
   critique,
   formatCritique,
-} from "/dist/index.js?v=water7";
-import { PROC_MODELS, defaultParams, makeSpeedTreeLibraryModel } from "/web/procmodels.js?v=water7";
+  controlCurve,
+  resolveBezierControlHandles,
+  sampleControlSurface,
+} from "/dist/index.js?v=curve2";
+import { PROC_MODELS, defaultParams, makeSpeedTreeLibraryModel } from "/web/procmodels.js?v=curve2";
+import { normalizeModelName } from "/web/gallery-categories.js?v=usecat4";
 
 const stage = document.getElementById("stage");
 const errEl = document.getElementById("err");
@@ -128,7 +132,13 @@ function forceHideGenerationLoading() {
   }
 }
 
-const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true, alpha: true });
+const renderer = new THREE.WebGLRenderer({
+  antialias: true,
+  preserveDrawingBuffer: true,
+  alpha: true,
+  reversedDepthBuffer: true,
+});
+const REVERSED_DEPTH_BUFFER = renderer.capabilities.reversedDepthBuffer === true;
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.setSize(stage.clientWidth, stage.clientHeight);
 renderer.shadowMap.enabled = true;
@@ -557,6 +567,7 @@ const fogPass = new ShaderPass({
     uSunColor: { value: new THREE.Color(1.0, 0.92, 0.78) },
     uNear: { value: camera.near },
     uFar: { value: camera.far },
+    uReversedDepth: { value: REVERSED_DEPTH_BUFFER ? 1 : 0 },
     uDensity: { value: 0.06 },
     uHeight: { value: 2.2 },     // fog top; density decays above the ground
     uShaft: { value: 0.5 },      // god-ray strength
@@ -567,19 +578,21 @@ const fogPass = new ShaderPass({
     varying vec2 vUv;
     uniform sampler2D tDiffuse; uniform sampler2D tDepth;
     uniform mat4 uInvProj, uInvView; uniform vec3 uCamPos, uSunDir, uSunColor;
-    uniform float uNear, uFar, uDensity, uHeight, uShaft; uniform int uSteps;
+    uniform float uNear, uFar, uReversedDepth, uDensity, uHeight, uShaft; uniform int uSteps;
     // Unpack three's RGBA-packed depth back to a [0,1] non-linear depth.
     float unpackDepth(vec4 rgba){
       return dot(rgba, vec4(1.0, 1.0/255.0, 1.0/65025.0, 1.0/16581375.0));
     }
     // Linearize the perspective depth buffer to a view-space distance.
     float linDepth(float d){
+      d = mix(d, 1.0 - d, uReversedDepth);
       float z = d * 2.0 - 1.0;
       return (2.0 * uNear * uFar) / (uFar + uNear - z * (uFar - uNear));
     }
     // Reconstruct world position from depth + screen uv.
     vec3 worldPos(vec2 uv, float depth){
-      vec4 clip = vec4(uv * 2.0 - 1.0, depth * 2.0 - 1.0, 1.0);
+      float clipDepth = mix(depth * 2.0 - 1.0, depth, uReversedDepth);
+      vec4 clip = vec4(uv * 2.0 - 1.0, clipDepth, 1.0);
       vec4 view = uInvProj * clip; view /= view.w;
       return (uInvView * view).xyz;
     }
@@ -598,7 +611,8 @@ const fogPass = new ShaderPass({
       float dist = length(dir);
       dir /= max(dist, 1e-4);
       // Background (no geometry) gets a capped march distance so the sky still fogs.
-      float maxT = (d >= 0.9999) ? uFar * 0.25 : dist;
+      bool background = uReversedDepth > 0.5 ? d <= 0.0001 : d >= 0.9999;
+      float maxT = background ? uFar * 0.25 : dist;
       int N = uSteps;
       float stepLen = maxT / float(N);
       float fog = 0.0; float shaft = 0.0;
@@ -720,6 +734,7 @@ scene.add(bindingOverlay);
 let activeDrawing = null;
 let bindingEditEnabled = false;
 let selectedBindingPoint = -1;
+let graphBranchSource = -1;
 let bindingDrag = null;
 let bindingUndoStack = [];
 let bindingRedoStack = [];
@@ -731,6 +746,17 @@ const bindingPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
 const drawBindingBtn = document.getElementById("draw-binding");
 const editBindingBtn = document.getElementById("edit-binding");
 const resetBindingBtn = document.getElementById("draw-reset");
+const curveTypeSel = document.getElementById("curve-type");
+const tangentModeSel = document.getElementById("tangent-mode");
+const arcLengthBtn = document.getElementById("arc-length");
+const addBranchBtn = document.getElementById("add-branch");
+const curvePointPanel = document.getElementById("curve-point-panel");
+const curvePointInputs = {
+  width: document.getElementById("curve-width"),
+  height: document.getElementById("curve-height"),
+  tilt: document.getElementById("curve-tilt"),
+  twist: document.getElementById("curve-twist"),
+};
 const undoBindingBtn = document.getElementById("draw-undo");
 const redoBindingBtn = document.getElementById("draw-redo");
 const drawStatusEl = document.getElementById("draw-status");
@@ -1176,7 +1202,7 @@ async function buildParts(parts, { keepCamera = false, buildToken = null } = {})
   updateMeta();
   updateScriptPanel();
   resetTAA();
-  hud.textContent = `${currentModel ? currentModel.name : ""} · ${parts.length}件 / ${tris}面`;
+  hud.textContent = `${currentModel ? normalizeModelName(currentModel.name) : ""} · ${parts.length}件 / ${tris}面`;
   scheduleCritique(parts);
   updateGenerationLoading("模型生成完成", 1);
 }
@@ -1332,6 +1358,7 @@ function cachedSurfaceMaterial(cache, surfaceRef, size, fallbackColor) {
 }
 
 const DOUBLE_SIDED_SURFACES = new Set(["leaf", "foliage", "grassBlade"]);
+const SURFACE_OVERLAY_PART = /(?:mark(?:ing)?s?|lane[_ -]?lines?|center[_ -]?lines?|edge[_ -]?lines?|crosswalk|zebra|stripes?|decals?)/i;
 
 function partNeedsDoubleSide(o) {
   const surfaceType = o?.userData?.surface?.type;
@@ -1342,10 +1369,19 @@ function applyPartRenderHints(o) {
   if (!o || !o.material) return;
   const mats = Array.isArray(o.material) ? o.material : [o.material];
   for (const mat of mats) {
-    if (!mat || !partNeedsDoubleSide(o)) continue;
-    mat.side = THREE.DoubleSide;
-    mat.shadowSide = THREE.DoubleSide;
-    mat.needsUpdate = true;
+    if (!mat) continue;
+    if (partNeedsDoubleSide(o)) {
+      mat.side = THREE.DoubleSide;
+      mat.shadowSide = THREE.DoubleSide;
+      mat.needsUpdate = true;
+    }
+    const semanticName = `${o.name || ""} ${o.userData?.label || ""}`;
+    if (SURFACE_OVERLAY_PART.test(semanticName)) {
+      const direction = REVERSED_DEPTH_BUFFER ? 1 : -1;
+      mat.polygonOffset = true;
+      mat.polygonOffsetFactor = direction;
+      mat.polygonOffsetUnits = direction * 4;
+    }
   }
 }
 
@@ -2575,6 +2611,7 @@ function updateWaterSurfaceFx(time) {
     if (uniforms?.uWaterDepthResolution) uniforms.uWaterDepthResolution.value.set(fogDepthRT.width, fogDepthRT.height);
     if (uniforms?.uWaterCameraNear) uniforms.uWaterCameraNear.value = camera.near;
     if (uniforms?.uWaterCameraFar) uniforms.uWaterCameraFar.value = camera.far;
+    if (uniforms?.uWaterReversedDepth) uniforms.uWaterReversedDepth.value = REVERSED_DEPTH_BUFFER ? 1 : 0;
     if (uniforms?.uWaterDepthAvailable) uniforms.uWaterDepthAvailable.value = 1;
   }
 }
@@ -2582,9 +2619,10 @@ function updateWaterSurfaceFx(time) {
 let lastSize = new THREE.Vector3(3, 3, 3);
 function updateCameraClipPlanes() {
   const camDist = camera.position.distanceTo(controls.target);
-  const r = Math.max(lastSize.x, lastSize.y, lastSize.z);
-  camera.near = Math.max(0.05, (camDist - r * 2) * 0.5);
-  camera.far = Math.max(camera.near + 1, (camDist + r * 3) * 2);
+  const radius = Math.max(0.001, lastSize.length() * 0.5);
+  const nearestSurface = camDist - radius;
+  camera.near = Math.max(0.05, nearestSurface * 0.5);
+  camera.far = Math.max(camera.near + 1, camDist + radius * 2);
   camera.updateProjectionMatrix();
 }
 
@@ -3122,13 +3160,13 @@ async function loadViewerModel(model, options = {}) {
   const loadStart = performance.now();
   const loadingToken = options.showLoading === false
     ? 0
-    : await showGenerationLoading(options.loadingLabel || `生成 ${(model && model.name) || "AI模型"}`);
+    : await showGenerationLoading(options.loadingLabel || `生成 ${normalizeModelName(model && model.name, "AI模型")}`);
   rebuildToken++;
   try {
     const parts = viewerModelToNamedParts(model);
     if (options.parametrize !== false && parts.length) {
       const id = options.id || sourceIdFromViewerModel(model);
-      const name = options.name || (model && model.name) || id || "AI模型";
+      const name = normalizeModelName(options.name || (model && model.name) || id, "AI模型");
       const proc = buildSemanticLiveModel(parts, name, name, {
         id,
         sourceName: name,
@@ -3151,7 +3189,7 @@ async function loadViewerModel(model, options = {}) {
     syncDrawableUi();
     await buildParts(parts, { keepCamera: false });
     errEl.style.display = "none";
-    if (hud) hud.textContent = `${(model && model.name) || "AI模型"} · ${parts.length}件`;
+    if (hud) hud.textContent = `${normalizeModelName(model && model.name, "AI模型")} · ${parts.length}件`;
   } finally {
     if (loadingToken) hideGenerationLoading(loadingToken);
   }
@@ -3588,7 +3626,7 @@ function workflowBindingSpecs(model = currentModel) {
 
 function drawableBindingSpec(model = currentModel) {
   return workflowBindingSpecs(model).find((spec) => {
-    if (spec.kind === "curve" || spec.kind === "region") return true;
+    if (spec.kind === "curve" || spec.kind === "curve-graph" || spec.kind === "region") return true;
     return spec.kind === "surface" && Array.isArray(spec.default?.points);
   }) || null;
 }
@@ -3605,16 +3643,99 @@ function bindingPointCount(spec = drawableBindingSpec()) {
   return spec ? currentBindings[spec.key]?.points?.length || 0 : 0;
 }
 
-function bindingIsClosed(spec) {
-  return spec?.kind === "region" || spec?.kind === "surface";
+function bindingIsClosed(spec, binding = null) {
+  return spec?.kind === "region" || binding?.closed === true;
+}
+
+function bindingGridShape(spec, binding) {
+  if (spec?.kind !== "surface") return null;
+  const rows = Math.round(Number(binding?.rows ?? spec?.editor?.rows ?? 0));
+  const columns = Math.round(Number(binding?.columns ?? spec?.editor?.columns ?? 0));
+  return rows >= 2 && columns >= 2 && rows * columns === binding?.points?.length
+    ? { rows, columns }
+    : null;
 }
 
 function currentDrawableBinding(spec = drawableBindingSpec()) {
   if (!spec) return null;
   if (activeDrawing?.spec.key === spec.key) {
-    return { kind: spec.kind, points: activeDrawing.points, closed: bindingIsClosed(spec) };
+    return {
+      ...activeDrawing.curveSettings,
+      kind: spec.kind,
+      points: activeDrawing.points,
+      closed: bindingIsClosed(spec),
+    };
   }
   return currentBindings[spec.key] || null;
+}
+
+function bindingCurveSettings(spec, binding = null) {
+  return {
+    curveType: binding?.curveType || spec?.editor?.curveType || "catmull-rom",
+    subdivisions: Math.max(1, Math.round(Number(binding?.subdivisions ?? spec?.editor?.subdivisions ?? 8))),
+    tension: Number(binding?.tension ?? spec?.editor?.tension ?? 0.5),
+    degree: Math.max(1, Math.round(Number(binding?.degree ?? spec?.editor?.degree ?? 3))),
+    arcLength: binding?.arcLength ?? spec?.editor?.arcLength ?? true,
+    sampleCount: Math.max(2, Math.round(Number(binding?.sampleCount ?? spec?.editor?.sampleCount ?? 0))) || undefined,
+  };
+}
+
+function bindingBezierHandles(binding) {
+  return (binding?.handles || []).map((handle) => handle ? {
+    mode: handle.mode || "auto",
+    ...(handle.in ? { in: { x: Number(handle.in[0]), y: Number(handle.in[1]), z: Number(handle.in[2]) } } : {}),
+    ...(handle.out ? { out: { x: Number(handle.out[0]), y: Number(handle.out[1]), z: Number(handle.out[2]) } } : {}),
+  } : undefined);
+}
+
+function resolvedBindingBezierHandles(spec, binding, points) {
+  const settings = bindingCurveSettings(spec, binding);
+  return resolveBezierControlHandles(
+    points.map((point, index) => ({
+      x: Number(point[0]),
+      y: Number(point[1]) + Number(binding?.pointAttributes?.[index]?.height ?? 0),
+      z: Number(point[2]),
+    })),
+    {
+      closed: bindingIsClosed(spec, binding),
+      tension: settings.tension,
+      handles: bindingBezierHandles(binding),
+    },
+  );
+}
+
+function sampledBindingPoints(spec, binding, points) {
+  if (spec?.kind === "surface" || points.length < 2) return points;
+  const settings = bindingCurveSettings(spec, binding);
+  return controlCurve(points.map((point, index) => ({
+    x: point[0],
+    y: point[1] + Number(binding?.pointAttributes?.[index]?.height ?? 0),
+    z: point[2],
+  })), {
+    type: settings.curveType,
+    closed: bindingIsClosed(spec, binding),
+    subdivisions: settings.subdivisions,
+    tension: settings.tension,
+    degree: settings.degree,
+    handles: bindingBezierHandles(binding),
+    arcLength: settings.arcLength,
+    ...(settings.sampleCount ? { sampleCount: settings.sampleCount } : {}),
+  }).points.map((point) => [point.x, point.y, point.z]);
+}
+
+function selectedPointAttributes(binding) {
+  return binding?.pointAttributes?.[selectedBindingPoint] || {};
+}
+
+function syncCurvePointPanel(spec, binding) {
+  const visible = !!spec && spec.kind !== "surface" && bindingEditEnabled && selectedBindingPoint >= 0;
+  curvePointPanel?.classList.toggle("show", visible);
+  if (!visible) return;
+  const attributes = selectedPointAttributes(binding);
+  const defaults = { width: 1, height: 0, tilt: 0, twist: 0 };
+  for (const [key, input] of Object.entries(curvePointInputs)) {
+    if (input) input.value = String(Number(attributes[key] ?? defaults[key]));
+  }
 }
 
 function setBindingPointer(event) {
@@ -3679,17 +3800,19 @@ function addBindingLine(worldPoints, closed, color, opacity = 1) {
   return line;
 }
 
-function addRegionSurface(worldPoints) {
+function addRegionSurface(worldPoints, triangles = null) {
   if (worldPoints.length < 3) return;
-  const contour = worldPoints.map((point) => new THREE.Vector2(point.x, point.z));
-  const triangles = THREE.ShapeUtils.triangulateShape(contour, []);
-  if (!triangles.length) return;
+  const surfaceTriangles = triangles || THREE.ShapeUtils.triangulateShape(
+    worldPoints.map((point) => new THREE.Vector2(point.x, point.z)),
+    [],
+  );
+  if (!surfaceTriangles.length) return;
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute("position", new THREE.Float32BufferAttribute(
     worldPoints.flatMap((point) => [point.x, point.y - 0.025, point.z]),
     3,
   ));
-  geometry.setIndex(triangles.flat());
+  geometry.setIndex(surfaceTriangles.flat());
   const material = new THREE.MeshBasicMaterial({
     color: 0x19c6ff,
     side: THREE.DoubleSide,
@@ -3713,8 +3836,111 @@ function addBindingHandle(position, size, color, userData, shape = "sphere") {
   handle.position.copy(position);
   handle.renderOrder = 1002;
   handle.userData.bindingHandle = userData;
+  if (userData?.type === "point") {
+    const hitTarget = new THREE.Mesh(
+      new THREE.SphereGeometry(size * 2.6, 12, 8),
+      new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, colorWrite: false }),
+    );
+    handle.add(hitTarget);
+  }
   bindingOverlay.add(handle);
   return handle;
+}
+
+const BINDING_AXIS_CONFIG = {
+  x: { color: 0xf04444, direction: new THREE.Vector3(1, 0, 0), coordinate: 0 },
+  y: { color: 0x45c96b, direction: new THREE.Vector3(0, 1, 0), coordinate: 1 },
+  z: { color: 0x3988ff, direction: new THREE.Vector3(0, 0, 1), coordinate: 2 },
+};
+
+function addBindingAxisGizmo(origin, size, index) {
+  for (const [axis, config] of Object.entries(BINDING_AXIS_CONFIG)) {
+    const group = new THREE.Group();
+    const shaftLength = size * 0.72;
+    const coneLength = size * 0.28;
+    const material = new THREE.MeshBasicMaterial({
+      color: config.color,
+      depthTest: false,
+      depthWrite: false,
+      transparent: true,
+      opacity: 0.98,
+    });
+    const shaft = new THREE.Mesh(
+      new THREE.CylinderGeometry(size * 0.035, size * 0.035, shaftLength, 10),
+      material,
+    );
+    shaft.position.copy(config.direction).multiplyScalar(shaftLength * 0.5);
+    shaft.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), config.direction);
+    const cone = new THREE.Mesh(
+      new THREE.ConeGeometry(size * 0.11, coneLength, 12),
+      material.clone(),
+    );
+    const hitTarget = new THREE.Mesh(
+      new THREE.CylinderGeometry(size * 0.11, size * 0.11, size, 8),
+      new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, colorWrite: false }),
+    );
+    cone.position.copy(config.direction).multiplyScalar(shaftLength + coneLength * 0.5);
+    cone.quaternion.copy(shaft.quaternion);
+    hitTarget.position.copy(config.direction).multiplyScalar(size * 0.5);
+    hitTarget.quaternion.copy(shaft.quaternion);
+    shaft.renderOrder = 1005;
+    cone.renderOrder = 1005;
+    group.position.copy(origin);
+    group.userData.bindingHandle = { type: "point-axis", index, axis };
+    group.userData.bindingGizmoAxis = axis;
+    group.userData.bindingGizmoLength = size;
+    group.add(shaft, cone, hitTarget);
+    bindingOverlay.add(group);
+  }
+}
+
+function addBezierHandleGizmo(anchor, vector, side, size, index) {
+  const endpoint = anchor.clone().add(new THREE.Vector3(vector.x, vector.y, vector.z));
+  const line = addBindingLine([anchor, endpoint], false, 0xff5fa2, 0.9);
+  if (line) line.userData.bindingPath = false;
+  addBindingHandle(endpoint, size * 0.72, 0xff5fa2, { type: "bezier-handle", index, side });
+}
+
+function bindingHandleFromObject(object) {
+  let current = object;
+  while (current && current !== bindingOverlay) {
+    if (current.userData?.bindingHandle) return current.userData.bindingHandle;
+    current = current.parent;
+  }
+  return null;
+}
+
+function projectedAxisPixelsPerWorld(origin, direction) {
+  const rect = renderer.domElement.getBoundingClientRect();
+  const start = origin.clone().project(camera);
+  const end = origin.clone().add(direction).project(camera);
+  return [
+    (end.x - start.x) * rect.width * 0.5,
+    (start.y - end.y) * rect.height * 0.5,
+  ];
+}
+
+function bindingWorldUnitsPerPixel(position) {
+  const height = Math.max(1, renderer.domElement.clientHeight);
+  if (camera.isPerspectiveCamera) {
+    const depth = Math.abs(position.clone().applyMatrix4(camera.matrixWorldInverse).z);
+    return (2 * depth * Math.tan(THREE.MathUtils.degToRad(camera.fov * 0.5))) / height;
+  }
+  if (camera.isOrthographicCamera) return Math.abs(camera.top - camera.bottom) / Math.max(camera.zoom, 1e-6) / height;
+  return 1 / height;
+}
+
+function resizeBindingAxisGizmos() {
+  bindingOverlay.updateMatrixWorld(true);
+  for (const object of bindingOverlay.children) {
+    const baseSize = Number(object.userData?.bindingGizmoLength);
+    if (!(baseSize > 0)) continue;
+    const world = new THREE.Vector3();
+    object.getWorldPosition(world);
+    const desiredSize = Math.max(baseSize, bindingWorldUnitsPerPixel(world) * 68);
+    object.scale.setScalar(desiredSize / baseSize);
+  }
+  bindingOverlay.updateMatrixWorld(true);
 }
 
 function updateBindingOverlay() {
@@ -3724,14 +3950,85 @@ function updateBindingOverlay() {
   const binding = currentDrawableBinding(spec);
   const points = binding?.points || [];
   if (!points.length) return;
-  const worldPoints = points.map((point) => new THREE.Vector3(
+  const worldPoints = points.map((point, index) => new THREE.Vector3(
     Number(point[0]) + modelRoot.position.x,
-    Number(point[1]) + modelRoot.position.y + 0.055,
+    Number(point[1]) + Number(binding?.pointAttributes?.[index]?.height ?? 0) + modelRoot.position.y + 0.055,
     Number(point[2]) + modelRoot.position.z,
   ));
-  const closed = binding.closed || bindingIsClosed(spec);
-  if (closed) addRegionSurface(worldPoints);
-  addBindingLine(worldPoints, closed, 0x19c6ff, 0.95);
+  const grid = bindingGridShape(spec, binding);
+  const closed = bindingIsClosed(spec, binding);
+  if (grid) {
+    const sampled = sampleControlSurface(
+      points.map((point) => ({ x: Number(point[0]), y: Number(point[1]), z: Number(point[2]) })),
+      {
+        rows: grid.rows,
+        columns: grid.columns,
+        interpolation: binding?.surfaceInterpolation || spec?.editor?.surfaceInterpolation || "b-spline",
+        degree: Number(binding?.degree ?? spec?.editor?.degree ?? 3),
+      },
+    );
+    const surfacePoints = sampled.points.map((point) => new THREE.Vector3(
+      point.x + modelRoot.position.x,
+      point.y + modelRoot.position.y + 0.055,
+      point.z + modelRoot.position.z,
+    ));
+    const triangles = [];
+    for (let row = 0; row < sampled.rows - 1; row++) {
+      for (let column = 0; column < sampled.columns - 1; column++) {
+        const a = row * sampled.columns + column;
+        const b = a + 1;
+        const c = a + sampled.columns;
+        const d = c + 1;
+        triangles.push([a, c, b], [b, c, d]);
+      }
+    }
+    addRegionSurface(surfacePoints, triangles);
+    for (let row = 0; row < sampled.rows; row++) {
+      addBindingLine(surfacePoints.slice(row * sampled.columns, (row + 1) * sampled.columns), false, 0x19c6ff, 0.56);
+    }
+    for (let column = 0; column < sampled.columns; column++) {
+      addBindingLine(
+        Array.from({ length: sampled.rows }, (_, row) => surfacePoints[row * sampled.columns + column]),
+        false,
+        0x19c6ff,
+        0.56,
+      );
+    }
+  } else if (spec.kind === "curve-graph") {
+    for (const [edgeIndex, edge] of (binding.edges || []).entries()) {
+      const from = points[Number(edge.from ?? edge[0])];
+      const to = points[Number(edge.to ?? edge[1])];
+      if (!from || !to) continue;
+      const controls = [from, ...(edge.points || []), to];
+      const fromAttributes = binding.pointAttributes?.[Number(edge.from ?? edge[0])] || {};
+      const toAttributes = binding.pointAttributes?.[Number(edge.to ?? edge[1])] || {};
+      const sampledPoints = sampledBindingPoints(spec, {
+        ...binding,
+        ...edge,
+        closed: false,
+        pointAttributes: [fromAttributes, ...(edge.pointAttributes || []), toAttributes],
+      }, controls)
+        .map((point) => new THREE.Vector3(
+          Number(point[0]) + modelRoot.position.x,
+          Number(point[1]) + modelRoot.position.y + 0.055,
+          Number(point[2]) + modelRoot.position.z,
+        ));
+      const line = addBindingLine(sampledPoints, false, 0x19c6ff, 0.95);
+      if (line) line.userData.bindingGraphEdge = edgeIndex;
+    }
+  } else {
+    const sampledPoints = sampledBindingPoints(spec, binding, points).map((point) => new THREE.Vector3(
+      Number(point[0]) + modelRoot.position.x,
+      Number(point[1]) + modelRoot.position.y + 0.055,
+      Number(point[2]) + modelRoot.position.z,
+    ));
+    if (closed) addRegionSurface(sampledPoints);
+    addBindingLine(sampledPoints, closed, 0x19c6ff, 0.95);
+    if (bindingEditEnabled && bindingCurveSettings(spec, binding).curveType !== "polyline") {
+      const controlLine = addBindingLine(worldPoints, closed, 0x8d98a0, 0.38);
+      if (controlLine) controlLine.userData.bindingPath = false;
+    }
+  }
 
   if (!bindingEditEnabled && !activeDrawing) {
     const pointGeometry = new THREE.BufferGeometry().setFromPoints(worldPoints);
@@ -3750,6 +4047,23 @@ function updateBindingOverlay() {
       index === selectedBindingPoint ? 0xffd34d : 0xffffff,
       { type: "point", index });
   });
+  if (bindingEditEnabled && selectedBindingPoint >= 0 && worldPoints[selectedBindingPoint]) {
+    const axisSize = Math.max(handleSize * 5.5, Math.min(span * 0.09, handleSize * 10));
+    addBindingAxisGizmo(worldPoints[selectedBindingPoint], axisSize, selectedBindingPoint);
+    resizeBindingAxisGizmos();
+    if (bindingCurveSettings(spec, binding).curveType === "bezier" && !grid && spec.kind !== "curve-graph") {
+      const handles = resolvedBindingBezierHandles(spec, binding, points);
+      const handle = handles[selectedBindingPoint];
+      if (handle) {
+        if (closed || selectedBindingPoint > 0) {
+          addBezierHandleGizmo(worldPoints[selectedBindingPoint], handle.in, "in", handleSize, selectedBindingPoint);
+        }
+        if (closed || selectedBindingPoint < points.length - 1) {
+          addBezierHandleGizmo(worldPoints[selectedBindingPoint], handle.out, "out", handleSize, selectedBindingPoint);
+        }
+      }
+    }
+  }
   if (!bindingEditEnabled || !bounds || points.length < 2) return;
 
   const y = modelRoot.position.y + 0.09;
@@ -3794,6 +4108,21 @@ function updateBindingOverlay() {
 }
 
 function bindingEditorState() {
+  const spec = drawableBindingSpec();
+  const binding = currentDrawableBinding(spec);
+  const points = binding?.points || [];
+  const grid = bindingGridShape(spec, binding);
+  const sampledPointCount = grid
+    ? sampleControlSurface(
+      points.map((point) => ({ x: Number(point[0]), y: Number(point[1]), z: Number(point[2]) })),
+      {
+        rows: grid.rows,
+        columns: grid.columns,
+        interpolation: binding?.surfaceInterpolation || spec?.editor?.surfaceInterpolation || "b-spline",
+        degree: Number(binding?.degree ?? spec?.editor?.degree ?? 3),
+      },
+    ).points.length
+    : sampledBindingPoints(spec, binding, points).length;
   const rect = renderer.domElement.getBoundingClientRect();
   const handles = [];
   bindingOverlay.updateMatrixWorld(true);
@@ -3803,6 +4132,15 @@ function bindingEditorState() {
     const world = new THREE.Vector3();
     object.getWorldPosition(world);
     const projected = world.clone().project(camera);
+    const axisConfig = handle.type === "point-axis" ? BINDING_AXIS_CONFIG[handle.axis] : null;
+    const worldScale = new THREE.Vector3();
+    object.getWorldScale(worldScale);
+    const axisEnd = axisConfig
+      ? world.clone().addScaledVector(
+        axisConfig.direction,
+        Number(object.userData.bindingGizmoLength || 1) * worldScale.x,
+      ).project(camera)
+      : null;
     handles.push({
       ...cloneSerializable(handle),
       world: world.toArray(),
@@ -3810,13 +4148,21 @@ function bindingEditorState() {
         rect.left + (projected.x + 1) * rect.width * 0.5,
         rect.top + (1 - projected.y) * rect.height * 0.5,
       ],
+      ...(axisEnd ? {
+        screenEnd: [
+          rect.left + (axisEnd.x + 1) * rect.width * 0.5,
+          rect.top + (1 - axisEnd.y) * rect.height * 0.5,
+        ],
+      } : {}),
     });
   });
   return {
     enabled: bindingEditEnabled,
     drawing: !!activeDrawing,
     selectedPoint: selectedBindingPoint,
-    binding: cloneSerializable(currentDrawableBinding()),
+    binding: cloneSerializable(binding),
+    curveType: spec?.kind === "surface" ? null : bindingCurveSettings(spec, binding).curveType,
+    sampledPointCount,
     handles,
     hasSurface: bindingOverlay.children.some((object) => !!object.userData?.bindingSurface),
   };
@@ -3826,6 +4172,7 @@ function resetBindingEditorState() {
   activeDrawing = null;
   bindingEditEnabled = false;
   selectedBindingPoint = -1;
+  graphBranchSource = -1;
   bindingDrag = null;
   bindingUndoStack = [];
   bindingRedoStack = [];
@@ -3836,13 +4183,48 @@ function resetBindingEditorState() {
 function setBindingEditEnabled(enabled) {
   if (!drawableBindingSpec() || activeDrawing) return false;
   bindingEditEnabled = !!enabled;
-  if (!bindingEditEnabled) selectedBindingPoint = -1;
+  if (!bindingEditEnabled) {
+    selectedBindingPoint = -1;
+    graphBranchSource = -1;
+  }
   syncDrawableUi();
   return bindingEditEnabled;
 }
 
+function ensureBindingHandle(binding, index, mode = "auto") {
+  const spec = drawableBindingSpec();
+  const resolved = resolvedBindingBezierHandles(spec, binding, binding.points);
+  binding.handles ||= [];
+  while (binding.handles.length < binding.points.length) binding.handles.push(undefined);
+  const source = resolved[index];
+  binding.handles[index] = {
+    mode,
+    in: [source.in.x, source.in.y, source.in.z],
+    out: [source.out.x, source.out.y, source.out.z],
+  };
+  return binding.handles[index];
+}
+
+function setSelectedTangentMode(mode) {
+  const spec = drawableBindingSpec();
+  const binding = spec && currentBindings[spec.key];
+  if (!binding?.points || selectedBindingPoint < 0) return false;
+  const previous = cloneSerializable(binding);
+  const handle = ensureBindingHandle(binding, selectedBindingPoint, mode);
+  handle.mode = mode;
+  if (mode === "corner") {
+    handle.in = [0, 0, 0];
+    handle.out = [0, 0, 0];
+  }
+  pushBindingHistory(previous);
+  syncDrawableUi();
+  rebuildAfterParamChange({ keepCamera: true });
+  return true;
+}
+
 function bindingLabel(spec) {
   if (spec?.kind === "surface") return "曲面";
+  if (spec?.kind === "curve-graph") return "分叉图";
   return spec?.kind === "region" ? "区域" : "路径";
 }
 
@@ -3852,7 +4234,33 @@ function syncDrawableUi() {
   const visible = !!spec;
   if (drawToolsEl) drawToolsEl.style.display = visible ? "" : "none";
   editBindingBtn.style.display = visible ? "" : "none";
-  drawBindingBtn.style.display = visible ? "" : "none";
+  drawBindingBtn.style.display = visible && spec.kind !== "surface" ? "" : "none";
+  if (spec?.kind === "curve-graph") drawBindingBtn.style.display = "none";
+  if (curveTypeSel) {
+    curveTypeSel.style.display = visible && spec.kind !== "surface" ? "" : "none";
+    curveTypeSel.disabled = !!activeDrawing;
+    if (visible && spec.kind !== "surface") {
+      curveTypeSel.value = bindingCurveSettings(spec, currentDrawableBinding(spec)).curveType;
+    }
+  }
+  const binding = visible ? currentDrawableBinding(spec) : null;
+  const curveSettings = visible ? bindingCurveSettings(spec, binding) : null;
+  if (tangentModeSel) {
+    const tangentVisible = visible && spec.kind !== "surface" && spec.kind !== "curve-graph"
+      && curveSettings?.curveType === "bezier" && selectedBindingPoint >= 0;
+    tangentModeSel.style.display = tangentVisible ? "" : "none";
+    if (tangentVisible) tangentModeSel.value = binding?.handles?.[selectedBindingPoint]?.mode || "auto";
+  }
+  if (arcLengthBtn) {
+    arcLengthBtn.style.display = visible && spec.kind !== "surface" ? "" : "none";
+    arcLengthBtn.classList.toggle("on", !!curveSettings?.arcLength);
+  }
+  if (addBranchBtn) {
+    const branchVisible = visible && spec.kind === "curve-graph" && bindingEditEnabled && selectedBindingPoint >= 0;
+    addBranchBtn.style.display = branchVisible ? "" : "none";
+    addBranchBtn.classList.toggle("on", graphBranchSource >= 0);
+    addBranchBtn.textContent = graphBranchSource >= 0 ? "点击放置分支" : "新增分支";
+  }
   resetBindingBtn.style.display = visible ? "" : "none";
   drawBindingBtn.classList.toggle("on", !!activeDrawing);
   editBindingBtn.classList.toggle("on", bindingEditEnabled);
@@ -3869,13 +4277,16 @@ function syncDrawableUi() {
       : activeDrawing
         ? `${spec.label} · 单击加点 · ${activeDrawing.points.length} 点 · 点击“完成绘制”结束`
         : bindingDrag
-          ? `${spec.label} · 正在修改，松开鼠标应用并重建`
+            ? `${spec.label} · 正在修改，松开鼠标应用并重建`
+          : graphBranchSource >= 0
+            ? `${spec.label} · 点击场景放置新分支节点 · Esc取消`
           : bindingEditEnabled
-            ? `${spec.label} · 拖点改形 · 双击线段加点 · Delete删点 · 绿色平移 · 黄色缩放 · 橙色旋转 · Shift等比`
+            ? `${spec.label} · 选点显示XYZ轴 · 拖轴锁定方向 · 拖点自由移动 · Alt拖点调高度 · 双击线段加点 · Delete删点`
             : `${spec.label} · ${bindingPointCount(spec)} 点 · 点击模型或“编辑${bindingLabel(spec)}”修改`;
   }
   renderer.domElement.classList.toggle("drawing", !!activeDrawing);
   renderer.domElement.classList.toggle("binding-edit", bindingEditEnabled);
+  syncCurvePointPanel(spec, binding);
   updateBindingOverlay();
 }
 
@@ -3912,13 +4323,14 @@ function redoBindingEdit() {
 
 function beginBindingDrawing() {
   const spec = drawableBindingSpec();
-  if (!spec) return false;
+  if (!spec || spec.kind === "surface" || spec.kind === "curve-graph") return false;
   bindingEditEnabled = false;
   selectedBindingPoint = -1;
   activeDrawing = {
     spec,
     points: [],
     previous: cloneSerializable(currentBindings[spec.key]),
+    curveSettings: bindingCurveSettings(spec, currentBindings[spec.key]),
   };
   controls.enabled = false;
   syncDrawableUi();
@@ -3927,10 +4339,15 @@ function beginBindingDrawing() {
 
 function finishBindingDrawing() {
   if (!activeDrawing) return false;
-  const { spec, points, previous } = activeDrawing;
+  const { spec, points, previous, curveSettings } = activeDrawing;
   const minimum = spec.kind === "curve" ? 2 : 3;
   currentBindings[spec.key] = points.length >= minimum
-    ? { kind: spec.kind, points: points.map((point) => [...point]), closed: bindingIsClosed(spec) }
+    ? {
+      kind: spec.kind,
+      points: points.map((point) => [...point]),
+      closed: bindingIsClosed(spec),
+      ...curveSettings,
+    }
     : previous;
   activeDrawing = null;
   controls.enabled = true;
@@ -3981,20 +4398,47 @@ function bindingOverlayHit(event) {
   return bindingRaycaster.intersectObjects(bindingOverlay.children, true)[0] || null;
 }
 
+function bindingOverlayHandleHit(event) {
+  setBindingPointer(event);
+  const hits = bindingRaycaster.intersectObjects(bindingOverlay.children, true)
+    .filter((hit) => !!bindingHandleFromObject(hit.object));
+  return hits.find((hit) => bindingHandleFromObject(hit.object)?.type === "bezier-handle")
+    || hits.find((hit) => bindingHandleFromObject(hit.object)?.type === "point")
+    || hits.find((hit) => bindingHandleFromObject(hit.object)?.type === "point-axis")
+    || hits[0]
+    || null;
+}
+
 function startBindingDrag(event) {
   if (!bindingEditEnabled || activeDrawing || event.button !== 0) return false;
-  const hit = bindingOverlayHit(event);
-  const handle = hit?.object?.userData?.bindingHandle;
+  const hit = bindingOverlayHandleHit(event);
+  const handle = bindingHandleFromObject(hit?.object);
   if (!handle) return false;
   const spec = drawableBindingSpec();
   const binding = currentBindings[spec.key];
-  const startPoint = localBindingPointFromEvent(event);
+  const startPoint = handle.type === "point" || handle.type === "point-axis"
+    ? [0, 0, 0]
+    : localBindingPointFromEvent(event);
   if (!binding?.points?.length || !startPoint) return false;
-  selectedBindingPoint = handle.type === "point" ? handle.index : -1;
+  selectedBindingPoint = ["point", "point-axis", "bezier-handle"].includes(handle.type) ? handle.index : -1;
+  const axisConfig = handle.type === "point-axis" ? BINDING_AXIS_CONFIG[handle.axis] : null;
+  const axisOrigin = axisConfig
+    ? new THREE.Vector3(
+      Number(binding.points[handle.index][0]) + modelRoot.position.x,
+      Number(binding.points[handle.index][1]) + modelRoot.position.y + 0.055,
+      Number(binding.points[handle.index][2]) + modelRoot.position.z,
+    )
+    : null;
   bindingDrag = {
     ...cloneSerializable(handle),
     spec,
     startPoint,
+    startClientX: event.clientX,
+    startClientY: event.clientY,
+    ...(axisConfig ? {
+      axisCoordinate: axisConfig.coordinate,
+      axisPixelsPerWorld: projectedAxisPixelsPerWorld(axisOrigin, axisConfig.direction),
+    } : {}),
     original: cloneSerializable(binding),
   };
   controls.enabled = false;
@@ -4008,11 +4452,61 @@ function startBindingDrag(event) {
 
 function moveBindingDrag(event) {
   if (!bindingDrag) return;
-  const point = localBindingPointFromEvent(event);
-  if (!point) return;
+  const point = bindingDrag.type === "point-axis" ? null : localBindingPointFromEvent(event);
+  if (bindingDrag.type !== "point-axis" && !point) return;
   const next = cloneSerializable(bindingDrag.original);
-  if (bindingDrag.type === "point") {
-    next.points[bindingDrag.index] = [point[0], next.points[bindingDrag.index][1] || 0, point[2]];
+  if (bindingDrag.type === "point-axis") {
+    const originalPoint = bindingDrag.original.points[bindingDrag.index];
+    const [axisX, axisY] = bindingDrag.axisPixelsPerWorld;
+    const length2 = axisX * axisX + axisY * axisY;
+    const dx = event.clientX - bindingDrag.startClientX;
+    const dy = event.clientY - bindingDrag.startClientY;
+    const fallbackWorldPerPixel = Math.max(lastSize.x, lastSize.y, lastSize.z, 1)
+      / Math.max(240, renderer.domElement.clientHeight);
+    const delta = length2 > 1
+      ? (dx * axisX + dy * axisY) / length2
+      : -dy * fallbackWorldPerPixel;
+    next.points[bindingDrag.index] = [...originalPoint];
+    next.points[bindingDrag.index][bindingDrag.axisCoordinate] = Number(
+      (originalPoint[bindingDrag.axisCoordinate] + delta).toFixed(4),
+    );
+  } else if (bindingDrag.type === "point") {
+    const originalPoint = bindingDrag.original.points[bindingDrag.index];
+    if (event.altKey) {
+      const worldPerPixel = Math.max(lastSize.x, lastSize.y, lastSize.z, 1)
+        / Math.max(240, renderer.domElement.clientHeight);
+      next.points[bindingDrag.index] = [
+        originalPoint[0],
+        originalPoint[1] + (bindingDrag.startClientY - event.clientY) * worldPerPixel,
+        originalPoint[2],
+      ];
+    } else {
+      next.points[bindingDrag.index] = [point[0], originalPoint[1] || 0, point[2]];
+    }
+  } else if (bindingDrag.type === "bezier-handle") {
+    const anchor = bindingDrag.original.points[bindingDrag.index];
+    const mode = bindingDrag.original.handles?.[bindingDrag.index]?.mode || "free";
+    const handle = ensureBindingHandle(next, bindingDrag.index, mode);
+    const previousVector = handle[bindingDrag.side] || [0, 0, 0];
+    const vector = event.altKey
+      ? [
+        previousVector[0],
+        previousVector[1] + (bindingDrag.startClientY - event.clientY) * Math.max(lastSize.x, lastSize.y, lastSize.z, 1) / Math.max(240, renderer.domElement.clientHeight),
+        previousVector[2],
+      ]
+      : [point[0] - anchor[0], previousVector[1], point[2] - anchor[2]];
+    handle[bindingDrag.side] = vector;
+    const opposite = bindingDrag.side === "in" ? "out" : "in";
+    if (handle.mode === "mirrored") handle[opposite] = vector.map((value) => -value || 0);
+    if (handle.mode === "aligned") {
+      const old = handle[opposite] || [0, 0, 0];
+      const oldLength = Math.hypot(...old);
+      const newLength = Math.hypot(...vector);
+      handle[opposite] = newLength > 1e-9
+        ? vector.map((value) => -value * oldLength / newLength)
+        : [0, 0, 0];
+    }
+    if (handle.mode === "auto" || handle.mode === "corner") handle.mode = "free";
   } else if (bindingDrag.type === "translate") {
     const dx = point[0] - bindingDrag.startPoint[0];
     const dz = point[2] - bindingDrag.startPoint[2];
@@ -4071,9 +4565,32 @@ function insertBindingPoint(event) {
   const overlayHit = bindingOverlayHit(event);
   if (!overlayHit?.object?.userData?.bindingPath) return false;
   const spec = drawableBindingSpec();
+  if (spec?.kind === "surface") return false;
   const binding = currentBindings[spec.key];
   const point = localBindingPointFromEvent(event);
   if (!binding?.points?.length || !point) return false;
+  if (spec.kind === "curve-graph") {
+    const edgeIndex = Number(overlayHit.object.userData.bindingGraphEdge);
+    const edge = binding.edges?.[edgeIndex];
+    if (!edge) return false;
+    const previous = cloneSerializable(binding);
+    const newIndex = binding.points.length;
+    const from = Number(edge.from ?? edge[0]);
+    const to = Number(edge.to ?? edge[1]);
+    binding.points.push(point);
+    binding.pointAttributes?.push({});
+    binding.edges.splice(edgeIndex, 1,
+      { ...edge, from, to: newIndex, points: [] },
+      { ...edge, from: newIndex, to, points: [] },
+    );
+    selectedBindingPoint = newIndex;
+    pushBindingHistory(previous);
+    renderParamPanel();
+    syncDrawableUi();
+    rebuildAfterParamChange({ keepCamera: true });
+    event.preventDefault();
+    return true;
+  }
   const count = binding.points.length;
   const segmentCount = binding.closed || bindingIsClosed(spec) ? count : count - 1;
   let bestIndex = -1;
@@ -4094,6 +4611,8 @@ function insertBindingPoint(event) {
   if (bestIndex < 0) return false;
   const previous = cloneSerializable(binding);
   binding.points.splice(bestIndex, 0, point);
+  if (binding.handles) binding.handles.splice(bestIndex, 0, undefined);
+  if (binding.pointAttributes) binding.pointAttributes.splice(bestIndex, 0, {});
   selectedBindingPoint = bestIndex;
   pushBindingHistory(previous);
   renderParamPanel();
@@ -4105,11 +4624,23 @@ function insertBindingPoint(event) {
 
 function deleteSelectedBindingPoint() {
   const spec = drawableBindingSpec();
+  if (spec?.kind === "surface") return false;
   const binding = spec && currentBindings[spec.key];
-  const minimum = bindingIsClosed(spec) ? 3 : 2;
+  const minimum = spec?.kind === "curve-graph" ? 1 : bindingIsClosed(spec) ? 3 : 2;
   if (!bindingEditEnabled || !binding?.points || selectedBindingPoint < 0 || binding.points.length <= minimum) return false;
   const previous = cloneSerializable(binding);
   binding.points.splice(selectedBindingPoint, 1);
+  if (spec.kind === "curve-graph") {
+    binding.edges = (binding.edges || [])
+      .filter((edge) => Number(edge.from ?? edge[0]) !== selectedBindingPoint && Number(edge.to ?? edge[1]) !== selectedBindingPoint)
+      .map((edge) => ({
+        ...edge,
+        from: Number(edge.from ?? edge[0]) > selectedBindingPoint ? Number(edge.from ?? edge[0]) - 1 : Number(edge.from ?? edge[0]),
+        to: Number(edge.to ?? edge[1]) > selectedBindingPoint ? Number(edge.to ?? edge[1]) - 1 : Number(edge.to ?? edge[1]),
+      }));
+  }
+  if (binding.handles) binding.handles.splice(selectedBindingPoint, 1);
+  if (binding.pointAttributes) binding.pointAttributes.splice(selectedBindingPoint, 1);
   selectedBindingPoint = Math.min(selectedBindingPoint, binding.points.length - 1);
   pushBindingHistory(previous);
   renderParamPanel();
@@ -4141,8 +4672,42 @@ function selectModelPartFromViewport(event) {
   return true;
 }
 
+function beginGraphBranch() {
+  const spec = drawableBindingSpec();
+  if (spec?.kind !== "curve-graph" || selectedBindingPoint < 0) return false;
+  graphBranchSource = selectedBindingPoint;
+  controls.enabled = false;
+  syncDrawableUi();
+  return true;
+}
+
+function addGraphBranchPoint(event) {
+  if (graphBranchSource < 0 || event.button !== 0) return false;
+  const spec = drawableBindingSpec();
+  const binding = spec && currentBindings[spec.key];
+  const point = localBindingPointFromEvent(event);
+  if (spec?.kind !== "curve-graph" || !binding?.points?.[graphBranchSource] || !point) return false;
+  const previous = cloneSerializable(binding);
+  const newIndex = binding.points.length;
+  binding.points.push(point);
+  binding.pointAttributes?.push({});
+  binding.edges ||= [];
+  binding.edges.push({ from: graphBranchSource, to: newIndex, curveType: binding.curveType || "catmull-rom" });
+  selectedBindingPoint = newIndex;
+  graphBranchSource = -1;
+  controls.enabled = true;
+  pushBindingHistory(previous);
+  renderParamPanel();
+  syncDrawableUi();
+  rebuildAfterParamChange({ keepCamera: true });
+  event.preventDefault();
+  event.stopPropagation();
+  return true;
+}
+
 renderer.domElement.addEventListener("pointerdown", addDrawingPoint);
 renderer.domElement.addEventListener("pointerdown", (event) => {
+  if (addGraphBranchPoint(event)) return;
   viewportPress = { x: event.clientX, y: event.clientY };
   startBindingDrag(event);
 });
@@ -4177,7 +4742,11 @@ document.addEventListener("keydown", (event) => {
     redoBindingEdit();
     return;
   }
-  if (activeDrawing && event.key === "Escape") cancelBindingDrawing();
+  if (graphBranchSource >= 0 && event.key === "Escape") {
+    graphBranchSource = -1;
+    controls.enabled = true;
+    syncDrawableUi();
+  } else if (activeDrawing && event.key === "Escape") cancelBindingDrawing();
   else if (bindingEditEnabled && event.key === "Escape") setBindingEditEnabled(false);
   if (activeDrawing && event.key === "Backspace") {
     event.preventDefault();
@@ -4253,6 +4822,11 @@ function applyModelScenePreset(model) {
     fogPass.enabled = fogOn;
     if (fogBtn) fogBtn.classList.toggle("on", fogOn);
   }
+  if (["none", "shadow", "glossy", "mirror"].includes(preset.floor)) {
+    applyFloor(preset.floor);
+    const floorInput = document.getElementById("floor");
+    if (floorInput) floorInput.value = preset.floor;
+  }
   if (typeof preset.grid === "boolean") {
     grid.visible = preset.grid;
     const gridBtn = document.getElementById("grid");
@@ -4297,6 +4871,15 @@ function applyModelScenePreset(model) {
     updateCameraClipPlanes();
     controls.update();
     if (bokeh) bokeh.uniforms["focus"].value = camera.position.distanceTo(controls.target);
+  } else if (preset.camera === "tactical") {
+    const radius = Math.max(lastSize.x, lastSize.z);
+    camera.fov = 42;
+    camera.updateProjectionMatrix();
+    camera.position.set(radius * 0.95, Math.max(lastSize.y * 1.3, radius * 0.9), radius * 1.45);
+    controls.target.set(0, lastSize.y * 0.35, -lastSize.z * 0.04);
+    updateCameraClipPlanes();
+    controls.update();
+    if (bokeh) bokeh.uniforms["focus"].value = camera.position.distanceTo(controls.target);
   } else if (preset.camera === "planet") {
     const radius = Math.max(lastSize.x, lastSize.y, lastSize.z);
     const centerY = lastSize.y * 0.5;
@@ -4314,7 +4897,7 @@ function applyModelScenePreset(model) {
 async function loadProcModel(model, { resetParams = true, showLoading = true, loadingLabel = "" } = {}) {
   const loadStart = performance.now();
   const loadingToken = showLoading
-    ? await showGenerationLoading(loadingLabel || `生成 ${model.name || "模型"}`)
+    ? await showGenerationLoading(loadingLabel || `生成 ${normalizeModelName(model.name, "模型")}`)
     : 0;
   cancelBindingDrawing();
   resetBindingEditorState();
@@ -4350,7 +4933,7 @@ function renderParamPanel() {
     const summary = document.createElement("div");
     summary.className = "workflow-summary";
     const tags = (preset.metadata?.tags || []).slice(0, 4).join(" · ");
-    summary.textContent = `${preset.metadata?.label || currentModel.name} · ${tags}`;
+    summary.textContent = `${preset.metadata?.label || normalizeModelName(currentModel.name)} · ${tags}`;
     panel.appendChild(summary);
   }
   for (const spec of currentModel.schema) {
@@ -4428,6 +5011,28 @@ function renderParamPanel() {
         updateScriptPanel();
       };
       row.append(label, toggle);
+      g.append(row);
+      panel.appendChild(g);
+      continue;
+    }
+    if (spec.type === "select") {
+      g.classList.add("select-group");
+      const select = document.createElement("select");
+      select.className = "param-select";
+      for (const item of spec.options || []) {
+        const option = document.createElement("option");
+        option.value = typeof item === "object" ? String(item.value) : String(item);
+        option.textContent = typeof item === "object" ? String(item.label ?? item.value) : String(item);
+        select.appendChild(option);
+      }
+      select.value = String(currentParams[spec.key]);
+      select.onchange = () => {
+        currentParams[spec.key] = select.value;
+        clearOptimizationRun();
+        rebuildAfterParamChange();
+        updateScriptPanel();
+      };
+      row.append(label, select);
       g.append(row);
       panel.appendChild(g);
       continue;
@@ -5117,10 +5722,10 @@ async function loadGeneratedModelById(id) {
     if (!res.ok) return null;
     const model = await res.json();
     if (model?.meta?.procedural?.type === "speedtree-library") {
-      await loadProcModel(makeSpeedTreeLibraryModel(model.meta.procedural, model.name), { loadingLabel: `生成 ${model.name || modelId}` });
+      await loadProcModel(makeSpeedTreeLibraryModel(model.meta.procedural, model.name), { loadingLabel: `生成 ${normalizeModelName(model.name, modelId)}` });
       return true;
     }
-    await loadViewerModel(model, { id: modelId, loadingLabel: `生成 ${model.name || modelId}` });
+    await loadViewerModel(model, { id: modelId, loadingLabel: `生成 ${normalizeModelName(model.name, modelId)}` });
     return true;
   } catch {
     return null;
@@ -5246,6 +5851,50 @@ if (drawBindingBtn) drawBindingBtn.onclick = () => activeDrawing ? finishBinding
 if (undoBindingBtn) undoBindingBtn.onclick = undoBindingEdit;
 if (redoBindingBtn) redoBindingBtn.onclick = redoBindingEdit;
 if (resetBindingBtn) resetBindingBtn.onclick = resetDrawableBinding;
+if (curveTypeSel) curveTypeSel.onchange = () => {
+  const spec = drawableBindingSpec();
+  if (!spec || spec.kind === "surface" || activeDrawing) return;
+  const binding = currentBindings[spec.key];
+  if (!binding?.points?.length || binding.curveType === curveTypeSel.value) return;
+  const previous = cloneSerializable(binding);
+  currentBindings[spec.key] = { ...binding, curveType: curveTypeSel.value };
+  pushBindingHistory(previous);
+  renderParamPanel();
+  syncDrawableUi();
+  rebuildAfterParamChange({ keepCamera: true });
+};
+if (tangentModeSel) tangentModeSel.onchange = () => setSelectedTangentMode(tangentModeSel.value);
+if (arcLengthBtn) arcLengthBtn.onclick = () => {
+  const spec = drawableBindingSpec();
+  const binding = spec && currentBindings[spec.key];
+  if (!binding) return;
+  const previous = cloneSerializable(binding);
+  binding.arcLength = !bindingCurveSettings(spec, binding).arcLength;
+  pushBindingHistory(previous);
+  syncDrawableUi();
+  rebuildAfterParamChange({ keepCamera: true });
+};
+if (addBranchBtn) addBranchBtn.onclick = () => graphBranchSource >= 0
+  ? (() => { graphBranchSource = -1; controls.enabled = true; syncDrawableUi(); })()
+  : beginGraphBranch();
+for (const [key, input] of Object.entries(curvePointInputs)) {
+  if (!input) continue;
+  input.onchange = () => {
+    const spec = drawableBindingSpec();
+    const binding = spec && currentBindings[spec.key];
+    if (!binding?.points || selectedBindingPoint < 0) return;
+    const previous = cloneSerializable(binding);
+    binding.pointAttributes ||= [];
+    while (binding.pointAttributes.length < binding.points.length) binding.pointAttributes.push({});
+    binding.pointAttributes[selectedBindingPoint] = {
+      ...binding.pointAttributes[selectedBindingPoint],
+      [key]: Number(input.value),
+    };
+    pushBindingHistory(previous);
+    syncDrawableUi();
+    rebuildAfterParamChange({ keepCamera: true });
+  };
+}
 
 document.querySelectorAll("[data-view]").forEach((b) => {
   b.onclick = () => {
@@ -5533,6 +6182,7 @@ addEventListener("resize", () => {
   bloom.setSize(stage.clientWidth, stage.clientHeight);
   if (bokeh) bokeh.setSize(stage.clientWidth, stage.clientHeight);
   resizeSceneDepthTarget();
+  resizeBindingAxisGizmos();
   resetTAA();
 });
 
@@ -5540,6 +6190,7 @@ addEventListener("resize", () => {
 // near plane cannot slice through large scenes after dollying inward.
 controls.addEventListener("change", () => {
   updateCameraClipPlanes();
+  resizeBindingAxisGizmos();
   resetTAA();
 });
 
@@ -5619,7 +6270,7 @@ function captureSceneDepth() {
   for (const mesh of waterSurfaceMeshes) mesh.visible = false;
   scene.overrideMaterial = fogDepthMat;
   scene.background = null;
-  renderer.setClearColor(0xffffff, 1);
+  renderer.setClearColor(REVERSED_DEPTH_BUFFER ? 0x000000 : 0xffffff, 1);
   renderer.setRenderTarget(fogDepthRT);
   renderer.clear();
   renderer.render(scene, camera);
@@ -5673,7 +6324,12 @@ window.__meshova = {
   setBinding: (key, binding) => {
     const spec = workflowBindingSpecs().find((item) => item.key === key);
     if (!spec || !binding || !Array.isArray(binding.points)) return false;
-    currentBindings[key] = cloneSerializable({ ...binding, kind: spec.kind, closed: bindingIsClosed(spec) });
+    currentBindings[key] = cloneSerializable({
+      ...bindingCurveSettings(spec, binding),
+      ...binding,
+      kind: spec.kind,
+      closed: bindingIsClosed(spec, binding),
+    });
     renderParamPanel();
     syncDrawableUi();
     return rebuildAfterParamChange().then(() => true);
@@ -5705,6 +6361,9 @@ window.__meshova = {
       gtaoEnabled: gtao.enabled,
       bloomEnabled: bloom.enabled,
       shadowsEnabled: renderer.shadowMap.enabled,
+      reversedDepthBuffer: REVERSED_DEPTH_BUFFER,
+      cameraNear: camera.near,
+      cameraFar: camera.far,
     };
   },
   setParam: (key, value) => {

@@ -27,6 +27,7 @@ export interface RiverSystemOptions {
   size?: number;
   resolution?: number;
   points?: number;
+  controlPoints?: ReadonlyArray<Vec3>;
   riverWidth?: number;
   riverDepth?: number;
   meander?: number;
@@ -86,15 +87,19 @@ export function buildRiverSystem2D(options: RiverSystemOptions = {}): RiverSyste
   const terrainHeight = Math.max(0, options.terrainHeight ?? 3.4);
   const seed = Math.round(options.seed ?? 0);
   const rng = makeRng(seed);
-  const points: Vec3[] = [];
-  for (let i = 0; i < pointCount; i++) {
-    const t = i / (pointCount - 1);
-    const z = -size * 0.48 + t * size * 0.96;
-    const envelope = Math.sin(Math.PI * t);
-    const x = (Math.sin(t * Math.PI * 3.1 + seed * 0.17) * 0.68
-      + Math.sin(t * Math.PI * 6.7 + seed * 0.07) * 0.22
-      + (rng.next() - 0.5) * 0.18) * meander * envelope;
-    points.push(vec3(x, 0, z));
+  const points: Vec3[] = options.controlPoints && options.controlPoints.length >= 2
+    ? options.controlPoints.map((point) => vec3(point.x, point.y, point.z))
+    : [];
+  if (points.length === 0) {
+    for (let i = 0; i < pointCount; i++) {
+      const t = i / (pointCount - 1);
+      const z = -size * 0.48 + t * size * 0.96;
+      const envelope = Math.sin(Math.PI * t);
+      const x = (Math.sin(t * Math.PI * 3.1 + seed * 0.17) * 0.68
+        + Math.sin(t * Math.PI * 6.7 + seed * 0.07) * 0.22
+        + (rng.next() - 0.5) * 0.18) * meander * envelope;
+      points.push(vec3(x, 0, z));
+    }
   }
   const centerline = smoothCurve(polyline(points), 5);
   const sampleCount = resolution * resolution;

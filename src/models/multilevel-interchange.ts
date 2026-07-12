@@ -159,7 +159,7 @@ function elevatedRoadParts(
   const parts: NamedPart[] = [
     named(`${key}_asphalt`, `${label}沥青`, roadRibbon(curve, { ...options, verticalOffset: 0.18 }), ASPHALT, "asphalt", 0.92),
     named(`${key}_slab`, `${label}桥面板`, roadDeck(curve, { ...options, thickness: 0.65 }), CONCRETE, "concrete", 0.84),
-    named(`${key}_edge_lines`, `${label}边缘线`, roadEdgeLines(curve, { ...options, verticalOffset: 0.2, lineWidth: 0.16, edgeInset: 0.28 }), ROAD_PAINT, "ceramic", 0.5),
+    named(`${key}_edge_lines`, `${label}边缘线`, roadEdgeLines(curve, { ...options, verticalOffset: 0.26, lineWidth: 0.16, edgeInset: 0.28 }), ROAD_PAINT, "ceramic", 0.5),
     named(`${key}_guardrails`, `${label}双侧护栏`, merge(
       roadGuardrail(curve, { ...options, side: -1, lateral: halfWidth + 0.12, postSpacing: 3.2, railHeight: 0.72 }),
       roadGuardrail(curve, { ...options, side: 1, lateral: halfWidth + 0.12, postSpacing: 3.2, railHeight: 0.72 }),
@@ -169,7 +169,7 @@ function elevatedRoadParts(
   if (lanes > 1) {
     parts.push(named(`${key}_lane_lines`, `${label}车道线`, roadLaneLines(curve, {
       ...options,
-      verticalOffset: 0.2,
+      verticalOffset: 0.26,
       lanes,
       dashed: true,
       dashLength: 3,
@@ -355,10 +355,10 @@ export function buildMultilevelInterchangeParts(params: Partial<MultilevelInterc
     const signalKit = buildTrafficSignalParts({ mastHeight: 6.5, armReach: 10.5, heads: 3, pedestrian: true, streetSign: true });
     const corner = 11.8;
     const placements: Array<[string, string, Vec3, number]> = [
-      ["northwest", "西北角", vec3(-corner, 0, groundIntersectionZ + corner), 0],
-      ["northeast", "东北角", vec3(corner, 0, groundIntersectionZ + corner), Math.PI / 2],
-      ["southeast", "东南角", vec3(corner, 0, groundIntersectionZ - corner), Math.PI],
-      ["southwest", "西南角", vec3(-corner, 0, groundIntersectionZ - corner), -Math.PI / 2],
+      ["northwest", "西北角", vec3(-corner, 0.03, groundIntersectionZ + corner), 0],
+      ["northeast", "东北角", vec3(corner, 0.03, groundIntersectionZ + corner), Math.PI / 2],
+      ["southeast", "东南角", vec3(corner, 0.03, groundIntersectionZ - corner), Math.PI],
+      ["southwest", "西南角", vec3(-corner, 0.03, groundIntersectionZ - corner), -Math.PI / 2],
     ];
     for (const [key, label, position, yaw] of placements) {
       parts.push(...placeParts(signalKit, `signal_${key}`, `地面路口${label}信号灯`, position, yaw));

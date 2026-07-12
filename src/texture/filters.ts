@@ -192,6 +192,41 @@ export function histogramRange(
   return mapAll(tex, (v) => clamp((v - low) / span, 0, 1));
 }
 
+export interface AutoLevelsOptions {
+  /** Fraction clipped from the dark end. Default 0. */
+  lowPercentile?: number;
+  /** Fraction clipped from the bright end. Default 0. */
+  highPercentile?: number;
+  /** Normalize each channel independently. Default true. */
+  perChannel?: boolean;
+}
+
+/** Analyze the buffer histogram and stretch its useful range to [0,1]. */
+export function autoLevels(
+  tex: TextureBuffer,
+  options: AutoLevelsOptions = {},
+): TextureBuffer {
+  const lowPercentile = clamp(options.lowPercentile ?? 0, 0, 0.49);
+  const highPercentile = clamp(options.highPercentile ?? 0, 0, 0.49);
+  const groupCount = options.perChannel === false ? 1 : tex.channels;
+  const values = Array.from({ length: groupCount }, () => [] as number[]);
+  for (let index = 0; index < tex.data.length; index++) {
+    values[options.perChannel === false ? 0 : index % tex.channels]!.push(tex.data[index]!);
+  }
+  const ranges = values.map((channelValues) => {
+    channelValues.sort((first, second) => first - second);
+    const last = channelValues.length - 1;
+    const low = channelValues[Math.floor(last * lowPercentile)] ?? 0;
+    const high = channelValues[Math.ceil(last * (1 - highPercentile))] ?? 1;
+    return [low, high] as const;
+  });
+  return mapAll(tex, (value, channel) => {
+    const range = ranges[options.perChannel === false ? 0 : channel]!;
+    const span = range[1] - range[0];
+    return span <= 1e-8 ? value : clamp((value - range[0]) / span, 0, 1);
+  });
+}
+
 /** Invert per channel (1 - v). SD's Invert. */
 export function invert(tex: TextureBuffer): TextureBuffer {
   return mapAll(tex, (v) => 1 - v);
@@ -292,6 +327,48 @@ export function minTex(a: TextureBuffer, b: TextureBuffer): TextureBuffer {
 export function maxTex(a: TextureBuffer, b: TextureBuffer): TextureBuffer {
   return mapAll(a, (v, c, x, y) => Math.max(v, px(b, x, y, c)));
 }
+
+export interface MorphologyOptions {
+  radius?: number;
+  shape?: "disc" | "square";
+}
+
+function morphology(
+  tex: TextureBuffer,
+  options: MorphologyOptions,
+  operation: "min" | "max",
+): TextureBuffer {
+  const radius = Math.max(0, Math.floor(options.radius ?? 1));
+  if (radius === 0) return clone(tex);
+  const disc = (options.shape ?? "disc") === "disc";
+  const out = makeTexture(tex.width, tex.height, tex.channels);
+  for (let y = 0; y < tex.height; y++) {
+    for (let x = 0; x < tex.width; x++) {
+      for (let channel = 0; channel < tex.channels; channel++) {
+        let result = operation === "max" ? -Infinity : Infinity;
+        for (let offsetY = -radius; offsetY <= radius; offsetY++) {
+          for (let offsetX = -radius; offsetX <= radius; offsetX++) {
+            if (disc && offsetX * offsetX + offsetY * offsetY > radius * radius) continue;
+            const value = px(tex, x + offsetX, y + offsetY, channel);
+            result = operation === "max" ? Math.max(result, value) : Math.min(result, value);
+          }
+        }
+        out.data[(y * tex.width + x) * tex.channels + channel] = result;
+      }
+    }
+  }
+  return out;
+}
+
+/** Expand bright regions of a mask or height field. */
+export function dilateMask(tex: TextureBuffer, options: MorphologyOptions = {}): TextureBuffer {
+  return morphology(tex, options, "max");
+}
+
+/** Contract bright regions of a mask or height field. */
+export function erodeMask(tex: TextureBuffer, options: MorphologyOptions = {}): TextureBuffer {
+  return morphology(tex, options, "min");
+}
 export interface WarpOptions {
   /** Displacement intensity in pixels. */
   intensity?: number;
@@ -353,6 +430,8 @@ export interface SlopeBlurOptions {
   intensity?: number;
   /** Iterations — more = stronger flow/erosion. */
   samples?: number;
+  /** Blur averages samples; min erodes peaks; max expands peaks. */
+  mode?: "blur" | "min" | "max";
 }
 
 /**
@@ -367,6 +446,7 @@ export function slopeBlur(
 ): TextureBuffer {
   const intensity = opts.intensity ?? 4;
   const samples = Math.max(1, Math.floor(opts.samples ?? 8));
+  const mode = opts.mode ?? "blur";
   const { width: w, height: h, channels: ch } = tex;
   let cur = clone(tex);
   const step = intensity / samples;
@@ -379,8 +459,13 @@ export function slopeBlur(
         const sx = x - gx * step;
         const sy = y - gy * step;
         for (let c = 0; c < ch; c++) {
-          // average current and dragged sample => progressive smear
-          next.data[(y * w + x) * ch + c] = (px(cur, x, y, c) + bilinear(cur, sx, sy, c)) * 0.5;
+          const current = px(cur, x, y, c);
+          const dragged = bilinear(cur, sx, sy, c);
+          next.data[(y * w + x) * ch + c] = mode === "min"
+            ? Math.min(current, dragged)
+            : mode === "max"
+              ? Math.max(current, dragged)
+              : (current + dragged) * 0.5;
         }
       }
     }
@@ -518,6 +603,28 @@ export function normalCombine(base: TextureBuffer, detail: TextureBuffer): Textu
       out.data[base3] = nx * 0.5 + 0.5;
       out.data[base3 + 1] = ny * 0.5 + 0.5;
       out.data[base3 + 2] = nz * 0.5 + 0.5;
+    }
+  }
+  return out;
+}
+
+/** Scale tangent-space normal intensity while preserving unit length. */
+export function scaleNormal(normal: TextureBuffer, strength: number): TextureBuffer {
+  const out = makeTexture(normal.width, normal.height, 3);
+  const amount = Math.max(0, strength);
+  for (let y = 0; y < normal.height; y++) {
+    for (let x = 0; x < normal.width; x++) {
+      let nx = (px(normal, x, y, 0) * 2 - 1) * amount;
+      let ny = (px(normal, x, y, 1) * 2 - 1) * amount;
+      let nz = px(normal, x, y, 2) * 2 - 1;
+      const length = Math.hypot(nx, ny, nz) || 1;
+      nx /= length;
+      ny /= length;
+      nz /= length;
+      const index = (y * normal.width + x) * 3;
+      out.data[index] = nx * 0.5 + 0.5;
+      out.data[index + 1] = ny * 0.5 + 0.5;
+      out.data[index + 2] = nz * 0.5 + 0.5;
     }
   }
   return out;
@@ -697,4 +804,3 @@ export function emboss(tex: TextureBuffer, opts: EmbossOptions = {}): TextureBuf
   }
   return out;
 }
-

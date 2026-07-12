@@ -5,6 +5,7 @@ import { basename, dirname, extname, join, normalize, relative, resolve } from "
 import { promisify } from "node:util";
 import { gzip } from "node:zlib";
 import { chromium } from "playwright";
+import { catOf, normalizeModelName } from "../web/gallery-categories.js";
 
 const root = resolve(process.cwd());
 const outDir = join(root, "out");
@@ -114,6 +115,11 @@ async function main() {
   const visibleModelIds = new Set(runtimeSets.visibleModelIds);
   const models = sourceModels
     .filter((model) => isGeneratedLibraryEntry(model, procModelIds, visibleModelIds))
+    .map((model) => ({
+      ...model,
+      name: normalizeModelName(model.name || model.id, model.id),
+      category: catOf(model.id, model),
+    }))
     .sort((left, right) => String(left.id).localeCompare(String(right.id)));
 
   assertInsideRoot(dataDir);

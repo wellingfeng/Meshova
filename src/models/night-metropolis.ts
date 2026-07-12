@@ -177,7 +177,10 @@ function addGroundAndRoads(
   }
   for (let street = 0; street <= blocksZ; street++) {
     const z = (street - blocksZ / 2) * pitch;
-    bag.addBox("streets", "横向城市道路", asphalt, roadSurface, [0, 0.018, z], [spanX, 0.045, params.streetWidth]);
+    for (let segment = 0; segment < blocksX; segment++) {
+      const x = (segment + 0.5 - blocksX / 2) * pitch;
+      bag.addBox("streets", "横向城市道路", asphalt, roadSurface, [x, 0.04, z], [pitch - params.streetWidth - 0.04, 0.045, params.streetWidth]);
+    }
     addRoadMarking(bag, 0, z, spanX, 0.16, "x");
   }
 }
@@ -195,7 +198,7 @@ function addRoadMarking(
   const dashLength = length / dashCount * 0.48;
   for (let index = 0; index < dashCount; index++) {
     const offset = -length / 2 + (index + 0.5) * (length / dashCount);
-    const position: [number, number, number] = axis === "x" ? [offset, 0.055, z] : [x, 0.055, offset];
+    const position: [number, number, number] = axis === "x" ? [offset, 0.09, z] : [x, 0.09, offset];
     const scale: [number, number, number] = axis === "x" ? [dashLength, 0.025, 0.13] : [0.13, 0.025, dashLength];
     bag.addBox(
       "road_markings",
@@ -236,7 +239,7 @@ function addTower(
 
   if (height > 30 && rng.next() < 0.72) {
     const podiumHeight = Math.min(7, height * 0.13);
-    bag.addBox("tower_podiums", "塔楼裙房", [0.1, 0.11, 0.13], { type: "concrete", params: { color: [0.1, 0.11, 0.13], roughness: 0.72 } }, [x, podiumHeight / 2, z], [width * 1.12, podiumHeight, depth * 1.12]);
+    bag.addBox("tower_podiums", "塔楼裙房", [0.1, 0.11, 0.13], { type: "concrete", params: { color: [0.1, 0.11, 0.13], roughness: 0.72 } }, [x, podiumHeight / 2 - 0.04, z], [width * 1.12, podiumHeight, depth * 1.12]);
   }
   bag.addBox(group.name, group.label, group.color, surface, [x, height / 2, z], [width, height, depth]);
 
@@ -246,7 +249,7 @@ function addTower(
   }
   if (height > 40 && rng.next() < 0.2) {
     const mastHeight = rng.range(5, 12);
-    bag.addBox("tower_masts", "楼顶天线", [0.18, 0.22, 0.28], { type: "metal", params: { color: [0.18, 0.22, 0.28], roughness: 0.3 } }, [x, height + mastHeight / 2, z], [0.22, mastHeight, 0.22]);
+    bag.addBox("tower_masts", "楼顶天线", [0.18, 0.22, 0.28], { type: "metal", params: { color: [0.18, 0.22, 0.28], roughness: 0.3 } }, [x, height + 0.05 + mastHeight / 2, z], [0.22, mastHeight, 0.22]);
   }
 
   addWindowBands(bag, params, rng, x, z, width, depth, height, floors);
@@ -301,7 +304,7 @@ function addLandmarkCore(bag: MetropolisBag, params: NightMetropolisParams, span
     const width = index === 0 ? 15 : 11;
     const depth = index === 0 ? 13 : 10;
     const height = (params.maxFloors + 12 - index * 6) * params.floorHeight;
-    bag.addBox("landmark_towers", "核心区地标塔楼", [0.055, 0.1, 0.15], { type: "metal", params: { color: [0.055, 0.1, 0.15], roughness: 0.28 } }, [x, height / 2, z], [width, height, depth]);
+    bag.addBox("landmark_towers", "核心区地标塔楼", [0.055, 0.1, 0.15], { type: "metal", params: { color: [0.055, 0.1, 0.15], roughness: 0.28 } }, [x, height / 2 + 0.1, z], [width, height, depth]);
     addWindowBands(bag, { ...params, litWindowRatio: 0.92 }, landmarkRng.fork(), x, z, width, depth, height, params.maxFloors + 12 - index * 6);
     const beaconHeight = 9 - index;
     bag.addBox("landmark_beacons", "地标塔顶信标", [0.25, 0.75, 1], { type: "emissive", params: { color: [0.25, 0.75, 1], intensity: 5 } }, [x, height + beaconHeight / 2, z], [0.3, beaconHeight, 0.3]);

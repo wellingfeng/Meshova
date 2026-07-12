@@ -21,6 +21,7 @@ import {
   transform,
   helix,
   polyline,
+  solidify,
   sweep,
   type Mesh,
   type NamedPart,
@@ -244,7 +245,10 @@ function spiralStair(p: ProceduralSiloParams): { rails: Mesh; treads: Mesh } {
 
 function centralCore(p: ProceduralSiloParams): { core: Mesh; glass: Mesh; rings: Mesh } {
   const core = transform(cylinder(0.46, p.height * 0.94, 32, true), { translate: vec3(0, p.height * 0.47, 0) });
-  const glass = transform(cylinder(0.74, p.height * 0.9, 32, false), { translate: vec3(0, p.height * 0.48, 0) });
+  const glass = transform(solidify(cylinder(0.74, p.height * 0.9, 32, false), {
+    thickness: 0.018,
+    offset: 0,
+  }), { translate: vec3(0, p.height * 0.48, 0) });
   const rings: Mesh[] = [];
   const spacing = p.height / (p.levels + 1);
   for (let i = 0; i < p.levels; i += 2) {

@@ -348,6 +348,7 @@ function appendPine(
     const tierScale = 1 - tier * 0.2;
     const tierHeight = height * (0.34 + tier * 0.2);
     foliage.push(transform(cone(scale * 0.5 * tierScale, height * 0.56, 7, true), {
+      rotate: vec3(0, rng.range(0.08, Math.PI * 2 - 0.08), 0),
       translate: vec3(x, y + tierHeight, z),
     }));
   }

@@ -1,0 +1,41 @@
+import {
+  buildModularRescueRover,
+  serializeAssemblyState,
+  toOBJScene,
+  toViewerModel,
+} from "../src/index.js";
+
+const id = "modular-rescue-rover";
+const build = buildModularRescueRover();
+const { obj, mtl } = toOBJScene(build.parts, `${id}.mtl`);
+const model = toViewerModel(build.parts, id);
+
+const fs = await import("node:fs");
+const path = await import("node:path");
+const outDir = path.resolve(process.cwd(), "out");
+fs.mkdirSync(outDir, { recursive: true });
+fs.writeFileSync(path.join(outDir, `${id}.obj`), obj);
+fs.writeFileSync(path.join(outDir, `${id}.mtl`), mtl);
+fs.writeFileSync(path.join(outDir, `${id}.json`), JSON.stringify(model));
+fs.writeFileSync(path.join(outDir, `${id}.assembly.json`), JSON.stringify({
+  state: JSON.parse(serializeAssemblyState(build.state)),
+  summary: build.summary,
+}, null, 2));
+
+const manifestPath = path.join(outDir, "models.json");
+let manifest: { models: Array<{ id: string; name: string; file: string }> } = { models: [] };
+if (fs.existsSync(manifestPath)) {
+  try {
+    manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+  } catch {
+    manifest = { models: [] };
+  }
+}
+const entry = { id, name: "模块化远征救援车", file: `${id}.json` };
+manifest.models = manifest.models.filter((candidate) => candidate.id !== id);
+manifest.models.push(entry);
+fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
+
+console.log(`${entry.name}: ${model.meta.parts} parts, ${model.meta.verts} verts, ${model.meta.tris} tris`);
+console.log(`capability: ${build.summary.peakTorqueNm} Nm, ${build.summary.seats} seats, ${build.summary.payloadKg} kg payload`);
+console.log(`written: out/${id}.{obj,mtl,json,assembly.json} + out/models.json`);

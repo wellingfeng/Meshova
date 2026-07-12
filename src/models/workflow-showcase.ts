@@ -4,6 +4,7 @@ import {
   applyScatterTable,
   box,
   cone,
+  controlCurve,
   cylinder,
   icosphere,
   makePointCloud,
@@ -11,7 +12,6 @@ import {
   plane,
   polyline,
   resampleCurve,
-  smoothCurve,
   sweep,
   transform,
   type Curve,
@@ -27,6 +27,10 @@ export interface DrawableWorkflowBinding {
   readonly kind: "curve" | "region" | "surface";
   readonly points: ReadonlyArray<readonly [number, number, number]>;
   readonly closed?: boolean;
+  readonly curveType?: "polyline" | "catmull-rom" | "bezier" | "b-spline";
+  readonly subdivisions?: number;
+  readonly tension?: number;
+  readonly degree?: number;
 }
 
 export interface WorkflowModelContext {
@@ -56,17 +60,23 @@ export interface PathLightsParams {
 const FENCE_DEFAULT: DrawableWorkflowBinding = {
   kind: "curve",
   points: [[-4, 0, -1.4], [-1.6, 0, 0.2], [1.2, 0, -0.5], [4, 0, 1.2]],
+  curveType: "catmull-rom",
+  subdivisions: 8,
 };
 
 const GROVE_DEFAULT: DrawableWorkflowBinding = {
   kind: "region",
   closed: true,
   points: [[-4, 0, -2.8], [3.5, 0, -2.4], [4.2, 0, 2.3], [0.4, 0, 3.2], [-3.8, 0, 1.8]],
+  curveType: "catmull-rom",
+  subdivisions: 8,
 };
 
 const LIGHTS_DEFAULT: DrawableWorkflowBinding = {
   kind: "curve",
   points: [[-4.5, 0, -1.8], [-2, 0, 0.8], [0.8, 0, -0.4], [4.5, 0, 1.6]],
+  curveType: "catmull-rom",
+  subdivisions: 8,
 };
 
 export const DRAWABLE_FENCE_WORKFLOW: WorkflowPreset = workflowPreset(
@@ -141,7 +151,7 @@ export function buildRegionGroveParts(
   params: RegionGroveParams,
   context: WorkflowModelContext = {},
 ): NamedPart[] {
-  const region = bindingPoints(context, "region", GROVE_DEFAULT);
+  const region = sampledBindingPoints(context, "region", GROVE_DEFAULT, true);
   const bounds = boundsXZ(region);
   const spacing = Math.max(0.25, params.spacing);
   const candidates: Vec3[] = [];
@@ -298,7 +308,20 @@ function workflowPreset(
       nodes: [{ id: "output", op: id, args: [{ $binding: bindingKey }, ...exposedParams.map((param) => ({ $param: param.key }))] }],
     },
     exposedParams,
-    bindings: [{ key: bindingKey, label: bindingLabel, kind: bindingKind, required: false, default: defaultBinding }],
+    bindings: [{
+      key: bindingKey,
+      label: bindingLabel,
+      kind: bindingKind,
+      required: false,
+      default: defaultBinding,
+      editor: {
+        curveType: defaultBinding.curveType ?? "catmull-rom",
+        curveTypes: ["catmull-rom", "bezier", "b-spline", "polyline"],
+        subdivisions: defaultBinding.subdivisions ?? 8,
+        tension: defaultBinding.tension ?? 0.5,
+        degree: defaultBinding.degree ?? 3,
+      },
+    }],
     execution: { debounceMs: 100 },
   };
 }
@@ -315,6 +338,22 @@ function bindingPoints(
     : fallback.points.map((point) => vec3(point[0], point[1], point[2]));
 }
 
+function sampledBindingPoints(
+  context: WorkflowModelContext,
+  key: string,
+  fallback: DrawableWorkflowBinding,
+  closed: boolean,
+): Vec3[] {
+  const binding = context.bindings?.[key] ?? fallback;
+  return controlCurve(bindingPoints(context, key, fallback), {
+    type: binding.curveType ?? fallback.curveType ?? "catmull-rom",
+    closed,
+    subdivisions: binding.subdivisions ?? fallback.subdivisions ?? 8,
+    tension: binding.tension ?? fallback.tension ?? 0.5,
+    degree: binding.degree ?? fallback.degree ?? 3,
+  }).points;
+}
+
 function bindingCurve(
   context: WorkflowModelContext,
   key: string,
@@ -322,10 +361,8 @@ function bindingCurve(
   closed: boolean,
   spacing: number,
 ): Curve {
-  const points = bindingPoints(context, key, fallback);
-  const source = polyline(points, closed);
-  const smoothed = points.length > 2 && !closed ? smoothCurve(source, 4) : source;
-  return resampleCurve(smoothed, { segmentLength: Math.max(0.1, spacing) });
+  const sampled = sampledBindingPoints(context, key, fallback, closed);
+  return resampleCurve(polyline(sampled, closed), { segmentLength: Math.max(0.1, spacing) });
 }
 
 function offsetCurveY(curve: Curve, y: number): Curve {

@@ -410,7 +410,7 @@ function buildBiomeShowcase(p: EcosystemFeatureParams): NamedPart[] {
     rocks: 0.32,
     deadwood: 0.04,
     canopy: 0.7,
-  }), [0.22, 0.38, 0.075]), vec3(-9, 0, 0), vec3(0.92, 0.92, 0.92));
+  }), [0.22, 0.38, 0.075]), vec3(-9, 0.04, 0), vec3(0.92, 0.92, 0.92));
   const forest = referenceForestParts("biome_forest", "biome-blend", p, {
     ...common,
     candidates: Math.round(560 * p.density),
@@ -435,8 +435,8 @@ function buildBiomeShowcase(p: EcosystemFeatureParams): NamedPart[] {
     ...part,
     label: "湿地水道",
     color: [0.055, 0.24, 0.24] as RGB,
-    surface: { type: "glass", params: { color: [0.055, 0.24, 0.24], roughness: 0.28 } },
-  } : part), vec3(9, 0, 0), vec3(0.92, 0.92, 0.92));
+    surface: { type: "water", params: { body: "pond", tint: [0.055, 0.24, 0.24], roughness: 0.28, transmission: 0.42 } },
+  } : part), vec3(9, -0.04, 0), vec3(0.92, 0.92, 0.92));
   return [
     ...grassland,
     ...forest,
@@ -527,7 +527,7 @@ function buildLodShowcase(p: EcosystemFeatureParams): NamedPart[] {
     rocks: 0.4,
     deadwood: 0.18,
     pathWidth: 1.5,
-  }, { decisions }), vec3(0, 0, -9), vec3(0.92, 0.92, 0.72));
+  }, { decisions }), vec3(0, 0.04, -9), vec3(0.92, 0.92, 0.72));
   return [
     basePart("lod_ground", "LOD 流送地形", 30, 40, [0.13, 0.22, 0.09], { feature: "lod-streaming", decisions }),
     ...nearForest,

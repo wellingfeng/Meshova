@@ -315,10 +315,12 @@ export function roadCenterLine(
   return roadRibbon(centerline, {
     ...options,
     halfWidth: lineWidth * 0.5,
-    verticalOffset: (options.verticalOffset ?? 0) + 0.01,
+    verticalOffset: (options.verticalOffset ?? 0) + ROAD_MARKING_LIFT,
     widthSubdivisions: 1,
   });
 }
+
+const ROAD_MARKING_LIFT = 0.04;
 
 export interface RoadMarkingOptions extends RoadRibbonOptions {
   /** Painted line width (metres). */
@@ -416,7 +418,7 @@ export function roadLaneLines(
   for (let i = 1; i < lanes; i++) {
     if (skipCenter && lanes % 2 === 0 && i === centerIdx) continue;
     const lateral = -opt.halfWidth + laneW * i;
-    const strip = paintedStrip(points, cum, opt, lateral, halfLine, dashed, dashLen, gapLen, 0.012);
+    const strip = paintedStrip(points, cum, opt, lateral, halfLine, dashed, dashLen, gapLen, ROAD_MARKING_LIFT);
     const off = positions.length;
     positions.push(...strip.positions);
     uvs.push(...strip.uvs);
@@ -447,7 +449,7 @@ export function roadEdgeLines(
   const indices: number[] = [];
   for (const side of [-1, 1] as const) {
     const lateral = side * (opt.halfWidth - inset);
-    const strip = paintedStrip(points, cum, opt, lateral, halfLine, false, 0, 0, 0.012);
+    const strip = paintedStrip(points, cum, opt, lateral, halfLine, false, 0, 0, ROAD_MARKING_LIFT);
     const off = positions.length;
     positions.push(...strip.positions);
     uvs.push(...strip.uvs);
@@ -981,11 +983,12 @@ export function roadSignGantry(
     const right = rightAtDistance(points, cum, d);
     const tan = tangentAtDistance(points, cum, d);
     const y0 = center.y + opt.verticalOffset;
+    const embed = 0.04;
     // Two poles at +/- halfSpan.
     for (const s of [-1, 1] as const) {
       const foot = add(center, scale(right, s * halfSpan));
-      const c = vec3(foot.x, y0 + clearance * 0.5, foot.z);
-      emitOrientedBox(positions, uvList, indices, c, right, UP, tan, poleR, clearance * 0.5, poleR);
+      const c = vec3(foot.x, y0 + (clearance - embed) * 0.5, foot.z);
+      emitOrientedBox(positions, uvList, indices, c, right, UP, tan, poleR, (clearance + embed) * 0.5, poleR);
     }
     // Horizontal truss beam across the top.
     const beamC = vec3(center.x, y0 + clearance + beamT * 0.5, center.z);
@@ -1046,10 +1049,11 @@ export function roadLightPoles(
     const right = rightAtDistance(points, cum, d);
     const tan = tangentAtDistance(points, cum, d);
     const y0 = center.y + opt.verticalOffset;
+    const embed = 0.04;
     // Vertical mast at the edge, base at road level.
     const foot = add(center, scale(right, side * lateral));
-    const mastC = vec3(foot.x, y0 + poleH * 0.5, foot.z);
-    emitOrientedBox(positions, uvList, indices, mastC, right, UP, tan, poleR, poleH * 0.5, poleR);
+    const mastC = vec3(foot.x, y0 + (poleH - embed) * 0.5, foot.z);
+    emitOrientedBox(positions, uvList, indices, mastC, right, UP, tan, poleR, (poleH + embed) * 0.5, poleR);
     // Cantilever arm reaching inward over the carriageway at the mast top.
     const armInner = add(foot, scale(right, side * -armLen));
     const armC = vec3((foot.x + armInner.x) * 0.5, y0 + poleH, (foot.z + armInner.z) * 0.5);

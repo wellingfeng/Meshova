@@ -618,6 +618,28 @@ describe("transparency policy", () => {
     }], { goal: "a window" });
     expect(report.issues.some((i) => /transparent\/translucent semantics|unintended translucency/.test(i.finding))).toBe(false);
   });
+
+  it("flags an open glass vessel even when its name implies glass", () => {
+    const report = critique([{
+      name: "wine_glass",
+      label: "高脚酒杯",
+      mesh: cylinder(0.4, 1.2, 24, false),
+      surface: { type: "glass", params: { tint: [0.8, 0.9, 1] } },
+    }], { goal: "a wine glass" });
+    expect(report.issues.some((issue) => /single-sided\/open transmissive shell/.test(issue.finding))).toBe(true);
+    expect(report.passed).toBe(false);
+  });
+
+  it("rejects double-sided rendering on closed transmissive solids", () => {
+    const report = critique([{
+      name: "window_glass",
+      label: "窗户玻璃",
+      mesh: box(1, 1, 0.04),
+      surface: { type: "glass", params: { tint: [0.8, 0.9, 1] } },
+      doubleSided: true,
+    }], { goal: "a window" });
+    expect(report.issues.some((issue) => /forced double-sided/.test(issue.finding))).toBe(true);
+  });
 });
 
 describe("foliage morphology", () => {

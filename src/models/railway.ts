@@ -18,6 +18,7 @@ import {
   type Curve,
   type NamedPart,
 } from "../geometry/index.js";
+import { vec3, type Vec3 } from "../math/vec3.js";
 
 type RGB = [number, number, number];
 
@@ -27,6 +28,7 @@ const SLEEPER_CONCRETE: RGB = [0.6, 0.6, 0.62];
 const STEEL: RGB = [0.5, 0.51, 0.53];
 
 export interface RailwayParams {
+  readonly controlPoints?: ReadonlyArray<Vec3>;
   /** Run length (metres). */
   length: number;
   /** Lateral bend amplitude of the S-curve centerline (0 = straight). */
@@ -52,6 +54,9 @@ export const DEFAULT_RAILWAY: RailwayParams = {
 
 /** Deterministic smoothed S-curve centerline on the XZ plane. */
 function railwayCenterline(p: RailwayParams): Curve {
+  if (p.controlPoints && p.controlPoints.length >= 2) {
+    return smoothCurve(polyline(p.controlPoints.map((point) => vec3(point.x, point.y, point.z))), 6);
+  }
   const half = p.length / 2;
   const curve = bezier(
     { x: -p.bend, y: 0, z: -half },

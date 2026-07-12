@@ -1,0 +1,2502 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Meshova 模型库 · 自审分低于 85 报告</title>
+<style>
+  :root{color-scheme:dark;--bg:#080b10;--panel:#101620;--panel2:#151d29;--line:#263245;--text:#f1f5fb;--muted:#91a0b5;--cyan:#49d7ff;--orange:#ffb35c;--red:#ff6f79;--green:#70e1aa}
+  *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:radial-gradient(900px 520px at 12% -8%,#15344a 0,transparent 64%),var(--bg);color:var(--text);font:14px/1.62 Inter,"Segoe UI","Microsoft YaHei",sans-serif}
+  header{padding:48px clamp(20px,5vw,72px) 30px;border-bottom:1px solid var(--line)}.eyebrow{color:var(--cyan);font-size:12px;font-weight:800;letter-spacing:.16em;text-transform:uppercase}h1{margin:7px 0 10px;font-size:clamp(28px,4vw,48px);line-height:1.15;letter-spacing:-.04em}.lead{max-width:900px;color:var(--muted);font-size:15px}.warning{margin-top:16px;max-width:980px;padding:12px 15px;border:1px solid #76552e;background:#251c12;color:#ffd9a5;border-radius:8px}
+  .stats{display:grid;grid-template-columns:repeat(4,minmax(120px,1fr));gap:12px;margin-top:26px;max-width:960px}.stat{padding:16px;background:#101822cc;border:1px solid var(--line);border-radius:10px}.stat strong{display:block;font-size:25px;line-height:1.1}.stat span{color:var(--muted);font-size:12px}
+  .toolbar{position:sticky;top:0;z-index:20;display:flex;gap:10px;flex-wrap:wrap;padding:12px clamp(20px,5vw,72px);background:#080b10e8;border-bottom:1px solid var(--line);backdrop-filter:blur(14px)}input,select{height:38px;background:var(--panel);border:1px solid var(--line);border-radius:7px;color:var(--text);padding:0 11px;font:inherit}input{min-width:260px;flex:1}select{min-width:155px}.shown{display:flex;align-items:center;color:var(--muted);font-variant-numeric:tabular-nums}
+  main{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:18px;padding:24px clamp(20px,5vw,72px) 70px}.card{overflow:hidden;background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);border-radius:12px;box-shadow:0 10px 28px #0005}.shot{position:relative;aspect-ratio:4/3;background:#090d13;overflow:hidden}.shot img{width:100%;height:100%;object-fit:cover;display:block}.missing{height:100%;display:grid;place-items:center;color:var(--muted)}.score,.rank{position:absolute;top:10px;padding:4px 9px;border-radius:999px;font-weight:850;box-shadow:0 3px 14px #0008}.score{right:10px;font-size:18px;background:#171d26}.score.near{color:var(--orange);border:1px solid #915e24}.score.mid{color:#ff8b78;border:1px solid #8d4036}.score.low{color:var(--red);border:1px solid #7d3138}.rank{left:10px;color:#d4dbe6;background:#111720cc;border:1px solid #344156;font-size:11px}.body{padding:15px 16px 17px}.title-row{display:flex;align-items:flex-start;gap:10px}.title-row h2{flex:1;margin:0;font-size:17px;line-height:1.35}.category{flex:0 0 auto;padding:2px 7px;border:1px solid #2b5363;border-radius:999px;color:var(--cyan);font-size:10px}.id,.source{margin:3px 0;color:var(--muted);font-size:11px}.id{font-family:"Cascadia Code",Consolas,monospace}.source{color:#bf9b72}.body h3{margin:12px 0 4px;font-size:12px;color:#dce5f1}.body ol,.body ul{margin:0;padding-left:20px;color:#c3cedd}.body .reasons{color:#efc58e}.body li+li{margin-top:4px}.empty{display:none;grid-column:1/-1;padding:80px 0;text-align:center;color:var(--muted)}footer{padding:18px clamp(20px,5vw,72px) 38px;color:var(--muted);border-top:1px solid var(--line);font-size:12px}
+  @media(max-width:700px){header{padding-top:30px}.stats{grid-template-columns:repeat(2,1fr)}main{grid-template-columns:1fr}.toolbar{position:static}input,select{width:100%;min-width:0}.shown{width:100%}}
+  @media print{body{background:#fff;color:#111}.toolbar{display:none}header{padding:20px;border-color:#ccc}.warning{color:#6b4300;background:#fff4dd}.lead,.stat span,.id,.source,footer{color:#555}.stats{grid-template-columns:repeat(4,1fr)}.stat,.card{background:#fff;border-color:#bbb;box-shadow:none}main{grid-template-columns:repeat(2,1fr);padding:16px}.card{break-inside:avoid}.body ol{color:#222}.category{color:#057a9b}}
+</style>
+</head>
+<body>
+<header>
+  <div class="eyebrow">Meshova · Model Library Audit</div>
+  <h1>自审分低于 85 的模型</h1>
+  <p class="lead">扫描当前模型库 519 个模型，筛出 153 个低于 85。按分数从低到高排列；截图来自模型库现有渲染或离线视图。</p>
+  <div class="warning">口径说明：分数直接来自查看器右下角同一套 <b>critique() 确定性自审</b>，包含几何、比例、部件语义与材质语义检查；未接入 VLM 美学评分。分数用于定位技术问题，不等同于人工审美评分。</div>
+  <div class="stats">
+    <div class="stat"><strong>153</strong><span>低于 85</span></div>
+    <div class="stat"><strong>29.5%</strong><span>模型库占比</span></div>
+    <div class="stat"><strong>49.4</strong><span>低分模型均分</span></div>
+    <div class="stat"><strong>13 / 82 / 58</strong><span>70–84 / 50–69 / 0–49</span></div>
+  </div>
+</header>
+<div class="toolbar">
+  <input id="search" type="search" placeholder="搜索模型名或 ID…">
+  <select id="category"><option value="">全部分类（27）</option><option value="城市">城市（2）</option><option value="城市与建筑">城市与建筑（3）</option><option value="程序工作流">程序工作流（4）</option><option value="程序生态">程序生态（7）</option><option value="地形">地形（5）</option><option value="地形与环境">地形与环境（7）</option><option value="风格复刻">风格复刻（1）</option><option value="机械">机械（2）</option><option value="机械构造">机械构造（1）</option><option value="基建">基建（1）</option><option value="建筑">建筑（4）</option><option value="建筑与城市">建筑与城市（1）</option><option value="其它">其它（20）</option><option value="生成模型">生成模型（2）</option><option value="植被">植被（9）</option><option value="自然">自然（2）</option><option value="BlenderHowtos复刻">BlenderHowtos复刻（37）</option><option value="HoudiniHowtos复刻">HoudiniHowtos复刻（1）</option><option value="Low Poly 场景">Low Poly 场景（2）</option><option value="Meshova 生成">Meshova 生成（1）</option><option value="SpeedTree教程复刻">SpeedTree教程复刻（4）</option><option value="SpeedTree库/Broadleaves">SpeedTree库/Broadleaves（13）</option><option value="SpeedTree库/Conifers">SpeedTree库/Conifers（4）</option><option value="SpeedTree库/Marine">SpeedTree库/Marine（1）</option><option value="SpeedTree库/Miscellaneous_&amp;_Fantasy">SpeedTree库/Miscellaneous_&amp;_Fantasy（1）</option><option value="SpeedTree库/Palms_&amp;_Cacti">SpeedTree库/Palms_&amp;_Cacti（16）</option><option value="SpeedTree库/Shrubs_&amp;_Flowers">SpeedTree库/Shrubs_&amp;_Flowers（2）</option></select>
+  <select id="band"><option value="">全部分段</option><option>70–84</option><option>50–69</option><option>0–49</option></select>
+  <span class="shown" id="shown"></span>
+</div>
+<main id="grid">
+      <article class="card" data-name="参考视频复刻·多层立体交通 multilevel-interchange" data-category="基建" data-band="0–49">
+        <div class="shot">
+          <img loading="lazy" src="../out/shots/multilevel-interchange-persp.png" alt="参考视频复刻·多层立体交通 模型截图">
+          <span class="rank">#1</span>
+          <span class="score low">0</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>参考视频复刻·多层立体交通</h2><span class="category">基建</span></div>
+          <p class="id">multilevel-interchange</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 0 / 比例 100 · 分段 0–49</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [site_ground] 部件 &quot;site_ground&quot; 使用透射表面 &quot;foliage&quot;（透射 0.35，不透明度 1.00），但名称或元数据没有透明/半透明语义。</li><li>必修 [loop_west_south_asphalt] 部件 &quot;loop_west_south_asphalt&quot; 是破损开放壳体：244 条边界边 / 480 个面，开放率 51%。</li><li>优化 [loop_west_south_guardrails] 部件 &quot;loop_west_south_guardrails&quot; 是破损开放壳体：672 条边界边 / 2576 个面，开放率 26%。</li><li>优化 [loop_west_south_piers] 部件 &quot;loop_west_south_piers&quot; 是破损开放壳体：144 条边界边 / 432 个面，开放率 33%。</li><li>必修 [loop_west_north_asphalt] 部件 &quot;loop_west_north_asphalt&quot; 是破损开放壳体：244 条边界边 / 480 个面，开放率 51%。</li><li>优化 [loop_west_north_guardrails] 部件 &quot;loop_west_north_guardrails&quot; 是破损开放壳体：672 条边界边 / 2576 个面，开放率 26%。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>若部件应不透明，改用不透射表面；若透射是设计意图，补正确透明材质名称或语义元数据。</li><li>补盖开口、焊接壳体并修正外向绕序；不透明实体不要依赖双面渲染掩盖破面。</li><li>让悬空部件接地，或增加支架、立柱、缆绳等承重连接；纯视觉悬浮件需显式标记 supportExempt。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="程序化稻田 rice-field" data-category="植被" data-band="0–49">
+        <div class="shot">
+          <img loading="lazy" src="../out/shots/rice-field-persp.png" alt="程序化稻田 模型截图">
+          <span class="rank">#2</span>
+          <span class="score low">0</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>程序化稻田</h2><span class="category">植被</span></div>
+          <p class="id">rice-field</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 0 / 比例 100 · 分段 0–49</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [field_dikes] 216/216 个面法线朝内或翻转。</li><li>必修 [young_rice] 部件 &quot;young_rice&quot; 使用透射表面 &quot;grassBlade&quot;（透射 0.20，不透明度 1.00），但名称或元数据没有透明/半透明语义。</li><li>必修 [young_rice] 部件 &quot;young_rice&quot; 是破损开放壳体：20325 条边界边 / 16260 个面，开放率 125%。</li><li>必修 [mature_rice] 部件 &quot;mature_rice&quot; 使用透射表面 &quot;grassBlade&quot;（透射 0.20，不透明度 1.00），但名称或元数据没有透明/半透明语义。</li><li>必修 [mature_rice] 部件 &quot;mature_rice&quot; 是破损开放壳体：12480 条边界边 / 9984 个面，开放率 125%。</li><li>必修 [rice_panicles] 部件 &quot;rice_panicles&quot; 使用透射表面 &quot;grassBlade&quot;（透射 0.20，不透明度 1.00），但名称或元数据没有透明/半透明语义。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>修正面绕序并重算法线，避免暗面和内外翻转。</li><li>若部件应不透明，改用不透射表面；若透射是设计意图，补正确透明材质名称或语义元数据。</li><li>补盖开口、焊接壳体并修正外向绕序；不透明实体不要依赖双面渲染掩盖破面。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="程序化完整小区 residential-community" data-category="城市与建筑" data-band="0–49">
+        <div class="shot">
+          <img loading="lazy" src="../out/shots/residential-community-persp.png" alt="程序化完整小区 模型截图">
+          <span class="rank">#3</span>
+          <span class="score low">0</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>程序化完整小区</h2><span class="category">城市与建筑</span></div>
+          <p class="id">residential-community</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 100 / 比例 100 · 分段 0–49</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [community_hedges] 部件 &quot;community_hedges&quot; 使用透射表面 &quot;leaf&quot;（透射 0.35，不透明度 1.00），但名称或元数据没有透明/半透明语义。</li><li>必修 [community_water_surface] 部件 &quot;community_water_surface&quot; 使用透射表面 &quot;liquid&quot;（透射 0.30，不透明度 1.00），但名称或元数据没有透明/半透明语义。</li><li>必修 [community_water_jets] 部件 &quot;community_water_jets&quot; 使用透射表面 &quot;glass&quot;（透射 1.00，不透明度 1.00），但名称或元数据没有透明/半透明语义。</li><li>必修 [community_playground_roof] 1 个承重部件悬空，未形成到地面的接触路径；最大悬空部件约在 (44.00, 4.00, 4.00)。</li><li>必修 [community_parked_cars] 7 个承重部件悬空，未形成到地面的接触路径；最大悬空部件约在 (-48.00, 0.58, 2.40)。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>若部件应不透明，改用不透射表面；若透射是设计意图，补正确透明材质名称或语义元数据。</li><li>让悬空部件接地，或增加支架、立柱、缆绳等承重连接；纯视觉悬浮件需显式标记 supportExempt。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="多 biome 混合世界 biome-blend-world" data-category="程序生态" data-band="0–49">
+        <div class="shot">
+          <img loading="lazy" src="../out/shots/biome-blend-world-persp.png" alt="多 Biome 混合世界 模型截图">
+          <span class="rank">#4</span>
+          <span class="score low">0</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>多 Biome 混合世界</h2><span class="category">程序生态</span></div>
+          <p class="id">biome-blend-world</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 0 / 比例 100 · 分段 0–49</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [biome_grass_canopy_1] 部件 &quot;biome_grass_canopy_1&quot; 有裸露遮挡球：23% 的冠层露出封闭球体，形成明显“绿球”。</li><li>优化 [biome_grass_canopy_2] 部件 &quot;biome_grass_canopy_2&quot; 有裸露遮挡球：10% 的冠层露出封闭球体，形成明显“绿球”。</li><li>优化 [biome_forest_canopy_1] 部件 &quot;biome_forest_canopy_1&quot; 有裸露遮挡球：12% 的冠层露出封闭球体，形成明显“绿球”。</li><li>必修 [biome_forest_canopy_2] 部件 &quot;biome_forest_canopy_2&quot; 有裸露遮挡球：18% 的冠层露出封闭球体，形成明显“绿球”。</li><li>必修 [biome_forest_understory_shrubs] 部件 &quot;biome_forest_understory_shrubs&quot; 使用透射表面 &quot;foliage&quot;（透射 0.28，不透明度 1.00），但名称或元数据没有透明/半透明语义。</li><li>必修 [biome_wet_forest_path] 部件 &quot;biome_wet_forest_path&quot; 使用透射表面 &quot;glass&quot;（透射 1.00，不透明度 1.00），但名称或元数据没有透明/半透明语义。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>缩小内部遮挡球，或加厚叶片外壳，确保球体不触及冠层剪影。</li><li>若部件应不透明，改用不透射表面；若透射是设计意图，补正确透明材质名称或语义元数据。</li><li>用环境掩膜驱动群落边界、过渡带和稀疏区，避免随机噪声感。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="风格化广阔海洋环境 stylized-ocean-environment" data-category="地形与环境" data-band="0–49">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/stylized-ocean-environment.png" alt="风格化广阔海洋环境 模型截图">
+          <span class="rank">#5</span>
+          <span class="score low">0</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>风格化广阔海洋环境</h2><span class="category">地形与环境</span></div>
+          <p class="id">stylized-ocean-environment</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 0 / 比例 100 · 分段 0–49</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [sunset_island_foam] 96/384 个面法线朝内或翻转。</li><li>必修 [sunset_island_foam] 部件 &quot;sunset_island_foam&quot; 使用透射表面 &quot;water&quot;（透射 0.18，不透明度 1.00），但名称或元数据没有透明/半透明语义。</li><li>必修 [sunset_island_bedrock] 96/384 个面法线朝内或翻转。</li><li>必修 [sunset_island_beach] 96/384 个面法线朝内或翻转。</li><li>必修 [sunset_island_grass] 96/384 个面法线朝内或翻转。</li><li>必修 [lagoon_island_foam] 96/384 个面法线朝内或翻转。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>修正面绕序并重算法线，避免暗面和内外翻转。</li><li>若部件应不透明，改用不透射表面；若透射是设计意图，补正确透明材质名称或语义元数据。</li><li>移除刚性部件的 windWeight；只给植被、布料、水体等柔性部件风摆权重。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="季节与生态演替 ecosystem-succession" data-category="程序生态" data-band="0–49">
+        <div class="shot">
+          <img loading="lazy" src="../out/shots/ecosystem-succession-persp.png" alt="季节与生态演替 模型截图">
+          <span class="rank">#6</span>
+          <span class="score low">0</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>季节与生态演替</h2><span class="category">程序生态</span></div>
+          <p class="id">ecosystem-succession</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 0 / 比例 100 · 分段 0–49</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [succession_0_tree_trunks] 部件没有三角面，是空网格。</li><li>必修 [succession_2_canopy_1] 部件 &quot;succession_2_canopy_1&quot; 有裸露遮挡球：15% 的冠层露出封闭球体，形成明显“绿球”。</li><li>优化 [succession_2_canopy_2] 部件 &quot;succession_2_canopy_2&quot; 有裸露遮挡球：10% 的冠层露出封闭球体，形成明显“绿球”。</li><li>必修 [succession_2_understory_shrubs] 部件 &quot;succession_2_understory_shrubs&quot; 使用透射表面 &quot;foliage&quot;（透射 0.28，不透明度 1.00），但名称或元数据没有透明/半透明语义。</li><li>必修 [succession_3_canopy_1] 部件 &quot;succession_3_canopy_1&quot; 有裸露遮挡球：20% 的冠层露出封闭球体，形成明显“绿球”。</li><li>优化 [succession_3_canopy_2] 部件 &quot;succession_3_canopy_2&quot; 有裸露遮挡球：10% 的冠层露出封闭球体，形成明显“绿球”。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>删除或重建空部件，确保生成器输出有效三角面。</li><li>缩小内部遮挡球，或加厚叶片外壳，确保球体不触及冠层剪影。</li><li>若部件应不透明，改用不透射表面；若透射是设计意图，补正确透明材质名称或语义元数据。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="九龙城·夜雨赛博天井 kowloon-cyber-courtyard" data-category="其它" data-band="0–49">
+        <div class="shot">
+          <img loading="lazy" src="../out/shots/kowloon-cyber-courtyard-current.png" alt="九龙城·夜雨赛博天井 模型截图">
+          <span class="rank">#7</span>
+          <span class="score low">0</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>九龙城·夜雨赛博天井</h2><span class="category">其它</span></div>
+          <p class="id">kowloon-cyber-courtyard</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 100 / 比例 100 · 分段 0–49</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [courtyard_puddles] 部件 &quot;courtyard_puddles&quot; 使用透射表面 &quot;glass&quot;（透射 1.00，不透明度 1.00），但名称或元数据没有透明/半透明语义。</li><li>必修 [rain_streaks] 部件 &quot;rain_streaks&quot; 使用透射表面 &quot;glass&quot;（透射 1.00，不透明度 1.00），但名称或元数据没有透明/半透明语义。</li><li>必修 [north_shop_signs] 4 个承重部件悬空，未形成到地面的接触路径；最大悬空部件约在 (-0.75, 0.84, -4.67)。</li><li>必修 [north_sign_frames] 4 个承重部件悬空，未形成到地面的接触路径；最大悬空部件约在 (-0.75, 0.84, -4.66)。</li><li>必修 [north_neon_floor_strips] 4 个承重部件悬空，未形成到地面的接触路径；最大悬空部件约在 (0.09, 2.19, -4.57)。</li><li>必修 [south_shop_signs] 4 个承重部件悬空，未形成到地面的接触路径；最大悬空部件约在 (2.45, 0.90, 4.67)。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>若部件应不透明，改用不透射表面；若透射是设计意图，补正确透明材质名称或语义元数据。</li><li>让悬空部件接地，或增加支架、立柱、缆绳等承重连接；纯视觉悬浮件需显式标记 supportExempt。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="路网城区·非凸街区 city-district-roadnet" data-category="城市" data-band="0–49">
+        <div class="shot">
+          <img loading="lazy" src="../out/shots/city-district-roadnet-persp.png" alt="路网城区·非凸街区 模型截图">
+          <span class="rank">#8</span>
+          <span class="score low">0</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>路网城区·非凸街区</h2><span class="category">城市</span></div>
+          <p class="id">city-district-roadnet</p>
+          <p class="source">确定性几何自审 · 聚落 · 几何 100 / 比例 100 · 分段 0–49</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [road_asphalt] 20 个建筑占地与道路几何重叠。</li><li>必修 [aesthetic] 建筑过度拥挤，95% 的间距低于阈值。</li><li>必修 [roadnet_6_roof_plant] 1 个承重部件悬空，未形成到地面的接触路径；最大悬空部件约在 (-5.06, 10.53, -74.37)。</li><li>必修 [roadnet_9_roof_plant] 1 个承重部件悬空，未形成到地面的接触路径；最大悬空部件约在 (55.20, 11.45, -62.10)。</li><li>必修 [roadnet_11_roof_plant] 1 个承重部件悬空，未形成到地面的接触路径；最大悬空部件约在 (76.60, 11.45, -72.46)。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>增加道路退距与地块间距；拒绝与道路带相交的建筑落点，保留可读巷道和庭院。</li><li>让悬空部件接地，或增加支架、立柱、缆绳等承重连接；纯视觉悬浮件需显式标记 supportExempt。</li><li>建立主街—街区—地标三级层次，补人车尺度与远近密度变化。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="生态 bake 生产管线 ecosystem-bake-pipeline" data-category="程序生态" data-band="0–49">
+        <div class="shot">
+          <img loading="lazy" src="../out/shots/ecosystem-bake-pipeline-persp.png" alt="生态 Bake 生产管线 模型截图">
+          <span class="rank">#9</span>
+          <span class="score low">0</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>生态 Bake 生产管线</h2><span class="category">程序生态</span></div>
+          <p class="id">ecosystem-bake-pipeline</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 32 / 比例 100 · 分段 0–49</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [bake_canopy_1] 部件 &quot;bake_canopy_1&quot; 有裸露遮挡球：18% 的冠层露出封闭球体，形成明显“绿球”。</li><li>必修 [bake_canopy_2] 部件 &quot;bake_canopy_2&quot; 有裸露遮挡球：19% 的冠层露出封闭球体，形成明显“绿球”。</li><li>必修 [bake_understory_shrubs] 部件 &quot;bake_understory_shrubs&quot; 使用透射表面 &quot;foliage&quot;（透射 0.28，不透明度 1.00），但名称或元数据没有透明/半透明语义。</li><li>必修 [bake_chunk_guides] 部件 &quot;bake_chunk_guides&quot; 使用透射表面 &quot;glass&quot;（透射 1.00，不透明度 1.00），但名称或元数据没有透明/半透明语义。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>缩小内部遮挡球，或加厚叶片外壳，确保球体不触及冠层剪影。</li><li>若部件应不透明，改用不透射表面；若透射是设计意图，补正确透明材质名称或语义元数据。</li><li>用环境掩膜驱动群落边界、过渡带和稀疏区，避免随机噪声感。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="生态笔刷编辑器 ecosystem-brush-editor" data-category="程序生态" data-band="0–49">
+        <div class="shot">
+          <img loading="lazy" src="../out/shots/ecosystem-brush-editor-persp.png" alt="生态笔刷编辑器 模型截图">
+          <span class="rank">#10</span>
+          <span class="score low">0</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>生态笔刷编辑器</h2><span class="category">程序生态</span></div>
+          <p class="id">ecosystem-brush-editor</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 32 / 比例 100 · 分段 0–49</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [brush_canopy_1] 部件 &quot;brush_canopy_1&quot; 有裸露遮挡球：16% 的冠层露出封闭球体，形成明显“绿球”。</li><li>必修 [brush_canopy_2] 部件 &quot;brush_canopy_2&quot; 有裸露遮挡球：17% 的冠层露出封闭球体，形成明显“绿球”。</li><li>必修 [brush_understory_shrubs] 部件 &quot;brush_understory_shrubs&quot; 使用透射表面 &quot;foliage&quot;（透射 0.28，不透明度 1.00），但名称或元数据没有透明/半透明语义。</li><li>必修 [brush_erase_preview] 部件 &quot;brush_erase_preview&quot; 使用透射表面 &quot;glass&quot;（透射 1.00，不透明度 1.00），但名称或元数据没有透明/半透明语义。</li><li>必修 [brush_add_preview] 部件 &quot;brush_add_preview&quot; 使用透射表面 &quot;glass&quot;（透射 1.00，不透明度 1.00），但名称或元数据没有透明/半透明语义。</li><li>必修 [brush_replace_preview] 部件 &quot;brush_replace_preview&quot; 使用透射表面 &quot;glass&quot;（透射 1.00，不透明度 1.00），但名称或元数据没有透明/半透明语义。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>缩小内部遮挡球，或加厚叶片外壳，确保球体不触及冠层剪影。</li><li>若部件应不透明，改用不透射表面；若透射是设计意图，补正确透明材质名称或语义元数据。</li><li>用环境掩膜驱动群落边界、过渡带和稀疏区，避免随机噪声感。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="生态分块流送与 lod ecosystem-lod-streaming" data-category="程序生态" data-band="0–49">
+        <div class="shot">
+          <img loading="lazy" src="../out/shots/ecosystem-lod-streaming-persp.png" alt="生态分块流送与 LOD 模型截图">
+          <span class="rank">#11</span>
+          <span class="score low">0</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>生态分块流送与 LOD</h2><span class="category">程序生态</span></div>
+          <p class="id">ecosystem-lod-streaming</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 76 / 比例 100 · 分段 0–49</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>优化 [lod_near_canopy_1] 部件 &quot;lod_near_canopy_1&quot; 有裸露遮挡球：10% 的冠层露出封闭球体，形成明显“绿球”。</li><li>优化 [lod_near_canopy_2] 部件 &quot;lod_near_canopy_2&quot; 有裸露遮挡球：11% 的冠层露出封闭球体，形成明显“绿球”。</li><li>必修 [lod_near_understory_shrubs] 部件 &quot;lod_near_understory_shrubs&quot; 使用透射表面 &quot;foliage&quot;（透射 0.28，不透明度 1.00），但名称或元数据没有透明/半透明语义。</li><li>必修 [lod_simplified] 部件 &quot;lod_simplified&quot; 使用透射表面 &quot;foliage&quot;（透射 0.20，不透明度 1.00），但名称或元数据没有透明/半透明语义。</li><li>必修 [lod_impostors] 部件 &quot;lod_impostors&quot; 使用透射表面 &quot;foliage&quot;（透射 0.18，不透明度 1.00），但名称或元数据没有透明/半透明语义。</li><li>必修 [lod_camera] 部件 &quot;lod_camera&quot; 使用透射表面 &quot;glass&quot;（透射 1.00，不透明度 1.00），但名称或元数据没有透明/半透明语义。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>缩小内部遮挡球，或加厚叶片外壳，确保球体不触及冠层剪影。</li><li>若部件应不透明，改用不透射表面；若透射是设计意图，补正确透明材质名称或语义元数据。</li><li>让悬空部件接地，或增加支架、立柱、缆绳等承重连接；纯视觉悬浮件需显式标记 supportExempt。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="gmc canyon at4x 皮卡 gmc-canyon-at4x" data-category="其它" data-band="0–49">
+        <div class="shot">
+          <img loading="lazy" src="../out/shots/gmc-canyon-at4x-persp-pbr.png" alt="GMC Canyon AT4X 皮卡 模型截图">
+          <span class="rank">#12</span>
+          <span class="score low">0</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>GMC Canyon AT4X 皮卡</h2><span class="category">其它</span></div>
+          <p class="id">gmc-canyon-at4x</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 100 / 比例 100 · 分段 0–49</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [amber_marker_-1] 部件 &quot;amber_marker_-1&quot; 使用透射表面 &quot;glass&quot;（透射 1.00，不透明度 1.00），但名称或元数据没有透明/半透明语义。</li><li>必修 [fog_pod_-1] 部件 &quot;fog_pod_-1&quot; 使用透射表面 &quot;glass&quot;（透射 1.00，不透明度 1.00），但名称或元数据没有透明/半透明语义。</li><li>必修 [amber_marker_1] 部件 &quot;amber_marker_1&quot; 使用透射表面 &quot;glass&quot;（透射 1.00，不透明度 1.00），但名称或元数据没有透明/半透明语义。</li><li>必修 [fog_pod_1] 部件 &quot;fog_pod_1&quot; 使用透射表面 &quot;glass&quot;（透射 1.00，不透明度 1.00），但名称或元数据没有透明/半透明语义。</li><li>必修 [lower_body_shell] 1 个承重部件悬空，未形成到地面的接触路径；最大悬空部件约在 (-0.00, 1.01, 0.00)。</li><li>必修 [hood_power_dome] 2 个承重部件悬空，未形成到地面的接触路径；最大悬空部件约在 (-0.00, 1.34, 1.92)。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>若部件应不透明，改用不透射表面；若透射是设计意图，补正确透明材质名称或语义元数据。</li><li>让悬空部件接地，或增加支架、立柱、缆绳等承重连接；纯视觉悬浮件需显式标记 supportExempt。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="meshova树库 aloe vera speedtree-library-palms-cacti-aloe-vera" data-category="SpeedTree库/Palms_&amp;_Cacti" data-band="0–49">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/speedtree-library-palms-cacti-aloe-vera.png" alt="Meshova树库 Aloe Vera 模型截图">
+          <span class="rank">#13</span>
+          <span class="score low">0</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>Meshova树库 Aloe Vera</h2><span class="category">SpeedTree库/Palms_&amp;_Cacti</span></div>
+          <p class="id">speedtree-library-palms-cacti-aloe-vera</p>
+          <p class="source">确定性几何自审 · 仙人掌 · 几何 100 / 比例 66 · 分段 0–49</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [foliage] 部件 &quot;foliage&quot; 带风摆动画权重，但其语义应为刚性或静态物体。</li><li>必修 [flower_stems] 部件 &quot;flower_stems&quot; 带风摆动画权重，但其语义应为刚性或静态物体。</li><li>必修 [flowers] 部件 &quot;flowers&quot; 带风摆动画权重，但其语义应为刚性或静态物体。</li><li>必修 [flowers] 20 个承重部件悬空，未形成到地面的接触路径；最大悬空部件约在 (0.21, 1.88, -0.13)。</li><li>必修 [realism] cactus 缺少应有的 &quot;spine&quot; 部件。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>移除刚性部件的 windWeight；只给植被、布料、水体等柔性部件风摆权重。</li><li>让悬空部件接地，或增加支架、立柱、缆绳等承重连接；纯视觉悬浮件需显式标记 supportExempt。</li><li>补齐缺失语义部件，或修正部件命名/标签，使自审器能识别其职责与数量。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="meshova树库 chinese fan palm speedtree-library-palms-cacti-chinese-fan-palm" data-category="SpeedTree库/Palms_&amp;_Cacti" data-band="0–49">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/speedtree-library-palms-cacti-chinese-fan-palm.png" alt="Meshova树库 Chinese Fan Palm 模型截图">
+          <span class="rank">#14</span>
+          <span class="score low">0</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>Meshova树库 Chinese Fan Palm</h2><span class="category">SpeedTree库/Palms_&amp;_Cacti</span></div>
+          <p class="id">speedtree-library-palms-cacti-chinese-fan-palm</p>
+          <p class="source">确定性几何自审 · 仙人掌 · 几何 100 / 比例 20 · 分段 0–49</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [wood] 部件 &quot;wood&quot; 带风摆动画权重，但其语义应为刚性或静态物体。</li><li>必修 [fronds] 部件 &quot;fronds&quot; 带风摆动画权重，但其语义应为刚性或静态物体。</li><li>优化 [proportion] 模型高度 6.67 超出预期 0.2–6 单位。</li><li>必修 [realism] cactus 缺少应有的 &quot;stem&quot; 部件。</li><li>必修 [realism] cactus 缺少应有的 &quot;spine&quot; 部件。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>移除刚性部件的 windWeight；只给植被、布料、水体等柔性部件风摆权重。</li><li>统一模型尺度，使高度落入自审规则的预期范围。</li><li>补齐缺失语义部件，或修正部件命名/标签，使自审器能识别其职责与数量。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="meshova树库 curly palm speedtree-library-palms-cacti-curly-palm" data-category="SpeedTree库/Palms_&amp;_Cacti" data-band="0–49">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/speedtree-library-palms-cacti-curly-palm.png" alt="Meshova树库 Curly Palm 模型截图">
+          <span class="rank">#15</span>
+          <span class="score low">0</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>Meshova树库 Curly Palm</h2><span class="category">SpeedTree库/Palms_&amp;_Cacti</span></div>
+          <p class="id">speedtree-library-palms-cacti-curly-palm</p>
+          <p class="source">确定性几何自审 · 仙人掌 · 几何 100 / 比例 20 · 分段 0–49</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [wood] 部件 &quot;wood&quot; 带风摆动画权重，但其语义应为刚性或静态物体。</li><li>必修 [fronds] 部件 &quot;fronds&quot; 带风摆动画权重，但其语义应为刚性或静态物体。</li><li>优化 [proportion] 模型高度 6.81 超出预期 0.2–6 单位。</li><li>必修 [realism] cactus 缺少应有的 &quot;stem&quot; 部件。</li><li>必修 [realism] cactus 缺少应有的 &quot;spine&quot; 部件。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>移除刚性部件的 windWeight；只给植被、布料、水体等柔性部件风摆权重。</li><li>统一模型尺度，使高度落入自审规则的预期范围。</li><li>补齐缺失语义部件，或修正部件命名/标签，使自审器能识别其职责与数量。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="meshova树库 date palm speedtree-library-palms-cacti-date-palm" data-category="SpeedTree库/Palms_&amp;_Cacti" data-band="0–49">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/speedtree-library-palms-cacti-date-palm.png" alt="Meshova树库 Date Palm 模型截图">
+          <span class="rank">#16</span>
+          <span class="score low">0</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>Meshova树库 Date Palm</h2><span class="category">SpeedTree库/Palms_&amp;_Cacti</span></div>
+          <p class="id">speedtree-library-palms-cacti-date-palm</p>
+          <p class="source">确定性几何自审 · 仙人掌 · 几何 100 / 比例 20 · 分段 0–49</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [wood] 部件 &quot;wood&quot; 带风摆动画权重，但其语义应为刚性或静态物体。</li><li>必修 [fronds] 部件 &quot;fronds&quot; 带风摆动画权重，但其语义应为刚性或静态物体。</li><li>优化 [proportion] 模型高度 6.16 超出预期 0.2–6 单位。</li><li>必修 [realism] cactus 缺少应有的 &quot;stem&quot; 部件。</li><li>必修 [realism] cactus 缺少应有的 &quot;spine&quot; 部件。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>移除刚性部件的 windWeight；只给植被、布料、水体等柔性部件风摆权重。</li><li>统一模型尺度，使高度落入自审规则的预期范围。</li><li>补齐缺失语义部件，或修正部件命名/标签，使自审器能识别其职责与数量。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="meshova树库 palmetto speedtree-library-palms-cacti-palmetto" data-category="SpeedTree库/Palms_&amp;_Cacti" data-band="0–49">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/speedtree-library-palms-cacti-palmetto.png" alt="Meshova树库 Palmetto 模型截图">
+          <span class="rank">#17</span>
+          <span class="score low">0</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>Meshova树库 Palmetto</h2><span class="category">SpeedTree库/Palms_&amp;_Cacti</span></div>
+          <p class="id">speedtree-library-palms-cacti-palmetto</p>
+          <p class="source">确定性几何自审 · 仙人掌 · 几何 100 / 比例 20 · 分段 0–49</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [wood] 部件 &quot;wood&quot; 带风摆动画权重，但其语义应为刚性或静态物体。</li><li>必修 [fronds] 部件 &quot;fronds&quot; 带风摆动画权重，但其语义应为刚性或静态物体。</li><li>优化 [proportion] 模型高度 6.49 超出预期 0.2–6 单位。</li><li>必修 [realism] cactus 缺少应有的 &quot;stem&quot; 部件。</li><li>必修 [realism] cactus 缺少应有的 &quot;spine&quot; 部件。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>移除刚性部件的 windWeight；只给植被、布料、水体等柔性部件风摆权重。</li><li>统一模型尺度，使高度落入自审规则的预期范围。</li><li>补齐缺失语义部件，或修正部件命名/标签，使自审器能识别其职责与数量。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="meshova树库 queen palm speedtree-library-palms-cacti-queen-palm" data-category="SpeedTree库/Palms_&amp;_Cacti" data-band="0–49">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/speedtree-library-palms-cacti-queen-palm.png" alt="Meshova树库 Queen Palm 模型截图">
+          <span class="rank">#18</span>
+          <span class="score low">0</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>Meshova树库 Queen Palm</h2><span class="category">SpeedTree库/Palms_&amp;_Cacti</span></div>
+          <p class="id">speedtree-library-palms-cacti-queen-palm</p>
+          <p class="source">确定性几何自审 · 仙人掌 · 几何 100 / 比例 20 · 分段 0–49</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [wood] 部件 &quot;wood&quot; 带风摆动画权重，但其语义应为刚性或静态物体。</li><li>必修 [fronds] 部件 &quot;fronds&quot; 带风摆动画权重，但其语义应为刚性或静态物体。</li><li>优化 [proportion] 模型高度 7.63 超出预期 0.2–6 单位。</li><li>必修 [realism] cactus 缺少应有的 &quot;stem&quot; 部件。</li><li>必修 [realism] cactus 缺少应有的 &quot;spine&quot; 部件。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>移除刚性部件的 windWeight；只给植被、布料、水体等柔性部件风摆权重。</li><li>统一模型尺度，使高度落入自审规则的预期范围。</li><li>补齐缺失语义部件，或修正部件命名/标签，使自审器能识别其职责与数量。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="pcg 湿地河道 pcg-biome-river" data-category="植被" data-band="0–49">
+        <div class="shot">
+          <img loading="lazy" src="../out/shots/pcg-biome-river-persp.png" alt="PCG 湿地河道 模型截图">
+          <span class="rank">#19</span>
+          <span class="score low">0</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>PCG 湿地河道</h2><span class="category">植被</span></div>
+          <p class="id">pcg-biome-river</p>
+          <p class="source">确定性几何自审 · 树木 · 几何 66 / 比例 64 · 分段 0–49</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [pcg_biome_river_reeds] 部件 &quot;pcg_biome_river_reeds&quot; 使用透射表面 &quot;foliage&quot;（透射 0.35，不透明度 1.00），但名称或元数据没有透明/半透明语义。</li><li>必修 [pcg_biome_river_reeds] 部件 &quot;pcg_biome_river_reeds&quot; 是破损开放壳体：14700 条边界边 / 21600 个面，开放率 68%。</li><li>必修 [pcg_biome_river_dry_reeds] 部件 &quot;pcg_biome_river_dry_reeds&quot; 使用透射表面 &quot;foliage&quot;（透射 0.35，不透明度 1.00），但名称或元数据没有透明/半透明语义。</li><li>必修 [pcg_biome_river_shrubs] 部件 &quot;pcg_biome_river_shrubs&quot; 使用透射表面 &quot;foliage&quot;（透射 0.35，不透明度 1.00），但名称或元数据没有透明/半透明语义。</li><li>必修 [pcg_biome_river_shrubs] 4 个承重部件悬空，未形成到地面的接触路径；最大悬空部件约在 (-8.20, 1.99, 16.72)。</li><li>优化 [proportion] 比例 h/w=0.11 超出预期 0.7–3：a tree is generally taller than wide。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>若部件应不透明，改用不透射表面；若透射是设计意图，补正确透明材质名称或语义元数据。</li><li>补盖开口、焊接壳体并修正外向绕序；不透明实体不要依赖双面渲染掩盖破面。</li><li>让悬空部件接地，或增加支架、立柱、缆绳等承重连接；纯视觉悬浮件需显式标记 supportExempt。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="meshova树库 coconut palm speedtree-library-palms-cacti-coconut-palm" data-category="SpeedTree库/Palms_&amp;_Cacti" data-band="0–49">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/speedtree-library-palms-cacti-coconut-palm.png" alt="Meshova树库 Coconut Palm 模型截图">
+          <span class="rank">#20</span>
+          <span class="score low">1</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>Meshova树库 Coconut Palm</h2><span class="category">SpeedTree库/Palms_&amp;_Cacti</span></div>
+          <p class="id">speedtree-library-palms-cacti-coconut-palm</p>
+          <p class="source">确定性几何自审 · 仙人掌 · 几何 100 / 比例 32 · 分段 0–49</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [wood] 部件 &quot;wood&quot; 带风摆动画权重，但其语义应为刚性或静态物体。</li><li>必修 [fronds] 部件 &quot;fronds&quot; 带风摆动画权重，但其语义应为刚性或静态物体。</li><li>必修 [realism] cactus 缺少应有的 &quot;stem&quot; 部件。</li><li>必修 [realism] cactus 缺少应有的 &quot;spine&quot; 部件。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>移除刚性部件的 windWeight；只给植被、布料、水体等柔性部件风摆权重。</li><li>补齐缺失语义部件，或修正部件命名/标签，使自审器能识别其职责与数量。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="cropout 密林岛 cropout-lush-islands" data-category="地形与环境" data-band="0–49">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/cropout-lush-islands.png" alt="Cropout 密林岛 模型截图">
+          <span class="rank">#21</span>
+          <span class="score low">11</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>Cropout 密林岛</h2><span class="category">地形与环境</span></div>
+          <p class="id">cropout-lush-islands</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 0 / 比例 100 · 分段 0–49</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [cropout_foam] 192/768 个面法线朝内或翻转。</li><li>必修 [cropout_foam] 部件 &quot;cropout_foam&quot; 使用透射表面 &quot;water&quot;（透射 0.18，不透明度 1.00），但名称或元数据没有透明/半透明语义。</li><li>必修 [cropout_beach] 192/768 个面法线朝内或翻转。</li><li>必修 [cropout_grass] 192/768 个面法线朝内或翻转。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>修正面绕序并重算法线，避免暗面和内外翻转。</li><li>若部件应不透明，改用不透射表面；若透射是设计意图，补正确透明材质名称或语义元数据。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="cropout 牧场岛 cropout-pasture-island" data-category="地形与环境" data-band="0–49">
+        <div class="shot">
+          <img loading="lazy" src="../out/shots/cropout-pasture-island-persp.png" alt="Cropout 牧场岛 模型截图">
+          <span class="rank">#22</span>
+          <span class="score low">11</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>Cropout 牧场岛</h2><span class="category">地形与环境</span></div>
+          <p class="id">cropout-pasture-island</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 0 / 比例 100 · 分段 0–49</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [cropout_foam] 96/384 个面法线朝内或翻转。</li><li>必修 [cropout_foam] 部件 &quot;cropout_foam&quot; 使用透射表面 &quot;water&quot;（透射 0.18，不透明度 1.00），但名称或元数据没有透明/半透明语义。</li><li>必修 [cropout_beach] 96/384 个面法线朝内或翻转。</li><li>必修 [cropout_grass] 96/384 个面法线朝内或翻转。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>修正面绕序并重算法线，避免暗面和内外翻转。</li><li>若部件应不透明，改用不透射表面；若透射是设计意图，补正确透明材质名称或语义元数据。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="cropout 双生岛 cropout-twin-islands" data-category="地形与环境" data-band="0–49">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/cropout-twin-islands.png" alt="Cropout 双生岛 模型截图">
+          <span class="rank">#23</span>
+          <span class="score low">11</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>Cropout 双生岛</h2><span class="category">地形与环境</span></div>
+          <p class="id">cropout-twin-islands</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 0 / 比例 100 · 分段 0–49</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [cropout_foam] 192/768 个面法线朝内或翻转。</li><li>必修 [cropout_foam] 部件 &quot;cropout_foam&quot; 使用透射表面 &quot;water&quot;（透射 0.18，不透明度 1.00），但名称或元数据没有透明/半透明语义。</li><li>必修 [cropout_beach] 192/768 个面法线朝内或翻转。</li><li>必修 [cropout_grass] 192/768 个面法线朝内或翻转。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>修正面绕序并重算法线，避免暗面和内外翻转。</li><li>若部件应不透明，改用不透射表面；若透射是设计意图，补正确透明材质名称或语义元数据。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="cropout 长湾岛 cropout-longshore-island" data-category="地形与环境" data-band="0–49">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/cropout-longshore-island.png" alt="Cropout 长湾岛 模型截图">
+          <span class="rank">#24</span>
+          <span class="score low">11</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>Cropout 长湾岛</h2><span class="category">地形与环境</span></div>
+          <p class="id">cropout-longshore-island</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 0 / 比例 100 · 分段 0–49</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [cropout_foam] 96/384 个面法线朝内或翻转。</li><li>必修 [cropout_foam] 部件 &quot;cropout_foam&quot; 使用透射表面 &quot;water&quot;（透射 0.18，不透明度 1.00），但名称或元数据没有透明/半透明语义。</li><li>必修 [cropout_beach] 96/384 个面法线朝内或翻转。</li><li>必修 [cropout_grass] 94/384 个面法线朝内或翻转。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>修正面绕序并重算法线，避免暗面和内外翻转。</li><li>若部件应不透明，改用不透射表面；若透射是设计意图，补正确透明材质名称或语义元数据。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="meshova树库 dracaena speedtree-library-palms-cacti-dracaena" data-category="SpeedTree库/Palms_&amp;_Cacti" data-band="0–49">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/speedtree-library-palms-cacti-dracaena.png" alt="Meshova树库 Dracaena 模型截图">
+          <span class="rank">#25</span>
+          <span class="score low">11</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>Meshova树库 Dracaena</h2><span class="category">SpeedTree库/Palms_&amp;_Cacti</span></div>
+          <p class="id">speedtree-library-palms-cacti-dracaena</p>
+          <p class="source">确定性几何自审 · 仙人掌 · 几何 100 / 比例 54 · 分段 0–49</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [stems] 部件 &quot;stems&quot; 带风摆动画权重，但其语义应为刚性或静态物体。</li><li>必修 [foliage] 部件 &quot;foliage&quot; 带风摆动画权重，但其语义应为刚性或静态物体。</li><li>优化 [proportion] 比例 h/w=0.15 超出预期 0.8–5.5：a cactus has a readable upright succulent body。</li><li>必修 [realism] cactus 缺少应有的 &quot;spine&quot; 部件。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>移除刚性部件的 windWeight；只给植被、布料、水体等柔性部件风摆权重。</li><li>调整主体长宽高与部件比例，使检测比值回到规则范围。</li><li>补齐缺失语义部件，或修正部件命名/标签，使自审器能识别其职责与数量。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="meshova树库 joshua speedtree-library-palms-cacti-joshua" data-category="SpeedTree库/Palms_&amp;_Cacti" data-band="0–49">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/speedtree-library-palms-cacti-joshua.png" alt="Meshova树库 Joshua 模型截图">
+          <span class="rank">#26</span>
+          <span class="score low">11</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>Meshova树库 Joshua</h2><span class="category">SpeedTree库/Palms_&amp;_Cacti</span></div>
+          <p class="id">speedtree-library-palms-cacti-joshua</p>
+          <p class="source">确定性几何自审 · 仙人掌 · 几何 100 / 比例 54 · 分段 0–49</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [stems] 部件 &quot;stems&quot; 带风摆动画权重，但其语义应为刚性或静态物体。</li><li>必修 [foliage] 部件 &quot;foliage&quot; 带风摆动画权重，但其语义应为刚性或静态物体。</li><li>优化 [proportion] 比例 h/w=0.14 超出预期 0.8–5.5：a cactus has a readable upright succulent body。</li><li>必修 [realism] cactus 缺少应有的 &quot;spine&quot; 部件。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>移除刚性部件的 windWeight；只给植被、布料、水体等柔性部件风摆权重。</li><li>调整主体长宽高与部件比例，使检测比值回到规则范围。</li><li>补齐缺失语义部件，或修正部件命名/标签，使自审器能识别其职责与数量。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="生态艺术工具（视频复刻） ecosystem-art-tool" data-category="程序生态" data-band="0–49">
+        <div class="shot">
+          <img loading="lazy" src="../out/shots/ecosystem-art-tool-persp.png" alt="生态艺术工具（视频复刻） 模型截图">
+          <span class="rank">#27</span>
+          <span class="score low">13</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>生态艺术工具（视频复刻）</h2><span class="category">程序生态</span></div>
+          <p class="id">ecosystem-art-tool</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 66 / 比例 100 · 分段 0–49</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [canopy_foliage] 部件 &quot;canopy_foliage&quot; 有裸露遮挡球：22% 的冠层露出封闭球体，形成明显“绿球”。</li><li>必修 [understory] 部件 &quot;understory&quot; 使用透射表面 &quot;foliage&quot;（透射 0.28，不透明度 1.00），但名称或元数据没有透明/半透明语义。</li><li>必修 [ground_cover] 部件 &quot;ground_cover&quot; 带风摆动画权重，但其语义应为刚性或静态物体。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>缩小内部遮挡球，或加厚叶片外壳，确保球体不触及冠层剪影。</li><li>若部件应不透明，改用不透射表面；若透射是设计意图，补正确透明材质名称或语义元数据。</li><li>移除刚性部件的 windWeight；只给植被、布料、水体等柔性部件风摆权重。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="low poly 村落 low-poly-village" data-category="Low Poly 场景" data-band="0–49">
+        <div class="shot">
+          <img loading="lazy" src="../out/shots/low-poly-village-persp-lowpoly.png" alt="Low Poly 村落 模型截图">
+          <span class="rank">#28</span>
+          <span class="score low">13</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>Low Poly 村落</h2><span class="category">Low Poly 场景</span></div>
+          <p class="id">low-poly-village</p>
+          <p class="source">确定性几何自审 · 聚落 · 几何 88 / 比例 100 · 分段 0–49</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>优化 [village_tree_crowns] 部件 &quot;village_tree_crowns&quot; 有裸露遮挡球：4% 的冠层露出封闭球体，形成明显“绿球”。</li><li>必修 [village_roads] 1 个建筑占地与道路几何重叠。</li><li>必修 [aesthetic] 建筑过度拥挤，83% 的间距低于阈值。</li><li>优化 [aesthetic] 聚落建筑重复使用简单墙体与屋顶，缺少立面细节。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>缩小内部遮挡球，或加厚叶片外壳，确保球体不触及冠层剪影。</li><li>增加道路退距与地块间距；拒绝与道路带相交的建筑落点，保留可读巷道和庭院。</li><li>增加门窗、台阶、阳台和立面模块，并变化建筑宽深、高度与朝向，消除印章式重复。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="watabou复刻·河谷城市数据 watabou-city" data-category="城市" data-band="0–49">
+        <div class="shot">
+          <img loading="lazy" src="../out/shots/watabou-city-persp.png" alt="Watabou复刻·河谷城市数据 模型截图">
+          <span class="rank">#29</span>
+          <span class="score low">15</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>Watabou复刻·河谷城市数据</h2><span class="category">城市</span></div>
+          <p class="id">watabou-city</p>
+          <p class="source">确定性几何自审 · 聚落 · 几何 100 / 比例 88 · 分段 0–49</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [road_network] 77 个建筑占地与道路几何重叠。</li><li>必修 [aesthetic] 建筑过度拥挤，55% 的间距低于阈值。</li><li>优化 [aesthetic] 聚落建筑重复使用简单墙体与屋顶，缺少立面细节。</li><li>优化 [proportion] 比例 h/w=0.02 超出预期 0.02–1.2：a settlement is a broad scene, not a single tall object。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>增加道路退距与地块间距；拒绝与道路带相交的建筑落点，保留可读巷道和庭院。</li><li>增加门窗、台阶、阳台和立面模块，并变化建筑宽深、高度与朝向，消除印章式重复。</li><li>调整主体长宽高与部件比例，使检测比值回到规则范围。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="meshova树库 aloe vera speedtree-library-broadleaves-aloe-vera" data-category="SpeedTree库/Broadleaves" data-band="0–49">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/speedtree-library-broadleaves-aloe-vera.png" alt="Meshova树库 Aloe Vera 模型截图">
+          <span class="rank">#30</span>
+          <span class="score low">23</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>Meshova树库 Aloe Vera</h2><span class="category">SpeedTree库/Broadleaves</span></div>
+          <p class="id">speedtree-library-broadleaves-aloe-vera</p>
+          <p class="source">确定性几何自审 · 树木 · 几何 66 / 比例 100 · 分段 0–49</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [foliage] 部件 &quot;foliage&quot; 的叶片卡过大：最大卡片占冠层包围盒 44%，100% 的卡片超过尺寸限制。</li><li>优化 [flower_stems] 部件 &quot;flower_stems&quot; 带风摆动画权重，但其语义应为刚性或静态物体。</li><li>优化 [flowers] 部件 &quot;flowers&quot; 带风摆动画权重，但其语义应为刚性或静态物体。</li><li>必修 [flowers] 20 个承重部件悬空，未形成到地面的接触路径；最大悬空部件约在 (-0.11, 1.60, 0.01)。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>缩小叶片卡并增加叶簇数量，让冠层由多层小叶片构成。</li><li>移除刚性部件的 windWeight；只给植被、布料、水体等柔性部件风摆权重。</li><li>让悬空部件接地，或增加支架、立柱、缆绳等承重连接；纯视觉悬浮件需显式标记 supportExempt。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="地形—生态反馈 terrain-ecology-feedback" data-category="地形" data-band="0–49">
+        <div class="shot">
+          <img loading="lazy" src="../out/shots/terrain-ecology-feedback-persp.png" alt="地形—生态反馈 模型截图">
+          <span class="rank">#31</span>
+          <span class="score low">29</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>地形—生态反馈</h2><span class="category">地形</span></div>
+          <p class="id">terrain-ecology-feedback</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 32 / 比例 100 · 分段 0–49</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [feedback_canopy_1] 部件 &quot;feedback_canopy_1&quot; 有裸露遮挡球：13% 的冠层露出封闭球体，形成明显“绿球”。</li><li>必修 [feedback_canopy_2] 部件 &quot;feedback_canopy_2&quot; 有裸露遮挡球：17% 的冠层露出封闭球体，形成明显“绿球”。</li><li>必修 [feedback_understory_shrubs] 部件 &quot;feedback_understory_shrubs&quot; 使用透射表面 &quot;foliage&quot;（透射 0.28，不透明度 1.00），但名称或元数据没有透明/半透明语义。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>缩小内部遮挡球，或加厚叶片外壳，确保球体不触及冠层剪影。</li><li>若部件应不透明，改用不透射表面；若透射是设计意图，补正确透明材质名称或语义元数据。</li><li>强化大轮廓、坡折与侵蚀层级；水系应服从汇流和高程关系。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="cropout 群岛 cropout-archipelago" data-category="地形与环境" data-band="0–49">
+        <div class="shot">
+          <img loading="lazy" src="../out/shots/cropout-archipelago-persp.png" alt="Cropout 群岛 模型截图">
+          <span class="rank">#32</span>
+          <span class="score low">29</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>Cropout 群岛</h2><span class="category">地形与环境</span></div>
+          <p class="id">cropout-archipelago</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 32 / 比例 100 · 分段 0–49</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [cropout_foam] 384/1536 个面法线朝内或翻转。</li><li>必修 [cropout_foam] 部件 &quot;cropout_foam&quot; 使用透射表面 &quot;water&quot;（透射 0.18，不透明度 1.00），但名称或元数据没有透明/半透明语义。</li><li>必修 [cropout_beach] 249/1536 个面法线朝内或翻转。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>修正面绕序并重算法线，避免暗面和内外翻转。</li><li>若部件应不透明，改用不透射表面；若透射是设计意图，补正确透明材质名称或语义元数据。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="meshova树库 banana plant speedtree-library-palms-cacti-banana-plant" data-category="SpeedTree库/Palms_&amp;_Cacti" data-band="0–49">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/speedtree-library-palms-cacti-banana-plant.png" alt="Meshova树库 Banana Plant 模型截图">
+          <span class="rank">#33</span>
+          <span class="score low">29</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>Meshova树库 Banana Plant</h2><span class="category">SpeedTree库/Palms_&amp;_Cacti</span></div>
+          <p class="id">speedtree-library-palms-cacti-banana-plant</p>
+          <p class="source">确定性几何自审 · 树木 · 几何 32 / 比例 100 · 分段 0–49</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [stems] 部件 &quot;stems&quot; 带风摆动画权重，但其语义应为刚性或静态物体。</li><li>必修 [foliage] 部件 &quot;foliage&quot; 的叶片卡过大：最大卡片占冠层包围盒 53%，100% 的卡片超过尺寸限制。</li><li>必修 [foliage] 部件 &quot;foliage&quot; 的叶片严重重叠，拥挤度 100%。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>移除刚性部件的 windWeight；只给植被、布料、水体等柔性部件风摆权重。</li><li>缩小叶片卡并增加叶簇数量，让冠层由多层小叶片构成。</li><li>增加道路退距与地块间距；拒绝与道路带相交的建筑落点，保留可读巷道和庭院。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="程序化星球 procedural-planet" data-category="地形" data-band="0–49">
+        <div class="shot">
+          <img loading="lazy" src="../out/shots/procedural-planet-persp.png" alt="程序化星球 模型截图">
+          <span class="rank">#34</span>
+          <span class="score low">32</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>程序化星球</h2><span class="category">地形</span></div>
+          <p class="id">procedural-planet</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 100 / 比例 100 · 分段 0–49</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [planet_ocean] 部件 &quot;planet_ocean&quot; 使用透射表面 &quot;liquid&quot;（透射 0.24，不透明度 1.00），但名称或元数据没有透明/半透明语义。</li><li>必修 [planet_atmosphere] 部件 &quot;planet_atmosphere&quot; 使用透射表面 &quot;glass&quot;（透射 1.00，不透明度 1.00），但名称或元数据没有透明/半透明语义。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>若部件应不透明，改用不透射表面；若透射是设计意图，补正确透明材质名称或语义元数据。</li><li>强化大轮廓、坡折与侵蚀层级；水系应服从汇流和高程关系。</li><li>优先修剪影与地貌分区，再叠加侵蚀、碎石和材质过渡，避免全频段同强度。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="传统罗马街区 roman-town" data-category="城市与建筑" data-band="0–49">
+        <div class="shot">
+          <img loading="lazy" src="../out/shots/roman-town-persp.png" alt="传统罗马街区 模型截图">
+          <span class="rank">#35</span>
+          <span class="score low">32</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>传统罗马街区</h2><span class="category">城市与建筑</span></div>
+          <p class="id">roman-town</p>
+          <p class="source">确定性几何自审 · 聚落 · 几何 100 / 比例 100 · 分段 0–49</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [terrace_plants] 部件 &quot;terrace_plants&quot; 使用透射表面 &quot;foliage&quot;（透射 0.35，不透明度 1.00），但名称或元数据没有透明/半透明语义。</li><li>必修 [piazza_cypress] 部件 &quot;piazza_cypress&quot; 使用透射表面 &quot;foliage&quot;（透射 0.35，不透明度 1.00），但名称或元数据没有透明/半透明语义。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>若部件应不透明，改用不透射表面；若透射是设计意图，补正确透明材质名称或语义元数据。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li><li>优化曲线连续性、交叉口半径和端点收口；补通行尺度与边缘构造。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="低模常春藤 vol23 套件 ivy-lowpoly-vol23-kit" data-category="植被" data-band="0–49">
+        <div class="shot">
+          <img loading="lazy" src="../out/shots/ivy-lowpoly-vol23-kit-persp-normal.png" alt="低模常春藤 VOL23 套件 模型截图">
+          <span class="rank">#36</span>
+          <span class="score low">32</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>低模常春藤 VOL23 套件</h2><span class="category">植被</span></div>
+          <p class="id">ivy-lowpoly-vol23-kit</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 100 / 比例 100 · 分段 0–49</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [stem] 部件 &quot;stem&quot; 带风摆动画权重，但其语义应为刚性或静态物体。</li><li>必修 [stem] 12 个承重部件悬空，未形成到地面的接触路径；最大悬空部件约在 (-3.23, 1.68, 3.15)。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>移除刚性部件的 windWeight；只给植被、布料、水体等柔性部件风摆权重。</li><li>让悬空部件接地，或增加支架、立柱、缆绳等承重连接；纯视觉悬浮件需显式标记 supportExempt。</li><li>优化根—干—枝—冠层级，增加年龄、密度、朝向和色相变化。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="湖畔花园都市群 garden-metropolis" data-category="城市与建筑" data-band="0–49">
+        <div class="shot">
+          <img loading="lazy" src="../out/shots/garden-metropolis-persp.png" alt="湖畔花园都市群 模型截图">
+          <span class="rank">#37</span>
+          <span class="score low">32</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>湖畔花园都市群</h2><span class="category">城市与建筑</span></div>
+          <p class="id">garden-metropolis</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 100 / 比例 100 · 分段 0–49</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [skyline_towers_2] 部件 &quot;skyline_towers_2&quot; 使用透射表面 &quot;glass&quot;（透射 1.00，不透明度 1.00），但名称或元数据没有透明/半透明语义。</li><li>必修 [skyline_window_bands] 17 个承重部件悬空，未形成到地面的接触路径；最大悬空部件约在 (62.66, 20.72, -61.13)。</li><li>必修 [skyline_signature_caps] 2 个承重部件悬空，未形成到地面的接触路径；最大悬空部件约在 (63.21, 32.12, -82.26)。</li><li>必修 [skyline_towers_1] 2 个承重部件悬空，未形成到地面的接触路径；最大悬空部件约在 (-65.20, 44.32, -61.91)。</li><li>必修 [skyline_towers_4] 8 个承重部件悬空，未形成到地面的接触路径；最大悬空部件约在 (47.24, 26.45, -87.04)。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>若部件应不透明，改用不透射表面；若透射是设计意图，补正确透明材质名称或语义元数据。</li><li>让悬空部件接地，或增加支架、立柱、缆绳等承重连接；纯视觉悬浮件需显式标记 supportExempt。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="blenderhowtos 螺旋鳞片 blender-howtos-spiral-scales" data-category="BlenderHowtos复刻" data-band="0–49">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/blender-howtos-spiral-scales.png" alt="BlenderHowtos 螺旋鳞片 模型截图">
+          <span class="rank">#38</span>
+          <span class="score low">32</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>BlenderHowtos 螺旋鳞片</h2><span class="category">BlenderHowtos复刻</span></div>
+          <p class="id">blender-howtos-spiral-scales</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 100 / 比例 100 · 分段 0–49</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [spiral_scale_tiles] 部件 &quot;spiral_scale_tiles&quot; 使用透射表面 &quot;leaf&quot;（透射 0.35，不透明度 1.00），但名称或元数据没有透明/半透明语义。</li><li>必修 [spiral_scale_tiles] 4 个承重部件悬空，未形成到地面的接触路径；最大悬空部件约在 (0.80, 1.33, -0.26)。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>若部件应不透明，改用不透射表面；若透射是设计意图，补正确透明材质名称或语义元数据。</li><li>让悬空部件接地，或增加支架、立柱、缆绳等承重连接；纯视觉悬浮件需显式标记 supportExempt。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="meshova树库 barrel cactus speedtree-library-broadleaves-barrel-cactus" data-category="SpeedTree库/Broadleaves" data-band="0–49">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/speedtree-library-broadleaves-barrel-cactus.png" alt="Meshova树库 Barrel Cactus 模型截图">
+          <span class="rank">#39</span>
+          <span class="score low">32</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>Meshova树库 Barrel Cactus</h2><span class="category">SpeedTree库/Broadleaves</span></div>
+          <p class="id">speedtree-library-broadleaves-barrel-cactus</p>
+          <p class="source">确定性几何自审 · 仙人掌 · 几何 100 / 比例 100 · 分段 0–49</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [stem] 部件 &quot;stem&quot; 使用透射表面 &quot;leaf&quot;（透射 0.35，不透明度 1.00），但名称或元数据没有透明/半透明语义。</li><li>必修 [ribs] 部件 &quot;ribs&quot; 使用透射表面 &quot;leaf&quot;（透射 0.35，不透明度 1.00），但名称或元数据没有透明/半透明语义。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>若部件应不透明，改用不透射表面；若透射是设计意图，补正确透明材质名称或语义元数据。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li><li>打破等距、等高、等色分布；用成簇、空隙和边缘过渡形成生态节奏。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="meshova树库 barrel cactus speedtree-library-palms-cacti-barrel-cactus" data-category="SpeedTree库/Palms_&amp;_Cacti" data-band="0–49">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/speedtree-library-palms-cacti-barrel-cactus.png" alt="Meshova树库 Barrel Cactus 模型截图">
+          <span class="rank">#40</span>
+          <span class="score low">32</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>Meshova树库 Barrel Cactus</h2><span class="category">SpeedTree库/Palms_&amp;_Cacti</span></div>
+          <p class="id">speedtree-library-palms-cacti-barrel-cactus</p>
+          <p class="source">确定性几何自审 · 仙人掌 · 几何 100 / 比例 100 · 分段 0–49</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [stem] 部件 &quot;stem&quot; 使用透射表面 &quot;leaf&quot;（透射 0.35，不透明度 1.00），但名称或元数据没有透明/半透明语义。</li><li>必修 [ribs] 部件 &quot;ribs&quot; 使用透射表面 &quot;leaf&quot;（透射 0.35，不透明度 1.00），但名称或元数据没有透明/半透明语义。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>若部件应不透明，改用不透射表面；若透射是设计意图，补正确透明材质名称或语义元数据。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li><li>打破等距、等高、等色分布；用成簇、空隙和边缘过渡形成生态节奏。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="meshova树库 cactus in skull speedtree-library-miscellaneous-fantasy-cactus-in-skull" data-category="SpeedTree库/Miscellaneous_&amp;_Fantasy" data-band="0–49">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/speedtree-library-miscellaneous-fantasy-cactus-in-skull.png" alt="Meshova树库 Cactus In Skull 模型截图">
+          <span class="rank">#41</span>
+          <span class="score low">32</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>Meshova树库 Cactus In Skull</h2><span class="category">SpeedTree库/Miscellaneous_&amp;_Fantasy</span></div>
+          <p class="id">speedtree-library-miscellaneous-fantasy-cactus-in-skull</p>
+          <p class="source">确定性几何自审 · 仙人掌 · 几何 100 / 比例 100 · 分段 0–49</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [stem] 部件 &quot;stem&quot; 使用透射表面 &quot;leaf&quot;（透射 0.35，不透明度 1.00），但名称或元数据没有透明/半透明语义。</li><li>必修 [ribs] 部件 &quot;ribs&quot; 使用透射表面 &quot;leaf&quot;（透射 0.35，不透明度 1.00），但名称或元数据没有透明/半透明语义。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>若部件应不透明，改用不透射表面；若透射是设计意图，补正确透明材质名称或语义元数据。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li><li>打破等距、等高、等色分布；用成簇、空隙和边缘过渡形成生态节奏。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="meshova树库 cholla cactus speedtree-library-palms-cacti-cholla-cactus" data-category="SpeedTree库/Palms_&amp;_Cacti" data-band="0–49">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/speedtree-library-palms-cacti-cholla-cactus.png" alt="Meshova树库 Cholla Cactus 模型截图">
+          <span class="rank">#42</span>
+          <span class="score low">32</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>Meshova树库 Cholla Cactus</h2><span class="category">SpeedTree库/Palms_&amp;_Cacti</span></div>
+          <p class="id">speedtree-library-palms-cacti-cholla-cactus</p>
+          <p class="source">确定性几何自审 · 仙人掌 · 几何 100 / 比例 100 · 分段 0–49</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [stem] 部件 &quot;stem&quot; 使用透射表面 &quot;leaf&quot;（透射 0.35，不透明度 1.00），但名称或元数据没有透明/半透明语义。</li><li>必修 [ribs] 部件 &quot;ribs&quot; 使用透射表面 &quot;leaf&quot;（透射 0.35，不透明度 1.00），但名称或元数据没有透明/半透明语义。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>若部件应不透明，改用不透射表面；若透射是设计意图，补正确透明材质名称或语义元数据。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li><li>打破等距、等高、等色分布；用成簇、空隙和边缘过渡形成生态节奏。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="meshova树库 easter lily cactus speedtree-library-palms-cacti-easter-lily-cactus" data-category="SpeedTree库/Palms_&amp;_Cacti" data-band="0–49">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/speedtree-library-palms-cacti-easter-lily-cactus.png" alt="Meshova树库 Easter Lily Cactus 模型截图">
+          <span class="rank">#43</span>
+          <span class="score low">32</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>Meshova树库 Easter Lily Cactus</h2><span class="category">SpeedTree库/Palms_&amp;_Cacti</span></div>
+          <p class="id">speedtree-library-palms-cacti-easter-lily-cactus</p>
+          <p class="source">确定性几何自审 · 仙人掌 · 几何 100 / 比例 100 · 分段 0–49</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [stem] 部件 &quot;stem&quot; 使用透射表面 &quot;leaf&quot;（透射 0.35，不透明度 1.00），但名称或元数据没有透明/半透明语义。</li><li>必修 [ribs] 部件 &quot;ribs&quot; 使用透射表面 &quot;leaf&quot;（透射 0.35，不透明度 1.00），但名称或元数据没有透明/半透明语义。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>若部件应不透明，改用不透射表面；若透射是设计意图，补正确透明材质名称或语义元数据。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li><li>打破等距、等高、等色分布；用成簇、空隙和边缘过渡形成生态节奏。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="meshova树库 ocotillo speedtree-library-shrubs-flowers-ocotillo" data-category="SpeedTree库/Shrubs_&amp;_Flowers" data-band="0–49">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/speedtree-library-shrubs-flowers-ocotillo.png" alt="Meshova树库 Ocotillo 模型截图">
+          <span class="rank">#44</span>
+          <span class="score low">32</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>Meshova树库 Ocotillo</h2><span class="category">SpeedTree库/Shrubs_&amp;_Flowers</span></div>
+          <p class="id">speedtree-library-shrubs-flowers-ocotillo</p>
+          <p class="source">确定性几何自审 · 仙人掌 · 几何 100 / 比例 100 · 分段 0–49</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [stem] 部件 &quot;stem&quot; 使用透射表面 &quot;leaf&quot;（透射 0.35，不透明度 1.00），但名称或元数据没有透明/半透明语义。</li><li>必修 [ribs] 部件 &quot;ribs&quot; 使用透射表面 &quot;leaf&quot;（透射 0.35，不透明度 1.00），但名称或元数据没有透明/半透明语义。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>若部件应不透明，改用不透射表面；若透射是设计意图，补正确透明材质名称或语义元数据。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li><li>打破等距、等高、等色分布；用成簇、空隙和边缘过渡形成生态节奏。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="meshova树库 rock fern speedtree-library-shrubs-flowers-rock-fern" data-category="SpeedTree库/Shrubs_&amp;_Flowers" data-band="0–49">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/speedtree-library-shrubs-flowers-rock-fern.png" alt="Meshova树库 Rock Fern 模型截图">
+          <span class="rank">#45</span>
+          <span class="score low">32</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>Meshova树库 Rock Fern</h2><span class="category">SpeedTree库/Shrubs_&amp;_Flowers</span></div>
+          <p class="id">speedtree-library-shrubs-flowers-rock-fern</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 100 / 比例 100 · 分段 0–49</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [rachis] 部件 &quot;rachis&quot; 带风摆动画权重，但其语义应为刚性或静态物体。</li><li>必修 [foliage] 部件 &quot;foliage&quot; 带风摆动画权重，但其语义应为刚性或静态物体。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>移除刚性部件的 windWeight；只给植被、布料、水体等柔性部件风摆权重。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li><li>打破等距、等高、等色分布；用成簇、空隙和边缘过渡形成生态节奏。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="meshova树库 saguaro cactus speedtree-library-palms-cacti-saguaro-cactus" data-category="SpeedTree库/Palms_&amp;_Cacti" data-band="0–49">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/speedtree-library-palms-cacti-saguaro-cactus.png" alt="Meshova树库 Saguaro Cactus 模型截图">
+          <span class="rank">#46</span>
+          <span class="score low">32</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>Meshova树库 Saguaro Cactus</h2><span class="category">SpeedTree库/Palms_&amp;_Cacti</span></div>
+          <p class="id">speedtree-library-palms-cacti-saguaro-cactus</p>
+          <p class="source">确定性几何自审 · 仙人掌 · 几何 100 / 比例 100 · 分段 0–49</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [stem] 部件 &quot;stem&quot; 使用透射表面 &quot;leaf&quot;（透射 0.35，不透明度 1.00），但名称或元数据没有透明/半透明语义。</li><li>必修 [ribs] 部件 &quot;ribs&quot; 使用透射表面 &quot;leaf&quot;（透射 0.35，不透明度 1.00），但名称或元数据没有透明/半透明语义。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>若部件应不透明，改用不透射表面；若透射是设计意图，补正确透明材质名称或语义元数据。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li><li>打破等距、等高、等色分布；用成簇、空隙和边缘过渡形成生态节奏。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="pcg 坡度选藤 vine-slope" data-category="自然" data-band="0–49">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/vine-slope.png" alt="PCG 坡度选藤 模型截图">
+          <span class="rank">#47</span>
+          <span class="score low">32</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>PCG 坡度选藤</h2><span class="category">自然</span></div>
+          <p class="id">vine-slope</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 100 / 比例 100 · 分段 0–49</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [creeper] 部件 &quot;creeper&quot; 使用透射表面 &quot;foliage&quot;（透射 0.40，不透明度 1.00），但名称或元数据没有透明/半透明语义。</li><li>必修 [ivy] 部件 &quot;ivy&quot; 使用透射表面 &quot;foliage&quot;（透射 0.40，不透明度 1.00），但名称或元数据没有透明/半透明语义。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>若部件应不透明，改用不透射表面；若透射是设计意图，补正确透明材质名称或语义元数据。</li><li>拉开主形、次形、碎形频率，加入遮挡、接地和风化方向性。</li><li>打破等距、等高、等色分布；用成簇、空隙和边缘过渡形成生态节奏。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="百景 031 · 老城 blender-119-031-old-town" data-category="BlenderHowtos复刻" data-band="0–49">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/blender-119-031-old-town.png" alt="百景 031 · 老城 模型截图">
+          <span class="rank">#48</span>
+          <span class="score low">35</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>百景 031 · 老城</h2><span class="category">BlenderHowtos复刻</span></div>
+          <p class="id">blender-119-031-old-town</p>
+          <p class="source">确定性几何自审 · 聚落 · 几何 100 / 比例 32 · 分段 0–49</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [blender-119-031-old-town_accents] 5 个承重部件悬空，未形成到地面的接触路径；最大悬空部件约在 (0.00, 0.51, 2.43)。</li><li>必修 [realism] settlement 缺少应有的 &quot;road&quot; 部件。</li><li>必修 [realism] settlement 缺少应有的 &quot;building&quot; 部件。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>让悬空部件接地，或增加支架、立柱、缆绳等承重连接；纯视觉悬浮件需显式标记 supportExempt。</li><li>补齐缺失语义部件，或修正部件命名/标签，使自审器能识别其职责与数量。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="low poly 树木 kit low-poly-tree-kit" data-category="Low Poly 场景" data-band="0–49">
+        <div class="shot">
+          <img loading="lazy" src="../out/shots/low-poly-tree-kit-persp-lowpoly.png" alt="Low Poly 树木 Kit 模型截图">
+          <span class="rank">#49</span>
+          <span class="score low">35</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>Low Poly 树木 Kit</h2><span class="category">Low Poly 场景</span></div>
+          <p class="id">low-poly-tree-kit</p>
+          <p class="source">确定性几何自审 · 树木 · 几何 54 / 比例 88 · 分段 0–49</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [tree_kit_broadleaf] 部件 &quot;tree_kit_broadleaf&quot; 的叶片卡过大：最大卡片占冠层包围盒 43%，100% 的卡片超过尺寸限制。</li><li>优化 [tree_kit_broadleaf] 部件 &quot;tree_kit_broadleaf&quot; 有裸露遮挡球：11% 的冠层露出封闭球体，形成明显“绿球”。</li><li>必修 [tree_kit_palm] 不透明部件 &quot;tree_kit_palm&quot; 是强制双面的开放壳体，背面可见会产生错误半透明感。</li><li>优化 [proportion] 比例 h/w=0.25 超出预期 0.7–3：a tree is generally taller than wide。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>缩小叶片卡并增加叶簇数量，让冠层由多层小叶片构成。</li><li>缩小内部遮挡球，或加厚叶片外壳，确保球体不触及冠层剪影。</li><li>补盖开口、焊接壳体并修正外向绕序；不透明实体不要依赖双面渲染掩盖破面。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="程序化混交森林 pcg-forest" data-category="其它" data-band="0–49">
+        <div class="shot">
+          <img loading="lazy" src="../out/shots/pcg-forest-persp-pbr.png" alt="程序化混交森林 模型截图">
+          <span class="rank">#50</span>
+          <span class="score low">41</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>程序化混交森林</h2><span class="category">其它</span></div>
+          <p class="id">pcg-forest</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 54 / 比例 100 · 分段 0–49</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [canopy_1] 部件 &quot;canopy_1&quot; 有裸露遮挡球：15% 的冠层露出封闭球体，形成明显“绿球”。</li><li>优化 [canopy_2] 部件 &quot;canopy_2&quot; 有裸露遮挡球：12% 的冠层露出封闭球体，形成明显“绿球”。</li><li>必修 [understory_shrubs] 部件 &quot;understory_shrubs&quot; 使用透射表面 &quot;foliage&quot;（透射 0.28，不透明度 1.00），但名称或元数据没有透明/半透明语义。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>缩小内部遮挡球，或加厚叶片外壳，确保球体不触及冠层剪影。</li><li>若部件应不透明，改用不透射表面；若透射是设计意图，补正确透明材质名称或语义元数据。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="生态关联规则 ecological-association" data-category="程序生态" data-band="0–49">
+        <div class="shot">
+          <img loading="lazy" src="../out/shots/ecological-association-persp.png" alt="生态关联规则 模型截图">
+          <span class="rank">#51</span>
+          <span class="score low">41</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>生态关联规则</h2><span class="category">程序生态</span></div>
+          <p class="id">ecological-association</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 54 / 比例 100 · 分段 0–49</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>优化 [association_canopy_1] 部件 &quot;association_canopy_1&quot; 有裸露遮挡球：12% 的冠层露出封闭球体，形成明显“绿球”。</li><li>必修 [association_canopy_2] 部件 &quot;association_canopy_2&quot; 有裸露遮挡球：28% 的冠层露出封闭球体，形成明显“绿球”。</li><li>必修 [association_understory_shrubs] 部件 &quot;association_understory_shrubs&quot; 使用透射表面 &quot;foliage&quot;（透射 0.28，不透明度 1.00），但名称或元数据没有透明/半透明语义。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>缩小内部遮挡球，或加厚叶片外壳，确保球体不触及冠层剪影。</li><li>若部件应不透明，改用不透射表面；若透射是设计意图，补正确透明材质名称或语义元数据。</li><li>用环境掩膜驱动群落边界、过渡带和稀疏区，避免随机噪声感。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="meshova树库 mushrooms speedtree-library-broadleaves-mushrooms" data-category="SpeedTree库/Broadleaves" data-band="0–49">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/speedtree-library-broadleaves-mushrooms.png" alt="Meshova树库 Mushrooms 模型截图">
+          <span class="rank">#52</span>
+          <span class="score low">43</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>Meshova树库 Mushrooms</h2><span class="category">SpeedTree库/Broadleaves</span></div>
+          <p class="id">speedtree-library-broadleaves-mushrooms</p>
+          <p class="source">确定性几何自审 · 树木 · 几何 100 / 比例 76 · 分段 0–49</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>优化 [cap] 部件 &quot;cap&quot; 带风摆动画权重，但其语义应为刚性或静态物体。</li><li>必修 [cap] 部件 &quot;cap&quot; 使用透射表面 &quot;leaf&quot;（透射 0.35，不透明度 1.00），但名称或元数据没有透明/半透明语义。</li><li>优化 [proportion] 比例 h/w=0.62 超出预期 0.7–3：a tree is generally taller than wide。</li><li>优化 [realism] tree 缺少应有的 &quot;foliage&quot; 部件。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>移除刚性部件的 windWeight；只给植被、布料、水体等柔性部件风摆权重。</li><li>若部件应不透明，改用不透射表面；若透射是设计意图，补正确透明材质名称或语义元数据。</li><li>调整主体长宽高与部件比例，使检测比值回到规则范围。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="assembly 旱溪岩组 assembly-dry-rockery" data-category="植被" data-band="0–49">
+        <div class="shot">
+          <img loading="lazy" src="../out/shots/assembly-dry-rockery-persp.png" alt="Assembly 旱溪岩组 模型截图">
+          <span class="rank">#53</span>
+          <span class="score low">45</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>Assembly 旱溪岩组</h2><span class="category">植被</span></div>
+          <p class="id">assembly-dry-rockery</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 0 / 比例 100 · 分段 0–49</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [assembly-dry-rockery.focal-tree.needles] 部件 &quot;assembly-dry-rockery.focal-tree.needles&quot; 的叶片严重重叠，拥挤度 80%。</li><li>必修 [assembly-dry-rockery.groundcover-a.fern] 部件 &quot;assembly-dry-rockery.groundcover-a.fern&quot; 是破损开放壳体：504 条边界边 / 252 个面，开放率 200%。</li><li>必修 [assembly-dry-rockery.groundcover-b.fern] 部件 &quot;assembly-dry-rockery.groundcover-b.fern&quot; 是破损开放壳体：504 条边界边 / 252 个面，开放率 200%。</li><li>必修 [assembly-dry-rockery.groundcover-c.fern] 部件 &quot;assembly-dry-rockery.groundcover-c.fern&quot; 是破损开放壳体：504 条边界边 / 252 个面，开放率 200%。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>增加道路退距与地块间距；拒绝与道路带相交的建筑落点，保留可读巷道和庭院。</li><li>补盖开口、焊接壳体并修正外向绕序；不透明实体不要依赖双面渲染掩盖破面。</li><li>优化根—干—枝—冠层级，增加年龄、密度、朝向和色相变化。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="藤蔓废墟拱门 vine-ruin-arch" data-category="Meshova 生成" data-band="0–49">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/vine-ruin-arch.png" alt="藤蔓废墟拱门 模型截图">
+          <span class="rank">#54</span>
+          <span class="score low">47</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>藤蔓废墟拱门</h2><span class="category">Meshova 生成</span></div>
+          <p class="id">vine-ruin-arch</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 66 / 比例 100 · 分段 0–49</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [arch] 部件 &quot;arch&quot; 是破损开放壳体：750 条边界边 / 740 个面，开放率 101%。</li><li>必修 [arch] 1 个承重部件悬空，未形成到地面的接触路径；最大悬空部件约在 (-1.25, 3.73, 0.13)。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>补盖开口、焊接壳体并修正外向绕序；不透明实体不要依赖双面渲染掩盖破面。</li><li>让悬空部件接地，或增加支架、立柱、缆绳等承重连接；纯视觉悬浮件需显式标记 supportExempt。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="blenderhowtos 雨中花园 blender-howtos-raining-garden" data-category="BlenderHowtos复刻" data-band="0–49">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/blender-howtos-raining-garden.png" alt="BlenderHowtos 雨中花园 模型截图">
+          <span class="rank">#55</span>
+          <span class="score low">47</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>BlenderHowtos 雨中花园</h2><span class="category">BlenderHowtos复刻</span></div>
+          <p class="id">blender-howtos-raining-garden</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 66 / 比例 100 · 分段 0–49</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [rain_streaks] 部件 &quot;rain_streaks&quot; 使用透射表面 &quot;glass&quot;（透射 1.00，不透明度 1.00），但名称或元数据没有透明/半透明语义。</li><li>必修 [garden_grass/garden_flowers] 5 对同向共面三角形重叠，会产生 Z-fighting 闪烁。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>若部件应不透明，改用不透射表面；若透射是设计意图，补正确透明材质名称或语义元数据。</li><li>沿法线错开玻璃、贴花或面板，切真实开口，删除隐藏共面面。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="cropout 岩岸岛 cropout-rocky-islands" data-category="地形与环境" data-band="0–49">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/cropout-rocky-islands.png" alt="Cropout 岩岸岛 模型截图">
+          <span class="rank">#56</span>
+          <span class="score low">47</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>Cropout 岩岸岛</h2><span class="category">地形与环境</span></div>
+          <p class="id">cropout-rocky-islands</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 66 / 比例 100 · 分段 0–49</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [cropout_foam] 288/1152 个面法线朝内或翻转。</li><li>必修 [cropout_foam] 部件 &quot;cropout_foam&quot; 使用透射表面 &quot;water&quot;（透射 0.18，不透明度 1.00），但名称或元数据没有透明/半透明语义。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>修正面绕序并重算法线，避免暗面和内外翻转。</li><li>若部件应不透明，改用不透射表面；若透射是设计意图，补正确透明材质名称或语义元数据。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="speedtree教程复刻 地表草丛 speedtree-tutorial-ground-grass" data-category="SpeedTree教程复刻" data-band="0–49">
+        <div class="shot">
+          <img loading="lazy" src="../out/shots/speedtree-tutorial-ground-grass-persp.png" alt="SpeedTree教程复刻 地表草丛 模型截图">
+          <span class="rank">#57</span>
+          <span class="score low">47</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>SpeedTree教程复刻 地表草丛</h2><span class="category">SpeedTree教程复刻</span></div>
+          <p class="id">speedtree-tutorial-ground-grass</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 66 / 比例 100 · 分段 0–49</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [foliage] 部件 &quot;foliage&quot; 带风摆动画权重，但其语义应为刚性或静态物体。</li><li>必修 [foliage] 部件 &quot;foliage&quot; 的叶片严重重叠，拥挤度 95%。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>移除刚性部件的 windWeight；只给植被、布料、水体等柔性部件风摆权重。</li><li>增加道路退距与地块间距；拒绝与道路带相交的建筑落点，保留可读巷道和庭院。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="藤蔓覆盖裂隙岩柱 vine-covered-rock" data-category="自然" data-band="0–49">
+        <div class="shot">
+          <img loading="lazy" src="../out/shots/vine-covered-rock-persp.png" alt="藤蔓覆盖裂隙岩柱 模型截图">
+          <span class="rank">#58</span>
+          <span class="score low">49</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>藤蔓覆盖裂隙岩柱</h2><span class="category">自然</span></div>
+          <p class="id">vine-covered-rock</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 8 / 比例 100 · 分段 0–49</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>优化 [ivy_mature] 存在 2 个零面积退化面。</li><li>优化 [ivy_mature] 部件 &quot;ivy_mature&quot; 是破损开放壳体：85425 条边界边 / 320044 个面，开放率 27%。</li><li>必修 [ivy_young] 部件 &quot;ivy_young&quot; 是破损开放壳体：1860 条边界边 / 1860 个面，开放率 100%。</li><li>必修 [ivy_dry] 部件 &quot;ivy_dry&quot; 是破损开放壳体：630 条边界边 / 630 个面，开放率 100%。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>避免顶点塌缩；检查细分、位移和合并参数，清理零面积面。</li><li>补盖开口、焊接壳体并修正外向绕序；不透明实体不要依赖双面渲染掩盖破面。</li><li>拉开主形、次形、碎形频率，加入遮挡、接地和风化方向性。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="程序化小镇场景 town-scene" data-category="其它" data-band="50–69">
+        <div class="shot">
+          <img loading="lazy" src="../out/shots/town-scene-persp.png" alt="程序化小镇场景 模型截图">
+          <span class="rank">#59</span>
+          <span class="score mid">54</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>程序化小镇场景</h2><span class="category">其它</span></div>
+          <p class="id">town-scene</p>
+          <p class="source">确定性几何自审 · 聚落 · 几何 100 / 比例 100 · 分段 50–69</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [dirt_roads] 37 个建筑占地与道路几何重叠。</li><li>优化 [aesthetic] 聚落建筑重复使用简单墙体与屋顶，缺少立面细节。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>增加道路退距与地块间距；拒绝与道路带相交的建筑落点，保留可读巷道和庭院。</li><li>增加门窗、台阶、阳台和立面模块，并变化建筑宽深、高度与朝向，消除印章式重复。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="grasshopper xpbd 折纸展亭 grasshopper-origami-pavilion" data-category="其它" data-band="50–69">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/grasshopper-origami-pavilion.png" alt="Grasshopper XPBD 折纸展亭 模型截图">
+          <span class="rank">#60</span>
+          <span class="score mid">59</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>Grasshopper XPBD 折纸展亭</h2><span class="category">其它</span></div>
+          <p class="id">grasshopper-origami-pavilion</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 88 / 比例 100 · 分段 50–69</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [origami_folded_roof] 不透明部件 &quot;origami_folded_roof&quot; 是强制双面的开放壳体，背面可见会产生错误半透明感。</li><li>优化 [origami_folded_roof] 部件 &quot;origami_folded_roof&quot; 是破损开放壳体：42 条边界边 / 216 个面，开放率 19%。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>补盖开口、焊接壳体并修正外向绕序；不透明实体不要依赖双面渲染掩盖破面。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li><li>打破等距、等高、等色分布；用成簇、空隙和边缘过渡形成生态节奏。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="meshova树库 fan coral speedtree-library-marine-fan-coral" data-category="SpeedTree库/Marine" data-band="50–69">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/speedtree-library-marine-fan-coral.png" alt="Meshova树库 Fan Coral 模型截图">
+          <span class="rank">#61</span>
+          <span class="score mid">59</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>Meshova树库 Fan Coral</h2><span class="category">SpeedTree库/Marine</span></div>
+          <p class="id">speedtree-library-marine-fan-coral</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 88 / 比例 100 · 分段 50–69</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [coral] 部件 &quot;coral&quot; 使用透射表面 &quot;leaf&quot;（透射 0.35，不透明度 1.00），但名称或元数据没有透明/半透明语义。</li><li>优化 [coral] 部件 &quot;coral&quot; 是破损开放壳体：144 条边界边 / 720 个面，开放率 20%。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>若部件应不透明，改用不透射表面；若透射是设计意图，补正确透明材质名称或语义元数据。</li><li>补盖开口、焊接壳体并修正外向绕序；不透明实体不要依赖双面渲染掩盖破面。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="speedtree教程复刻 蕨类植物 speedtree-tutorial-fern-plant" data-category="SpeedTree教程复刻" data-band="50–69">
+        <div class="shot">
+          <img loading="lazy" src="../out/shots/speedtree-tutorial-fern-plant-persp.png" alt="SpeedTree教程复刻 蕨类植物 模型截图">
+          <span class="rank">#62</span>
+          <span class="score mid">61</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>SpeedTree教程复刻 蕨类植物</h2><span class="category">SpeedTree教程复刻</span></div>
+          <p class="id">speedtree-tutorial-fern-plant</p>
+          <p class="source">确定性几何自审 · 树木 · 几何 100 / 比例 88 · 分段 50–69</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [wood] 11 个承重部件悬空，未形成到地面的接触路径；最大悬空部件约在 (0.35, 0.20, -0.50)。</li><li>优化 [proportion] 比例 h/w=0.16 超出预期 0.7–3：a tree is generally taller than wide。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>让悬空部件接地，或增加支架、立柱、缆绳等承重连接；纯视觉悬浮件需显式标记 supportExempt。</li><li>调整主体长宽高与部件比例，使检测比值回到规则范围。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="植被花园 veg-garden" data-category="植被" data-band="50–69">
+        <div class="shot">
+          <img loading="lazy" src="../out/shots/veg-garden-persp.png" alt="植被花园 模型截图">
+          <span class="rank">#63</span>
+          <span class="score mid">62</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>植被花园</h2><span class="category">植被</span></div>
+          <p class="id">veg-garden</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 30 / 比例 100 · 分段 50–69</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>优化 [shrub_0_leaf] 部件 &quot;shrub_0_leaf&quot; 的叶片严重重叠，拥挤度 64%。</li><li>优化 [shrub_1_leaf] 部件 &quot;shrub_1_leaf&quot; 的叶片严重重叠，拥挤度 65%。</li><li>必修 [shrub_2_leaf] 部件 &quot;shrub_2_leaf&quot; 的叶片严重重叠，拥挤度 78%。</li><li>优化 [ground_grass] 部件 &quot;ground_grass&quot; 是破损开放壳体：3600 条边界边 / 18000 个面，开放率 20%。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>增加道路退距与地块间距；拒绝与道路带相交的建筑落点，保留可读巷道和庭院。</li><li>补盖开口、焊接壳体并修正外向绕序；不透明实体不要依赖双面渲染掩盖破面。</li><li>优化根—干—枝—冠层级，增加年龄、密度、朝向和色相变化。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="assembly 花境岛 assembly-flower-island" data-category="植被" data-band="50–69">
+        <div class="shot">
+          <img loading="lazy" src="../out/shots/assembly-flower-island-persp.png" alt="Assembly 花境岛 模型截图">
+          <span class="rank">#64</span>
+          <span class="score mid">62</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>Assembly 花境岛</h2><span class="category">植被</span></div>
+          <p class="id">assembly-flower-island</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 30 / 比例 100 · 分段 50–69</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>优化 [assembly-flower-island.focal-tree.foliage] 存在 1 个零面积退化面。</li><li>优化 [assembly-flower-island.groundcover-a.grass] 部件 &quot;assembly-flower-island.groundcover-a.grass&quot; 是破损开放壳体：384 条边界边 / 1920 个面，开放率 20%。</li><li>必修 [assembly-flower-island.groundcover-b.fern] 部件 &quot;assembly-flower-island.groundcover-b.fern&quot; 是破损开放壳体：504 条边界边 / 252 个面，开放率 200%。</li><li>优化 [assembly-flower-island.groundcover-c.grass] 部件 &quot;assembly-flower-island.groundcover-c.grass&quot; 是破损开放壳体：384 条边界边 / 1920 个面，开放率 20%。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>避免顶点塌缩；检查细分、位移和合并参数，清理零面积面。</li><li>补盖开口、焊接壳体并修正外向绕序；不透明实体不要依赖双面渲染掩盖破面。</li><li>优化根—干—枝—冠层级，增加年龄、密度、朝向和色相变化。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="机械齿轮法兰组件 mech-gearbox" data-category="机械" data-band="50–69">
+        <div class="shot">
+          <img loading="lazy" src="../out/shots/mech-gearbox-persp.png" alt="机械齿轮法兰组件 模型截图">
+          <span class="rank">#65</span>
+          <span class="score mid">63</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>机械齿轮法兰组件</h2><span class="category">机械</span></div>
+          <p class="id">mech-gearbox</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 32 / 比例 100 · 分段 50–69</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [base_plate] 部件 &quot;base_plate&quot; 是破损开放壳体：2444 条边界边 / 5322 个面，开放率 46%。</li><li>必修 [gear_large/gear_small] 430 对同向共面三角形重叠，会产生 Z-fighting 闪烁。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>补盖开口、焊接壳体并修正外向绕序；不透明实体不要依赖双面渲染掩盖破面。</li><li>沿法线错开玻璃、贴花或面板，切真实开口，删除隐藏共面面。</li><li>明确动力输入、传动、支撑和紧固关系；细节密度服从功能。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="行星齿轮减速器 mech-planetary-gearbox" data-category="机械" data-band="50–69">
+        <div class="shot">
+          <img loading="lazy" src="../out/shots/mech-planetary-gearbox-persp.png" alt="行星齿轮减速器 模型截图">
+          <span class="rank">#66</span>
+          <span class="score mid">63</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>行星齿轮减速器</h2><span class="category">机械</span></div>
+          <p class="id">mech-planetary-gearbox</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 32 / 比例 100 · 分段 50–69</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [carrier_plate] 部件 &quot;carrier_plate&quot; 是破损开放壳体：912 条边界边 / 2124 个面，开放率 43%。</li><li>必修 [ring_gear/planet_1] 8978 对同向共面三角形重叠，会产生 Z-fighting 闪烁。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>补盖开口、焊接壳体并修正外向绕序；不透明实体不要依赖双面渲染掩盖破面。</li><li>沿法线错开玻璃、贴花或面板，切真实开口，删除隐藏共面面。</li><li>明确动力输入、传动、支撑和紧固关系；细节密度服从功能。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="程序化筒仓 procedural-silo" data-category="其它" data-band="50–69">
+        <div class="shot">
+          <img loading="lazy" src="../out/shots/procedural-silo-persp-pbr.png" alt="程序化筒仓 模型截图">
+          <span class="rank">#67</span>
+          <span class="score mid">64</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>程序化筒仓</h2><span class="category">其它</span></div>
+          <p class="id">procedural-silo</p>
+          <p class="source">确定性几何自审 · 水塔 · 几何 100 / 比例 20 · 分段 50–69</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>优化 [proportion] 模型高度 22.20 超出预期 0.5–20 单位。</li><li>必修 [realism] water-tower 缺少应有的 &quot;tank&quot; 部件。</li><li>必修 [realism] water-tower 缺少应有的 &quot;support&quot; 部件。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>统一模型尺度，使高度落入自审规则的预期范围。</li><li>补齐缺失语义部件，或修正部件命名/标签，使自审器能识别其职责与数量。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="meshova树库 marigold speedtree-library-broadleaves-marigold" data-category="SpeedTree库/Broadleaves" data-band="50–69">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/speedtree-library-broadleaves-marigold.png" alt="Meshova树库 Marigold 模型截图">
+          <span class="rank">#68</span>
+          <span class="score mid">64</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>Meshova树库 Marigold</h2><span class="category">SpeedTree库/Broadleaves</span></div>
+          <p class="id">speedtree-library-broadleaves-marigold</p>
+          <p class="source">确定性几何自审 · 树木 · 几何 88 / 比例 88 · 分段 50–69</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>优化 [stems] 部件 &quot;stems&quot; 带风摆动画权重，但其语义应为刚性或静态物体。</li><li>优化 [blooms] 部件 &quot;blooms&quot; 带风摆动画权重，但其语义应为刚性或静态物体。</li><li>优化 [blooms] 部件 &quot;blooms&quot; 是破损开放壳体：224 条边界边 / 1120 个面，开放率 20%。</li><li>优化 [proportion] 比例 h/w=0.52 超出预期 0.7–3：a tree is generally taller than wide。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>移除刚性部件的 windWeight；只给植被、布料、水体等柔性部件风摆权重。</li><li>补盖开口、焊接壳体并修正外向绕序；不透明实体不要依赖双面渲染掩盖破面。</li><li>调整主体长宽高与部件比例，使检测比值回到规则范围。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="百景 002 · 湖畔咖啡馆 blender-119-002-lakeside-cafes" data-category="BlenderHowtos复刻" data-band="50–69">
+        <div class="shot">
+          <img loading="lazy" src="../out/shots/blender-119-002-lakeside-cafes-persp.png" alt="百景 002 · 湖畔咖啡馆 模型截图">
+          <span class="rank">#69</span>
+          <span class="score mid">66</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>百景 002 · 湖畔咖啡馆</h2><span class="category">BlenderHowtos复刻</span></div>
+          <p class="id">blender-119-002-lakeside-cafes</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 100 / 比例 100 · 分段 50–69</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [blender-119-002-lakeside-cafes_accents] 1 个承重部件悬空，未形成到地面的接触路径；最大悬空部件约在 (2.55, 2.31, 1.28)。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>让悬空部件接地，或增加支架、立柱、缆绳等承重连接；纯视觉悬浮件需显式标记 supportExempt。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li><li>校准水流方向、岸线曲率和宽深变化；交界处补湿润、泡沫或沉积层。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="百景 004 · 雨天 blender-119-004-rainy-days" data-category="BlenderHowtos复刻" data-band="50–69">
+        <div class="shot">
+          <img loading="lazy" src="../out/shots/blender-119-004-rainy-days-persp.png" alt="百景 004 · 雨天 模型截图">
+          <span class="rank">#70</span>
+          <span class="score mid">66</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>百景 004 · 雨天</h2><span class="category">BlenderHowtos复刻</span></div>
+          <p class="id">blender-119-004-rainy-days</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 100 / 比例 100 · 分段 50–69</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [blender-119-004-rainy-days_accents] 4 个承重部件悬空，未形成到地面的接触路径；最大悬空部件约在 (-0.70, 0.53, 1.58)。</li><li>必修 [blender-119-004-rainy-days_effects] 19 个承重部件悬空，未形成到地面的接触路径；最大悬空部件约在 (4.86, 2.52, 0.73)。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>让悬空部件接地，或增加支架、立柱、缆绳等承重连接；纯视觉悬浮件需显式标记 supportExempt。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li><li>设定唯一主焦点，用道路/河流引导视线；远景降密度、近景增加尺度参照。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="百景 005 · 街角 blender-119-005-street-corner" data-category="BlenderHowtos复刻" data-band="50–69">
+        <div class="shot">
+          <img loading="lazy" src="../out/shots/blender-119-005-street-corner-persp.png" alt="百景 005 · 街角 模型截图">
+          <span class="rank">#71</span>
+          <span class="score mid">66</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>百景 005 · 街角</h2><span class="category">BlenderHowtos复刻</span></div>
+          <p class="id">blender-119-005-street-corner</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 100 / 比例 100 · 分段 50–69</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [blender-119-005-street-corner_accents] 2 个承重部件悬空，未形成到地面的接触路径；最大悬空部件约在 (-2.45, 1.37, 1.85)。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>让悬空部件接地，或增加支架、立柱、缆绳等承重连接；纯视觉悬浮件需显式标记 supportExempt。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li><li>打破等距、等高、等色分布；用成簇、空隙和边缘过渡形成生态节奏。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="百景 030 · 弹出动画场景 blender-119-030-popup-animation" data-category="BlenderHowtos复刻" data-band="50–69">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/blender-119-030-popup-animation.png" alt="百景 030 · 弹出动画场景 模型截图">
+          <span class="rank">#72</span>
+          <span class="score mid">66</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>百景 030 · 弹出动画场景</h2><span class="category">BlenderHowtos复刻</span></div>
+          <p class="id">blender-119-030-popup-animation</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 100 / 比例 100 · 分段 50–69</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [blender-119-030-popup-animation_accents] 5 个承重部件悬空，未形成到地面的接触路径；最大悬空部件约在 (4.23, 1.47, 0.03)。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>让悬空部件接地，或增加支架、立柱、缆绳等承重连接；纯视觉悬浮件需显式标记 supportExempt。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li><li>设定唯一主焦点，用道路/河流引导视线；远景降密度、近景增加尺度参照。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="百景 041 · 坠毁 blender-119-041-crash-landing" data-category="BlenderHowtos复刻" data-band="50–69">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/blender-119-041-crash-landing.png" alt="百景 041 · 坠毁 模型截图">
+          <span class="rank">#73</span>
+          <span class="score mid">66</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>百景 041 · 坠毁</h2><span class="category">BlenderHowtos复刻</span></div>
+          <p class="id">blender-119-041-crash-landing</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 100 / 比例 100 · 分段 50–69</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [blender-119-041-crash-landing_structures] 4 个承重部件悬空，未形成到地面的接触路径；最大悬空部件约在 (0.00, 3.20, 0.00)。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>让悬空部件接地，或增加支架、立柱、缆绳等承重连接；纯视觉悬浮件需显式标记 supportExempt。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li><li>设定唯一主焦点，用道路/河流引导视线；远景降密度、近景增加尺度参照。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="百景 044 · 透明背景场景 blender-119-044-transparent-background" data-category="BlenderHowtos复刻" data-band="50–69">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/blender-119-044-transparent-background.png" alt="百景 044 · 透明背景场景 模型截图">
+          <span class="rank">#74</span>
+          <span class="score mid">66</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>百景 044 · 透明背景场景</h2><span class="category">BlenderHowtos复刻</span></div>
+          <p class="id">blender-119-044-transparent-background</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 100 / 比例 100 · 分段 50–69</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [blender-119-044-transparent-background_accents] 5 个承重部件悬空，未形成到地面的接触路径；最大悬空部件约在 (4.23, 1.47, 0.03)。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>让悬空部件接地，或增加支架、立柱、缆绳等承重连接；纯视觉悬浮件需显式标记 supportExempt。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li><li>设定唯一主焦点，用道路/河流引导视线；远景降密度、近景增加尺度参照。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="百景 047 · 飞行好日子 blender-119-047-good-day-to-fly" data-category="BlenderHowtos复刻" data-band="50–69">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/blender-119-047-good-day-to-fly.png" alt="百景 047 · 飞行好日子 模型截图">
+          <span class="rank">#75</span>
+          <span class="score mid">66</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>百景 047 · 飞行好日子</h2><span class="category">BlenderHowtos复刻</span></div>
+          <p class="id">blender-119-047-good-day-to-fly</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 100 / 比例 100 · 分段 50–69</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [blender-119-047-good-day-to-fly_structures] 4 个承重部件悬空，未形成到地面的接触路径；最大悬空部件约在 (0.00, 3.20, 0.00)。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>让悬空部件接地，或增加支架、立柱、缆绳等承重连接；纯视觉悬浮件需显式标记 supportExempt。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li><li>设定唯一主焦点，用道路/河流引导视线；远景降密度、近景增加尺度参照。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="百景 059 · 三百六十五天作品集 blender-119-059-year-progress" data-category="BlenderHowtos复刻" data-band="50–69">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/blender-119-059-year-progress.png" alt="百景 059 · 三百六十五天作品集 模型截图">
+          <span class="rank">#76</span>
+          <span class="score mid">66</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>百景 059 · 三百六十五天作品集</h2><span class="category">BlenderHowtos复刻</span></div>
+          <p class="id">blender-119-059-year-progress</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 100 / 比例 100 · 分段 50–69</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [blender-119-059-year-progress_accents] 5 个承重部件悬空，未形成到地面的接触路径；最大悬空部件约在 (4.23, 1.47, 0.03)。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>让悬空部件接地，或增加支架、立柱、缆绳等承重连接；纯视觉悬浮件需显式标记 supportExempt。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li><li>设定唯一主焦点，用道路/河流引导视线；远景降密度、近景增加尺度参照。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="百景 060 · 首作重制 blender-119-060-first-scene-remake" data-category="BlenderHowtos复刻" data-band="50–69">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/blender-119-060-first-scene-remake.png" alt="百景 060 · 首作重制 模型截图">
+          <span class="rank">#77</span>
+          <span class="score mid">66</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>百景 060 · 首作重制</h2><span class="category">BlenderHowtos复刻</span></div>
+          <p class="id">blender-119-060-first-scene-remake</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 100 / 比例 100 · 分段 50–69</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [blender-119-060-first-scene-remake_accents] 5 个承重部件悬空，未形成到地面的接触路径；最大悬空部件约在 (4.23, 1.47, 0.03)。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>让悬空部件接地，或增加支架、立柱、缆绳等承重连接；纯视觉悬浮件需显式标记 supportExempt。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li><li>设定唯一主焦点，用道路/河流引导视线；远景降密度、近景增加尺度参照。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="百景 062 · 赛博智慧城 blender-119-062-cyberpunk-smart-city" data-category="BlenderHowtos复刻" data-band="50–69">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/blender-119-062-cyberpunk-smart-city.png" alt="百景 062 · 赛博智慧城 模型截图">
+          <span class="rank">#78</span>
+          <span class="score mid">66</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>百景 062 · 赛博智慧城</h2><span class="category">BlenderHowtos复刻</span></div>
+          <p class="id">blender-119-062-cyberpunk-smart-city</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 100 / 比例 100 · 分段 50–69</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [blender-119-062-cyberpunk-smart-city_accents] 1 个承重部件悬空，未形成到地面的接触路径；最大悬空部件约在 (-4.36, 1.18, -4.13)。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>让悬空部件接地，或增加支架、立柱、缆绳等承重连接；纯视觉悬浮件需显式标记 supportExempt。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li><li>设定唯一主焦点，用道路/河流引导视线；远景降密度、近景增加尺度参照。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="百景 067 · 追逐者 blender-119-067-chaser" data-category="BlenderHowtos复刻" data-band="50–69">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/blender-119-067-chaser.png" alt="百景 067 · 追逐者 模型截图">
+          <span class="rank">#79</span>
+          <span class="score mid">66</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>百景 067 · 追逐者</h2><span class="category">BlenderHowtos复刻</span></div>
+          <p class="id">blender-119-067-chaser</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 100 / 比例 100 · 分段 50–69</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [blender-119-067-chaser_structures] 4 个承重部件悬空，未形成到地面的接触路径；最大悬空部件约在 (0.00, 3.20, 0.00)。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>让悬空部件接地，或增加支架、立柱、缆绳等承重连接；纯视觉悬浮件需显式标记 supportExempt。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li><li>设定唯一主焦点，用道路/河流引导视线；远景降密度、近景增加尺度参照。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="百景 069 · 液体模拟场景 blender-119-069-liquid-simulation" data-category="BlenderHowtos复刻" data-band="50–69">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/blender-119-069-liquid-simulation.png" alt="百景 069 · 液体模拟场景 模型截图">
+          <span class="rank">#80</span>
+          <span class="score mid">66</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>百景 069 · 液体模拟场景</h2><span class="category">BlenderHowtos复刻</span></div>
+          <p class="id">blender-119-069-liquid-simulation</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 100 / 比例 100 · 分段 50–69</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [blender-119-069-liquid-simulation_effects] 18 个承重部件悬空，未形成到地面的接触路径；最大悬空部件约在 (6.64, 5.71, 2.24)。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>让悬空部件接地，或增加支架、立柱、缆绳等承重连接；纯视觉悬浮件需显式标记 supportExempt。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li><li>设定唯一主焦点，用道路/河流引导视线；远景降密度、近景增加尺度参照。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="百景 072 · 盒中风暴 blender-119-072-storm-in-box" data-category="BlenderHowtos复刻" data-band="50–69">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/blender-119-072-storm-in-box.png" alt="百景 072 · 盒中风暴 模型截图">
+          <span class="rank">#81</span>
+          <span class="score mid">66</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>百景 072 · 盒中风暴</h2><span class="category">BlenderHowtos复刻</span></div>
+          <p class="id">blender-119-072-storm-in-box</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 100 / 比例 100 · 分段 50–69</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [blender-119-072-storm-in-box_structures] 2 个承重部件悬空，未形成到地面的接触路径；最大悬空部件约在 (0.00, 0.55, 0.00)。</li><li>必修 [blender-119-072-storm-in-box_effects] 18 个承重部件悬空，未形成到地面的接触路径；最大悬空部件约在 (6.93, 5.82, 3.58)。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>让悬空部件接地，或增加支架、立柱、缆绳等承重连接；纯视觉悬浮件需显式标记 supportExempt。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li><li>设定唯一主焦点，用道路/河流引导视线；远景降密度、近景增加尺度参照。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="百景 073 · 冬日木屋 blender-119-073-winter-cabin" data-category="BlenderHowtos复刻" data-band="50–69">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/blender-119-073-winter-cabin.png" alt="百景 073 · 冬日木屋 模型截图">
+          <span class="rank">#82</span>
+          <span class="score mid">66</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>百景 073 · 冬日木屋</h2><span class="category">BlenderHowtos复刻</span></div>
+          <p class="id">blender-119-073-winter-cabin</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 100 / 比例 100 · 分段 50–69</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [blender-119-073-winter-cabin_effects] 21 个承重部件悬空，未形成到地面的接触路径；最大悬空部件约在 (-0.20, 4.17, 1.74)。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>让悬空部件接地，或增加支架、立柱、缆绳等承重连接；纯视觉悬浮件需显式标记 supportExempt。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li><li>设定唯一主焦点，用道路/河流引导视线；远景降密度、近景增加尺度参照。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="百景 077 · 幸存者 blender-119-077-survivor" data-category="BlenderHowtos复刻" data-band="50–69">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/blender-119-077-survivor.png" alt="百景 077 · 幸存者 模型截图">
+          <span class="rank">#83</span>
+          <span class="score mid">66</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>百景 077 · 幸存者</h2><span class="category">BlenderHowtos复刻</span></div>
+          <p class="id">blender-119-077-survivor</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 100 / 比例 100 · 分段 50–69</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [blender-119-077-survivor_effects] 1 个承重部件悬空，未形成到地面的接触路径；最大悬空部件约在 (-1.73, 1.35, 0.82)。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>让悬空部件接地，或增加支架、立柱、缆绳等承重连接；纯视觉悬浮件需显式标记 supportExempt。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li><li>设定唯一主焦点，用道路/河流引导视线；远景降密度、近景增加尺度参照。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="百景 079 · 寒冬将至 blender-119-079-winters-coming" data-category="BlenderHowtos复刻" data-band="50–69">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/blender-119-079-winters-coming.png" alt="百景 079 · 寒冬将至 模型截图">
+          <span class="rank">#84</span>
+          <span class="score mid">66</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>百景 079 · 寒冬将至</h2><span class="category">BlenderHowtos复刻</span></div>
+          <p class="id">blender-119-079-winters-coming</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 100 / 比例 100 · 分段 50–69</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [blender-119-079-winters-coming_effects] 19 个承重部件悬空，未形成到地面的接触路径；最大悬空部件约在 (-4.02, 1.60, 4.60)。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>让悬空部件接地，或增加支架、立柱、缆绳等承重连接；纯视觉悬浮件需显式标记 supportExempt。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li><li>设定唯一主焦点，用道路/河流引导视线；远景降密度、近景增加尺度参照。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="百景 081 · 赛博夜生活 blender-119-081-cyberpunk-night-life" data-category="BlenderHowtos复刻" data-band="50–69">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/blender-119-081-cyberpunk-night-life.png" alt="百景 081 · 赛博夜生活 模型截图">
+          <span class="rank">#85</span>
+          <span class="score mid">66</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>百景 081 · 赛博夜生活</h2><span class="category">BlenderHowtos复刻</span></div>
+          <p class="id">blender-119-081-cyberpunk-night-life</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 100 / 比例 100 · 分段 50–69</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [blender-119-081-cyberpunk-night-life_accents] 1 个承重部件悬空，未形成到地面的接触路径；最大悬空部件约在 (6.03, 1.76, -4.22)。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>让悬空部件接地，或增加支架、立柱、缆绳等承重连接；纯视觉悬浮件需显式标记 supportExempt。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li><li>设定唯一主焦点，用道路/河流引导视线；远景降密度、近景增加尺度参照。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="百景 092 · 自然之怒 blender-119-092-natures-wrath" data-category="BlenderHowtos复刻" data-band="50–69">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/blender-119-092-natures-wrath.png" alt="百景 092 · 自然之怒 模型截图">
+          <span class="rank">#86</span>
+          <span class="score mid">66</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>百景 092 · 自然之怒</h2><span class="category">BlenderHowtos复刻</span></div>
+          <p class="id">blender-119-092-natures-wrath</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 100 / 比例 100 · 分段 50–69</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [blender-119-092-natures-wrath_effects] 23 个承重部件悬空，未形成到地面的接触路径；最大悬空部件约在 (3.01, 2.31, -1.86)。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>让悬空部件接地，或增加支架、立柱、缆绳等承重连接；纯视觉悬浮件需显式标记 supportExempt。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li><li>设定唯一主焦点，用道路/河流引导视线；远景降密度、近景增加尺度参照。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="百景 093 · 最终决战 blender-119-093-grand-final" data-category="BlenderHowtos复刻" data-band="50–69">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/blender-119-093-grand-final.png" alt="百景 093 · 最终决战 模型截图">
+          <span class="rank">#87</span>
+          <span class="score mid">66</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>百景 093 · 最终决战</h2><span class="category">BlenderHowtos复刻</span></div>
+          <p class="id">blender-119-093-grand-final</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 100 / 比例 100 · 分段 50–69</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [blender-119-093-grand-final_accents] 1 个承重部件悬空，未形成到地面的接触路径；最大悬空部件约在 (0.00, 1.12, 2.73)。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>让悬空部件接地，或增加支架、立柱、缆绳等承重连接；纯视觉悬浮件需显式标记 supportExempt。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li><li>设定唯一主焦点，用道路/河流引导视线；远景降密度、近景增加尺度参照。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="百景 096 · 低配电脑场景 blender-119-096-low-spec-scene" data-category="BlenderHowtos复刻" data-band="50–69">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/blender-119-096-low-spec-scene.png" alt="百景 096 · 低配电脑场景 模型截图">
+          <span class="rank">#88</span>
+          <span class="score mid">66</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>百景 096 · 低配电脑场景</h2><span class="category">BlenderHowtos复刻</span></div>
+          <p class="id">blender-119-096-low-spec-scene</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 100 / 比例 100 · 分段 50–69</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [blender-119-096-low-spec-scene_accents] 5 个承重部件悬空，未形成到地面的接触路径；最大悬空部件约在 (4.23, 1.47, 0.03)。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>让悬空部件接地，或增加支架、立柱、缆绳等承重连接；纯视觉悬浮件需显式标记 supportExempt。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li><li>设定唯一主焦点，用道路/河流引导视线；远景降密度、近景增加尺度参照。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="百景 097 · 潜艇直升机 blender-119-097-submacopter" data-category="BlenderHowtos复刻" data-band="50–69">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/blender-119-097-submacopter.png" alt="百景 097 · 潜艇直升机 模型截图">
+          <span class="rank">#89</span>
+          <span class="score mid">66</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>百景 097 · 潜艇直升机</h2><span class="category">BlenderHowtos复刻</span></div>
+          <p class="id">blender-119-097-submacopter</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 100 / 比例 100 · 分段 50–69</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [blender-119-097-submacopter_structures] 4 个承重部件悬空，未形成到地面的接触路径；最大悬空部件约在 (0.00, 3.20, 0.00)。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>让悬空部件接地，或增加支架、立柱、缆绳等承重连接；纯视觉悬浮件需显式标记 supportExempt。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li><li>设定唯一主焦点，用道路/河流引导视线；远景降密度、近景增加尺度参照。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="百景 099 · 基础弹出动画 blender-119-099-basic-popup-animation" data-category="BlenderHowtos复刻" data-band="50–69">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/blender-119-099-basic-popup-animation.png" alt="百景 099 · 基础弹出动画 模型截图">
+          <span class="rank">#90</span>
+          <span class="score mid">66</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>百景 099 · 基础弹出动画</h2><span class="category">BlenderHowtos复刻</span></div>
+          <p class="id">blender-119-099-basic-popup-animation</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 100 / 比例 100 · 分段 50–69</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [blender-119-099-basic-popup-animation_accents] 5 个承重部件悬空，未形成到地面的接触路径；最大悬空部件约在 (4.23, 1.47, 0.03)。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>让悬空部件接地，或增加支架、立柱、缆绳等承重连接；纯视觉悬浮件需显式标记 supportExempt。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li><li>设定唯一主焦点，用道路/河流引导视线；远景降密度、近景增加尺度参照。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="百景 101 · 半年作品集 blender-119-101-half-year-progress" data-category="BlenderHowtos复刻" data-band="50–69">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/blender-119-101-half-year-progress.png" alt="百景 101 · 半年作品集 模型截图">
+          <span class="rank">#91</span>
+          <span class="score mid">66</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>百景 101 · 半年作品集</h2><span class="category">BlenderHowtos复刻</span></div>
+          <p class="id">blender-119-101-half-year-progress</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 100 / 比例 100 · 分段 50–69</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [blender-119-101-half-year-progress_accents] 5 个承重部件悬空，未形成到地面的接触路径；最大悬空部件约在 (4.23, 1.47, 0.03)。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>让悬空部件接地，或增加支架、立柱、缆绳等承重连接；纯视觉悬浮件需显式标记 supportExempt。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li><li>设定唯一主焦点，用道路/河流引导视线；远景降密度、近景增加尺度参照。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="百景 104 · 飞行好日子·路径 blender-119-104-good-day-to-fly-path" data-category="BlenderHowtos复刻" data-band="50–69">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/blender-119-104-good-day-to-fly-path.png" alt="百景 104 · 飞行好日子·路径 模型截图">
+          <span class="rank">#92</span>
+          <span class="score mid">66</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>百景 104 · 飞行好日子·路径</h2><span class="category">BlenderHowtos复刻</span></div>
+          <p class="id">blender-119-104-good-day-to-fly-path</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 100 / 比例 100 · 分段 50–69</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [blender-119-104-good-day-to-fly-path_structures] 4 个承重部件悬空，未形成到地面的接触路径；最大悬空部件约在 (0.00, 3.20, 0.00)。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>让悬空部件接地，或增加支架、立柱、缆绳等承重连接；纯视觉悬浮件需显式标记 supportExempt。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li><li>优化曲线连续性、交叉口半径和端点收口；补通行尺度与边缘构造。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="百景 108 · 雷击 blender-119-108-lightning-strike" data-category="BlenderHowtos复刻" data-band="50–69">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/blender-119-108-lightning-strike.png" alt="百景 108 · 雷击 模型截图">
+          <span class="rank">#93</span>
+          <span class="score mid">66</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>百景 108 · 雷击</h2><span class="category">BlenderHowtos复刻</span></div>
+          <p class="id">blender-119-108-lightning-strike</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 100 / 比例 100 · 分段 50–69</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [blender-119-108-lightning-strike_effects] 21 个承重部件悬空，未形成到地面的接触路径；最大悬空部件约在 (-0.38, 3.36, -3.44)。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>让悬空部件接地，或增加支架、立柱、缆绳等承重连接；纯视觉悬浮件需显式标记 supportExempt。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li><li>设定唯一主焦点，用道路/河流引导视线；远景降密度、近景增加尺度参照。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="百景 113 · 二维角色三维化 blender-119-113-sketch-character" data-category="BlenderHowtos复刻" data-band="50–69">
+        <div class="shot">
+          <img loading="lazy" src="../out/shots/blender-119-113-sketch-character-persp.png" alt="百景 113 · 二维角色三维化 模型截图">
+          <span class="rank">#94</span>
+          <span class="score mid">66</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>百景 113 · 二维角色三维化</h2><span class="category">BlenderHowtos复刻</span></div>
+          <p class="id">blender-119-113-sketch-character</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 100 / 比例 100 · 分段 50–69</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [blender-119-113-sketch-character_structures] 8 个承重部件悬空，未形成到地面的接触路径；最大悬空部件约在 (0.00, 3.55, 0.00)。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>让悬空部件接地，或增加支架、立柱、缆绳等承重连接；纯视觉悬浮件需显式标记 supportExempt。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li><li>设定唯一主焦点，用道路/河流引导视线；远景降密度、近景增加尺度参照。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="百景 119 · 三十天作品集 blender-119-119-thirty-day-progress" data-category="BlenderHowtos复刻" data-band="50–69">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/blender-119-119-thirty-day-progress.png" alt="百景 119 · 三十天作品集 模型截图">
+          <span class="rank">#95</span>
+          <span class="score mid">66</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>百景 119 · 三十天作品集</h2><span class="category">BlenderHowtos复刻</span></div>
+          <p class="id">blender-119-119-thirty-day-progress</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 100 / 比例 100 · 分段 50–69</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [blender-119-119-thirty-day-progress_accents] 5 个承重部件悬空，未形成到地面的接触路径；最大悬空部件约在 (4.23, 1.47, 0.03)。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>让悬空部件接地，或增加支架、立柱、缆绳等承重连接；纯视觉悬浮件需显式标记 supportExempt。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li><li>设定唯一主焦点，用道路/河流引导视线；远景降密度、近景增加尺度参照。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="参考图复刻·六臂交通环岛 roundabout-traffic" data-category="其它" data-band="50–69">
+        <div class="shot">
+          <img loading="lazy" src="../out/shots/roundabout-traffic-top.png" alt="参考图复刻·六臂交通环岛 模型截图">
+          <span class="rank">#96</span>
+          <span class="score mid">66</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>参考图复刻·六臂交通环岛</h2><span class="category">其它</span></div>
+          <p class="id">roundabout-traffic</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 100 / 比例 100 · 分段 50–69</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [landscape_ground] 部件 &quot;landscape_ground&quot; 使用透射表面 &quot;foliage&quot;（透射 0.35，不透明度 1.00），但名称或元数据没有透明/半透明语义。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>若部件应不透明，改用不透射表面；若透射是设计意图，补正确透明材质名称或语义元数据。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li><li>优化曲线连续性、交叉口半径和端点收口；补通行尺度与边缘构造。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="程序化蕨类 fern" data-category="其它" data-band="50–69">
+        <div class="shot">
+          <img loading="lazy" src="../out/shots/fern-persp.png" alt="程序化蕨类 模型截图">
+          <span class="rank">#97</span>
+          <span class="score mid">66</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>程序化蕨类</h2><span class="category">其它</span></div>
+          <p class="id">fern</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 100 / 比例 100 · 分段 50–69</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [fronds] 288 个承重部件悬空，未形成到地面的接触路径；最大悬空部件约在 (-0.01, 0.17, 0.00)。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>让悬空部件接地，或增加支架、立柱、缆绳等承重连接；纯视觉悬浮件需显式标记 supportExempt。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li><li>选择一个最强卖点做视觉焦点；次要细节降对比，轮廓与材质分区先行。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="程序化水车 procedural-waterwheel" data-category="机械构造" data-band="50–69">
+        <div class="shot">
+          <img loading="lazy" src="../out/shots/procedural-waterwheel-persp.png" alt="程序化水车 模型截图">
+          <span class="rank">#98</span>
+          <span class="score mid">66</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>程序化水车</h2><span class="category">机械构造</span></div>
+          <p class="id">procedural-waterwheel</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 100 / 比例 100 · 分段 50–69</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [axle] 2 个承重部件悬空，未形成到地面的接触路径；最大悬空部件约在 (0.00, 3.09, 0.00)。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>让悬空部件接地，或增加支架、立柱、缆绳等承重连接；纯视觉悬浮件需显式标记 supportExempt。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li><li>校准水流方向、岸线曲率和宽深变化；交界处补湿润、泡沫或沉积层。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="程序化仙人掌 procedural-cactus" data-category="其它" data-band="50–69">
+        <div class="shot">
+          <img loading="lazy" src="../out/shots/procedural-cactus-persp.png" alt="程序化仙人掌 模型截图">
+          <span class="rank">#99</span>
+          <span class="score mid">66</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>程序化仙人掌</h2><span class="category">其它</span></div>
+          <p class="id">procedural-cactus</p>
+          <p class="source">确定性几何自审 · 仙人掌 · 几何 66 / 比例 66 · 分段 50–69</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [flowers] 3500/4200 个面法线朝内或翻转。</li><li>必修 [realism] cactus 缺少应有的 &quot;stem&quot; 部件。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>修正面绕序并重算法线，避免暗面和内外翻转。</li><li>补齐缺失语义部件，或修正部件命名/标签，使自审器能识别其职责与数量。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="地形：河谷峡湾 terrain-river-canyon" data-category="地形" data-band="50–69">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/terrain-river-canyon.png" alt="地形：河谷峡湾 模型截图">
+          <span class="rank">#100</span>
+          <span class="score mid">66</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>地形：河谷峡湾</h2><span class="category">地形</span></div>
+          <p class="id">terrain-river-canyon</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 100 / 比例 100 · 分段 50–69</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [canyon] 1 个承重部件悬空，未形成到地面的接触路径；最大悬空部件约在 (0.00, 21.12, 0.00)。</li><li>必修 [bank_rocks] 46 个承重部件悬空，未形成到地面的接触路径；最大悬空部件约在 (69.39, 29.59, -1.02)。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>让悬空部件接地，或增加支架、立柱、缆绳等承重连接；纯视觉悬浮件需显式标记 supportExempt。</li><li>强化大轮廓、坡折与侵蚀层级；水系应服从汇流和高程关系。</li><li>校准水流方向、岸线曲率和宽深变化；交界处补湿润、泡沫或沉积层。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="地形：环形火山礁湖 terrain-crater-atoll" data-category="地形" data-band="50–69">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/terrain-crater-atoll.png" alt="地形：环形火山礁湖 模型截图">
+          <span class="rank">#101</span>
+          <span class="score mid">66</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>地形：环形火山礁湖</h2><span class="category">地形</span></div>
+          <p class="id">terrain-crater-atoll</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 100 / 比例 100 · 分段 50–69</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [atoll] 1 个承重部件悬空，未形成到地面的接触路径；最大悬空部件约在 (0.00, 15.15, 0.00)。</li><li>必修 [reef_rocks] 34 个承重部件悬空，未形成到地面的接触路径；最大悬空部件约在 (-69.37, 7.95, 69.57)。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>让悬空部件接地，或增加支架、立柱、缆绳等承重连接；纯视觉悬浮件需显式标记 supportExempt。</li><li>强化大轮廓、坡折与侵蚀层级；水系应服从汇流和高程关系。</li><li>校准水流方向、岸线曲率和宽深变化；交界处补湿润、泡沫或沉积层。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="地形：巨石海岸 terrain-boulder-coast" data-category="地形" data-band="50–69">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/terrain-boulder-coast.png" alt="地形：巨石海岸 模型截图">
+          <span class="rank">#102</span>
+          <span class="score mid">66</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>地形：巨石海岸</h2><span class="category">地形</span></div>
+          <p class="id">terrain-boulder-coast</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 100 / 比例 100 · 分段 50–69</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [coast] 1 个承重部件悬空，未形成到地面的接触路径；最大悬空部件约在 (0.00, 15.18, 0.00)。</li><li>必修 [boulders] 60 个承重部件悬空，未形成到地面的接触路径；最大悬空部件约在 (-30.97, 7.99, 16.04)。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>让悬空部件接地，或增加支架、立柱、缆绳等承重连接；纯视觉悬浮件需显式标记 supportExempt。</li><li>强化大轮廓、坡折与侵蚀层级；水系应服从汇流和高程关系。</li><li>优先修剪影与地貌分区，再叠加侵蚀、碎石和材质过渡，避免全频段同强度。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="低模常春藤 vol23 复刻 ivy-lowpoly-vol23" data-category="植被" data-band="50–69">
+        <div class="shot">
+          <img loading="lazy" src="../out/shots/ivy-lowpoly-vol23-persp-normal.png" alt="低模常春藤 VOL23 复刻 模型截图">
+          <span class="rank">#103</span>
+          <span class="score mid">66</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>低模常春藤 VOL23 复刻</h2><span class="category">植被</span></div>
+          <p class="id">ivy-lowpoly-vol23</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 100 / 比例 100 · 分段 50–69</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [stem] 部件 &quot;stem&quot; 带风摆动画权重，但其语义应为刚性或静态物体。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>移除刚性部件的 windWeight；只给植被、布料、水体等柔性部件风摆权重。</li><li>优化根—干—枝—冠层级，增加年龄、密度、朝向和色相变化。</li><li>打破等距、等高、等色分布；用成簇、空隙和边缘过渡形成生态节奏。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="都市·褐石排屋 urban-brownstone" data-category="建筑" data-band="50–69">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/urban-brownstone.png" alt="都市·褐石排屋 模型截图">
+          <span class="rank">#104</span>
+          <span class="score mid">66</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>都市·褐石排屋</h2><span class="category">建筑</span></div>
+          <p class="id">urban-brownstone</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 100 / 比例 100 · 分段 50–69</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [window_frames] 141 个承重部件悬空，未形成到地面的接触路径；最大悬空部件约在 (1.77, 4.99, -1.27)。</li><li>必修 [windows] 62 个承重部件悬空，未形成到地面的接触路径；最大悬空部件约在 (1.82, 2.89, -1.13)。</li><li>必修 [windows_lit] 32 个承重部件悬空，未形成到地面的接触路径；最大悬空部件约在 (1.82, 4.99, -1.13)。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>让悬空部件接地，或增加支架、立柱、缆绳等承重连接；纯视觉悬浮件需显式标记 supportExempt。</li><li>强化主体、附属体、入口的体块层级；立面模数与结构逻辑保持一致。</li><li>选择一个最强卖点做视觉焦点；次要细节降对比，轮廓与材质分区先行。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="都市·砖砌公寓 urban-brick" data-category="建筑" data-band="50–69">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/urban-brick.png" alt="都市·砖砌公寓 模型截图">
+          <span class="rank">#105</span>
+          <span class="score mid">66</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>都市·砖砌公寓</h2><span class="category">建筑</span></div>
+          <p class="id">urban-brick</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 100 / 比例 100 · 分段 50–69</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [window_frames] 204 个承重部件悬空，未形成到地面的接触路径；最大悬空部件约在 (1.97, 2.75, -1.13)。</li><li>必修 [windows] 98 个承重部件悬空，未形成到地面的接触路径；最大悬空部件约在 (-1.44, 2.75, 1.92)。</li><li>必修 [windows_lit] 38 个承重部件悬空，未形成到地面的接触路径；最大悬空部件约在 (1.44, 3.75, -1.92)。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>让悬空部件接地，或增加支架、立柱、缆绳等承重连接；纯视觉悬浮件需显式标记 supportExempt。</li><li>强化主体、附属体、入口的体块层级；立面模数与结构逻辑保持一致。</li><li>选择一个最强卖点做视觉焦点；次要细节降对比，轮廓与材质分区先行。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="房子花园 03 双层小屋 house-garden-03" data-category="其它" data-band="50–69">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/house-garden-03.png" alt="房子花园 03 双层小屋 模型截图">
+          <span class="rank">#106</span>
+          <span class="score mid">66</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>房子花园 03 双层小屋</h2><span class="category">其它</span></div>
+          <p class="id">house-garden-03</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 100 / 比例 100 · 分段 50–69</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [window_frames] 1 个承重部件悬空，未形成到地面的接触路径；最大悬空部件约在 (-0.05, 2.53, 1.14)。</li><li>必修 [windows] 1 个承重部件悬空，未形成到地面的接触路径；最大悬空部件约在 (-0.05, 2.53, 1.16)。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>让悬空部件接地，或增加支架、立柱、缆绳等承重连接；纯视觉悬浮件需显式标记 supportExempt。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li><li>打破等距、等高、等色分布；用成簇、空隙和边缘过渡形成生态节奏。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="房子花园 04 环形花径 house-garden-04" data-category="其它" data-band="50–69">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/house-garden-04.png" alt="房子花园 04 环形花径 模型截图">
+          <span class="rank">#107</span>
+          <span class="score mid">66</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>房子花园 04 环形花径</h2><span class="category">其它</span></div>
+          <p class="id">house-garden-04</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 100 / 比例 100 · 分段 50–69</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [window_frames] 1 个承重部件悬空，未形成到地面的接触路径；最大悬空部件约在 (-0.25, 2.16, 1.14)。</li><li>必修 [windows] 1 个承重部件悬空，未形成到地面的接触路径；最大悬空部件约在 (-0.25, 2.16, 1.15)。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>让悬空部件接地，或增加支架、立柱、缆绳等承重连接；纯视觉悬浮件需显式标记 supportExempt。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li><li>打破等距、等高、等色分布；用成簇、空隙和边缘过渡形成生态节奏。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="房子花园 07 栅栏宅地 house-garden-07" data-category="其它" data-band="50–69">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/house-garden-07.png" alt="房子花园 07 栅栏宅地 模型截图">
+          <span class="rank">#108</span>
+          <span class="score mid">66</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>房子花园 07 栅栏宅地</h2><span class="category">其它</span></div>
+          <p class="id">house-garden-07</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 100 / 比例 100 · 分段 50–69</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [window_frames] 1 个承重部件悬空，未形成到地面的接触路径；最大悬空部件约在 (-0.39, 1.98, 1.11)。</li><li>必修 [windows] 1 个承重部件悬空，未形成到地面的接触路径；最大悬空部件约在 (-0.39, 1.98, 1.13)。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>让悬空部件接地，或增加支架、立柱、缆绳等承重连接；纯视觉悬浮件需显式标记 supportExempt。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li><li>打破等距、等高、等色分布；用成簇、空隙和边缘过渡形成生态节奏。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="分层林地地面 forest-floor" data-category="其它" data-band="50–69">
+        <div class="shot">
+          <img loading="lazy" src="../out/shots/forest-floor-persp.png" alt="分层林地地面 模型截图">
+          <span class="rank">#109</span>
+          <span class="score mid">66</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>分层林地地面</h2><span class="category">其它</span></div>
+          <p class="id">forest-floor</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 100 / 比例 100 · 分段 50–69</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [branches] 部件 &quot;branches&quot; 使用透射表面 &quot;foliage&quot;（透射 0.10，不透明度 1.00），但名称或元数据没有透明/半透明语义。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>若部件应不透明，改用不透射表面；若透射是设计意图，补正确透明材质名称或语义元数据。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li><li>打破等距、等高、等色分布；用成簇、空隙和边缘过渡形成生态节奏。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="分区广场 rt-plaza" data-category="生成模型" data-band="50–69">
+        <div class="shot">
+          <img loading="lazy" src="../out/shots/rt-plaza-persp.png" alt="分区广场 模型截图">
+          <span class="rank">#110</span>
+          <span class="score mid">66</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>分区广场</h2><span class="category">生成模型</span></div>
+          <p class="id">rt-plaza</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 100 / 比例 100 · 分段 50–69</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [fountain] 部件 &quot;fountain&quot; 使用透射表面 &quot;water&quot;（透射 0.40，不透明度 1.00），但名称或元数据没有透明/半透明语义。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>若部件应不透明，改用不透射表面；若透射是设计意图，补正确透明材质名称或语义元数据。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li><li>选择一个最强卖点做视觉焦点；次要细节降对比，轮廓与材质分区先行。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="规则树街区 rt-district" data-category="生成模型" data-band="50–69">
+        <div class="shot">
+          <img loading="lazy" src="../out/shots/rt-district-persp.png" alt="规则树街区 模型截图">
+          <span class="rank">#111</span>
+          <span class="score mid">66</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>规则树街区</h2><span class="category">生成模型</span></div>
+          <p class="id">rt-district</p>
+          <p class="source">确定性几何自审 · 聚落 · 几何 66 / 比例 66 · 分段 50–69</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [tower_roof/tower_parapet] 696 对同向共面三角形重叠，会产生 Z-fighting 闪烁。</li><li>必修 [realism] settlement 缺少应有的 &quot;road&quot; 部件。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>沿法线错开玻璃、贴花或面板，切真实开口，删除隐藏共面面。</li><li>补齐缺失语义部件，或修正部件命名/标签，使自审器能识别其职责与数量。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="径向投射晶体小行星 raycast-asteroid-garden" data-category="程序工作流" data-band="50–69">
+        <div class="shot">
+          <img loading="lazy" src="../out/shots/raycast-asteroid-garden-persp.png" alt="径向投射晶体小行星 模型截图">
+          <span class="rank">#112</span>
+          <span class="score mid">66</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>径向投射晶体小行星</h2><span class="category">程序工作流</span></div>
+          <p class="id">raycast-asteroid-garden</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 100 / 比例 100 · 分段 50–69</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [asteroid_garden_crystals] 部件 &quot;asteroid_garden_crystals&quot; 使用透射表面 &quot;glass&quot;（透射 1.00，不透明度 1.00），但名称或元数据没有透明/半透明语义。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>若部件应不透明，改用不透射表面；若透射是设计意图，补正确透明材质名称或语义元数据。</li><li>增加结果导向的主视图与参数对比，直接展示规则带来的视觉收益。</li><li>设定唯一主焦点，用道路/河流引导视线；远景降密度、近景增加尺度参照。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="可绘制路径灯带 scatter-path-lights" data-category="程序工作流" data-band="50–69">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/scatter-path-lights.png" alt="可绘制路径灯带 模型截图">
+          <span class="rank">#113</span>
+          <span class="score mid">66</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>可绘制路径灯带</h2><span class="category">程序工作流</span></div>
+          <p class="id">scatter-path-lights</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 100 / 比例 100 · 分段 50–69</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [path_lights] 部件 &quot;path_lights&quot; 使用透射表面 &quot;glass&quot;（透射 1.00，不透明度 1.00），但名称或元数据没有透明/半透明语义。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>若部件应不透明，改用不透射表面；若透射是设计意图，补正确透明材质名称或语义元数据。</li><li>增加结果导向的主视图与参数对比，直接展示规则带来的视觉收益。</li><li>优化曲线连续性、交叉口半径和端点收口；补通行尺度与边缘构造。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="可绘制区域林地 masked-region-grove" data-category="程序工作流" data-band="50–69">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/masked-region-grove.png" alt="可绘制区域林地 模型截图">
+          <span class="rank">#114</span>
+          <span class="score mid">66</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>可绘制区域林地</h2><span class="category">程序工作流</span></div>
+          <p class="id">masked-region-grove</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 100 / 比例 100 · 分段 50–69</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [shrubs] 部件 &quot;shrubs&quot; 使用透射表面 &quot;foliage&quot;（透射 0.35，不透明度 1.00），但名称或元数据没有透明/半透明语义。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>若部件应不透明，改用不透射表面；若透射是设计意图，补正确透明材质名称或语义元数据。</li><li>增加结果导向的主视图与参数对比，直接展示规则带来的视觉收益。</li><li>打破等距、等高、等色分布；用成簇、空隙和边缘过渡形成生态节奏。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="泰坦布料 titan-cloth" data-category="其它" data-band="50–69">
+        <div class="shot">
+          <img loading="lazy" src="../out/shots/titan-cloth-persp.png" alt="泰坦布料 模型截图">
+          <span class="rank">#115</span>
+          <span class="score mid">66</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>泰坦布料</h2><span class="category">其它</span></div>
+          <p class="id">titan-cloth</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 100 / 比例 100 · 分段 50–69</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [cloth] 1 个承重部件悬空，未形成到地面的接触路径；最大悬空部件约在 (0.01, 1.31, 0.03)。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>让悬空部件接地，或增加支架、立柱、缆绳等承重连接；纯视觉悬浮件需显式标记 supportExempt。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li><li>选择一个最强卖点做视觉焦点；次要细节降对比，轮廓与材质分区先行。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="香港赛博街屋 hong-kong-cyber-house" data-category="其它" data-band="50–69">
+        <div class="shot">
+          <img loading="lazy" src="../out/shots/hong-kong-cyber-house-persp.png" alt="香港赛博街屋 模型截图">
+          <span class="rank">#116</span>
+          <span class="score mid">66</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>香港赛博街屋</h2><span class="category">其它</span></div>
+          <p class="id">hong-kong-cyber-house</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 100 / 比例 100 · 分段 50–69</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [shop_signs] 2 个承重部件悬空，未形成到地面的接触路径；最大悬空部件约在 (-3.36, 0.86, 3.73)。</li><li>必修 [sign_frames] 2 个承重部件悬空，未形成到地面的接触路径；最大悬空部件约在 (-3.36, 0.86, 3.74)。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>让悬空部件接地，或增加支架、立柱、缆绳等承重连接；纯视觉悬浮件需显式标记 supportExempt。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li><li>优化曲线连续性、交叉口半径和端点收口；补通行尺度与边缘构造。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="长椅 park-bench" data-category="其它" data-band="50–69">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/park-bench.png" alt="长椅 模型截图">
+          <span class="rank">#117</span>
+          <span class="score mid">66</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>长椅</h2><span class="category">其它</span></div>
+          <p class="id">park-bench</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 100 / 比例 100 · 分段 50–69</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [arms] 4 个承重部件悬空，未形成到地面的接触路径；最大悬空部件约在 (-0.92, 0.69, 0.05)。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>让悬空部件接地，或增加支架、立柱、缆绳等承重连接；纯视觉悬浮件需显式标记 supportExempt。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li><li>选择一个最强卖点做视觉焦点；次要细节降对比，轮廓与材质分区先行。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="中式城镇叠叠乐·重檐岛 chinese-townscaper" data-category="建筑与城市" data-band="50–69">
+        <div class="shot">
+          <img loading="lazy" src="../out/shots/chinese-townscaper-persp.png" alt="中式城镇叠叠乐·重檐岛 模型截图">
+          <span class="rank">#118</span>
+          <span class="score mid">66</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>中式城镇叠叠乐·重檐岛</h2><span class="category">建筑与城市</span></div>
+          <p class="id">chinese-townscaper</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 100 / 比例 100 · 分段 50–69</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [chinese_townscaper_lower_roof] 22 个承重部件悬空，未形成到地面的接触路径；最大悬空部件约在 (12.52, 3.15, 0.01)。</li><li>必修 [chinese_townscaper_upper_roof] 14 个承重部件悬空，未形成到地面的接触路径；最大悬空部件约在 (-12.59, 5.78, 5.98)。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>让悬空部件接地，或增加支架、立柱、缆绳等承重连接；纯视觉悬浮件需显式标记 supportExempt。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li><li>校准水流方向、岸线曲率和宽深变化；交界处补湿润、泡沫或沉积层。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="crazy ivy 爬墙藤蔓复刻 crazy-ivy-wall" data-category="植被" data-band="50–69">
+        <div class="shot">
+          <img loading="lazy" src="../out/shots/crazy-ivy-wall-persp.png" alt="Crazy Ivy 爬墙藤蔓复刻 模型截图">
+          <span class="rank">#119</span>
+          <span class="score mid">66</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>Crazy Ivy 爬墙藤蔓复刻</h2><span class="category">植被</span></div>
+          <p class="id">crazy-ivy-wall</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 100 / 比例 100 · 分段 50–69</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [ivy_stem] 部件 &quot;ivy_stem&quot; 带风摆动画权重，但其语义应为刚性或静态物体。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>移除刚性部件的 windWeight；只给植被、布料、水体等柔性部件风摆权重。</li><li>优化根—干—枝—冠层级，增加年龄、密度、朝向和色相变化。</li><li>打破等距、等高、等色分布；用成簇、空隙和边缘过渡形成生态节奏。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="houdinihowtos sci-fi 面板 houdini-howtos-sci-fi-panel" data-category="HoudiniHowtos复刻" data-band="50–69">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/houdini-howtos-sci-fi-panel.png" alt="HoudiniHowtos Sci-Fi 面板 模型截图">
+          <span class="rank">#120</span>
+          <span class="score mid">66</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>HoudiniHowtos Sci-Fi 面板</h2><span class="category">HoudiniHowtos复刻</span></div>
+          <p class="id">houdini-howtos-sci-fi-panel</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 100 / 比例 100 · 分段 50–69</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [panel_vents_bolts] 9 个承重部件悬空，未形成到地面的接触路径；最大悬空部件约在 (-0.75, 0.32, 0.99)。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>让悬空部件接地，或增加支架、立柱、缆绳等承重连接；纯视觉悬浮件需显式标记 supportExempt。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li><li>选择一个最强卖点做视觉焦点；次要细节降对比，轮廓与材质分区先行。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="meshova树库 beavertail cactus speedtree-library-palms-cacti-beavertail-cactus" data-category="SpeedTree库/Palms_&amp;_Cacti" data-band="50–69">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/speedtree-library-palms-cacti-beavertail-cactus.png" alt="Meshova树库 Beavertail Cactus 模型截图">
+          <span class="rank">#121</span>
+          <span class="score mid">66</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>Meshova树库 Beavertail Cactus</h2><span class="category">SpeedTree库/Palms_&amp;_Cacti</span></div>
+          <p class="id">speedtree-library-palms-cacti-beavertail-cactus</p>
+          <p class="source">确定性几何自审 · 仙人掌 · 几何 100 / 比例 100 · 分段 50–69</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [stem] 部件 &quot;stem&quot; 使用透射表面 &quot;leaf&quot;（透射 0.35，不透明度 1.00），但名称或元数据没有透明/半透明语义。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>若部件应不透明，改用不透射表面；若透射是设计意图，补正确透明材质名称或语义元数据。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li><li>打破等距、等高、等色分布；用成簇、空隙和边缘过渡形成生态节奏。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="meshova树库 prickly pear cactus speedtree-library-palms-cacti-prickly-pear-cactus" data-category="SpeedTree库/Palms_&amp;_Cacti" data-band="50–69">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/speedtree-library-palms-cacti-prickly-pear-cactus.png" alt="Meshova树库 Prickly Pear Cactus 模型截图">
+          <span class="rank">#122</span>
+          <span class="score mid">66</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>Meshova树库 Prickly Pear Cactus</h2><span class="category">SpeedTree库/Palms_&amp;_Cacti</span></div>
+          <p class="id">speedtree-library-palms-cacti-prickly-pear-cactus</p>
+          <p class="source">确定性几何自审 · 仙人掌 · 几何 100 / 比例 100 · 分段 50–69</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [stem] 部件 &quot;stem&quot; 使用透射表面 &quot;leaf&quot;（透射 0.35，不透明度 1.00），但名称或元数据没有透明/半透明语义。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>若部件应不透明，改用不透射表面；若透射是设计意图，补正确透明材质名称或语义元数据。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li><li>打破等距、等高、等色分布；用成簇、空隙和边缘过渡形成生态节奏。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="pcg 植被地形 pcg-vegetation" data-category="其它" data-band="50–69">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/pcg-vegetation.png" alt="PCG 植被地形 模型截图">
+          <span class="rank">#123</span>
+          <span class="score mid">66</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>PCG 植被地形</h2><span class="category">其它</span></div>
+          <p class="id">pcg-vegetation</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 100 / 比例 100 · 分段 50–69</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [trees] 部件 &quot;trees&quot; 使用透射表面 &quot;foliage&quot;（透射 0.40，不透明度 1.00），但名称或元数据没有透明/半透明语义。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>若部件应不透明，改用不透射表面；若透射是设计意图，补正确透明材质名称或语义元数据。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li><li>打破等距、等高、等色分布；用成簇、空隙和边缘过渡形成生态节奏。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="speedtree教程复刻 树型合集 speedtree-tutorial-lineup" data-category="SpeedTree教程复刻" data-band="50–69">
+        <div class="shot">
+          <img loading="lazy" src="../out/shots/speedtree-tutorial-lineup-persp.png" alt="SpeedTree教程复刻 树型合集 模型截图">
+          <span class="rank">#124</span>
+          <span class="score mid">66</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>SpeedTree教程复刻 树型合集</h2><span class="category">SpeedTree教程复刻</span></div>
+          <p class="id">speedtree-tutorial-lineup</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 100 / 比例 100 · 分段 50–69</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [ground-grass_foliage] 部件 &quot;ground-grass_foliage&quot; 带风摆动画权重，但其语义应为刚性或静态物体。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>移除刚性部件的 windWeight；只给植被、布料、水体等柔性部件风摆权重。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li><li>打破等距、等高、等色分布；用成簇、空隙和边缘过渡形成生态节奏。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="百景 021 · 溪流小镇 blender-119-021-stream-town" data-category="BlenderHowtos复刻" data-band="50–69">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/blender-119-021-stream-town.png" alt="百景 021 · 溪流小镇 模型截图">
+          <span class="rank">#125</span>
+          <span class="score mid">69</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>百景 021 · 溪流小镇</h2><span class="category">BlenderHowtos复刻</span></div>
+          <p class="id">blender-119-021-stream-town</p>
+          <p class="source">确定性几何自审 · 聚落 · 几何 100 / 比例 32 · 分段 50–69</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [realism] settlement 缺少应有的 &quot;road&quot; 部件。</li><li>必修 [realism] settlement 缺少应有的 &quot;building&quot; 部件。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>补齐缺失语义部件，或修正部件命名/标签，使自审器能识别其职责与数量。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li><li>校准水流方向、岸线曲率和宽深变化；交界处补湿润、泡沫或沉积层。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="百景 022 · 风中小镇 blender-119-022-windy-town" data-category="BlenderHowtos复刻" data-band="50–69">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/blender-119-022-windy-town.png" alt="百景 022 · 风中小镇 模型截图">
+          <span class="rank">#126</span>
+          <span class="score mid">69</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>百景 022 · 风中小镇</h2><span class="category">BlenderHowtos复刻</span></div>
+          <p class="id">blender-119-022-windy-town</p>
+          <p class="source">确定性几何自审 · 聚落 · 几何 100 / 比例 32 · 分段 50–69</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [realism] settlement 缺少应有的 &quot;road&quot; 部件。</li><li>必修 [realism] settlement 缺少应有的 &quot;building&quot; 部件。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>补齐缺失语义部件，或修正部件命名/标签，使自审器能识别其职责与数量。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li><li>设定唯一主焦点，用道路/河流引导视线；远景降密度、近景增加尺度参照。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="百景 025 · 水乡 blender-119-025-watery-town" data-category="BlenderHowtos复刻" data-band="50–69">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/blender-119-025-watery-town.png" alt="百景 025 · 水乡 模型截图">
+          <span class="rank">#127</span>
+          <span class="score mid">69</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>百景 025 · 水乡</h2><span class="category">BlenderHowtos复刻</span></div>
+          <p class="id">blender-119-025-watery-town</p>
+          <p class="source">确定性几何自审 · 聚落 · 几何 100 / 比例 32 · 分段 50–69</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [realism] settlement 缺少应有的 &quot;road&quot; 部件。</li><li>必修 [realism] settlement 缺少应有的 &quot;building&quot; 部件。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>补齐缺失语义部件，或修正部件命名/标签，使自审器能识别其职责与数量。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li><li>校准水流方向、岸线曲率和宽深变化；交界处补湿润、泡沫或沉积层。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="百景 028 · 花开小镇 blender-119-028-blossom-town" data-category="BlenderHowtos复刻" data-band="50–69">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/blender-119-028-blossom-town.png" alt="百景 028 · 花开小镇 模型截图">
+          <span class="rank">#128</span>
+          <span class="score mid">69</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>百景 028 · 花开小镇</h2><span class="category">BlenderHowtos复刻</span></div>
+          <p class="id">blender-119-028-blossom-town</p>
+          <p class="source">确定性几何自审 · 聚落 · 几何 100 / 比例 32 · 分段 50–69</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [realism] settlement 缺少应有的 &quot;road&quot; 部件。</li><li>必修 [realism] settlement 缺少应有的 &quot;building&quot; 部件。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>补齐缺失语义部件，或修正部件命名/标签，使自审器能识别其职责与数量。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li><li>打破等距、等高、等色分布；用成簇、空隙和边缘过渡形成生态节奏。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="百景 061 · 宁静村庄 blender-119-061-peaceful-village" data-category="BlenderHowtos复刻" data-band="50–69">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/blender-119-061-peaceful-village.png" alt="百景 061 · 宁静村庄 模型截图">
+          <span class="rank">#129</span>
+          <span class="score mid">69</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>百景 061 · 宁静村庄</h2><span class="category">BlenderHowtos复刻</span></div>
+          <p class="id">blender-119-061-peaceful-village</p>
+          <p class="source">确定性几何自审 · 聚落 · 几何 100 / 比例 32 · 分段 50–69</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [realism] settlement 缺少应有的 &quot;road&quot; 部件。</li><li>必修 [realism] settlement 缺少应有的 &quot;building&quot; 部件。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>补齐缺失语义部件，或修正部件命名/标签，使自审器能识别其职责与数量。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li><li>设定唯一主焦点，用道路/河流引导视线；远景降密度、近景增加尺度参照。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="程序化街景 streetscene" data-category="建筑" data-band="50–69">
+        <div class="shot">
+          <img loading="lazy" src="../out/shots/streetscene-persp.png" alt="程序化街景 模型截图">
+          <span class="rank">#130</span>
+          <span class="score mid">69</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>程序化街景</h2><span class="category">建筑</span></div>
+          <p class="id">streetscene</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 66 / 比例 100 · 分段 50–69</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [planter_foliage] 部件 &quot;planter_foliage&quot; 有裸露遮挡球：44% 的冠层露出封闭球体，形成明显“绿球”。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>缩小内部遮挡球，或加厚叶片外壳，确保球体不触及冠层剪影。</li><li>强化主体、附属体、入口的体块层级；立面模数与结构逻辑保持一致。</li><li>打破等距、等高、等色分布；用成簇、空隙和边缘过渡形成生态节奏。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="河谷岩石包边 rock-border-river-gorge" data-category="其它" data-band="50–69">
+        <div class="shot">
+          <img loading="lazy" src="../out/shots/rock-border-river-gorge-persp.png" alt="河谷岩石包边 模型截图">
+          <span class="rank">#131</span>
+          <span class="score mid">69</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>河谷岩石包边</h2><span class="category">其它</span></div>
+          <p class="id">rock-border-river-gorge</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 66 / 比例 100 · 分段 50–69</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [river_gorge_water] 114/114 个面法线朝内或翻转。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>修正面绕序并重算法线，避免暗面和内外翻转。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li><li>校准水流方向、岸线曲率和宽深变化；交界处补湿润、泡沫或沉积层。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="火山湖岩石包边 rock-border-crater-lake" data-category="其它" data-band="50–69">
+        <div class="shot">
+          <img loading="lazy" src="../out/shots/rock-border-crater-lake-persp.png" alt="火山湖岩石包边 模型截图">
+          <span class="rank">#132</span>
+          <span class="score mid">69</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>火山湖岩石包边</h2><span class="category">其它</span></div>
+          <p class="id">rock-border-crater-lake</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 66 / 比例 100 · 分段 50–69</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [crater_lake_ground] 125/128 个面法线朝内或翻转。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>修正面绕序并重算法线，避免暗面和内外翻转。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li><li>校准水流方向、岸线曲率和宽深变化；交界处补湿润、泡沫或沉积层。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="卡通信使·球形街区 messenger-toon-planet" data-category="风格复刻" data-band="50–69">
+        <div class="shot">
+          <img loading="lazy" src="../out/shots/messenger-toon-planet-current-toon.png" alt="卡通信使·球形街区 模型截图">
+          <span class="rank">#133</span>
+          <span class="score mid">69</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>卡通信使·球形街区</h2><span class="category">风格复刻</span></div>
+          <p class="id">messenger-toon-planet</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 66 / 比例 100 · 分段 50–69</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [messenger_foliage] 部件 &quot;messenger_foliage&quot; 有裸露遮挡球：14% 的冠层露出封闭球体，形成明显“绿球”。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>缩小内部遮挡球，或加厚叶片外壳，确保球体不触及冠层剪影。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li><li>打破等距、等高、等色分布；用成簇、空隙和边缘过渡形成生态节奏。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="七跨石拱桥 stone-bridge" data-category="建筑" data-band="50–69">
+        <div class="shot">
+          <img loading="lazy" src="../out/shots/stone-bridge-persp-pbr.png" alt="七跨石拱桥 模型截图">
+          <span class="rank">#134</span>
+          <span class="score mid">69</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>七跨石拱桥</h2><span class="category">建筑</span></div>
+          <p class="id">stone-bridge</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 66 / 比例 100 · 分段 50–69</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [bridge_body/arch_rings] 1092 对同向共面三角形重叠，会产生 Z-fighting 闪烁。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>沿法线错开玻璃、贴花或面板，切真实开口，删除隐藏共面面。</li><li>强化主体、附属体、入口的体块层级；立面模数与结构逻辑保持一致。</li><li>优化曲线连续性、交叉口半径和端点收口；补通行尺度与边缘构造。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="射线投射屋顶花园 raycast-roof-garden" data-category="程序工作流" data-band="50–69">
+        <div class="shot">
+          <img loading="lazy" src="../out/shots/raycast-roof-garden-persp.png" alt="射线投射屋顶花园 模型截图">
+          <span class="rank">#135</span>
+          <span class="score mid">69</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>射线投射屋顶花园</h2><span class="category">程序工作流</span></div>
+          <p class="id">raycast-roof-garden</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 66 / 比例 100 · 分段 50–69</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [roof_garden_foliage] 部件 &quot;roof_garden_foliage&quot; 有裸露遮挡球：13% 的冠层露出封闭球体，形成明显“绿球”。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>缩小内部遮挡球，或加厚叶片外壳，确保球体不触及冠层剪影。</li><li>增加结果导向的主视图与参数对比，直接展示规则带来的视觉收益。</li><li>打破等距、等高、等色分布；用成簇、空隙和边缘过渡形成生态节奏。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="meshova树库 dog rose speedtree-library-broadleaves-dog-rose" data-category="SpeedTree库/Broadleaves" data-band="50–69">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/speedtree-library-broadleaves-dog-rose.png" alt="Meshova树库 Dog Rose 模型截图">
+          <span class="rank">#136</span>
+          <span class="score mid">69</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>Meshova树库 Dog Rose</h2><span class="category">SpeedTree库/Broadleaves</span></div>
+          <p class="id">speedtree-library-broadleaves-dog-rose</p>
+          <p class="source">确定性几何自审 · 树木 · 几何 88 / 比例 100 · 分段 50–69</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>优化 [stems] 部件 &quot;stems&quot; 带风摆动画权重，但其语义应为刚性或静态物体。</li><li>优化 [blooms] 部件 &quot;blooms&quot; 带风摆动画权重，但其语义应为刚性或静态物体。</li><li>优化 [blooms] 部件 &quot;blooms&quot; 是破损开放壳体：224 条边界边 / 1120 个面，开放率 20%。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>移除刚性部件的 windWeight；只给植被、布料、水体等柔性部件风摆权重。</li><li>补盖开口、焊接壳体并修正外向绕序；不透明实体不要依赖双面渲染掩盖破面。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="meshova树库 knapweed speedtree-library-broadleaves-knapweed" data-category="SpeedTree库/Broadleaves" data-band="50–69">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/speedtree-library-broadleaves-knapweed.png" alt="Meshova树库 Knapweed 模型截图">
+          <span class="rank">#137</span>
+          <span class="score mid">69</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>Meshova树库 Knapweed</h2><span class="category">SpeedTree库/Broadleaves</span></div>
+          <p class="id">speedtree-library-broadleaves-knapweed</p>
+          <p class="source">确定性几何自审 · 树木 · 几何 88 / 比例 100 · 分段 50–69</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>优化 [stems] 部件 &quot;stems&quot; 带风摆动画权重，但其语义应为刚性或静态物体。</li><li>优化 [blooms] 部件 &quot;blooms&quot; 带风摆动画权重，但其语义应为刚性或静态物体。</li><li>优化 [blooms] 部件 &quot;blooms&quot; 是破损开放壳体：224 条边界边 / 1120 个面，开放率 20%。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>移除刚性部件的 windWeight；只给植被、布料、水体等柔性部件风摆权重。</li><li>补盖开口、焊接壳体并修正外向绕序；不透明实体不要依赖双面渲染掩盖破面。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="pcg 蜿蜒侵蚀河谷 pcg-river-valley" data-category="其它" data-band="50–69">
+        <div class="shot">
+          <img loading="lazy" src="../out/shots/pcg-river-valley-persp.png" alt="PCG 蜿蜒侵蚀河谷 模型截图">
+          <span class="rank">#138</span>
+          <span class="score mid">69</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>PCG 蜿蜒侵蚀河谷</h2><span class="category">其它</span></div>
+          <p class="id">pcg-river-valley</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 66 / 比例 100 · 分段 50–69</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [river_valley_water] 120/120 个面法线朝内或翻转。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>修正面绕序并重算法线，避免暗面和内外翻转。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li><li>校准水流方向、岸线曲率和宽深变化；交界处补湿润、泡沫或沉积层。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="speedtree教程复刻 芭蕉类树 speedtree-tutorial-banana-tree" data-category="SpeedTree教程复刻" data-band="50–69">
+        <div class="shot">
+          <img loading="lazy" src="../out/shots/speedtree-tutorial-banana-tree-persp.png" alt="SpeedTree教程复刻 芭蕉类树 模型截图">
+          <span class="rank">#139</span>
+          <span class="score mid">69</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>SpeedTree教程复刻 芭蕉类树</h2><span class="category">SpeedTree教程复刻</span></div>
+          <p class="id">speedtree-tutorial-banana-tree</p>
+          <p class="source">确定性几何自审 · 树木 · 几何 66 / 比例 100 · 分段 50–69</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [foliage] 部件 &quot;foliage&quot; 的叶片卡过大：最大卡片占冠层包围盒 40%，53% 的卡片超过尺寸限制。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>缩小叶片卡并增加叶簇数量，让冠层由多层小叶片构成。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li><li>打破等距、等高、等色分布；用成簇、空隙和边缘过渡形成生态节奏。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="ue5.7 植被编辑器流程复刻 ue57-vegetation-editor" data-category="植被" data-band="50–69">
+        <div class="shot">
+          <img loading="lazy" src="../out/shots/ue57-vegetation-editor-persp.png" alt="UE5.7 植被编辑器流程复刻 模型截图">
+          <span class="rank">#140</span>
+          <span class="score mid">69</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>UE5.7 植被编辑器流程复刻</h2><span class="category">植被</span></div>
+          <p class="id">ue57-vegetation-editor</p>
+          <p class="source">确定性几何自审 · 通用 · 几何 66 / 比例 100 · 分段 50–69</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>必修 [shrub_foliage] 部件 &quot;shrub_foliage&quot; 的叶片严重重叠，拥挤度 80%。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>增加道路退距与地块间距；拒绝与道路带相交的建筑落点，保留可读巷道和庭院。</li><li>优化根—干—枝—冠层级，增加年龄、密度、朝向和色相变化。</li><li>打破等距、等高、等色分布；用成簇、空隙和边缘过渡形成生态节奏。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="meshova树库 backyard grass speedtree-library-broadleaves-backyard-grass" data-category="SpeedTree库/Broadleaves" data-band="70–84">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/speedtree-library-broadleaves-backyard-grass.png" alt="Meshova树库 Backyard Grass 模型截图">
+          <span class="rank">#141</span>
+          <span class="score near">72</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>Meshova树库 Backyard Grass</h2><span class="category">SpeedTree库/Broadleaves</span></div>
+          <p class="id">speedtree-library-broadleaves-backyard-grass</p>
+          <p class="source">确定性几何自审 · 树木 · 几何 100 / 比例 64 · 分段 70–84</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>优化 [blades] 部件 &quot;blades&quot; 带风摆动画权重，但其语义应为刚性或静态物体。</li><li>优化 [proportion] 比例 h/w=0.31 超出预期 0.7–3：a tree is generally taller than wide。</li><li>优化 [realism] tree 缺少应有的 &quot;trunk&quot; 部件。</li><li>优化 [realism] tree 缺少应有的 &quot;foliage&quot; 部件。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>移除刚性部件的 windWeight；只给植被、布料、水体等柔性部件风摆权重。</li><li>调整主体长宽高与部件比例，使检测比值回到规则范围。</li><li>补齐缺失语义部件，或修正部件命名/标签，使自审器能识别其职责与数量。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="meshova树库 cattail speedtree-library-broadleaves-cattail" data-category="SpeedTree库/Broadleaves" data-band="70–84">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/speedtree-library-broadleaves-cattail.png" alt="Meshova树库 Cattail 模型截图">
+          <span class="rank">#142</span>
+          <span class="score near">72</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>Meshova树库 Cattail</h2><span class="category">SpeedTree库/Broadleaves</span></div>
+          <p class="id">speedtree-library-broadleaves-cattail</p>
+          <p class="source">确定性几何自审 · 树木 · 几何 100 / 比例 64 · 分段 70–84</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>优化 [blades] 部件 &quot;blades&quot; 带风摆动画权重，但其语义应为刚性或静态物体。</li><li>优化 [proportion] 比例 h/w=0.52 超出预期 0.7–3：a tree is generally taller than wide。</li><li>优化 [realism] tree 缺少应有的 &quot;trunk&quot; 部件。</li><li>优化 [realism] tree 缺少应有的 &quot;foliage&quot; 部件。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>移除刚性部件的 windWeight；只给植被、布料、水体等柔性部件风摆权重。</li><li>调整主体长宽高与部件比例，使检测比值回到规则范围。</li><li>补齐缺失语义部件，或修正部件命名/标签，使自审器能识别其职责与数量。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="meshova树库 elephant grass speedtree-library-broadleaves-elephant-grass" data-category="SpeedTree库/Broadleaves" data-band="70–84">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/speedtree-library-broadleaves-elephant-grass.png" alt="Meshova树库 Elephant Grass 模型截图">
+          <span class="rank">#143</span>
+          <span class="score near">72</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>Meshova树库 Elephant Grass</h2><span class="category">SpeedTree库/Broadleaves</span></div>
+          <p class="id">speedtree-library-broadleaves-elephant-grass</p>
+          <p class="source">确定性几何自审 · 树木 · 几何 100 / 比例 64 · 分段 70–84</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>优化 [blades] 部件 &quot;blades&quot; 带风摆动画权重，但其语义应为刚性或静态物体。</li><li>优化 [proportion] 比例 h/w=0.52 超出预期 0.7–3：a tree is generally taller than wide。</li><li>优化 [realism] tree 缺少应有的 &quot;trunk&quot; 部件。</li><li>优化 [realism] tree 缺少应有的 &quot;foliage&quot; 部件。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>移除刚性部件的 windWeight；只给植被、布料、水体等柔性部件风摆权重。</li><li>调整主体长宽高与部件比例，使检测比值回到规则范围。</li><li>补齐缺失语义部件，或修正部件命名/标签，使自审器能识别其职责与数量。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="meshova树库 rough grass speedtree-library-broadleaves-rough-grass" data-category="SpeedTree库/Broadleaves" data-band="70–84">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/speedtree-library-broadleaves-rough-grass.png" alt="Meshova树库 Rough Grass 模型截图">
+          <span class="rank">#144</span>
+          <span class="score near">72</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>Meshova树库 Rough Grass</h2><span class="category">SpeedTree库/Broadleaves</span></div>
+          <p class="id">speedtree-library-broadleaves-rough-grass</p>
+          <p class="source">确定性几何自审 · 树木 · 几何 100 / 比例 64 · 分段 70–84</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>优化 [blades] 部件 &quot;blades&quot; 带风摆动画权重，但其语义应为刚性或静态物体。</li><li>优化 [proportion] 比例 h/w=0.41 超出预期 0.7–3：a tree is generally taller than wide。</li><li>优化 [realism] tree 缺少应有的 &quot;trunk&quot; 部件。</li><li>优化 [realism] tree 缺少应有的 &quot;foliage&quot; 部件。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>移除刚性部件的 windWeight；只给植被、布料、水体等柔性部件风摆权重。</li><li>调整主体长宽高与部件比例，使检测比值回到规则范围。</li><li>补齐缺失语义部件，或修正部件命名/标签，使自审器能识别其职责与数量。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="百景 010 · 消失的汽车 blender-119-010-vanishing-car" data-category="BlenderHowtos复刻" data-band="70–84">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/blender-119-010-vanishing-car.png" alt="百景 010 · 消失的汽车 模型截图">
+          <span class="rank">#145</span>
+          <span class="score near">73</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>百景 010 · 消失的汽车</h2><span class="category">BlenderHowtos复刻</span></div>
+          <p class="id">blender-119-010-vanishing-car</p>
+          <p class="source">确定性几何自审 · 汽车 · 几何 100 / 比例 40 · 分段 70–84</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>优化 [proportion] 比例 w/d=1.29 超出预期 0.3–0.75：a car is much longer than it is wide。</li><li>优化 [proportion] 比例 h/d=0.14 超出预期 0.2–0.6：a car is low relative to its length。</li><li>优化 [realism] car 缺少应有的 &quot;body&quot; 部件。</li><li>优化 [realism] car 缺少应有的 &quot;wheel&quot; 部件。</li><li>优化 [realism] car 缺少应有的 &quot;cabin&quot; 部件。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>调整主体长宽高与部件比例，使检测比值回到规则范围。</li><li>补齐缺失语义部件，或修正部件命名/标签，使自审器能识别其职责与数量。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="meshova树库 bald cypress speedtree-library-conifers-bald-cypress" data-category="SpeedTree库/Conifers" data-band="70–84">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/speedtree-library-conifers-bald-cypress.png" alt="Meshova树库 Bald Cypress 模型截图">
+          <span class="rank">#146</span>
+          <span class="score near">76</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>Meshova树库 Bald Cypress</h2><span class="category">SpeedTree库/Conifers</span></div>
+          <p class="id">speedtree-library-conifers-bald-cypress</p>
+          <p class="source">确定性几何自审 · 树木 · 几何 88 / 比例 88 · 分段 70–84</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>优化 [needles] 部件 &quot;needles&quot; 带风摆动画权重，但其语义应为刚性或静态物体。</li><li>优化 [needles] 部件 &quot;needles&quot; 的叶片严重重叠，拥挤度 62%。</li><li>优化 [proportion] 比例 h/w=3.15 超出预期 0.7–3：a tree is generally taller than wide。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>移除刚性部件的 windWeight；只给植被、布料、水体等柔性部件风摆权重。</li><li>增加道路退距与地块间距；拒绝与道路带相交的建筑落点，保留可读巷道和庭院。</li><li>调整主体长宽高与部件比例，使检测比值回到规则范围。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="meshova树库 wheat speedtree-library-broadleaves-wheat" data-category="SpeedTree库/Broadleaves" data-band="70–84">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/speedtree-library-broadleaves-wheat.png" alt="Meshova树库 Wheat 模型截图">
+          <span class="rank">#147</span>
+          <span class="score near">77</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>Meshova树库 Wheat</h2><span class="category">SpeedTree库/Broadleaves</span></div>
+          <p class="id">speedtree-library-broadleaves-wheat</p>
+          <p class="source">确定性几何自审 · 树木 · 几何 100 / 比例 76 · 分段 70–84</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>优化 [blades] 部件 &quot;blades&quot; 带风摆动画权重，但其语义应为刚性或静态物体。</li><li>优化 [realism] tree 缺少应有的 &quot;trunk&quot; 部件。</li><li>优化 [realism] tree 缺少应有的 &quot;foliage&quot; 部件。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>移除刚性部件的 windWeight；只给植被、布料、水体等柔性部件风摆权重。</li><li>补齐缺失语义部件，或修正部件命名/标签，使自审器能识别其职责与数量。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="百景 020 · 夜灯 blender-119-020-night-light" data-category="BlenderHowtos复刻" data-band="70–84">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/blender-119-020-night-light.png" alt="百景 020 · 夜灯 模型截图">
+          <span class="rank">#148</span>
+          <span class="score near">78</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>百景 020 · 夜灯</h2><span class="category">BlenderHowtos复刻</span></div>
+          <p class="id">blender-119-020-night-light</p>
+          <p class="source">确定性几何自审 · 灯具 · 几何 100 / 比例 52 · 分段 70–84</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>优化 [proportion] 比例 h/w=0.45 超出预期 1–12：a lamp/lamppost is taller than wide。</li><li>优化 [realism] lamp 缺少应有的 &quot;base&quot; 部件。</li><li>优化 [realism] lamp 缺少应有的 &quot;stem&quot; 部件。</li><li>优化 [realism] lamp 缺少应有的 &quot;shade&quot; 部件。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>调整主体长宽高与部件比例，使检测比值回到规则范围。</li><li>补齐缺失语义部件，或修正部件命名/标签，使自审器能识别其职责与数量。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="meshova树库 alaska cedar speedtree-library-conifers-alaska-cedar" data-category="SpeedTree库/Conifers" data-band="70–84">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/speedtree-library-conifers-alaska-cedar.png" alt="Meshova树库 Alaska Cedar 模型截图">
+          <span class="rank">#149</span>
+          <span class="score near">81</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>Meshova树库 Alaska Cedar</h2><span class="category">SpeedTree库/Conifers</span></div>
+          <p class="id">speedtree-library-conifers-alaska-cedar</p>
+          <p class="source">确定性几何自审 · 树木 · 几何 88 / 比例 100 · 分段 70–84</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>优化 [needles] 部件 &quot;needles&quot; 带风摆动画权重，但其语义应为刚性或静态物体。</li><li>优化 [needles] 部件 &quot;needles&quot; 的叶片严重重叠，拥挤度 60%。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>移除刚性部件的 windWeight；只给植被、布料、水体等柔性部件风摆权重。</li><li>增加道路退距与地块间距；拒绝与道路带相交的建筑落点，保留可读巷道和庭院。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="meshova树库 eastern red cedar speedtree-library-conifers-eastern-red-cedar" data-category="SpeedTree库/Conifers" data-band="70–84">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/speedtree-library-conifers-eastern-red-cedar.png" alt="Meshova树库 Eastern Red Cedar 模型截图">
+          <span class="rank">#150</span>
+          <span class="score near">81</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>Meshova树库 Eastern Red Cedar</h2><span class="category">SpeedTree库/Conifers</span></div>
+          <p class="id">speedtree-library-conifers-eastern-red-cedar</p>
+          <p class="source">确定性几何自审 · 树木 · 几何 88 / 比例 100 · 分段 70–84</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>优化 [needles] 部件 &quot;needles&quot; 带风摆动画权重，但其语义应为刚性或静态物体。</li><li>优化 [needles] 部件 &quot;needles&quot; 的叶片严重重叠，拥挤度 62%。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>移除刚性部件的 windWeight；只给植被、布料、水体等柔性部件风摆权重。</li><li>增加道路退距与地块间距；拒绝与道路带相交的建筑落点，保留可读巷道和庭院。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="meshova树库 western red cedar speedtree-library-conifers-western-red-cedar" data-category="SpeedTree库/Conifers" data-band="70–84">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/speedtree-library-conifers-western-red-cedar.png" alt="Meshova树库 Western Red Cedar 模型截图">
+          <span class="rank">#151</span>
+          <span class="score near">81</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>Meshova树库 Western Red Cedar</h2><span class="category">SpeedTree库/Conifers</span></div>
+          <p class="id">speedtree-library-conifers-western-red-cedar</p>
+          <p class="source">确定性几何自审 · 树木 · 几何 88 / 比例 100 · 分段 70–84</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>优化 [needles] 部件 &quot;needles&quot; 带风摆动画权重，但其语义应为刚性或静态物体。</li><li>优化 [needles] 部件 &quot;needles&quot; 的叶片严重重叠，拥挤度 67%。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>移除刚性部件的 windWeight；只给植被、布料、水体等柔性部件风摆权重。</li><li>增加道路退距与地块间距；拒绝与道路带相交的建筑落点，保留可读巷道和庭院。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="meshova树库 switch cane speedtree-library-broadleaves-switch-cane" data-category="SpeedTree库/Broadleaves" data-band="70–84">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/speedtree-library-broadleaves-switch-cane.png" alt="Meshova树库 Switch Cane 模型截图">
+          <span class="rank">#152</span>
+          <span class="score near">83</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>Meshova树库 Switch Cane</h2><span class="category">SpeedTree库/Broadleaves</span></div>
+          <p class="id">speedtree-library-broadleaves-switch-cane</p>
+          <p class="source">确定性几何自审 · 树木 · 几何 100 / 比例 88 · 分段 70–84</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>优化 [blades] 部件 &quot;blades&quot; 带风摆动画权重，但其语义应为刚性或静态物体。</li><li>优化 [realism] tree 缺少应有的 &quot;foliage&quot; 部件。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>移除刚性部件的 windWeight；只给植被、布料、水体等柔性部件风摆权重。</li><li>补齐缺失语义部件，或修正部件命名/标签，使自审器能识别其职责与数量。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li></ol>
+        </div>
+      </article>
+      <article class="card" data-name="meshova树库 western sword fern speedtree-library-broadleaves-western-sword-fern" data-category="SpeedTree库/Broadleaves" data-band="70–84">
+        <div class="shot">
+          <img loading="lazy" src="../out/reports/model-self-review/thumbs/speedtree-library-broadleaves-western-sword-fern.png" alt="Meshova树库 Western Sword Fern 模型截图">
+          <span class="rank">#153</span>
+          <span class="score near">83</span>
+        </div>
+        <div class="body">
+          <div class="title-row"><h2>Meshova树库 Western Sword Fern</h2><span class="category">SpeedTree库/Broadleaves</span></div>
+          <p class="id">speedtree-library-broadleaves-western-sword-fern</p>
+          <p class="source">确定性几何自审 · 树木 · 几何 100 / 比例 88 · 分段 70–84</p>
+          <h3>低分原因</h3>
+          <ul class="reasons"><li>优化 [rachis] 部件 &quot;rachis&quot; 带风摆动画权重，但其语义应为刚性或静态物体。</li><li>优化 [proportion] 比例 h/w=0.19 超出预期 0.7–3：a tree is generally taller than wide。</li></ul>
+          <h3>优化建议</h3>
+          <ol><li>移除刚性部件的 windWeight；只给植被、布料、水体等柔性部件风摆权重。</li><li>调整主体长宽高与部件比例，使检测比值回到规则范围。</li><li>强化主轮廓、视觉焦点和前中后层次，减少均匀细节。</li></ol>
+        </div>
+      </article><div class="empty" id="empty">没有匹配项</div></main>
+<footer>生成时间：2026年7月12日 12:12 · 阈值：&lt; 85 · 数据源：src/critique/critic.ts + 当前 gallery DOM</footer>
+<script>
+  const cards=[...document.querySelectorAll('.card')];
+  const search=document.getElementById('search');
+  const category=document.getElementById('category');
+  const band=document.getElementById('band');
+  const shown=document.getElementById('shown');
+  const empty=document.getElementById('empty');
+  function filter(){
+    const query=search.value.trim().toLowerCase();let count=0;
+    for(const card of cards){const visible=(!query||card.dataset.name.includes(query))&&(!category.value||card.dataset.category===category.value)&&(!band.value||card.dataset.band===band.value);card.hidden=!visible;if(visible)count++}
+    shown.textContent=count+' / '+cards.length+' 个';empty.style.display=count?'none':'block';
+  }
+  search.addEventListener('input',filter);category.addEventListener('change',filter);band.addEventListener('change',filter);filter();
+</script>
+</body>
+</html>

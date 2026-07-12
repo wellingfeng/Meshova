@@ -155,12 +155,12 @@ export function buildSuperformulaTowerParts(
     angularSegments: p.segments,
     heightSegments: Math.max(8, Math.round(p.segments * 0.45)),
     caps: true,
-  }), { translate: vec3(0, p.height * 0.5 + 0.18, 0) });
+  }), { translate: vec3(0, p.height * 0.5 + 0.21, 0) });
   const base = transform(cylinder(p.radius * 1.12, 0.18, p.segments, true), {
     translate: vec3(0, 0.09, 0),
   });
   const crown = transform(cylinder(p.radius * p.taper * 0.34, 0.13, p.segments, true), {
-    translate: vec3(0, p.height + 0.245, 0),
+    translate: vec3(0, p.height + 0.305, 0),
   });
   return [
     surfacePart("superformula_plinth", "超公式塔基座", base, DARK, "stone", { roughness: 0.72 }),

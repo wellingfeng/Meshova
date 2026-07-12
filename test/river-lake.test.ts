@@ -3,6 +3,7 @@ import {
   buildRiverLakeParts,
   scoreRiverLake,
   solveBackwaterProfile,
+  vec3,
 } from "../src/index.js";
 
 const compact = {
@@ -69,5 +70,19 @@ describe("river lake backwater", () => {
     expect(river.surface?.params).toEqual(lake.surface?.params);
     const tint = river.surface?.params?.tint as [number, number, number];
     expect(tint[1]).toBeGreaterThan(tint[2]);
+  });
+
+  it("moves the river and downstream lake from editable control points", () => {
+    const parts = buildRiverLakeParts({
+      ...compact,
+      flowStreaks: 0,
+      controlPoints: [vec3(5, 0, -15), vec3(5, 0, -5), vec3(5, 0, 4)],
+    });
+    const river = parts.find((part) => part.name === "river_lake_river_water")!.mesh;
+    const lake = parts.find((part) => part.name === "river_lake_lake_water")!.mesh;
+    const riverAverageX = river.positions.reduce((sum, point) => sum + point.x, 0) / river.positions.length;
+    const lakeAverageX = lake.positions.reduce((sum, point) => sum + point.x, 0) / lake.positions.length;
+    expect(riverAverageX).toBeCloseTo(5, 1);
+    expect(lakeAverageX).toBeCloseTo(5, 1);
   });
 });

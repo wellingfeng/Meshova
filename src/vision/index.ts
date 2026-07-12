@@ -12,6 +12,7 @@ export * from "./material.js";
 export * from "./object.js";
 export * from "./part-split.js";
 export * from "./loss.js";
+export * from "./reference-evaluation.js";
 export * from "./multiview.js";
 export * from "./solidity.js";
 export * from "./turntable.js";

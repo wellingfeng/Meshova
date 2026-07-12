@@ -7,6 +7,46 @@ import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import {
   bakeMaterial,
+  BILIBILI_MATERIAL_NAMES,
+  BILIBILI_MATERIAL_DEFINITIONS,
+  BILIBILI_MATERIAL_PARAM_SCHEMA,
+  defaultBilibiliMaterialParams,
+  URBAN_MATERIAL_NAMES,
+  URBAN_MATERIAL_DEFINITIONS,
+  URBAN_MATERIAL_PARAM_SCHEMA,
+  defaultUrbanMaterialParams,
+  ADVANCED_MATERIAL_NAMES,
+  ADVANCED_MATERIAL_DEFINITIONS,
+  ADVANCED_MATERIAL_PARAM_SCHEMA,
+  defaultAdvancedMaterialParams,
+  THIRD_BATCH_MATERIAL_NAMES,
+  THIRD_BATCH_MATERIAL_DEFINITIONS,
+  THIRD_BATCH_MATERIAL_PARAM_SCHEMA,
+  defaultThirdBatchMaterialParams,
+  FOURTH_BATCH_MATERIAL_NAMES,
+  FOURTH_BATCH_MATERIAL_DEFINITIONS,
+  FOURTH_BATCH_MATERIAL_PARAM_SCHEMA,
+  defaultFourthBatchMaterialParams,
+  FIFTH_BATCH_MATERIAL_NAMES,
+  FIFTH_BATCH_MATERIAL_DEFINITIONS,
+  FIFTH_BATCH_MATERIAL_PARAM_SCHEMA,
+  defaultFifthBatchMaterialParams,
+  SIXTH_BATCH_MATERIAL_NAMES,
+  SIXTH_BATCH_MATERIAL_DEFINITIONS,
+  SIXTH_BATCH_MATERIAL_PARAM_SCHEMA,
+  defaultSixthBatchMaterialParams,
+  SEVENTH_BATCH_MATERIAL_NAMES,
+  SEVENTH_BATCH_MATERIAL_DEFINITIONS,
+  SEVENTH_BATCH_MATERIAL_PARAM_SCHEMA,
+  defaultSeventhBatchMaterialParams,
+  EIGHTH_BATCH_MATERIAL_NAMES,
+  EIGHTH_BATCH_MATERIAL_DEFINITIONS,
+  EIGHTH_BATCH_MATERIAL_PARAM_SCHEMA,
+  defaultEighthBatchMaterialParams,
+  NINTH_BATCH_MATERIAL_NAMES,
+  NINTH_BATCH_MATERIAL_DEFINITIONS,
+  NINTH_BATCH_MATERIAL_PARAM_SCHEMA,
+  defaultNinthBatchMaterialParams,
   SBS_REPRO_NAMES,
   SBS_PARAM_SCHEMA,
   defaultSbsParams,
@@ -14,16 +54,14 @@ import {
   BUILDER_NAMES,
   PRESET_PARAM_SCHEMA,
   defaultMatParams,
-} from "/web/materials.js?v=cloth2";
+  MATERIAL_USE_CATEGORIES,
+  materialUseCategory,
+} from "/web/materials.js?v=realtime8";
 
-const CATEGORIES = [
-  { id: "sbs", label: "SBS 复现", names: SBS_REPRO_NAMES },
-  { id: "preset", label: "内置预设", names: PRESET_NAMES },
-  { id: "builder", label: "拼接材质", names: BUILDER_NAMES },
-];
+const CATEGORIES = MATERIAL_USE_CATEGORIES;
 const DEFAULT_SHAPE = "cube";
-const DEFAULT_CAT = "sbs";
 const DEFAULT_MAT = "Stylized_01_Bricks";
+const DEFAULT_CAT = materialUseCategory(DEFAULT_MAT).id;
 
 // --- three.js scene ----------------------------------------------------------
 const canvas = document.getElementById("canvas");
@@ -115,27 +153,102 @@ const catRow = document.getElementById("cat-row");
 const matSelect = document.getElementById("mat-select");
 const paramPanel = document.getElementById("param-panel");
 const foot = document.getElementById("foot");
+const loading = document.getElementById("loading");
+const loadingTitle = document.getElementById("loading-title");
+const loadingDetail = document.getElementById("loading-detail");
+const MATERIAL_PARAM_LOADING_THRESHOLD_MS = 3000;
+const materialTimingMs = new Map();
+let activeLoadingToken = 0;
+let loadingTimer = 0;
+
+function nextPaint() {
+  return new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+}
+
+async function showMaterialLoading(title, detail) {
+  const token = ++activeLoadingToken;
+  clearInterval(loadingTimer);
+  if (loadingTitle) loadingTitle.textContent = title;
+  if (loadingDetail) loadingDetail.textContent = detail;
+  loading?.classList.add("show");
+  loading?.setAttribute("aria-hidden", "false");
+  const startedAt = performance.now();
+  loadingTimer = setInterval(() => {
+    if (token !== activeLoadingToken || !loadingDetail) return;
+    const seconds = Math.max(1, Math.floor((performance.now() - startedAt) / 1000));
+    loadingDetail.textContent = `${detail} · 已等待 ${seconds} 秒`;
+  }, 1000);
+  await nextPaint();
+  return token;
+}
+
+function hideMaterialLoading(token) {
+  if (token !== activeLoadingToken) return;
+  clearInterval(loadingTimer);
+  loading?.classList.remove("show");
+  loading?.setAttribute("aria-hidden", "true");
+}
 
 function schemaFor(name) {
+  if (NINTH_BATCH_MATERIAL_NAMES.includes(name)) return NINTH_BATCH_MATERIAL_PARAM_SCHEMA[name];
+  if (EIGHTH_BATCH_MATERIAL_NAMES.includes(name)) return EIGHTH_BATCH_MATERIAL_PARAM_SCHEMA[name];
+  if (SEVENTH_BATCH_MATERIAL_NAMES.includes(name)) return SEVENTH_BATCH_MATERIAL_PARAM_SCHEMA[name];
+  if (SIXTH_BATCH_MATERIAL_NAMES.includes(name)) return SIXTH_BATCH_MATERIAL_PARAM_SCHEMA[name];
+  if (FIFTH_BATCH_MATERIAL_NAMES.includes(name)) return FIFTH_BATCH_MATERIAL_PARAM_SCHEMA[name];
+  if (FOURTH_BATCH_MATERIAL_NAMES.includes(name)) return FOURTH_BATCH_MATERIAL_PARAM_SCHEMA[name];
+  if (THIRD_BATCH_MATERIAL_NAMES.includes(name)) return THIRD_BATCH_MATERIAL_PARAM_SCHEMA[name];
+  if (ADVANCED_MATERIAL_NAMES.includes(name)) return ADVANCED_MATERIAL_PARAM_SCHEMA[name];
+  if (URBAN_MATERIAL_NAMES.includes(name)) return URBAN_MATERIAL_PARAM_SCHEMA[name];
+  if (BILIBILI_MATERIAL_NAMES.includes(name)) return BILIBILI_MATERIAL_PARAM_SCHEMA[name];
   if (SBS_REPRO_NAMES.includes(name)) return SBS_PARAM_SCHEMA[name];
   return PRESET_PARAM_SCHEMA[name] ?? null;
 }
 function defaultParams(name) {
+  if (NINTH_BATCH_MATERIAL_NAMES.includes(name)) return defaultNinthBatchMaterialParams(name);
+  if (EIGHTH_BATCH_MATERIAL_NAMES.includes(name)) return defaultEighthBatchMaterialParams(name);
+  if (SEVENTH_BATCH_MATERIAL_NAMES.includes(name)) return defaultSeventhBatchMaterialParams(name);
+  if (SIXTH_BATCH_MATERIAL_NAMES.includes(name)) return defaultSixthBatchMaterialParams(name);
+  if (FIFTH_BATCH_MATERIAL_NAMES.includes(name)) return defaultFifthBatchMaterialParams(name);
+  if (FOURTH_BATCH_MATERIAL_NAMES.includes(name)) return defaultFourthBatchMaterialParams(name);
+  if (THIRD_BATCH_MATERIAL_NAMES.includes(name)) return defaultThirdBatchMaterialParams(name);
+  if (ADVANCED_MATERIAL_NAMES.includes(name)) return defaultAdvancedMaterialParams(name);
+  if (URBAN_MATERIAL_NAMES.includes(name)) return defaultUrbanMaterialParams(name);
+  if (BILIBILI_MATERIAL_NAMES.includes(name)) return defaultBilibiliMaterialParams(name);
   if (SBS_REPRO_NAMES.includes(name)) return defaultSbsParams(name);
   return defaultMatParams(name);
 }
 
 function rebuildMaterial() {
+  const materialName = currentMat;
+  const startedAt = performance.now();
   const size = 512;
   const old = mesh.material;
   mesh.material = bakeMaterial(currentMat, size, { ...currentParams });
   if (old && old.dispose) {
-    for (const k of ["map", "normalMap", "roughnessMap", "metalnessMap", "aoMap"]) {
+    for (const k of ["map", "normalMap", "roughnessMap", "metalnessMap", "aoMap", "emissiveMap", "alphaMap", "transmissionMap", "anisotropyMap", "clearcoatMap", "clearcoatRoughnessMap", "sheenColorMap", "thicknessMap", "iridescenceMap", "iridescenceThicknessMap"]) {
       if (old[k] && old[k].dispose) old[k].dispose();
     }
     old.dispose();
   }
   foot.textContent = `当前: ${currentMat} · 512×512 · 程序化烘焙`;
+  materialTimingMs.set(materialName, performance.now() - startedAt);
+}
+
+async function rebuildMaterialWithLoading(title, detail) {
+  const token = await showMaterialLoading(title, detail);
+  try {
+    rebuildMaterial();
+  } finally {
+    hideMaterialLoading(token);
+  }
+}
+
+function rebuildAfterParamChange() {
+  if ((materialTimingMs.get(currentMat) ?? 0) > MATERIAL_PARAM_LOADING_THRESHOLD_MS) {
+    return rebuildMaterialWithLoading("修改材质参数", `重新计算 ${currentMat} · 512×512 PBR 贴图`);
+  }
+  rebuildMaterial();
+  return Promise.resolve();
 }
 
 function setShape(id) {
@@ -153,7 +266,7 @@ function populateMatSelect() {
   for (const n of cat.names) {
     const o = document.createElement("option");
     o.value = n;
-    o.textContent = n;
+    o.textContent = NINTH_BATCH_MATERIAL_DEFINITIONS[n]?.label ?? EIGHTH_BATCH_MATERIAL_DEFINITIONS[n]?.label ?? SEVENTH_BATCH_MATERIAL_DEFINITIONS[n]?.label ?? SIXTH_BATCH_MATERIAL_DEFINITIONS[n]?.label ?? FIFTH_BATCH_MATERIAL_DEFINITIONS[n]?.label ?? FOURTH_BATCH_MATERIAL_DEFINITIONS[n]?.label ?? THIRD_BATCH_MATERIAL_DEFINITIONS[n]?.label ?? ADVANCED_MATERIAL_DEFINITIONS[n]?.label ?? URBAN_MATERIAL_DEFINITIONS[n]?.label ?? BILIBILI_MATERIAL_DEFINITIONS[n]?.label ?? n;
     matSelect.appendChild(o);
   }
   currentMat = cat.names.includes(currentMat) ? currentMat : cat.names[0];
@@ -196,7 +309,7 @@ function buildParamPanel() {
         : parseFloat(input.value);
       valSpan.textContent = spec.type === "rgb" ? input.value : String(currentParams[spec.key]);
       if (raf) cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(rebuildMaterial);
+      raf = requestAnimationFrame(rebuildAfterParamChange);
     });
     lab.appendChild(head);
     lab.appendChild(input);
@@ -204,11 +317,11 @@ function buildParamPanel() {
   }
 }
 
-function selectMaterial(name) {
+async function selectMaterial(name) {
   currentMat = name;
   currentParams = defaultParams(name);
   buildParamPanel();
-  rebuildMaterial();
+  await rebuildMaterialWithLoading("生成程序化材质", `计算 ${name} · 512×512 PBR 贴图`);
 }
 
 // build shape buttons
@@ -236,11 +349,13 @@ for (const cat of CATEGORIES) {
 }
 matSelect.addEventListener("change", () => selectMaterial(matSelect.value));
 
-// init — 支持 URL 定位 ?cat=<sbs|preset|builder>&mat=<name>（从材质库跳入）
+// init — URL 以材质名为准定位用途分类；旧来源分类链接仍可打开正确材质。
 const urlParams = new URLSearchParams(location.search);
 const wantCat = urlParams.get("cat");
 const wantMat = urlParams.get("mat");
-if (wantCat && CATEGORIES.some((c) => c.id === wantCat)) currentCat = wantCat;
+const wantedMaterialCategory = wantMat ? materialUseCategory(wantMat) : null;
+if (wantedMaterialCategory) currentCat = wantedMaterialCategory.id;
+else if (wantCat && CATEGORIES.some((c) => c.id === wantCat)) currentCat = wantCat;
 
 setShape(DEFAULT_SHAPE);
 for (const x of catRow.children) x.classList.toggle("active", x.dataset.id === currentCat);
@@ -252,7 +367,7 @@ if (wantMat) {
     matSelect.value = wantMat;
   }
 }
-selectMaterial(currentMat);
+await selectMaterial(currentMat);
 
 // --- render loop -------------------------------------------------------------
 function resize() {

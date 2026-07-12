@@ -22,6 +22,11 @@ describe("GMC Canyon AT4X procedural pickup", () => {
     expect(quality.metrics.cabBedLayout).toBeGreaterThan(0.8);
     expect(quality.metrics.wheelSystem).toBeGreaterThan(0.9);
     expect(quality.metrics.vehicleSemantics).toBeGreaterThan(0.9);
+    const roofBounds = bounds(a.find((part) => part.name === "cab_black_roof")!.mesh);
+    const pillarBounds = bounds(a.find((part) => part.name === "crew_cab_pillars")!.mesh);
+    const railBounds = bounds(a.find((part) => part.name === "roof_rails")!.mesh);
+    expect(roofBounds.min.y).toBeLessThan(pillarBounds.max.y);
+    expect(railBounds.min.y).toBeLessThanOrEqual(roofBounds.max.y + 0.001);
   });
 
   it("tracks pickup proportions when scaled", () => {

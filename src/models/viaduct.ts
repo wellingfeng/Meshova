@@ -36,6 +36,7 @@ const CONCRETE: RGB = [0.66, 0.66, 0.68];
 const CONCRETE_DK: RGB = [0.5, 0.5, 0.53];
 
 export interface ViaductParams {
+  readonly controlPoints?: ReadonlyArray<Vec3>;
   /** Total run length along Z (metres). */
   length: number;
   /** Deck half-width (metres); full carriageway = 2 * halfWidth. */
@@ -92,6 +93,9 @@ function deckHeight(t: number, clearance: number, rampFraction: number): number 
 
 /** Straight centerline along Z carrying the trapezoidal height profile. */
 function viaductCenterline(p: ViaductParams): Curve {
+  if (p.controlPoints && p.controlPoints.length >= 2) {
+    return polyline(p.controlPoints.map((point) => vec3(point.x, point.y, point.z)));
+  }
   const half = p.length / 2;
   const steps = Math.max(24, Math.round(p.length / p.sample));
   const pts: Vec3[] = [];

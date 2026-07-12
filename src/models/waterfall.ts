@@ -8,6 +8,7 @@ import { transform } from "../geometry/transform.js";
 import type { NamedPart, PartInstanceTransform } from "../geometry/export.js";
 
 export interface WaterfallOptions {
+  controlPoints?: ReadonlyArray<Vec3>;
   seed?: number;
   width?: number;
   height?: number;
@@ -24,6 +25,7 @@ export interface WaterfallOptions {
 }
 
 interface ResolvedWaterfallOptions {
+  controlPoints?: ReadonlyArray<Vec3>;
   seed: number;
   width: number;
   height: number;
@@ -45,6 +47,9 @@ function clamp(value: number, min: number, max: number): number {
 
 function resolveOptions(options: WaterfallOptions): ResolvedWaterfallOptions {
   return {
+    ...(options.controlPoints && options.controlPoints.length >= 2
+      ? { controlPoints: options.controlPoints.map((point) => vec3(point.x, point.y, point.z)) }
+      : {}),
     seed: Math.floor(options.seed ?? 17),
     width: clamp(options.width ?? 6.8, 1.5, 24),
     height: clamp(options.height ?? 8.5, 2, 30),
@@ -62,6 +67,18 @@ function resolveOptions(options: WaterfallOptions): ResolvedWaterfallOptions {
 }
 
 function pathPoint(t: number, opts: ResolvedWaterfallOptions): Vec3 {
+  if (opts.controlPoints && opts.controlPoints.length >= 2) {
+    const position = t * (opts.controlPoints.length - 1);
+    const index = Math.min(opts.controlPoints.length - 2, Math.floor(position));
+    const local = position - index;
+    const start = opts.controlPoints[index]!;
+    const end = opts.controlPoints[index + 1]!;
+    return vec3(
+      start.x + (end.x - start.x) * local,
+      start.y + (end.y - start.y) * local,
+      start.z + (end.z - start.z) * local,
+    );
+  }
   const plunge = t * t;
   const lipCurl = Math.sin(Math.min(1, t * 3.2) * Math.PI) * opts.depth * 0.12;
   return vec3(

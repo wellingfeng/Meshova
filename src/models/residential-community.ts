@@ -467,7 +467,7 @@ function addTower(bag: GroupBag, item: CommunityPlacement, seed: number): void {
         translate: vec3(localX, y, depth * 0.5 + 0.42),
       }));
       balconyRails.push(transform(box(width * 0.34, 0.55, 0.045), {
-        translate: vec3(localX, y + 0.31, depth * 0.5 + 0.92),
+        translate: vec3(localX, y + 0.34, depth * 0.5 + 0.98),
       }));
     }
   }
@@ -520,7 +520,7 @@ function addClubhouse(bag: GroupBag, item: CommunityPlacement): void {
   const [x, , z] = item.position;
   bag.add("community_clubhouse", "社区会所主体", transform(box(17, 4.8, 9), { translate: vec3(x, 2.4, z) }), [0.68, 0.62, 0.53], concrete([0.68, 0.62, 0.53], 0.7));
   bag.add("community_clubhouse_roof", "会所挑檐", transform(box(18.2, 0.35, 10.2), { translate: vec3(x, 5, z) }), COLORS.steel, metal(COLORS.steel, 0.38));
-  bag.add("community_clubhouse_glass", "会所落地玻璃", transform(box(12.5, 2.7, 0.1), { translate: vec3(x, 2.25, z + 4.56) }), COLORS.glass, glass(COLORS.glass));
+  bag.add("community_clubhouse_glass", "会所落地玻璃", transform(box(12.35, 2.55, 0.08), { translate: vec3(x, 2.25, z + 4.48) }), COLORS.glass, glass(COLORS.glass));
   const mullions = Array.from({ length: 7 }, (_, index) => transform(box(0.08, 2.8, 0.14), {
     translate: vec3(x - 6 + index * 2, 2.3, z + 4.62),
   }));

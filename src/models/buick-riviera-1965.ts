@@ -11,9 +11,9 @@ import {
   bounds,
   box,
   cylinder,
+  loftSurface,
   makeMesh,
   merge,
-  recomputeNormals,
   sphere,
   torus,
   transform,
@@ -146,64 +146,10 @@ function ringFromSection(ctx: ScaleContext, s: BodySection): Vec3[] {
 }
 
 function loftSections(ctx: ScaleContext, sections: BodySection[]): Mesh {
-  return loftRings(sections.map((s) => ringFromSection(ctx, s)));
-}
-
-function loftRings(rings: Vec3[][]): Mesh {
-  const ringSize = rings[0]?.length ?? 0;
-  if (rings.length < 2 || ringSize < 3) {
-    return makeMesh({ positions: [], normals: [], uvs: [], indices: [] });
-  }
-
-  const positions: Vec3[] = [];
-  const normals: Vec3[] = [];
-  const uvs = [];
-  const indices: number[] = [];
-  for (let i = 0; i < rings.length; i++) {
-    const ring = rings[i]!;
-    for (let j = 0; j < ringSize; j++) {
-      positions.push(ring[j]!);
-      normals.push(vec3(0, 1, 0));
-      uvs.push(vec2(j / ringSize, i / Math.max(1, rings.length - 1)));
-    }
-  }
-  for (let i = 0; i < rings.length - 1; i++) {
-    for (let j = 0; j < ringSize; j++) {
-      const a = i * ringSize + j;
-      const b = i * ringSize + ((j + 1) % ringSize);
-      const c = (i + 1) * ringSize + j;
-      const d = (i + 1) * ringSize + ((j + 1) % ringSize);
-      indices.push(a, c, b, b, c, d);
-    }
-  }
-
-  const frontCenter = positions.length;
-  positions.push(avg(rings[0]!));
-  normals.push(vec3(0, 0, -1));
-  uvs.push(vec2(0.5, 0.5));
-  for (let j = 0; j < ringSize; j++) indices.push(frontCenter, j, (j + 1) % ringSize);
-
-  const rearBase = (rings.length - 1) * ringSize;
-  const rearCenter = positions.length;
-  positions.push(avg(rings[rings.length - 1]!));
-  normals.push(vec3(0, 0, 1));
-  uvs.push(vec2(0.5, 0.5));
-  for (let j = 0; j < ringSize; j++) indices.push(rearCenter, rearBase + ((j + 1) % ringSize), rearBase + j);
-
-  return recomputeNormals(makeMesh({ positions, normals, uvs, indices }));
-}
-
-function avg(points: Vec3[]): Vec3 {
-  let x = 0;
-  let y = 0;
-  let z = 0;
-  for (const p of points) {
-    x += p.x;
-    y += p.y;
-    z += p.z;
-  }
-  const inv = 1 / points.length;
-  return vec3(x * inv, y * inv, z * inv);
+  return loftSurface(sections.map((section) => ringFromSection(ctx, section)), {
+    longitudinalSubdivisions: 5,
+    crossSectionSubdivisions: 3,
+  });
 }
 
 function quad(a: Vec3, b: Vec3, c: Vec3, d: Vec3): Mesh {
@@ -269,33 +215,33 @@ function makeHardtopGlass(ctx: ScaleContext): Mesh {
     [
       sv(ctx, -0.75, 0.89, -0.68),
       sv(ctx, 0.75, 0.89, -0.68),
-      sv(ctx, 0.58, 1.2, -0.22),
-      sv(ctx, -0.58, 1.2, -0.22),
+      sv(ctx, 0.6, 1.18, -0.22),
+      sv(ctx, -0.6, 1.18, -0.22),
     ],
     [
-      sv(ctx, -0.58, 1.18, 0.72),
-      sv(ctx, 0.58, 1.18, 0.72),
+      sv(ctx, -0.6, 1.17, 0.72),
+      sv(ctx, 0.6, 1.17, 0.72),
       sv(ctx, 0.78, 0.86, 1.14),
       sv(ctx, -0.78, 0.86, 1.14),
     ],
     [
       sv(ctx, -0.84, 0.86, -0.42),
-      sv(ctx, -0.62, 1.17, -0.18),
-      sv(ctx, -0.62, 1.18, 0.72),
+      sv(ctx, -0.64, 1.16, -0.18),
+      sv(ctx, -0.64, 1.16, 0.72),
       sv(ctx, -0.87, 0.85, 0.98),
     ],
     [
-      sv(ctx, 0.62, 1.17, -0.18),
+      sv(ctx, 0.64, 1.16, -0.18),
       sv(ctx, 0.84, 0.86, -0.42),
       sv(ctx, 0.87, 0.85, 0.98),
-      sv(ctx, 0.62, 1.18, 0.72),
+      sv(ctx, 0.64, 1.16, 0.72),
     ],
   ]);
 }
 
 function makeHardtopFrame(ctx: ScaleContext): Mesh {
   return merge(
-    partBox(ctx, vec3(1.18, 0.05, 1.0), vec3(0, 1.23, 0.28)),
+    partBox(ctx, vec3(1.24, 0.045, 1.0), vec3(0, 1.225, 0.28)),
     partBox(ctx, vec3(1.28, 0.052, 0.075), vec3(0, 1.08, -0.43), vec3(-0.58, 0, 0)),
     partBox(ctx, vec3(1.26, 0.05, 0.08), vec3(0, 1.03, 0.95), vec3(0.56, 0, 0)),
     partBox(ctx, vec3(0.055, 0.52, 0.065), vec3(-0.79, 0.98, -0.45), vec3(-0.42, 0, 0)),
@@ -433,8 +379,8 @@ export function buildBuickRiviera1965Parts(params: Partial<BuickRiviera1965Param
 
   add(parts, "hood_center_crease", partBox(ctx, vec3(0.045, 0.035, 1.72), vec3(0, 1.0, -1.66), vec3(-0.035, 0, 0)), PAINT_LOW, "carPaint", { color: PAINT_LOW, seed: 654 });
   add(parts, "razor_roof_edge", merge(
-    partBox(ctx, vec3(1.2, 0.035, 0.055), vec3(0, 1.28, -0.2)),
-    partBox(ctx, vec3(1.18, 0.035, 0.055), vec3(0, 1.25, 0.82)),
+    partBox(ctx, vec3(1.24, 0.03, 0.055), vec3(0, 1.245, -0.2)),
+    partBox(ctx, vec3(1.22, 0.03, 0.055), vec3(0, 1.225, 0.82)),
   ), CHROME, "chrome");
 
   add(parts, "front_center_grille", merge(

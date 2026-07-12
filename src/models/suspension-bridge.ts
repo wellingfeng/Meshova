@@ -1,7 +1,7 @@
 import { vec3, type Vec3 } from "../math/vec3.js";
 import { makeRng } from "../random/index.js";
 import { catenaryCurve, layoutPiecesOnCurve } from "../geometry/curve-pieces.js";
-import { curveLength, polyline, type Curve } from "../geometry/curve.js";
+import { curveLength, polyline, resampleCurve, type Curve } from "../geometry/curve.js";
 import type { NamedPart } from "../geometry/export.js";
 import { computeNormals, merge, type Mesh } from "../geometry/mesh.js";
 import { box } from "../geometry/primitives.js";
@@ -9,6 +9,7 @@ import { profileSweep, rectProfile } from "../geometry/shapes.js";
 import { transform } from "../geometry/transform.js";
 
 export interface SuspensionBridgeParams {
+  readonly controlPoints?: ReadonlyArray<Vec3>;
   seed: number;
   spanLength: number;
   towerCount: number;
@@ -51,6 +52,9 @@ export function resolveSuspensionBridgeParams(
   params: Partial<SuspensionBridgeParams> = {},
 ): SuspensionBridgeParams {
   return {
+    ...(params.controlPoints && params.controlPoints.length >= 2
+      ? { controlPoints: params.controlPoints.map((point) => vec3(point.x, point.y, point.z)) }
+      : {}),
     seed: Math.floor(params.seed ?? SUSPENSION_BRIDGE_DEFAULTS.seed),
     spanLength: clamp(params.spanLength ?? SUSPENSION_BRIDGE_DEFAULTS.spanLength, 18, 180),
     towerCount: Math.round(clamp(params.towerCount ?? SUSPENSION_BRIDGE_DEFAULTS.towerCount, 2, 12)),
@@ -94,6 +98,10 @@ function cableMesh(curve: Curve, thickness: number): Mesh {
 }
 
 function makeStations(params: SuspensionBridgeParams): Vec3[] {
+  if (params.controlPoints && params.controlPoints.length >= 2) {
+    const curve = polyline(params.controlPoints.map((point) => vec3(point.x, point.y, point.z)));
+    return resampleCurve(curve, { count: params.towerCount }).points.slice();
+  }
   const rng = makeRng(params.seed);
   const stations: Vec3[] = [];
   for (let index = 0; index < params.towerCount; index++) {

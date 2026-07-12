@@ -27,6 +27,9 @@ describe("Buick Riviera 1963-1965 procedural coupe", () => {
     expect(quality.metrics.wheelSystem).toBeGreaterThan(0.88);
     expect(quality.metrics.brandSignature).toBeGreaterThan(0.86);
     expect(quality.metrics.vehicleSemantics).toBeGreaterThan(0.9);
+    const frameBounds = bounds(a.find((part) => part.name === "hardtop_roof_frame")!.mesh);
+    const edgeBounds = bounds(a.find((part) => part.name === "razor_roof_edge")!.mesh);
+    expect(edgeBounds.min.y).toBeLessThanOrEqual(frameBounds.max.y + 0.001);
   });
 
   it("tracks classic coupe proportions when scaled", () => {

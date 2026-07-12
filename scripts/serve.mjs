@@ -257,7 +257,11 @@ const server = createServer(async (req, res) => {
     let urlPath = decodeURIComponent((req.url || "/").split("?")[0]);
     if (urlPath === "/favicon.ico") { res.writeHead(204).end(); return; }
     if (urlPath === "/api/ai-split") { await handleAiSplit(req, res); return; }
-    if (urlPath === "/") urlPath = "/web/gallery.html";
+    if (urlPath === "/") {
+      res.writeHead(302, { location: "/web/gallery.html" });
+      res.end();
+      return;
+    }
     // Prevent path traversal: resolve and confirm it stays under ROOT.
     const filePath = normalize(join(ROOT, urlPath));
     if (!filePath.startsWith(ROOT)) {

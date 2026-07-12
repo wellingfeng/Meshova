@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { buildIntersectionParts } from "../src/models/intersection.js";
+import { zFightingReport } from "../src/critique/geometry-metrics.js";
 
 const tris = (parts: ReturnType<typeof buildIntersectionParts>) =>
   parts.reduce((s, p) => s + p.mesh.indices.length, 0);
@@ -72,6 +73,14 @@ describe("road intersection", () => {
     expect(names).not.toContain("crosswalks");
     expect(names).not.toContain("sidewalks");
     expect(names).toContain("asphalt");
+  });
+
+  it("keeps curbs separated from sidewalk faces", () => {
+    const report = zFightingReport(buildIntersectionParts(), {
+      includeSamePart: false,
+      maxTriangles: Number.POSITIVE_INFINITY,
+    });
+    expect(report.pairs).toBe(0);
   });
 
   it.each([

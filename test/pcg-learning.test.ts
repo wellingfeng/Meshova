@@ -40,6 +40,17 @@ describe("PCG study kernels", () => {
     expect(Math.max(...first.depth)).toBeGreaterThan(0.4);
   });
 
+  it("uses editable control points as the river centerline", () => {
+    const river = buildRiverSystem2D({
+      size: 20,
+      resolution: 24,
+      controlPoints: [vec3(-5, 0, -9), vec3(-5, 0, 0), vec3(-5, 0, 9)],
+    });
+    expect(river.centerline.points.every((point) => Math.abs(point.x + 5) < 1e-8)).toBe(true);
+    expect(river.centerline.points[0]).toEqual(vec3(-5, 0, -9));
+    expect(river.centerline.points.at(-1)).toEqual(vec3(-5, 0, 9));
+  });
+
   it("projects replayable strokes onto a surface", () => {
     const surface = wallSurface({ origin: vec3(0, 0, 0), normal: vec3(0, 0, 1), width: 4, height: 4 });
     const samples = [vec3(-1, 0.2, 2), vec3(-0.6, 1, 1), vec3(0.2, 2.2, -2), vec3(0.8, 3.5, 1)];
@@ -70,6 +81,15 @@ describe("PCG study kernels", () => {
 });
 
 describe("PCG study model library scenes", () => {
+  it("rebuilds the surface vine from an editable stroke", () => {
+    const controlPoints = [vec3(-2, 0.3, 0.5), vec3(0, 2.6, 0.5), vec3(2, 5, 0.5)];
+    const parts = buildSurfaceSketchVineParts({ controlPoints, seed: 4 });
+    const controls = parts.find((part) => part.name === "surface_sketch_controls")!.mesh.positions;
+    expect(Math.min(...controls.map((point) => point.x))).toBeLessThan(-1.8);
+    expect(Math.max(...controls.map((point) => point.x))).toBeGreaterThan(1.7);
+    expect(Math.max(...controls.map((point) => point.y))).toBeGreaterThan(4.6);
+  });
+
   it("builds four deterministic semantic model entries", () => {
     const scenes = [
       buildPcgCellMapParts({ rings: 3, seed: 2 }),

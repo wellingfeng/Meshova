@@ -15,6 +15,7 @@ import {
   merge,
   triangleCount,
   vertexCount,
+  zFightingReport,
   type NamedPart,
 } from "../src/index.js";
 
@@ -123,6 +124,16 @@ describe("freeway model", () => {
     const flat = buildFreewayParts({ elevation: 0 });
     expect(flat.some((p) => p.name.startsWith("slab_"))).toBe(false);
     expect(flat.some((p) => p.name === "pier_caps")).toBe(false);
+  });
+
+  it("keeps asphalt separated from elevated structural slabs", () => {
+    for (const elevation of [0, 6]) {
+      const report = zFightingReport(buildFreewayParts({ elevation }), {
+        includeSamePart: false,
+        maxTriangles: Number.POSITIVE_INFINITY,
+      });
+      expect(report.pairs).toBe(0);
+    }
   });
 
   it("sign gantries toggle and rise above the carriageway", () => {

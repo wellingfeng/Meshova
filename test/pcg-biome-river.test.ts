@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildPcgBiomeRiverParts, scorePcgBiomeRiver } from "../src/index.js";
+import { buildPcgBiomeRiverParts, scorePcgBiomeRiver, vec3 } from "../src/index.js";
 
 const compact = {
   resolution: 20,
@@ -53,5 +53,21 @@ describe("PCG biome river", () => {
       "pcg_biome_river_mud_bank",
       "pcg_biome_river_water",
     ]);
+  });
+
+  it("rebuilds the wetland layers from editable control points", () => {
+    const parts = buildPcgBiomeRiverParts({
+      ...compact,
+      reeds: 0,
+      dryReeds: 0,
+      waterLilies: 0,
+      shrubs: 0,
+      rocks: 0,
+      snags: 0,
+      controlPoints: [vec3(5, 0, -13), vec3(5, 0, 0), vec3(5, 0, 13)],
+    });
+    const water = parts.find((part) => part.name === "pcg_biome_river_water")!.mesh;
+    const averageX = water.positions.reduce((sum, point) => sum + point.x, 0) / water.positions.length;
+    expect(averageX).toBeCloseTo(5, 1);
   });
 });

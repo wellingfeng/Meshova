@@ -44,6 +44,14 @@ import {
   terracottaRoof as terracottaRoofFields,
   romanCobblestone as romanCobblestoneFields,
 } from "./roman-presets.js";
+import {
+  decorativeTextileFields,
+  wovenTextileFields,
+  type DecorativeTextileParams,
+  type DecorativeTextileStyle,
+  type TextileParams,
+  type TextilePattern,
+} from "./textile.js";
 
 /**
  * Physical surface parameters layered on top of the PBR channel fields. Every
@@ -309,6 +317,61 @@ export function fabric(p: SurfaceParams & { color?: [number, number, number] } =
       normalStrength: 1.5,
     },
     physical: { sheen: 0.8, sheenColor: [color[0], color[1], color[2]], sheenRoughness: 0.4, specularIntensity: 0.4 },
+  });
+}
+
+/** Substance Designer p21 study: interlaced yarns, directional warp, fibers, wear. */
+export function wovenTextile(p: TextileParams = {}): SurfaceMaterial {
+  const pattern: TextilePattern = p.pattern ?? "herringbone";
+  const sheenColor = p.color ?? (pattern === "denim" ? [0.055, 0.16, 0.34] : [0.38, 0.33, 0.28]);
+  return makeSurface({
+    type: "wovenTextile",
+    label: "程序化机织布",
+    fields: wovenTextileFields(p),
+    physical: {
+      anisotropy: pattern === "satin" ? 0.7 : pattern === "denim" ? 0.35 : 0.18,
+      sheen: pattern === "satin" ? 0.7 : 0.5,
+      sheenColor: [
+        clamp(sheenColor[0] * 1.45, 0, 1),
+        clamp(sheenColor[1] * 1.45, 0, 1),
+        clamp(sheenColor[2] * 1.45, 0, 1),
+      ],
+      sheenRoughness: pattern === "satin" ? 0.28 : 0.5,
+      specularIntensity: pattern === "satin" ? 0.58 : 0.3,
+    },
+  });
+}
+
+/** Pattern-driven yarn study: jacquard, brocade, lace, knit, corduroy, mesh, rope and pleated silk. */
+export function decorativeTextile(p: DecorativeTextileParams = {}): SurfaceMaterial {
+  const style: DecorativeTextileStyle = p.style ?? "jacquard";
+  const defaults: Record<DecorativeTextileStyle, [number, number, number]> = {
+    jacquard: [0.14, 0.025, 0.045],
+    brocade: [0.12, 0.035, 0.16],
+    lace: [0.68, 0.62, 0.52],
+    ribKnit: [0.16, 0.22, 0.18],
+    corduroy: [0.28, 0.12, 0.055],
+    mesh: [0.025, 0.03, 0.035],
+    twistedRope: [0.28, 0.2, 0.11],
+    pleatedSilk: [0.08, 0.16, 0.25],
+  };
+  const sheenColor = p.color ?? defaults[style];
+  const glossy = style === "brocade" || style === "pleatedSilk" || style === "jacquard";
+  return makeSurface({
+    type: "decorativeTextile",
+    label: "装饰织物",
+    fields: decorativeTextileFields(p),
+    physical: {
+      anisotropy: style === "pleatedSilk" ? 0.88 : style === "corduroy" ? 0.62 : glossy ? 0.48 : 0.2,
+      sheen: glossy ? 0.72 : 0.5,
+      sheenColor: [
+        clamp(sheenColor[0] * 1.5, 0, 1),
+        clamp(sheenColor[1] * 1.5, 0, 1),
+        clamp(sheenColor[2] * 1.5, 0, 1),
+      ],
+      sheenRoughness: style === "pleatedSilk" ? 0.2 : glossy ? 0.3 : 0.55,
+      specularIntensity: style === "pleatedSilk" ? 0.68 : glossy ? 0.5 : 0.28,
+    },
   });
 }
 
@@ -1702,6 +1765,8 @@ export const SURFACE_LIBRARY = {
   metal,
   brushedMetal,
   fabric,
+  wovenTextile,
+  decorativeTextile,
   leather,
   emissive,
   iridescent,
@@ -1832,6 +1897,62 @@ export const SURFACE_PARAM_SCHEMA: Record<string, SurfaceParamSpec[]> = {
   fabric: [
     { key: "color", label: "织物色", type: "rgb", default: [0.45, 0.18, 0.22] },
     SEED(31),
+  ],
+  wovenTextile: [
+    {
+      key: "pattern",
+      label: "织法",
+      type: "select",
+      options: ["plain", "twill", "herringbone", "basket", "satin", "denim", "chevron", "pinstripe"],
+      optionLabels: {
+        plain: "平纹",
+        twill: "斜纹",
+        herringbone: "人字纹",
+        basket: "篮纹",
+        satin: "缎纹",
+        denim: "牛仔斜纹",
+        chevron: "V 形纹",
+        pinstripe: "细条纹",
+      },
+      default: "herringbone",
+    },
+    { key: "color", label: "经纱颜色", type: "rgb", default: [0.38, 0.33, 0.28] },
+    { key: "secondaryColor", label: "纬纱颜色", type: "rgb", default: [0.52, 0.47, 0.4] },
+    { key: "scale", label: "织纹密度", type: "range", min: 8, max: 120, step: 1, default: 48 },
+    { key: "distortion", label: "纱线扰动", type: "range", min: 0, max: 0.45, step: 0.01, default: 0.16 },
+    { key: "fiberStrength", label: "纤维细节", type: "range", min: 0, max: 1, step: 0.02, default: 0.45 },
+    { key: "wear", label: "磨损变化", type: "range", min: 0, max: 1, step: 0.02, default: 0.12 },
+    SEED(211),
+  ],
+  decorativeTextile: [
+    {
+      key: "style",
+      label: "织物样式",
+      type: "select",
+      options: ["jacquard", "brocade", "lace", "ribKnit", "corduroy", "mesh", "twistedRope", "pleatedSilk"],
+      optionLabels: {
+        jacquard: "提花布",
+        brocade: "金线锦缎",
+        lace: "蕾丝",
+        ribKnit: "罗纹针织",
+        corduroy: "灯芯绒",
+        mesh: "网纱",
+        twistedRope: "多股绳",
+        pleatedSilk: "褶皱丝绸",
+      },
+      default: "jacquard",
+    },
+    { key: "color", label: "底色", type: "rgb", default: [0.14, 0.025, 0.045] },
+    { key: "secondaryColor", label: "辅色", type: "rgb", default: [0.42, 0.055, 0.09] },
+    { key: "accentColor", label: "纹样色", type: "rgb", default: [0.72, 0.42, 0.12] },
+    { key: "scale", label: "纱线密度", type: "range", min: 4, max: 120, step: 1, default: 56 },
+    { key: "repeat", label: "图案重复", type: "range", min: 1, max: 16, step: 1, default: 4 },
+    { key: "distortion", label: "纱线扰动", type: "range", min: 0, max: 0.45, step: 0.01, default: 0.1 },
+    { key: "fiberStrength", label: "纤维细节", type: "range", min: 0, max: 1, step: 0.02, default: 0.5 },
+    { key: "wear", label: "磨损变化", type: "range", min: 0, max: 1, step: 0.02, default: 0.12 },
+    { key: "openness", label: "孔隙率", type: "range", min: 0.2, max: 0.9, step: 0.01, default: 0.62 },
+    { key: "relief", label: "起伏强度", type: "range", min: 0, max: 1, step: 0.02, default: 0.65 },
+    SEED(307),
   ],
   foliage: [
     { key: "color", label: "叶片色", type: "rgb", default: [0.16, 0.4, 0.12] },

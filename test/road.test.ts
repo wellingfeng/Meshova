@@ -77,6 +77,7 @@ describe("roadCenterLine", () => {
     const line = roadCenterLine(straight, { halfWidth: 3, sampleDistance: 2, lineWidth: 0.2 });
     const b = bounds(line);
     expect(b.max.x - b.min.x).toBeCloseTo(0.2, 2);
+    expect(b.min.y).toBeGreaterThanOrEqual(0.04);
   });
 });
 
@@ -104,6 +105,11 @@ describe("roadLaneLines", () => {
     expect(a.positions).toEqual(b.positions);
     expect(a.indices).toEqual(b.indices);
   });
+
+  it("keeps paint visibly separated from the road surface", () => {
+    const markings = roadLaneLines(straight, { halfWidth: 4, lanes: 4, verticalOffset: 0.02 });
+    expect(bounds(markings).min.y).toBeGreaterThanOrEqual(0.06);
+  });
 });
 
 describe("roadEdgeLines", () => {
@@ -114,6 +120,7 @@ describe("roadEdgeLines", () => {
     // Lines sit at +/-(halfWidth - inset) = +/-3.8, +/- half line width.
     expect(b.max.x).toBeCloseTo(3.85, 1);
     expect(b.min.x).toBeCloseTo(-3.85, 1);
+    expect(b.min.y).toBeGreaterThanOrEqual(0.04);
   });
 });
 

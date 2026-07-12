@@ -29,6 +29,8 @@ import {
   bezier,
   polyline,
   smoothCurve,
+  controlCurve,
+  sampleCurveAttribute,
   curveLength,
   sweep,
   poissonScatter,
@@ -81,6 +83,11 @@ import {
   buildSportsCarParts,
   buildGmcCanyonAt4xParts,
   buildBuickRiviera1965Parts,
+  buildProceduralVehicleVariant,
+  buildProceduralVehicleParts,
+  PROCEDURAL_VEHICLE_VARIANTS,
+  buildModularVehicleParts,
+  buildModularRescueRoverParts,
   buildCartoonMechPilotParts,
   buildStylizedHumanoidParts,
   buildBuildingParts,
@@ -92,6 +99,40 @@ import {
   buildChineseHallParts,
   buildMountainVillageParts,
   buildXianxiaMountainsParts,
+  buildCreamSofaParts,
+  buildBlendReferenceFurnishingParts,
+  BLEND_REFERENCE_FURNISHINGS,
+  buildBlendReferencePlantParts,
+  BLEND_REFERENCE_PLANTS,
+  buildBlendReferenceInteriorParts,
+  BLEND_REFERENCE_INTERIORS,
+  buildSweetHomeStaircaseParts,
+  SWEET_HOME_STAIR_MODELS,
+  buildPolyHavenPropParts,
+  POLY_HAVEN_PROP_MODELS,
+  buildReferenceBenchmarkParts,
+  REFERENCE_BENCHMARK_MODELS,
+  buildSweetHomeFurnishingParts,
+  SWEET_HOME_FURNISHING_MODELS,
+  SWEET_HOME_FURNISHING_SOURCE_PAGE,
+  buildInteriorCombinationParts,
+  buildInteriorSystemParts,
+  INTERIOR_COMBINATION_MODELS,
+  INTERIOR_SYSTEM_MODELS,
+  buildRoomShellPresetParts,
+  buildStorageRoomSuiteParts,
+  buildStorageWallParts,
+  ROOM_SHELL_MODELS,
+  STORAGE_ROOM_SUITE_DEFAULTS,
+  STORAGE_WALL_MODELS,
+  BATHROOM_FIXTURE_MODELS,
+  BATHROOM_SUITE_MODELS,
+  buildBathroomFixtureParts,
+  buildBathroomSuiteParts,
+  buildRoomLayoutParts,
+  ROOM_LAYOUT_MODELS,
+  buildExpansionSystemParts,
+  EXPANSION_SYSTEM_MODELS,
   buildHouseGardenParts,
   HOUSE_GARDEN_VARIANTS,
   buildPcgCartoonHouseParts,
@@ -129,6 +170,14 @@ import {
   buildLowPolyCloudValleyParts,
   buildLowPolyTropicalIslandParts,
   buildLowPolyTreeKitParts,
+  buildStylizedLakesideVillageParts,
+  buildStylizedTacticalIslandParts,
+  buildProceduralCastleParts,
+  buildBilibiliManorCastleParts,
+  BILIBILI_CASTLE_SERIES,
+  buildBilibiliCastleSeriesParts,
+  BLENDER_119_SCENES,
+  buildBlender119SceneParts,
   buildMessengerPlanetParts,
   buildWaterfallParts,
   buildProceduralRiverParts,
@@ -151,6 +200,9 @@ import {
   buildPcgSnowSceneParts,
   buildEasyCliffRockParts,
   buildRealisticSplinePathParts,
+  buildPcgSplineCurbParts,
+  buildPcgSplineCurbPresetParts,
+  PCG_SPLINE_CURB_PRESETS,
   buildHoudiniCaveParts,
   buildUe5PcgCaveParts,
   buildAttractorGridParts,
@@ -189,6 +241,10 @@ import {
   buildFabcafeTwistTowerParts,
   buildFabcafeHoudiniShowcaseParts,
   buildRoofGeneratorParts,
+  ARCHITECTURAL_ROOF_MODELS,
+  buildArchitecturalRoofParts,
+  ARTICULATED_FURNITURE_MODELS,
+  buildArticulatedFurnitureParts,
   buildImageRemeshParts,
   ruleVariantBySlope,
   buildPolygonIslandParts,
@@ -290,6 +346,7 @@ import {
   buildWaterTowerParts,
   buildProceduralWaterwheelParts,
   buildSidefxModularHouseParts,
+  buildHoudiniLakeHouseParts,
   buildSolarisMarketParts,
   buildProceduralCactusParts,
   buildProceduralSiloParts,
@@ -315,6 +372,7 @@ import {
   sampleField2DBilinear,
   makeMesh,
   recomputeNormals,
+  deformByControlLattice,
   computeNormals,
   lathe,
   makeRng,
@@ -1875,6 +1933,89 @@ const houdiniHowtosBspDungeon = {
   },
 };
 
+const pcgSplineCurbModel = {
+  id: "pcg-spline-curb-sidewalk",
+  name: "PCG 样条路缘与人行道",
+  category: "基建",
+  critiqueGoal: "clean spline-following road edge with staggered curb courses, transverse cap stones, and readable sidewalk paving",
+  scenePreset: {
+    environment: "studio",
+    background: { mode: "gradient", color: "#7d8b91", color2: "#c6c3b6" },
+    exposure: 1.05,
+    camera: "persp",
+    grid: false,
+  },
+  assetMeta: {
+    description: "复刻 UE5 PCG 教程的样条采样、点变换、静态网格实例化套路，并扩展为道路、分层路缘砖、压顶砖和错缝人行道铺装。",
+    tags: ["B站复刻", "UE5 PCG", "样条线", "路缘", "人行道", "程序化基建"],
+    capabilities: ["样条弯曲", "路缘分层", "半砖错缝", "双侧生成", "GPU 实例", "种子复现"],
+    materialClasses: ["沥青", "砖", "石材", "混凝土"],
+    sourceUrl: "https://www.bilibili.com/video/BV1FCyeYUEB7/",
+  },
+  schema: [
+    { key: "length", label: "道路长度", min: 8, max: 80, step: 1, default: 34 },
+    { key: "bend", label: "样条弯曲", min: 0, max: 24, step: 0.5, default: 7 },
+    { key: "roadWidth", label: "车行道宽度", min: 2.5, max: 14, step: 0.25, default: 7 },
+    { key: "sidewalkWidth", label: "人行道宽度", min: 0.8, max: 6, step: 0.1, default: 2.4 },
+    { key: "curbWidth", label: "路缘宽度", min: 0.16, max: 0.9, step: 0.02, default: 0.38 },
+    { key: "curbHeight", label: "路缘高度", min: 0.16, max: 1.2, step: 0.02, default: 0.5 },
+    { key: "curbCourses", label: "路缘层数", min: 1, max: 5, step: 1, default: 2 },
+    { key: "curbBlockLength", label: "路缘砖长度", min: 0.3, max: 2, step: 0.02, default: 0.82 },
+    { key: "sidewalkTileLength", label: "铺砖长度", min: 0.3, max: 2, step: 0.02, default: 0.9 },
+    { key: "sidewalkTileWidth", label: "铺砖宽度", min: 0.25, max: 1.4, step: 0.02, default: 0.62 },
+    { key: "gap", label: "砖缝", min: 0.01, max: 0.16, step: 0.005, default: 0.055 },
+    { key: "jitter", label: "自然扰动", min: 0, max: 0.14, step: 0.005, default: 0.035 },
+    { key: "bothSides", label: "双侧生成", min: 0, max: 1, step: 1, default: 0 },
+    { key: "seed", label: "随机种子", min: 0, max: 9999, step: 1, default: 170 },
+  ],
+  build(params) {
+    return buildPcgSplineCurbParts({
+      ...params,
+      curbCourses: Math.round(params.curbCourses),
+      bothSides: params.bothSides >= 0.5,
+      seed: Math.round(params.seed),
+    });
+  },
+};
+
+const pcgSplineCurbPresetModels = Object.fromEntries(
+  PCG_SPLINE_CURB_PRESETS.map((preset) => [
+    preset.id,
+    {
+      id: preset.id,
+      name: preset.name,
+      category: "基建",
+      critiqueGoal: "distinct spline-authored infrastructure with clean curb courses, readable paving rhythm, and continuous road silhouette",
+      scenePreset: {
+        environment: "studio",
+        background: { mode: "gradient", color: "#718087", color2: "#c8c2b4" },
+        exposure: 1.05,
+        camera: "persp",
+        grid: false,
+      },
+      assetMeta: {
+        description: preset.description,
+        tags: ["程序化基建", "样条线", "GPU 实例", ...preset.tags],
+        capabilities: ["自定义路径", "弧长采样", "路缘错缝", "铺装阵列", "实时参数", "种子复现"],
+        materialClasses: ["沥青", "砖", "石材", "混凝土"],
+        sourceUrl: "https://www.bilibili.com/video/BV1FCyeYUEB7/",
+      },
+      schema: pcgSplineCurbModel.schema.map((field) => ({
+        ...field,
+        default: preset.defaults[field.key] ?? field.default,
+      })),
+      build(params) {
+        return buildPcgSplineCurbPresetParts(preset.id, {
+          ...params,
+          curbCourses: Math.round(params.curbCourses),
+          bothSides: params.bothSides >= 0.5,
+          seed: Math.round(params.seed),
+        });
+      },
+    },
+  ]),
+);
+
 const randomDungeon = {
   id: "random-dungeon",
   name: "随机地牢",
@@ -2839,13 +2980,15 @@ const road = {
   build(p) {
     const parts = [];
     const half = p.length / 2;
-    const centerline = bezier(
-      vec3(0, 0, -half),
-      vec3(p.curve, 0, -half / 3),
-      vec3(-p.curve, 0, half / 3),
-      vec3(0, 0, half),
-      64,
-    );
+    const centerline = p.controlPoints?.length >= 2
+      ? smoothCurve(polyline(p.controlPoints), 6)
+      : bezier(
+          vec3(0, 0, -half),
+          vec3(p.curve, 0, -half / 3),
+          vec3(-p.curve, 0, half / 3),
+          vec3(0, 0, half),
+          64,
+        );
     const opts = {
       halfWidth: p.halfWidth,
       sampleDistance: p.sample,
@@ -2954,6 +3097,7 @@ const pcgBrickWall = {
       stagger: p.stagger,
       jitter: p.jitter,
       seed: Math.round(p.seed),
+      controlPoints: p.controlPoints,
     });
   },
 };
@@ -2985,6 +3129,7 @@ const pcgPalisadeWall = {
       terrain: p.terrain,
       banners: Math.round(p.banners),
       seed: Math.round(p.seed),
+      controlPoints: p.controlPoints,
     });
   },
 };
@@ -3016,6 +3161,7 @@ const splineStoneWall = {
       terrain: p.terrain,
       detail: Math.round(p.detail),
       seed: Math.round(p.seed),
+      controlPoints: p.controlPoints,
     });
   },
 };
@@ -3099,6 +3245,7 @@ const freeway = {
       noiseBarrier: Math.round(p.noiseBarrier) === 1,
       barrierHeight: p.barrierHeight,
       sample: p.sample,
+      controlPoints: p.controlPoints,
     });
   },
 };
@@ -3154,6 +3301,7 @@ const railway = {
       sleeperSpacing: p.sleeperSpacing,
       concreteSleepers: Math.round(p.concreteSleepers) === 1,
       sample: p.sample,
+      controlPoints: p.controlPoints,
     });
   },
 };
@@ -3190,6 +3338,7 @@ const viaduct = {
       barriers: Math.round(p.barriers) === 1,
       abutments: Math.round(p.abutments) === 1,
       sample: p.sample,
+      controlPoints: p.controlPoints,
     });
   },
 };
@@ -3856,6 +4005,56 @@ const sidefxModularHouse = {
   },
 };
 
+// ---- Houdini Lake House: modular masses -> supports -> pier -> set dressing ----
+const houdiniLakeHouse = {
+  id: "houdini-lake-house",
+  name: "Houdini 湖边小屋",
+  category: "建筑",
+  critiqueGoal: "Houdini-style weathered lake house with readable modular construction, pier and roof silhouette",
+  scenePreset: {
+    environment: "studio",
+    background: { mode: "gradient", color: "#8ba4a0", color2: "#cad3c6" },
+    exposure: 1.02,
+    bloom: { enabled: true, strength: 0.2, radius: 0.35, threshold: 0.82 },
+    fog: { enabled: false },
+    camera: "persp",
+    grid: false,
+    renderMode: "pbr",
+  },
+  assetMeta: {
+    description: "依据 Houdini 17.5 Lake_House_Modeling.hip 的节点网络与模块分类独立重写：2×3×2 模块网格、木构立面、屋顶装饰、支撑、外楼梯、石码头与概率塔楼。",
+    tags: ["Houdini复刻", "湖边小屋", "模块化建筑", "码头", "程序化建模"],
+    capabilities: ["种子复现", "楼层与开间", "屋顶概率装饰", "塔楼概率", "栈桥长度", "水位结构"],
+    materialClasses: ["风化木材", "石材", "木瓦", "玻璃", "水体", "金属"],
+    sourceStudy: "Lake_House_Modeling.hip · bank_house_v03 · Houdini 17.5 · BV1i44y1F7gu",
+  },
+  schema: [
+    { key: "floors", label: "楼层数", min: 1, max: 3, step: 1, default: 2 },
+    { key: "baysX", label: "横向开间", min: 3, max: 7, step: 1, default: 4 },
+    { key: "baysZ", label: "纵向进深", min: 2, max: 5, step: 1, default: 3 },
+    { key: "bayWidth", label: "模块宽度", min: 1.4, max: 2.8, step: 0.1, default: 2 },
+    { key: "floorHeight", label: "模块层高", min: 2.4, max: 3.8, step: 0.1, default: 3 },
+    { key: "roofPitch", label: "屋顶坡度", min: 0.35, max: 1.15, step: 0.05, default: 0.72 },
+    { key: "roofWindowProbability", label: "老虎窗概率", min: 0, max: 1, step: 0.05, default: 0.6 },
+    { key: "chimneyProbability", label: "烟囱概率", min: 0, max: 1, step: 0.05, default: 0.1 },
+    { key: "towerProbability", label: "塔楼概率", min: 0, max: 1, step: 0.05, default: 0.6 },
+    { key: "walkwayLength", label: "栈桥长度", min: 2.5, max: 10, step: 0.25, default: 5.5 },
+    { key: "pierHeight", label: "高脚平台离水高度", min: 0.8, max: 2.8, step: 0.1, default: 1.9 },
+    { key: "lakeSize", label: "湖面范围", min: 14, max: 36, step: 1, default: 16 },
+    { key: "weathering", label: "风化程度", min: 0, max: 1, step: 0.05, default: 0.45 },
+    { key: "seed", label: "全局种子", min: 0, max: 10000, step: 1, default: 2983 },
+  ],
+  build(p) {
+    return buildHoudiniLakeHouseParts({
+      ...p,
+      floors: Math.round(p.floors),
+      baysX: Math.round(p.baysX),
+      baysZ: Math.round(p.baysZ),
+      seed: Math.round(p.seed),
+    });
+  },
+};
+
 // ---- SideFX Solaris Market inspired scene: USD-style asset variants + layout ----
 const sidefxSolarisMarket = {
   id: "sidefx-solaris-market",
@@ -4064,6 +4263,90 @@ const buickRiviera1965 = {
   ],
   build(p) {
     return buildBuickRiviera1965Parts(p);
+  },
+};
+
+const proceduralVehicleVariants = Object.fromEntries(PROCEDURAL_VEHICLE_VARIANTS.map((definition) => [
+  definition.id,
+  {
+    id: definition.id,
+    name: definition.name,
+    category: "载具",
+    assetMeta: {
+      description: definition.description,
+      tags: [...definition.tags],
+      capabilities: ["车身截面放样", "玻璃切面内缩", "尺寸联动", "确定性生成"],
+    },
+    schema: [
+      { key: "length", label: "车长", min: definition.params.length * 0.82, max: definition.params.length * 1.22, step: 0.05, default: definition.params.length },
+      { key: "width", label: "车宽", min: definition.params.width * 0.86, max: definition.params.width * 1.16, step: 0.02, default: definition.params.width },
+      { key: "height", label: "车高", min: definition.params.height * 0.82, max: definition.params.height * 1.2, step: 0.02, default: definition.params.height },
+      { key: "wheelBase", label: "轴距", min: definition.params.wheelBase * 0.84, max: definition.params.wheelBase * 1.16, step: 0.03, default: definition.params.wheelBase },
+      { key: "wheelRadius", label: "轮胎半径", min: definition.params.wheelRadius * 0.78, max: definition.params.wheelRadius * 1.24, step: 0.01, default: definition.params.wheelRadius },
+      { key: "rideHeight", label: "离地高度", min: 0.04, max: Math.max(0.3, definition.params.rideHeight * 1.8), step: 0.01, default: definition.params.rideHeight },
+      { key: "roofRoundness", label: "车顶横向弧度", min: 0, max: 1, step: 0.02, default: definition.params.roofRoundness },
+      { key: "hoodSlope", label: "车头过渡", min: 0, max: 1, step: 0.02, default: definition.params.hoodSlope },
+      { key: "seed", label: "细节种子", min: 0, max: 999, step: 1, default: definition.params.seed },
+    ],
+    build(p) {
+      return buildProceduralVehicleVariant(definition.id, p);
+    },
+  },
+]));
+
+const proceduralVehicle = {
+  id: "procedural-vehicle",
+  name: "通用程序化载具",
+  category: "载具",
+  assetMeta: {
+    description: "基于车身截面放样与语义部件装配的通用程序化载具生成器。",
+    tags: ["载具", "Houdini 思路", "程序化建模", "车型生成器"],
+    capabilities: ["五类车型", "低冠双曲率车顶", "玻璃切面内嵌", "确定性生成"],
+  },
+  schema: [
+    { key: "style", label: "车型", type: "select", options: ["轿车", "SUV", "皮卡", "厢式车", "巴士"], default: "SUV" },
+    { key: "length", label: "车长", min: 3.6, max: 10, step: 0.05, default: 4.8 },
+    { key: "width", label: "车宽", min: 1.5, max: 2.7, step: 0.02, default: 1.92 },
+    { key: "height", label: "车高", min: 1.2, max: 3.4, step: 0.02, default: 1.68 },
+    { key: "wheelBase", label: "轴距", min: 2, max: 6.8, step: 0.03, default: 2.82 },
+    { key: "wheelRadius", label: "轮胎半径", min: 0.26, max: 0.62, step: 0.01, default: 0.36 },
+    { key: "wheelWidth", label: "轮胎宽度", min: 0.16, max: 0.38, step: 0.01, default: 0.24 },
+    { key: "rideHeight", label: "离地高度", min: 0.05, max: 0.36, step: 0.01, default: 0.16 },
+    { key: "cabinPosition", label: "驾驶舱前后", min: -1, max: 1, step: 0.02, default: 0 },
+    { key: "roofRoundness", label: "车顶横向弧度", min: 0, max: 1, step: 0.02, default: 0.34 },
+    { key: "hoodSlope", label: "车头过渡", min: 0, max: 1, step: 0.02, default: 0.52 },
+    { key: "detail", label: "细节(0关1开)", min: 0, max: 1, step: 1, default: 1 },
+    { key: "seed", label: "细节种子", min: 0, max: 999, step: 1, default: 17 },
+  ],
+  build(p) {
+    const styleMap = { "轿车": "sedan", SUV: "suv", "皮卡": "pickup", "厢式车": "van", "巴士": "bus" };
+    return buildProceduralVehicleParts({
+      ...p,
+      style: styleMap[p.style] ?? "suv",
+    });
+  },
+};
+
+const modularRescueRover = {
+  id: "modular-rescue-rover",
+  name: "模块化远征救援车",
+  category: "载具",
+  assetMeta: {
+    description: "高扭矩动力、多人驾驶舱、救援指挥后舱组成的确定性模块化远征车。",
+    tags: ["救援载具", "语义装配", "程序化建模", "功能元数据"],
+    capabilities: ["稳定模块 ID", "无人机起降位", "医疗装备锚点", "参数化车身"],
+  },
+  schema: [
+    { key: "length", label: "车长", min: 4.8, max: 6.6, step: 0.05, default: 5.4 },
+    { key: "width", label: "车宽", min: 1.85, max: 2.5, step: 0.02, default: 2.08 },
+    { key: "height", label: "车高", min: 1.65, max: 2.5, step: 0.02, default: 1.92 },
+    { key: "wheelBase", label: "轴距", min: 2.7, max: 4.2, step: 0.03, default: 3.25 },
+    { key: "wheelRadius", label: "越野轮半径", min: 0.36, max: 0.58, step: 0.01, default: 0.44 },
+    { key: "rideHeight", label: "离地高度", min: 0.16, max: 0.42, step: 0.01, default: 0.25 },
+    { key: "seed", label: "细节种子", min: 0, max: 999, step: 1, default: 73 },
+  ],
+  build(params) {
+    return buildModularRescueRoverParts(params);
   },
 };
 
@@ -6362,6 +6645,7 @@ const waterfall = {
       mistCount: Math.round(p.mistCount),
       foamCount: Math.round(p.foamCount),
       seed: Math.round(p.seed),
+      controlPoints: p.controlPoints,
     });
   },
 };
@@ -6397,6 +6681,7 @@ const proceduralRiver = {
       trees: Math.round(p.trees),
       flowStreaks: Math.round(p.flowStreaks),
       seed: Math.round(p.seed),
+      controlPoints: p.controlPoints,
     });
   },
 };
@@ -6441,6 +6726,7 @@ const riverLake = {
       backwater: p.backwater,
       flowStreaks: Math.round(p.flowStreaks),
       seed: Math.round(p.seed),
+      controlPoints: p.controlPoints,
     });
   },
 };
@@ -6482,6 +6768,7 @@ const pcgBiomeRiver = {
       rocks: Math.round(p.rocks),
       snags: Math.round(p.snags),
       seed: Math.round(p.seed),
+      controlPoints: p.controlPoints,
     });
   },
 };
@@ -6510,6 +6797,7 @@ const polygonIsland = {
       jitter: p.jitter,
       rivers: Math.round(p.rivers),
       seed: Math.round(p.seed),
+      boundary: p.controlPoints,
     });
   },
 };
@@ -8391,6 +8679,7 @@ const titanCable = {
       sag: p.sag,
       subCables: Math.round(p.subCables),
       metalPoles: Math.round(p.metalPoles) === 1,
+      controlPoints: p.controlPoints,
     });
   },
 };
@@ -8665,6 +8954,7 @@ const surfaceSketchVine = {
       vineRadius: p.vineRadius,
       leafSize: p.leafSize,
       seed: Math.round(p.seed),
+      controlPoints: p.controlPoints,
     });
   },
 };
@@ -8880,6 +9170,236 @@ const lowPolyCloudValley = makeLowPolyCourseModel("low-poly-cloud-valley", "Low 
 const lowPolyTropicalIsland = makeLowPolyCourseModel("low-poly-tropical-island", "Low Poly 热带岛", buildLowPolyTropicalIslandParts, 911);
 const lowPolyTreeKit = makeLowPolyCourseModel("low-poly-tree-kit", "Low Poly 树木 Kit", buildLowPolyTreeKitParts, 1316);
 
+const stylizedLakesideVillage = {
+  id: "stylized-lakeside-village",
+  name: "风格化湖畔村落",
+  category: "风格化场景",
+  scenePreset: {
+    environment: "studio",
+    background: { mode: "gradient", color: "#78c7e8", color2: "#d7f0e5" },
+    exposure: 1.08,
+    bloom: { enabled: true, strength: 0.2, radius: 0.28, threshold: 0.9 },
+    camera: "persp",
+    grid: false,
+  },
+  assetMeta: {
+    description: "复刻参考片的中世纪木构湖畔村落：低模树岩、暖红瓦顶、木码头、水井、围栏和昼夜灯光。",
+    tags: ["风格化场景", "低多边形", "湖畔村落", "木构建筑", "B站复刻"],
+    capabilities: ["种子复现", "植被密度", "昼夜切换", "面色差", "OBJ/Viewer 导出"],
+    materialClasses: ["风格化草地", "木材", "瓦片", "水面", "发光材质"],
+    sourceUrl: "https://www.bilibili.com/video/BV18U4y1L7AV",
+  },
+  schema: [
+    { key: "seed", label: "随机种子", min: 0, max: 999999999, step: 1, default: 673285036 },
+    { key: "treeDensity", label: "树木密度", min: 0.35, max: 1.8, step: 0.05, default: 1 },
+    { key: "night", label: "昼夜", min: 0, max: 1, step: 0.05, default: 0 },
+    { key: "colorVariation", label: "面色差", min: 0, max: 0.24, step: 0.01, default: 0.1 },
+  ],
+  build(params) {
+    return buildStylizedLakesideVillageParts({
+      seed: Math.round(params.seed),
+      treeDensity: params.treeDensity,
+      night: params.night,
+      colorVariation: params.colorVariation,
+    });
+  },
+};
+
+const stylizedTacticalIsland = {
+  id: "stylized-tactical-island",
+  name: "风格化战术悬浮岛",
+  category: "风格化场景",
+  scenePreset: {
+    environment: "studio",
+    background: { mode: "gradient", color: "#d3e9ef", color2: "#71999b" },
+    exposure: 0.94,
+    bloom: { enabled: true, strength: 0.32, radius: 0.36, threshold: 0.72 },
+    fog: { enabled: false, color: "#a9c6c7", density: 0.008, heightFalloff: 0.12 },
+    camera: "tactical",
+    grid: false,
+    floor: "none",
+  },
+  assetMeta: {
+    description: "参考 Super Senso 的低多边形视觉语言重写：悬浮战术岛、分层峭壁、贯岛河瀑、道路棋盘、针叶林和青绿能量设施。",
+    tags: ["风格化场景", "Low Poly", "悬浮岛", "战术地图", "科幻设施"],
+    capabilities: ["种子复现", "森林密度", "岛屿尺度", "能量强度", "面级色差"],
+    materialClasses: ["风格化草地", "岩石", "水面", "金属", "发光材质"],
+    sourceUrl: "https://waldobronchart.com/project/super-senso-game/",
+  },
+  schema: [
+    { key: "seed", label: "随机种子", min: 0, max: 999999, step: 1, default: 2718 },
+    { key: "islandScale", label: "岛屿尺度", min: 0.65, max: 1.5, step: 0.05, default: 1 },
+    { key: "forestDensity", label: "森林密度", min: 0.2, max: 1.8, step: 0.05, default: 1 },
+    { key: "energy", label: "能量强度", min: 0, max: 1, step: 0.05, default: 0.8 },
+    { key: "colorVariation", label: "面色差", min: 0, max: 0.25, step: 0.01, default: 0.1 },
+  ],
+  build(params) {
+    return buildStylizedTacticalIslandParts({
+      seed: Math.round(params.seed),
+      islandScale: params.islandScale,
+      forestDensity: params.forestDensity,
+      energy: params.energy,
+      colorVariation: params.colorVariation,
+    });
+  },
+};
+
+function makeCastleModel(id, name, variant, seed) {
+  return {
+    id,
+    name,
+    category: "程序化城堡",
+    scenePreset: {
+      environment: "studio",
+      background: { mode: "gradient", color: "#8fa8b0", color2: "#d8d2c3" },
+      exposure: 1.05,
+      bloom: { enabled: false, strength: 0, radius: 0, threshold: 1 },
+      camera: "persp",
+      grid: false,
+    },
+    assetMeta: {
+      description: `${name}：用防御纵深、侧射塔楼、强化门区和围城功能分区生成完整中世纪城堡。`,
+      tags: ["中世纪城堡", "程序化建筑", "防御纵深", "B站研究复刻"],
+      capabilities: ["种子复现", "墙高调节", "塔楼比例", "垛口密度", "OBJ/Viewer 导出"],
+      materialClasses: ["粗砌石材", "深色屋瓦", "木构", "金属闸门", "水面"],
+      sourceUrl: "https://www.bilibili.com/video/BV18W411x7vc",
+    },
+    schema: [
+      { key: "seed", label: "布局种子", min: 0, max: 999999, step: 1, default: seed },
+      { key: "scale", label: "整体尺度", min: 0.5, max: 1.8, step: 0.05, default: 1 },
+      { key: "wallHeight", label: "城墙高度", min: 0.65, max: 1.6, step: 0.05, default: 1 },
+      { key: "towerScale", label: "塔楼尺度", min: 0.7, max: 1.5, step: 0.05, default: 1 },
+      { key: "detail", label: "防御构件密度", min: 0.5, max: 1.5, step: 0.05, default: 1 },
+      { key: "colorVariation", label: "石材色差", min: 0, max: 0.2, step: 0.01, default: 0.08 },
+    ],
+    build(params) {
+      return buildProceduralCastleParts({
+        variant,
+        seed: Math.round(params.seed),
+        scale: params.scale,
+        wallHeight: params.wallHeight,
+        towerScale: params.towerScale,
+        detail: params.detail,
+        colorVariation: params.colorVariation,
+      });
+    },
+  };
+}
+
+const concentricRoyalCastle = makeCastleModel("concentric-royal-castle", "同心王堡", "concentric", 1520);
+const ridgeCitadel = makeCastleModel("ridge-citadel", "山脊要塞", "ridge", 1066);
+const riverGateCastle = makeCastleModel("river-gate-castle", "河关城堡", "river", 1327);
+
+const bilibiliManorCastle = {
+  id: "bilibili-manor-castle",
+  name: "水围庄园城堡",
+  category: "程序化城堡",
+  scenePreset: {
+    environment: "studio",
+    background: { mode: "gradient", color: "#8dbdca", color2: "#d7d3ad" },
+    exposure: 1.08,
+    bloom: { enabled: true, strength: 0.12, radius: 0.22, threshold: 0.92 },
+    camera: "persp",
+    grid: false,
+  },
+  assetMeta: {
+    description: "复刻《咱的各种城堡》第 1 P：水围方堡、圆角塔、石木礼堂、高瞭望塔、礼拜堂和生产型庭院。",
+    tags: ["中世纪城堡", "水围庄园", "半木构", "程序化建筑", "B站复刻"],
+    capabilities: ["种子复现", "墙高调节", "瞭望塔比例", "菜圃密度", "垛口密度", "OBJ/Viewer 导出"],
+    materialClasses: ["暖灰石材", "深色木构", "炭灰屋瓦", "水面", "庭院植被"],
+    sourceUrl: "https://www.bilibili.com/video/BV1XhZvBwEAF?p=1",
+  },
+  schema: [
+    { key: "seed", label: "布局种子", min: 0, max: 999999999, step: 1, default: 361646685 },
+    { key: "scale", label: "整体尺度", min: 0.5, max: 1.8, step: 0.05, default: 1 },
+    { key: "wallHeight", label: "幕墙高度", min: 1.5, max: 3.4, step: 0.05, default: 2.1 },
+    { key: "watchtowerHeight", label: "瞭望塔高度", min: 5.2, max: 11.5, step: 0.1, default: 7.8 },
+    { key: "gardenDensity", label: "庭院作物密度", min: 0.25, max: 1.8, step: 0.05, default: 1 },
+    { key: "detail", label: "建筑构件密度", min: 0.55, max: 1.65, step: 0.05, default: 1 },
+    { key: "colorVariation", label: "石木面色差", min: 0, max: 0.22, step: 0.01, default: 0.09 },
+  ],
+  build(params) {
+    return buildBilibiliManorCastleParts({
+      seed: Math.round(params.seed),
+      scale: params.scale,
+      wallHeight: params.wallHeight,
+      watchtowerHeight: params.watchtowerHeight,
+      gardenDensity: params.gardenDensity,
+      detail: params.detail,
+      colorVariation: params.colorVariation,
+    });
+  },
+};
+
+const bilibiliCastleSeriesModels = Object.fromEntries(BILIBILI_CASTLE_SERIES.map((definition) => [definition.id, {
+  id: definition.id,
+  name: definition.name,
+  category: "B站城堡系列复刻",
+  scenePreset: {
+    environment: "studio",
+    background: definition.variant.includes("ruin") || definition.variant === "blackstone" || definition.variant === "mist-keep"
+      ? { mode: "gradient", color: "#34404a", color2: "#a5aa9e" }
+      : { mode: "gradient", color: "#88adbd", color2: "#ddd1a6" },
+    exposure: 1.06,
+    bloom: { enabled: definition.variant === "anime-hill" || definition.variant === "fantasy-hill", strength: 0.16, radius: 0.25, threshold: 0.9 },
+    camera: "persp",
+    grid: false,
+  },
+  assetMeta: {
+    description: `复刻《咱的各种城堡》第 ${definition.part} P《${definition.sourceTitle}》：独立程序化平面、塔楼、幕墙、地形和配色。`,
+    tags: ["中世纪城堡", "程序化建筑", "B站系列复刻", definition.sourceTitle],
+    capabilities: ["种子复现", "整体缩放", "墙高调节", "塔楼比例", "构件密度", "OBJ/Viewer 导出"],
+    materialClasses: ["程序化石材", "木构", "风格化屋顶", "地形", "水面"],
+    sourceUrl: `https://www.bilibili.com/video/BV1XhZvBwEAF?p=${definition.part}`,
+  },
+  schema: [
+    { key: "seed", label: "布局种子", min: 0, max: 999999999, step: 1, default: definition.seed },
+    { key: "scale", label: "整体尺度", min: 0.5, max: 1.8, step: 0.05, default: 1 },
+    { key: "wallHeight", label: "城墙高度", min: 0.65, max: 1.6, step: 0.05, default: 1 },
+    { key: "towerScale", label: "塔楼尺度", min: 0.7, max: 1.5, step: 0.05, default: 1 },
+    { key: "detail", label: "构件密度", min: 0.5, max: 1.5, step: 0.05, default: 1 },
+    { key: "colorVariation", label: "材质色差", min: 0, max: 0.2, step: 0.01, default: 0.08 },
+  ],
+  build(params) {
+    return buildBilibiliCastleSeriesParts({
+      variant: definition.variant,
+      seed: Math.round(params.seed),
+      scale: params.scale,
+      wallHeight: params.wallHeight,
+      towerScale: params.towerScale,
+      detail: params.detail,
+      colorVariation: params.colorVariation,
+    });
+  },
+}]));
+
+const blender119Models = Object.fromEntries(BLENDER_119_SCENES.map((scene) => [scene.id, {
+  id: scene.id,
+  name: `百景 ${String(scene.page).padStart(3, "0")} · ${scene.name}`,
+  category: "Blender 百景复刻",
+  assetMeta: {
+    description: `复刻合集第 ${scene.page} 集《${scene.name}》的程序化场景。`,
+    tags: ["Blender", "百景复刻", "程序化场景", scene.theme],
+    capabilities: ["种子复现", "密度调节", "整体缩放", "面级色差"],
+    materialClasses: ["风格化地表", "风格化建筑", "风格化特效"],
+    sourceUrl: `https://www.bilibili.com/video/BV1nx421972j?p=${scene.page}`,
+  },
+  schema: [
+    { key: "seed", label: "随机种子", min: 0, max: 999999, step: 1, default: scene.page * 7919 },
+    { key: "density", label: "构件密度", min: 0.35, max: 1.8, step: 0.05, default: 1 },
+    { key: "scale", label: "整体缩放", min: 0.35, max: 2.2, step: 0.05, default: 1 },
+    { key: "colorVariation", label: "面色差", min: 0, max: 0.24, step: 0.01, default: 0.1 },
+  ],
+  build(params) {
+    return buildBlender119SceneParts(scene, {
+      seed: Math.round(params.seed),
+      density: params.density,
+      scale: params.scale,
+      colorVariation: params.colorVariation,
+    });
+  },
+}]));
+
 const messengerToonPlanet = {
   id: "messenger-toon-planet",
   name: "卡通信使·球形街区",
@@ -8920,9 +9440,56 @@ const messengerToonPlanet = {
   },
 };
 
+function creamSofaModel(id, name, variant, defaults) {
+  return {
+    id,
+    name,
+    category: "Blender 实物复刻",
+    assetMeta: {
+      description: `基于《奶油风沙发.blend》实测组件尺寸重建的${name}。`,
+      tags: ["沙发", "软包家具", "Blender 参考复刻", "多视角校准"],
+      capabilities: ["长宽高调节", "座包分段调节", "程序化材质", "确定性生成"],
+      materialClasses: ["奶油色织物", "深色脚架"],
+    },
+    schema: [
+      { key: "width", label: "整体宽度", min: 1.8, max: 4.2, step: 0.01, default: defaults.width },
+      { key: "depth", label: "整体深度", min: 0.65, max: 1.6, step: 0.01, default: defaults.depth },
+      { key: "height", label: "整体高度", min: 0.5, max: 1.2, step: 0.01, default: defaults.height },
+      ...(variant === "quilted" ? [
+        { key: "seatColumns", label: "座包分段", min: 5, max: 10, step: 1, default: defaults.seatColumns },
+      ] : []),
+    ],
+    build(params) {
+      return buildCreamSofaParts({
+        variant,
+        width: params.width,
+        depth: params.depth,
+        height: params.height,
+        seatColumns: Math.round(params.seatColumns ?? defaults.seatColumns),
+      });
+    },
+  };
+}
+
+const creamSofaQuilted = creamSofaModel(
+  "cream-sofa-quilted",
+  "奶油风绗缝沙发",
+  "quilted",
+  { width: 2.8, depth: 1.1, height: 0.8, seatColumns: 8 },
+);
+const creamSofaWrap = creamSofaModel(
+  "cream-sofa-wrap",
+  "奶油风环抱沙发",
+  "wrap",
+  { width: 2.68, depth: 0.943, height: 0.806, seatColumns: 5 },
+);
+
 export const PROC_MODELS = { "town-scene": townScene, "drawable-path-fence": drawablePathFence, "masked-region-grove": maskedRegionGrove, "scatter-path-lights": scatterPathLights, sphere: sphereModel, teddy, rock, "rock-pile": rockPile, "attractor-grid": attractorGridModel, "blender-howtos": blenderHowtos, "blender-spiral-scales": blenderSpiralScales, "blender-dna-helix": blenderDnaHelix, "blender-gradient-box": blenderGradientBox, "blender-raining-garden": blenderRainingGarden, "grasshopper-howtos": grasshopperHowtos, "grasshopper-rock-tile": grasshopperRockTile, "grasshopper-voronoi-pipe": grasshopperVoronoiPipe, "grasshopper-waffle-pattern": grasshopperWafflePattern, "grasshopper-reaction-diffusion": grasshopperReactionDiffusion, "grasshopper-packed-circle": grasshopperPackedCircle, "grasshopper-landscape-contour": grasshopperLandscapeContour, "grasshopper-ribbon-loop": grasshopperRibbonLoop, "houdini-howtos": houdiniHowtos, "houdini-howtos-field": houdiniHowtosField, "houdini-howtos-curve-graph": houdiniHowtosCurveGraph, "houdini-howtos-weave-pot": houdiniHowtosWeavePot, "houdini-howtos-sci-fi-panel": houdiniHowtosSciFiPanel, "houdini-howtos-growth-urchin": houdiniHowtosGrowthUrchin, "houdini-howtos-bsp-dungeon": houdiniHowtosBspDungeon, "houdini-howtos-voronoi-vase": houdiniHowtosVoronoiVase, "braid-rope": braidRopeModel, "roof-generator": roofGeneratorModel, "pcg-vegetation": pcgVegetation, "vine-slope": vineSlopeModel, "ivy-ruins": ivyRuinsModel, "ivy-lowpoly-vol23": lowPolyIvyModel, "ivy-lowpoly-vol23-kit": lowPolyIvyKitModel, roots: rootsModel, "rock-formation": rockFormationModel, "pcg-colonnade": pcgColonnade, "pcg-plaza": pcgPlaza, "pcg-boulders": pcgBoulders, "pcg-forest": pcgForest, "pcg-brick-wall": pcgBrickWall, "terrain-layered": terrainLayered, "forest-floor": forestFloor, "triplanar-boulder": triplanarBoulder, tower, pagoda, building, "urban-artdeco": urbanArtDeco, "urban-glass": urbanGlassTower, "urban-brick": urbanBrickWalkup, "urban-office": urbanModernOffice, "urban-brownstone": urbanBrownstone, "urban-corporate": urbanCorporate, "japanese-street-building": japaneseStreetBuilding, "hong-kong-cyber-house": hongKongCyberHouse, "kowloon-cyber-courtyard": kowloonCyberCourtyard, "chinese-hall": chineseHall, cityblock: cityBlock, "city-district": cityDistrict, "city-district-roadnet": cityDistrictRoadnet, "watabou-city": watabouCity, "citygen-road-growth": citygenRoadGrowth, "citygen-residential": citygenResidential, "citygen-downtown": citygenDowntown, "residential-community": residentialCommunity, "road-network": roadNetworkModel, "procedural-game-map": proceduralGameMap, streetscene, "interior-room": interiorRoom, "hard-surface-kit": hardSurfaceKit, "terrain-island": terrainIsland, "lunar-crater-surface": lunarCraterSurface, ...CROPOUT_ISLAND_MODELS, cloud, "cloud-sky": cloudSky, "polygon-island": polygonIsland, "pcg-world": pcgWorld, "mountain-village": mountainVillage, ...HOUSE_GARDEN_MODELS, fern: fernModel, mushroom, gear, road, freeway, railway, viaduct, "titan-rail": titanRail, "titan-fence": titanFence, "titan-cable": titanCable, "titan-adboard": titanAdBoard, "titan-shrub": titanShrub, "titan-platform": titanPlatform, "titan-building": titanBuilding, "titan-stacking": titanStacking, "titan-train": titanTrain, "titan-tree": titanTree, "titan-cloth": titanCloth, pylon, "tower-crane": towerCrane, "wind-turbine": windTurbine, "toll-station": tollStation, "tunnel-portal": tunnelPortal, "rooftop-kit": rooftopKit, scaffolding, "bus-stop": busStop, bicycle, billboard, "container-yard": containerYard, "manhole-cover": manholeCover, "barrier-run": barrierRun, "fire-escape": fireEscape, newsstand, "traffic-signal": trafficSignal, "umbrella-table": umbrellaTable, "street-tree": streetTree, "street-lamp": streetLamp, "fire-hydrant": fireHydrant, "park-bench": parkBench, trashcan, "traffic-cone": trafficCone, "freeway-sign": freewaySign, "material-stack": materialStack, "water-tower": waterTower, "wfc-rooftop": wfcRooftop, intersection, officechair: officeChair, dragonfly, "sports-car": sportsCar, "gmc-canyon-at4x": gmcCanyonAt4x, "buick-riviera-1965": buickRiviera1965, "midnight-horse": midnightHorse, "reference-dog": referenceDog, "cartoon-mech-pilot": cartoonMechPilot, "stylized-humanoid": stylizedHumanoid, tshirt: tshirtModel, skirt: skirtModel, pants: pantsModel, dress: dressModel, hoodie: hoodieModel, smooth: smoothModel, spring: springModel, vine: vineModel, meadow: meadowModel, csg: csgModel, remesh: remeshModel, fterrain: terrainModel, wineglass: wineGlassModel, bonsai: bonsaiModel, "veg-tree": treeModel, "veg-growing-tree": growingTreeModel, "veg-stylized-tree": stylizedTreeModel, "veg-authored-broadleaf": authoredBroadleafModel, "veg-trellis-fruit": trellisFruitModel, "veg-column-cypress": columnCypressAuthoringModel, "veg-authoring-lineup": authoringLineupModel, "veg-shrub": shrubModel, "veg-grass": grassModel, "veg-conifer": coniferModel, "veg-palm": palmModel, ...SPEEDTREE_MODELS, ...SPEEDTREE_TUTORIAL_MODELS };
 
 PROC_MODELS["random-dungeon"] = randomDungeon;
+PROC_MODELS[proceduralVehicle.id] = proceduralVehicle;
+PROC_MODELS[modularRescueRover.id] = modularRescueRover;
+Object.assign(PROC_MODELS, proceduralVehicleVariants);
 PROC_MODELS[houdiniHowtosGradationalCrystal.id] = houdiniHowtosGradationalCrystal;
 PROC_MODELS["dungeon-architect-grid"] = dungeonArchitectGrid;
 PROC_MODELS["procedural-waterwheel"] = proceduralWaterwheel;
@@ -8933,6 +9500,744 @@ PROC_MODELS["low-poly-village"] = lowPolyVillage;
 PROC_MODELS["low-poly-cloud-valley"] = lowPolyCloudValley;
 PROC_MODELS["low-poly-tropical-island"] = lowPolyTropicalIsland;
 PROC_MODELS["low-poly-tree-kit"] = lowPolyTreeKit;
+PROC_MODELS["stylized-lakeside-village"] = stylizedLakesideVillage;
+PROC_MODELS["stylized-tactical-island"] = stylizedTacticalIsland;
+PROC_MODELS[concentricRoyalCastle.id] = concentricRoyalCastle;
+PROC_MODELS[ridgeCitadel.id] = ridgeCitadel;
+PROC_MODELS[riverGateCastle.id] = riverGateCastle;
+PROC_MODELS[bilibiliManorCastle.id] = bilibiliManorCastle;
+Object.assign(PROC_MODELS, bilibiliCastleSeriesModels);
+Object.assign(PROC_MODELS, blender119Models);
+PROC_MODELS[creamSofaQuilted.id] = creamSofaQuilted;
+PROC_MODELS[creamSofaWrap.id] = creamSofaWrap;
+for (const definition of BLEND_REFERENCE_FURNISHINGS) {
+  const defaults = definition.defaults;
+  PROC_MODELS[definition.id] = {
+    id: definition.id,
+    name: definition.name,
+    category: `Blender 实物复刻 · ${definition.sourceCategory.split("/")[0]}`,
+    assetMeta: {
+      description: `从本地 Blender 家具参考库提炼的${definition.name}程序化模型族。`,
+      tags: [definition.sourceCategory.split("/")[0], "家具系统", "程序化复刻", "语义部件"],
+      capabilities: ["尺寸驱动", "模块数量调节", "确定性生成", "程序化材质"],
+      materialClasses: ["织物", "木材", "金属", "玻璃", "陶瓷"],
+    },
+    schema: [
+      { key: "width", label: "整体宽度", min: Math.max(0.04, defaults.width * 0.45), max: defaults.width * 2.4, step: Math.max(0.005, defaults.width * 0.01), default: defaults.width },
+      { key: "height", label: "整体高度", min: Math.max(0.04, defaults.height * 0.45), max: defaults.height * 2.4, step: Math.max(0.005, defaults.height * 0.01), default: defaults.height },
+      { key: "depth", label: "整体进深", min: Math.max(0.04, defaults.depth * 0.45), max: defaults.depth * 2.4, step: Math.max(0.005, defaults.depth * 0.01), default: defaults.depth },
+      { key: "modules", label: definition.defaults.kind === "indoor-plant" ? "枝叶密度" : "模块数量", min: 1, max: 24, step: 1, default: defaults.modules },
+      { key: "detail", label: "细节等级", min: 0.5, max: 1.5, step: 0.05, default: defaults.detail },
+      { key: "seed", label: "随机种子", min: 0, max: 9999, step: 1, default: defaults.seed },
+    ],
+    build(params) {
+      return buildBlendReferenceFurnishingParts({
+        ...defaults,
+        width: params.width,
+        height: params.height,
+        depth: params.depth,
+        modules: Math.round(params.modules),
+        detail: params.detail,
+        seed: Math.round(params.seed),
+      });
+    },
+  };
+}
+for (const definition of BLEND_REFERENCE_INTERIORS) {
+  const defaults = definition.defaults;
+  const moduleLabels = {
+    curtain: "褶皱数量",
+    "venetian-blind": "百叶片数量",
+    "sculptural-chandelier": "发光环数量",
+    copier: "纸盒数量",
+    "wine-cabinet": "柜体分格数",
+    "side-table": "支脚数量",
+    "book-row": "书本数量",
+    "bar-accessories": "器皿数量",
+  };
+  PROC_MODELS[definition.id] = {
+    id: definition.id,
+    name: definition.name,
+    category: `Blender 实物复刻 · ${definition.sourceCategory.split("/")[0]}`,
+    assetMeta: {
+      description: `从本地 Blender 参考库独立重建的${definition.name}程序化模型。`,
+      tags: [definition.sourceCategory.split("/")[0], "室内模型", "程序化复刻", "语义分件"],
+      capabilities: ["尺寸驱动", "重复结构调节", "确定性生成", "程序化材质"],
+      materialClasses: ["织物", "木材", "金属", "玻璃", "塑料", "石材"],
+    },
+    schema: [
+      { key: "width", label: "整体宽度", min: Math.max(0.04, defaults.width * 0.45), max: defaults.width * 2.4, step: Math.max(0.005, defaults.width * 0.01), default: defaults.width },
+      { key: "height", label: "整体高度", min: Math.max(0.04, defaults.height * 0.45), max: defaults.height * 2.4, step: Math.max(0.005, defaults.height * 0.01), default: defaults.height },
+      { key: "depth", label: "整体进深", min: Math.max(0.04, defaults.depth * 0.45), max: defaults.depth * 2.4, step: Math.max(0.005, defaults.depth * 0.01), default: defaults.depth },
+      { key: "modules", label: moduleLabels[defaults.kind] ?? "结构数量", min: 1, max: 72, step: 1, default: defaults.modules },
+      { key: "detail", label: "细节等级", min: 0.5, max: 1.5, step: 0.05, default: defaults.detail },
+      { key: "seed", label: "随机种子", min: 0, max: 9999, step: 1, default: defaults.seed },
+    ],
+    build(params) {
+      return buildBlendReferenceInteriorParts({
+        ...defaults,
+        width: params.width,
+        height: params.height,
+        depth: params.depth,
+        modules: Math.round(params.modules),
+        detail: params.detail,
+        seed: Math.round(params.seed),
+      });
+    },
+  };
+}
+for (const definition of BLEND_REFERENCE_PLANTS) {
+  const defaults = definition.defaults;
+  PROC_MODELS[definition.id] = {
+    id: definition.id,
+    name: definition.name,
+    category: "Blender 实物复刻 · 植物",
+    assetMeta: {
+      description: `从本地 Blender 植物参考库提炼的${definition.name}程序化模型。`,
+      tags: ["室内植物", "程序化复刻", "枝干图", "叶序"],
+      capabilities: ["尺寸驱动", "枝叶密度调节", "随机种子", "确定性生成"],
+      materialClasses: ["叶片", "木质", "陶瓷", "土壤"],
+    },
+    schema: [
+      { key: "width", label: "冠幅宽度", min: defaults.width * 0.55, max: defaults.width * 1.8, step: Math.max(0.005, defaults.width * 0.01), default: defaults.width },
+      { key: "height", label: "植株高度", min: defaults.height * 0.55, max: defaults.height * 1.8, step: Math.max(0.005, defaults.height * 0.01), default: defaults.height },
+      { key: "depth", label: "冠幅进深", min: defaults.depth * 0.55, max: defaults.depth * 1.8, step: Math.max(0.005, defaults.depth * 0.01), default: defaults.depth },
+      { key: "density", label: "枝叶密度", min: 0.5, max: 1.6, step: 0.05, default: defaults.density },
+      { key: "seed", label: "形态种子", min: 0, max: 9999, step: 1, default: defaults.seed },
+    ],
+    build(params) {
+      return buildBlendReferencePlantParts({
+        ...defaults,
+        width: params.width,
+        height: params.height,
+        depth: params.depth,
+        density: params.density,
+        seed: Math.round(params.seed),
+      });
+    },
+  };
+}
+for (const definition of SWEET_HOME_STAIR_MODELS) {
+  const defaults = definition.defaults;
+  PROC_MODELS[definition.id] = {
+    id: definition.id,
+    name: definition.name,
+    category: "Sweet Home 3D 参考复刻",
+    assetMeta: {
+      description: `基于 Sweet Home 3D 的 ${definition.sourceName} 预览图独立程序化重建，未读取或复用原模型网格。`,
+      tags: ["楼梯", "家居", "Sweet Home 3D 参考", "程序化复刻"],
+      capabilities: ["尺寸调节", "踏步数量调节", "栏杆开关", "确定性生成"],
+      sourceUrl: definition.sourceImage,
+    },
+    schema: [
+      { key: "width", label: definition.kind === "spiral" || definition.kind === "square-spiral" ? "整体直径" : "梯段宽度", min: 0.55, max: 4, step: 0.05, default: defaults.width },
+      { key: "rise", label: "总高度", min: 0.8, max: 8, step: 0.05, default: defaults.rise },
+      { key: "run", label: "水平进深", min: 0.8, max: 12, step: 0.05, default: defaults.run },
+      { key: "steps", label: "踏步数量", min: 6, max: 40, step: 1, default: defaults.steps },
+      { key: "railHeight", label: "扶手高度", min: 0.45, max: 1.5, step: 0.02, default: defaults.railHeight },
+      { key: "railings", label: "启用栏杆", min: 0, max: 1, step: 1, default: defaults.railings },
+    ],
+    build(params) {
+      return buildSweetHomeStaircaseParts({
+        kind: definition.kind,
+        width: params.width,
+        rise: params.rise,
+        run: params.run,
+        steps: Math.round(params.steps),
+        railHeight: params.railHeight,
+        railings: params.railings,
+      });
+    },
+  };
+}
+for (const definition of SWEET_HOME_FURNISHING_MODELS) {
+  const defaults = definition.defaults;
+  PROC_MODELS[definition.id] = {
+    id: definition.id,
+    name: definition.name,
+    category: `Sweet Home 3D 参考复刻 · ${definition.category}`,
+    assetMeta: {
+      description: `参考 Sweet Home 3D 的 ${definition.sourceName} 公开预览轮廓独立程序化重建，未读取或复用原模型网格。`,
+      tags: [definition.category, "家居", "Sweet Home 3D 参考", "程序化复刻"],
+      capabilities: ["宽高深调节", `${definition.countLabel}调节`, "独立语义部件", "确定性生成"],
+      sourceUrl: SWEET_HOME_FURNISHING_SOURCE_PAGE,
+    },
+    schema: [
+      { key: "width", label: "整体宽度", min: Math.max(0.2, defaults.width * 0.45), max: defaults.width * 2.4, step: 0.02, default: defaults.width },
+      { key: "height", label: "整体高度", min: Math.max(0.2, defaults.height * 0.45), max: defaults.height * 2.4, step: 0.02, default: defaults.height },
+      { key: "depth", label: "整体深度", min: Math.max(0.08, defaults.depth * 0.45), max: defaults.depth * 2.4, step: 0.02, default: defaults.depth },
+      { key: "count", label: definition.countLabel, min: 1, max: 24, step: 1, default: defaults.count },
+      { key: "detail", label: "高细节构件", min: 0, max: 1, step: 1, default: defaults.detail },
+    ],
+    build(params) {
+      return buildSweetHomeFurnishingParts({
+        kind: definition.kind,
+        width: params.width,
+        height: params.height,
+        depth: params.depth,
+        count: Math.round(params.count),
+        detail: params.detail,
+      });
+    },
+  };
+}
+for (const definition of INTERIOR_SYSTEM_MODELS) {
+  const defaults = definition.defaults;
+  const hasOpening = ["casement-window", "french-door"].includes(definition.kind);
+  const hasStyle = ["conference-table", "structural-column", "structural-beam"].includes(definition.kind);
+  PROC_MODELS[definition.id] = {
+    id: definition.id,
+    name: definition.name,
+    category: `程序化室内系统 · ${definition.category}`,
+    assetMeta: {
+      description: `${definition.name}程序化模型族。尺寸、构件数量、连接锚点与语义材质自动联动。`,
+      tags: [definition.category, "室内系统", "模型族", "程序化"],
+      capabilities: ["尺寸联动", `${definition.countLabel}调节`, "连接锚点", "语义材质槽", "预览/高细节 LOD", "碰撞元数据"],
+    },
+    schema: [
+      { key: "width", label: "整体宽度", min: Math.max(0.18, defaults.width * 0.45), max: defaults.width * 2.5, step: 0.02, default: defaults.width },
+      { key: "height", label: "整体高度", min: Math.max(0.18, defaults.height * 0.45), max: defaults.height * 2.5, step: 0.02, default: defaults.height },
+      { key: "depth", label: "整体进深", min: Math.max(0.08, defaults.depth * 0.45), max: defaults.depth * 2.5, step: 0.02, default: defaults.depth },
+      { key: "count", label: definition.countLabel, min: 1, max: 24, step: 1, default: defaults.count },
+      ...(hasOpening ? [{ key: "openness", label: "开启程度", min: 0, max: 1, step: 0.05, default: defaults.openness }] : []),
+      ...(hasStyle ? [{ key: "style", label: "结构样式", min: 0, max: 1, step: 1, default: defaults.style }] : []),
+      { key: "detail", label: "高细节构件", min: 0, max: 1, step: 1, default: defaults.detail },
+    ],
+    build(params) {
+      return buildInteriorSystemParts({
+        kind: definition.kind,
+        width: params.width,
+        height: params.height,
+        depth: params.depth,
+        count: Math.round(params.count),
+        openness: params.openness ?? defaults.openness,
+        style: params.style ?? defaults.style,
+        detail: params.detail,
+      });
+    },
+  };
+}
+for (const definition of INTERIOR_COMBINATION_MODELS) {
+  const defaults = definition.defaults;
+  PROC_MODELS[definition.id] = {
+    id: definition.id,
+    name: definition.name,
+    category: "程序化室内系统 · 厨房组合",
+    assetMeta: {
+      description: `${definition.name}组合预设。单体模型共享尺寸、锚点与材质协议，可继续拆分编辑。`,
+      tags: ["厨房模块", "组合预设", "室内系统", "程序化"],
+      capabilities: ["组合布局", "尺寸联动", "模块数量联动", "连接锚点", "语义材质槽", "预览/高细节 LOD"],
+    },
+    schema: [
+      { key: "width", label: "厨房总宽", min: 2.4, max: 12, step: 0.05, default: defaults.width },
+      { key: "height", label: "空间净高", min: 2, max: 4, step: 0.05, default: defaults.height },
+      { key: "depth", label: "厨房总进深", min: 1.4, max: 10, step: 0.05, default: defaults.depth },
+      { key: "count", label: "柜体模块数", min: 2, max: 16, step: 1, default: defaults.count },
+      { key: "detail", label: "高细节构件", min: 0, max: 1, step: 1, default: defaults.detail },
+    ],
+    build(params) {
+      return buildInteriorCombinationParts({
+        kind: definition.kind,
+        width: params.width,
+        height: params.height,
+        depth: params.depth,
+        count: Math.round(params.count),
+        detail: params.detail,
+      });
+    },
+  };
+}
+for (const definition of ROOM_SHELL_MODELS) {
+  const defaults = definition.defaults;
+  PROC_MODELS[definition.id] = {
+    id: definition.id,
+    name: definition.name,
+    category: "程序化室内系统 · 房间壳体",
+    assetMeta: {
+      description: `${definition.name}。墙体按门窗边界切片，洞口真实贯穿墙体。`,
+      tags: ["房间壳体", "真实开洞", "门窗系统", "程序化"],
+      capabilities: ["真实门窗洞", "尺寸联动", "可开启门扇", "洞口锚点", "踢脚线避让", "预览/高细节 LOD"],
+    },
+    schema: [
+      { key: "width", label: "房间宽度", min: 2.4, max: 14, step: 0.05, default: defaults.width },
+      { key: "depth", label: "房间进深", min: 2.4, max: 12, step: 0.05, default: defaults.depth },
+      { key: "height", label: "房间净高", min: 2, max: 4.5, step: 0.05, default: defaults.height },
+      { key: "doorWidth", label: "门洞宽度", min: 0.7, max: 1.8, step: 0.02, default: defaults.doorWidth },
+      { key: "windowWidth", label: "窗洞宽度", min: 0.65, max: 3.2, step: 0.02, default: defaults.windowWidth },
+      { key: "openness", label: "门开启程度", min: 0, max: 1, step: 0.05, default: defaults.openness },
+      { key: "frontWall", label: "生成前墙", min: 0, max: 1, step: 1, default: defaults.frontWall ? 1 : 0 },
+      { key: "ceiling", label: "生成吊顶", min: 0, max: 1, step: 1, default: defaults.ceiling ? 1 : 0 },
+      { key: "detail", label: "高细节构件", min: 0, max: 1, step: 1, default: defaults.detail },
+    ],
+    build(params) {
+      return buildRoomShellPresetParts({
+        kind: definition.kind,
+        width: params.width,
+        depth: params.depth,
+        height: params.height,
+        wallThickness: defaults.wallThickness,
+        floorThickness: defaults.floorThickness,
+        frontWall: params.frontWall >= 0.5,
+        baseboards: true,
+        doorWidth: params.doorWidth,
+        windowWidth: params.windowWidth,
+        openness: params.openness,
+        ceiling: params.ceiling >= 0.5,
+        detail: params.detail,
+      });
+    },
+  };
+}
+for (const definition of STORAGE_WALL_MODELS) {
+  const defaults = definition.defaults;
+  PROC_MODELS[definition.id] = {
+    id: definition.id,
+    name: definition.name,
+    category: "程序化室内系统 · 收纳系统",
+    assetMeta: {
+      description: `${definition.name}模型族。尺寸变化后自动重排格口、门板、抽屉、层板。`,
+      tags: ["整墙收纳", "格口系统", "模块化家具", "程序化"],
+      capabilities: ["格口自动分配", "门板联动", "抽屉联动", "层板重排", "连接锚点", "语义材质槽"],
+    },
+    schema: [
+      { key: "width", label: "收纳墙宽度", min: 1.2, max: 10, step: 0.05, default: defaults.width },
+      { key: "height", label: "收纳墙高度", min: 1.2, max: 4, step: 0.05, default: defaults.height },
+      { key: "depth", label: "柜体进深", min: 0.22, max: 1, step: 0.02, default: defaults.depth },
+      { key: "bays", label: "格口列数", min: 2, max: 12, step: 1, default: defaults.bays },
+      { key: "shelves", label: "每列层板数", min: 1, max: 10, step: 1, default: defaults.shelves },
+      { key: "drawers", label: "底部抽屉数", min: 0, max: 6, step: 1, default: defaults.drawers },
+      { key: "openness", label: "门板/抽屉开启", min: 0, max: 1, step: 0.05, default: defaults.openness },
+      { key: "detail", label: "高细节陈设", min: 0, max: 1, step: 1, default: defaults.detail },
+    ],
+    build(params) {
+      return buildStorageWallParts({
+        kind: definition.kind,
+        width: params.width,
+        height: params.height,
+        depth: params.depth,
+        bays: Math.round(params.bays),
+        shelves: Math.round(params.shelves),
+        drawers: Math.round(params.drawers),
+        openness: params.openness,
+        detail: params.detail,
+      });
+    },
+  };
+}
+PROC_MODELS["spatial-storage-room-suite"] = {
+  id: "spatial-storage-room-suite",
+  name: "门窗房间与整墙收纳组合",
+  category: "程序化室内系统 · 组合预设",
+  assetMeta: {
+    description: "房间壳体、真实门窗洞与电视收纳墙组合预设。",
+    tags: ["房间预设", "整墙收纳", "真实开洞", "程序化"],
+    capabilities: ["空间组合", "真实门窗洞", "收纳格口联动", "连接锚点", "可开启构件", "语义材质槽"],
+  },
+  schema: [
+    { key: "width", label: "房间宽度", min: 4.2, max: 14, step: 0.05, default: STORAGE_ROOM_SUITE_DEFAULTS.width },
+    { key: "depth", label: "房间进深", min: 3.2, max: 12, step: 0.05, default: STORAGE_ROOM_SUITE_DEFAULTS.depth },
+    { key: "height", label: "房间净高", min: 2.2, max: 4.5, step: 0.05, default: STORAGE_ROOM_SUITE_DEFAULTS.height },
+    { key: "bays", label: "收纳格口列数", min: 3, max: 10, step: 1, default: STORAGE_ROOM_SUITE_DEFAULTS.bays },
+    { key: "shelves", label: "收纳层板数", min: 2, max: 8, step: 1, default: STORAGE_ROOM_SUITE_DEFAULTS.shelves },
+    { key: "openness", label: "门板开启程度", min: 0, max: 1, step: 0.05, default: STORAGE_ROOM_SUITE_DEFAULTS.openness },
+    { key: "detail", label: "高细节构件", min: 0, max: 1, step: 1, default: STORAGE_ROOM_SUITE_DEFAULTS.detail },
+  ],
+  build(params) {
+    return buildStorageRoomSuiteParts({
+      width: params.width,
+      depth: params.depth,
+      height: params.height,
+      bays: Math.round(params.bays),
+      shelves: Math.round(params.shelves),
+      openness: params.openness,
+      detail: params.detail,
+    });
+  },
+};
+for (const definition of BATHROOM_FIXTURE_MODELS) {
+  const defaults = definition.defaults;
+  const movable = ["shower-enclosure", "toilet", "vanity", "mirror-cabinet"].includes(definition.kind);
+  PROC_MODELS[definition.id] = {
+    id: definition.id,
+    name: definition.name,
+    category: "程序化室内系统 · 模块化卫浴",
+    assetMeta: {
+      description: `${definition.name}模型族。管线、开孔、可动状态、连接锚点随尺寸联动。`,
+      tags: ["模块化卫浴", "管线锚点", "真实开孔", "程序化"],
+      capabilities: ["尺寸联动", "冷热水与排水锚点", "真实排水开孔", "扫掠管线", "语义材质槽", "预览/高细节 LOD"],
+    },
+    schema: [
+      { key: "width", label: "整体宽度", min: Math.max(0.28, defaults.width * 0.55), max: defaults.width * 2, step: 0.02, default: defaults.width },
+      { key: "height", label: "整体高度", min: Math.max(0.35, defaults.height * 0.55), max: defaults.height * 1.8, step: 0.02, default: defaults.height },
+      { key: "depth", label: "整体进深", min: Math.max(0.12, defaults.depth * 0.55), max: defaults.depth * 2, step: 0.02, default: defaults.depth },
+      ...(movable ? [{ key: "openness", label: "开启程度", min: 0, max: 1, step: 0.05, default: defaults.openness }] : []),
+      { key: "detail", label: "高细节管线", min: 0, max: 1, step: 1, default: defaults.detail },
+    ],
+    build(params) {
+      return buildBathroomFixtureParts({
+        kind: definition.kind,
+        width: params.width,
+        height: params.height,
+        depth: params.depth,
+        openness: params.openness ?? defaults.openness,
+        detail: params.detail,
+      });
+    },
+  };
+}
+for (const definition of BATHROOM_SUITE_MODELS) {
+  const defaults = definition.defaults;
+  PROC_MODELS[definition.id] = {
+    id: definition.id,
+    name: definition.name,
+    category: "程序化室内系统 · 卫浴组合",
+    assetMeta: {
+      description: `${definition.name}。自动布置洁具、湿区、管线与地漏，并输出穿插和通道诊断。`,
+      tags: ["卫浴组合", "干湿分区", "布局诊断", "程序化"],
+      capabilities: ["组合布局", "尺寸联动", "自动冲突检测", "可动构件", "管线锚点", "真实地漏开孔"],
+    },
+    schema: [
+      { key: "width", label: "房间宽度", min: 1.6, max: 9, step: 0.05, default: defaults.width },
+      { key: "height", label: "房间净高", min: 2.2, max: 4.2, step: 0.05, default: defaults.height },
+      { key: "depth", label: "房间进深", min: 1.5, max: 8, step: 0.05, default: defaults.depth },
+      { key: "openness", label: "门扇开启程度", min: 0, max: 1, step: 0.05, default: defaults.openness },
+      { key: "detail", label: "高细节管线", min: 0, max: 1, step: 1, default: defaults.detail },
+    ],
+    build(params) {
+      return buildBathroomSuiteParts({
+        kind: definition.kind,
+        width: params.width,
+        height: params.height,
+        depth: params.depth,
+        openness: params.openness,
+        detail: params.detail,
+      });
+    },
+  };
+}
+for (const definition of ARCHITECTURAL_ROOF_MODELS) {
+  const defaults = definition.defaults;
+  PROC_MODELS[definition.id] = {
+    id: definition.id,
+    name: definition.name,
+    category: "程序化建筑系统 · 屋顶",
+    assetMeta: {
+      description: `${definition.name}。坡面、收边、排水、天窗开洞和连接锚点随尺寸联动。`,
+      tags: ["参数化屋顶", "连接锚点", "排水系统", "程序化"],
+      capabilities: ["坡面尺寸联动", "墙顶与屋脊锚点", "檐沟落水管", "坡度诊断", "语义材质槽", ...(definition.kind === "skylight-gable" ? ["真实分段天窗开洞"] : [])],
+    },
+    schema: [
+      { key: "width", label: "屋顶面宽", min: 1.8, max: 16, step: 0.05, default: defaults.width },
+      { key: "depth", label: "屋顶进深", min: 1.6, max: 14, step: 0.05, default: defaults.depth },
+      { key: "baseHeight", label: "墙顶高度", min: 0.4, max: 6, step: 0.05, default: defaults.baseHeight },
+      { key: "rise", label: "屋顶起坡高度", min: 0.12, max: 5, step: 0.05, default: defaults.rise },
+      { key: "overhang", label: "屋檐外挑", min: 0, max: 1.5, step: 0.02, default: defaults.overhang },
+      ...(definition.kind === "skylight-gable" ? [{ key: "skylights", label: "天窗数量", min: 1, max: 6, step: 1, default: defaults.skylights }] : []),
+      { key: "gutter", label: "生成排水系统", min: 0, max: 1, step: 1, default: defaults.gutter ? 1 : 0 },
+      { key: "detail", label: "高细节收边", min: 0, max: 1, step: 1, default: defaults.detail },
+    ],
+    build(params) {
+      return buildArchitecturalRoofParts({
+        kind: definition.kind,
+        width: params.width,
+        depth: params.depth,
+        baseHeight: params.baseHeight,
+        rise: params.rise,
+        overhang: params.overhang,
+        skylights: Math.round(params.skylights ?? defaults.skylights),
+        gutter: params.gutter >= 0.5,
+        detail: params.detail,
+      });
+    },
+  };
+}
+for (const definition of ARTICULATED_FURNITURE_MODELS) {
+  const defaults = definition.defaults;
+  PROC_MODELS[definition.id] = {
+    id: definition.id,
+    name: definition.name,
+    category: "程序化室内系统 · 可动家具",
+    assetMeta: {
+      description: `${definition.name}。几何状态由统一铰链/滑轨协议驱动。`,
+      tags: ["可动家具", "关节约束", "状态参数", "程序化"],
+      capabilities: ["统一关节元数据", "枢轴与行程约束", "开启状态联动", "语义部件", "语义材质槽", "确定性生成"],
+    },
+    schema: [
+      { key: "width", label: "整体宽度", min: 0.55, max: 5, step: 0.02, default: defaults.width },
+      { key: "height", label: definition.kind === "folding-table" ? "安装高度" : "整体高度", min: 0.45, max: 3.5, step: 0.02, default: defaults.height },
+      { key: "depth", label: definition.kind === "folding-table" ? "展开进深" : "整体进深", min: 0.25, max: 1.6, step: 0.02, default: defaults.depth },
+      { key: "count", label: definition.countLabel, min: definition.kind === "drawer-chest" || definition.kind === "sliding-wardrobe" ? 2 : 1, max: definition.kind === "hinged-cabinet" || definition.kind === "sliding-wardrobe" ? 4 : 8, step: 1, default: defaults.count },
+      { key: "openness", label: definition.kind === "folding-table" ? "展开程度" : "开启程度", min: 0, max: 1, step: 0.05, default: defaults.openness },
+      { key: "detail", label: "高细节五金", min: 0, max: 1, step: 1, default: defaults.detail },
+    ],
+    build(params) {
+      return buildArticulatedFurnitureParts({
+        kind: definition.kind,
+        width: params.width,
+        height: params.height,
+        depth: params.depth,
+        count: Math.round(params.count),
+        openness: params.openness,
+        detail: params.detail,
+      });
+    },
+  };
+}
+for (const definition of ROOM_LAYOUT_MODELS) {
+  const defaults = definition.defaults;
+  PROC_MODELS[definition.id] = {
+    id: definition.id,
+    name: definition.name,
+    category: "程序化室内系统 · 自动布局房间",
+    assetMeta: {
+      description: `${definition.name}。候选生成、硬约束淘汰、多目标评分、确定性退火搜索；优先复用现有程序化家具。`,
+      tags: ["房间布局器", "家具自动摆放", "门窗避让", "程序化"],
+      capabilities: ["家具碰撞求解", "门口与窗前净空", "连续通道检测", "关系与朝向评分", "确定性优化", "现有模型复用"],
+      sourceUrl: "https://doi.org/10.1145/1964921.1964981",
+    },
+    schema: [
+      { key: "width", label: "房间宽度", min: 4.2, max: 14, step: 0.05, default: defaults.width },
+      { key: "depth", label: "房间进深", min: 3.8, max: 12, step: 0.05, default: defaults.depth },
+      { key: "height", label: "房间净高", min: 2.2, max: 4.5, step: 0.05, default: defaults.height },
+      { key: "density", label: "家具密度", min: 0.35, max: 1, step: 0.05, default: defaults.density },
+      { key: "accessibility", label: "通道净宽等级", min: 0, max: 1, step: 0.05, default: defaults.accessibility },
+      { key: "openness", label: "入户门开启程度", min: 0, max: 1, step: 0.05, default: defaults.openness },
+      { key: "detail", label: "高细节家具", min: 0, max: 1, step: 1, default: defaults.detail },
+      { key: "seed", label: "布局种子", min: 0, max: 999, step: 1, default: defaults.seed },
+    ],
+    build(params) {
+      return buildRoomLayoutParts({
+        kind: definition.kind,
+        width: params.width,
+        depth: params.depth,
+        height: params.height,
+        density: params.density,
+        accessibility: params.accessibility,
+        openness: params.openness,
+        detail: params.detail,
+        seed: Math.round(params.seed),
+      });
+    },
+  };
+}
+for (const definition of EXPANSION_SYSTEM_MODELS) {
+  const defaults = definition.defaults;
+  const supportsOpenness = definition.kind === "sofa-recliner"
+    || definition.kind.startsWith("appliance-")
+    || definition.kind === "soft-curtains"
+    || definition.kind === "soft-blinds";
+  PROC_MODELS[definition.id] = {
+    id: definition.id,
+    name: definition.name,
+    category: `程序化扩展系统 · ${definition.category}`,
+    assetMeta: {
+      description: `${definition.name}模型族。尺寸、数量、开合状态与细节级别联动。`,
+      tags: [definition.category, definition.kind, "程序化模型族"],
+      capabilities: ["尺寸联动", "数量联动", "语义部件", "语义材质槽", "确定性生成", "预览/高细节 LOD"],
+    },
+    schema: [
+      { key: "width", label: "整体宽度", min: 0.08, max: 14, step: 0.02, default: defaults.width },
+      { key: "height", label: "整体高度", min: 0.04, max: 6, step: 0.02, default: defaults.height },
+      { key: "depth", label: "整体进深", min: 0.08, max: 8, step: 0.02, default: defaults.depth },
+      { key: "count", label: definition.countLabel, min: 1, max: 32, step: 1, default: defaults.count },
+      ...(supportsOpenness ? [{ key: "openness", label: "开启/展开程度", min: 0, max: 1, step: 0.05, default: defaults.openness }] : []),
+      { key: "detail", label: "高细节构件", min: 0, max: 1, step: 1, default: defaults.detail },
+    ],
+    build(params) {
+      return buildExpansionSystemParts({
+        kind: definition.kind,
+        width: params.width,
+        height: params.height,
+        depth: params.depth,
+        count: Math.round(params.count),
+        openness: params.openness ?? defaults.openness,
+        detail: params.detail,
+        seed: defaults.seed,
+      });
+    },
+  };
+}
+for (const definition of POLY_HAVEN_PROP_MODELS) {
+  const defaults = definition.defaults;
+  const handToolKinds = ["adjustable-wrench", "pliers", "screwdriver", "cross-pein-hammer", "hatchet"];
+  const supportsDamage = ["ruined-fort-arch", "boulder", "deadwood", "watering-can", "bench-vise", "alarm-clock", "oil-can", "hand-drill", "hose-reel", "drill-press", "portable-generator", "rectangular-airduct-kit", "welding-cart", "film-projector", "industrial-microscope", "cash-register", "overhead-crane", "vintage-microscope", "power-pole-system", "spinning-wheel", "aircon-unit", "hand-plane", "circular-airduct-kit", "electric-cable-kit", "articulated-desk-lamp", "gamepad", "grandfather-clock", "cordless-drill", "security-camera", "metal-tool-chest", "modular-fire-escape", "rangefinder-camera", "modular-wooden-pier", "modular-chainlink-fence", "public-payphone", "ceiling-fan", "classic-laptop", "factory-facade-kit", "apartment-facade-kit", "cassette-player", "hand-truck", "fire-extinguisher", "dartboard", "roller-shutter", "military-compressor", "extension-ladder", "folding-ladder", "measuring-tape", "incandescent-bulb", "pendant-lamp", "standing-chalkboard", "spade", "handsaw", "hacksaw", ...handToolKinds].includes(definition.kind);
+  const supportsStructure = ![...handToolKinds, "watering-can", "bench-vise", "binoculars", "megaphone", "oil-can", "drill-press", "welding-cart", "industrial-microscope", "vintage-microscope", "power-pole-system", "hand-plane", "articulated-desk-lamp", "gamepad", "grandfather-clock", "cordless-drill", "security-camera", "standing-chalkboard", "spade"].includes(definition.kind);
+  const supportsVariation = !["binoculars", "alarm-clock", "megaphone", "oil-can", "hand-drill", "wheelchair", "portable-generator"].includes(definition.kind);
+  const variationLabel = ({
+    "bench-vise": "钳口开合",
+    "watering-can": "出水管仰角",
+    "hose-reel": "水管盘绕松弛",
+    "drill-press": "工作台高度",
+    multimeter: "表针偏转",
+    "welding-cart": "软管松弛",
+    "film-projector": "供片盘尺寸",
+    "industrial-microscope": "载物台高度",
+    "cash-register": "现金抽屉开合",
+    "overhead-crane": "横移小车位置",
+    "vintage-microscope": "载物台高度",
+    "power-pole-system": "导线垂度",
+    "spinning-wheel": "踏板行程",
+    "aircon-unit": "叶轮角度",
+    "hand-plane": "刨铁吃刀深度",
+    "circular-airduct-kit": "模块尺寸层级",
+    "electric-cable-kit": "线束弯曲幅度",
+    "articulated-desk-lamp": "关节展开姿态",
+    gamepad: "电缆盘绕松弛",
+    "grandfather-clock": "指针时间",
+    "cordless-drill": "机身与手柄比例",
+    "security-camera": "防雨罩长度与支架高度",
+    "public-payphone": "听筒线垂挂松弛",
+    "ceiling-fan": "叶片旋转相位",
+    "classic-laptop": "屏幕开合角度",
+    "metal-tool-chest": "翻盖角度与拉手长度",
+    "modular-fire-escape": "侧梯横向位置",
+    "rangefinder-camera": "镜头尺寸与背带松弛",
+    "modular-wooden-pier": "铺板扰动",
+    "modular-chainlink-fence": "钢丝网纵深",
+    "factory-facade-kit": "雨棚深度与屋顶错台",
+    "apartment-facade-kit": "阳台进深与屋顶错台",
+    "cassette-player": "提带展开幅度",
+    "hand-truck": "把手外扩与铲板深度",
+    "fire-extinguisher": "压把角度与软管弧度",
+    dartboard: "径向分区相位",
+    "roller-shutter": "卷帘开合高度",
+    "military-compressor": "曲柄活塞相位",
+    "extension-ladder": "套节伸出量",
+    "folding-ladder": "A 架展开角度",
+    "measuring-tape": "尺带伸出长度",
+    "incandescent-bulb": "灯丝松弛度",
+    "pendant-lamp": "悬线自然偏移",
+    "standing-chalkboard": "A 架展开程度",
+    spade: "锹头俯仰角",
+    handsaw: "锯片安装角",
+    hacksaw: "锯片安装角",
+  })[definition.kind] ?? "形态变化";
+  const structureLabel = ({
+    "industrial-pipes": "法兰螺栓密度",
+    "ruined-fort-arch": "坍塌碎块数量",
+    boulder: "岩体融合块数",
+    deadwood: "枯枝密度",
+    "utility-box": "散热百叶数量",
+    boombox: "面板控制密度",
+    "brass-lantern": "径向框架数量",
+    flashlight: "灯头防滑环数",
+    "hand-drill": "大齿轮齿数",
+    wheelchair: "驱动轮辐条数量",
+    "hose-reel": "水管盘绕密度",
+    multimeter: "表盘刻度密度",
+    "portable-generator": "发动机散热片数量",
+    "rectangular-airduct-kit": "风管模块数量",
+    "film-projector": "面板控制密度",
+    "cash-register": "金额键列数",
+    "wicker-basket": "编织经条数量",
+    "alarm-clock": "表盘刻度数量",
+    "overhead-crane": "桥架加强筋数量",
+    "spinning-wheel": "飞轮辐条数量",
+    "aircon-unit": "换热翅片密度",
+    "circular-airduct-kit": "圆风管模块数量",
+    "electric-cable-kit": "电缆模块数量",
+    "public-payphone": "键盘列数",
+    "ceiling-fan": "扇叶数量",
+    "classic-laptop": "键盘列数",
+    "metal-tool-chest": "抽屉层数",
+    "modular-fire-escape": "平台层数与踏步密度",
+    "modular-wooden-pier": "铺板与桩基模块数",
+    "modular-chainlink-fence": "围栏分段数",
+    "factory-facade-kit": "立面开间与楼层密度",
+    "apartment-facade-kit": "立面开间与楼层密度",
+    "cassette-player": "扬声器冲孔密度",
+    "hand-truck": "承载横档数量",
+    "fire-extinguisher": "阀体结构密度",
+    dartboard: "径向分区数量",
+    "roller-shutter": "卷帘分节数量",
+    "military-compressor": "泵体散热片数量",
+    "extension-ladder": "梯级数量",
+    "folding-ladder": "梯级数量",
+    "measuring-tape": "尺带刻度密度",
+    "incandescent-bulb": "灯丝与螺纹密度",
+    "pendant-lamp": "灯座散热环数量",
+    handsaw: "锯齿密度",
+    hacksaw: "锯齿密度",
+  })[definition.kind] ?? "结构数量";
+  PROC_MODELS[definition.id] = {
+    id: definition.id,
+    name: definition.name,
+    category: "Poly Haven 参考复刻",
+    assetMeta: {
+      description: `基于 Poly Haven 的 ${definition.sourceName} 公开预览图独立程序化重建，未读取原模型网格或贴图。`,
+      tags: ["Poly Haven", "道具", "程序化复刻", definition.kind],
+      capabilities: ["长宽高调节", "细节开关", "确定性生成", "真实尺寸基准", ...(supportsDamage ? ["破损程度调节"] : [])],
+      sourceUrl: `https://polyhaven.com/a/${definition.sourceAssetId}`,
+    },
+    schema: [
+      { key: "width", label: "整体宽度", min: 0.01, max: 10, step: 0.005, default: defaults.width },
+      { key: "depth", label: "整体进深", min: 0.01, max: 5, step: 0.005, default: defaults.depth },
+      { key: "height", label: "整体高度", min: 0.01, max: 6, step: 0.005, default: defaults.height },
+      { key: "detail", label: "结构细节", min: 0, max: 1, step: 1, default: defaults.detail },
+      { key: "seed", label: "生成种子", min: 0, max: 999, step: 1, default: defaults.seed },
+      ...(supportsVariation ? [{ key: "variation", label: variationLabel, min: 0, max: 1, step: 0.01, default: defaults.variation }] : []),
+      ...(supportsStructure ? [{ key: "structure", label: structureLabel, min: 3, max: 24, step: 1, default: defaults.structure }] : []),
+      ...(supportsDamage ? [{ key: "damage", label: "破损程度", min: 0, max: 1, step: 0.01, default: defaults.damage }] : []),
+    ],
+    build(params) {
+      return buildPolyHavenPropParts({
+        kind: definition.kind,
+        width: params.width,
+        depth: params.depth,
+        height: params.height,
+        detail: params.detail,
+        seed: params.seed,
+        variation: params.variation,
+        structure: params.structure,
+        damage: params.damage ?? defaults.damage,
+      });
+    },
+  };
+}
+for (const definition of REFERENCE_BENCHMARK_MODELS) {
+  const defaults = definition.defaults;
+  const variationLabel = ({
+    "magnifying-glass": "手柄倾角",
+    headphones: "头梁伸缩",
+    "electric-kettle": "壶嘴仰角",
+    scissors: "剪刀开合",
+  })[definition.kind];
+  const structureLabel = "结构密度";
+  PROC_MODELS[definition.id] = {
+    id: definition.id,
+    name: definition.name,
+    category: "实图闭环基准",
+    assetMeta: {
+      description: `基于 ${definition.sourceProvider} 公开参考图独立程序化重建，用于多视角与轮廓优化回归。`,
+      tags: ["实图闭环", "程序化复刻", definition.kind, ...definition.benchmarkSignals],
+      capabilities: ["语义拆件", "尺寸联动", "多视角基准", "黑盒调参", "确定性生成"],
+      sourceUrl: definition.sourcePage,
+    },
+    schema: [
+      { key: "width", label: "整体宽度", min: defaults.width * 0.65, max: defaults.width * 1.45, step: 0.002, default: defaults.width },
+      { key: "depth", label: "整体进深", min: defaults.depth * 0.55, max: defaults.depth * 1.7, step: 0.002, default: defaults.depth },
+      { key: "height", label: "整体高度", min: defaults.height * 0.65, max: defaults.height * 1.45, step: 0.002, default: defaults.height },
+      { key: "variation", label: variationLabel, min: 0, max: 1, step: 0.01, default: defaults.variation },
+      { key: "structure", label: structureLabel, min: 3, max: 24, step: 1, default: defaults.structure },
+      { key: "wear", label: "表面磨损", min: 0, max: 1, step: 0.01, default: defaults.wear },
+      { key: "detail", label: "高细节结构", min: 0, max: 1, step: 1, default: defaults.detail },
+      { key: "seed", label: "生成种子", min: 0, max: 999, step: 1, default: defaults.seed },
+    ],
+    build(params) {
+      return buildReferenceBenchmarkParts({
+        kind: definition.kind,
+        width: params.width,
+        depth: params.depth,
+        height: params.height,
+        variation: params.variation,
+        structure: Math.round(params.structure),
+        wear: params.wear,
+        detail: params.detail,
+        seed: Math.round(params.seed),
+      });
+    },
+  };
+}
 PROC_MODELS["messenger-toon-planet"] = messengerToonPlanet;
 PROC_MODELS["pcg-rock-cluster"] = pcgRockCluster;
 PROC_MODELS["stylized-ocean-environment"] = stylizedOceanEnvironment;
@@ -8959,6 +10264,7 @@ PROC_MODELS["fabcafe-twist-tower"] = fabcafeTwistTower;
 PROC_MODELS["procedural-silo"] = proceduralSilo;
 PROC_MODELS["procedural-cactus"] = proceduralCactus;
 PROC_MODELS["sidefx-modular-house"] = sidefxModularHouse;
+PROC_MODELS["houdini-lake-house"] = houdiniLakeHouse;
 PROC_MODELS["pcg-cartoon-house"] = pcgCartoonHouse;
 PROC_MODELS["sidefx-solaris-market"] = sidefxSolarisMarket;
 PROC_MODELS["procedural-building"] = proceduralBuilding;
@@ -9010,6 +10316,8 @@ for (const [id, name, preset] of [
   };
 }
 PROC_MODELS["realistic-spline-path"] = realisticSplinePathModel;
+PROC_MODELS["pcg-spline-curb-sidewalk"] = pcgSplineCurbModel;
+Object.assign(PROC_MODELS, pcgSplineCurbPresetModels);
 PROC_MODELS["ecosystem-art-tool"] = ecosystemArtTool;
 PROC_MODELS["ecosystem-brush-editor"] = ecosystemBrushEditor;
 PROC_MODELS["biome-blend-world"] = biomeBlendWorld;
@@ -9027,6 +10335,507 @@ PROC_MODELS["assembly-woodland-edge"] = assemblyWoodlandEdge;
 PROC_MODELS["assembly-dry-rockery"] = assemblyDryRockery;
 PROC_MODELS["procedural-planet"] = proceduralPlanet;
 PROC_MODELS["garden-metropolis"] = GARDEN_METROPOLIS_MODEL;
+
+function editableWorkflow(model, key, label, kind, defaultBinding, editor = undefined) {
+  return {
+    schema: "meshova-workflow@1",
+    id: `${model.id}-spatial-edit`,
+    version: 1,
+    metadata: {
+      label: `${model.name}空间编辑`,
+      tags: [kind === "surface" ? "曲面控制网格" : "曲线控制点", "视口拖拽", "非破坏"],
+      scope: "model",
+    },
+    graph: {
+      schema: "meshova-opplan@1",
+      name: `${model.id}-spatial-edit`,
+      nodes: [{ id: "output", op: model.id, args: [{ $binding: key }] }],
+    },
+    bindings: [{ key, label, kind, required: false, default: defaultBinding, ...(editor ? { editor } : {}) }],
+    execution: { debounceMs: 80 },
+  };
+}
+
+function bindingVec3Points(context, key, fallback) {
+  const binding = context?.bindings?.[key];
+  const points = binding?.points?.length >= 2 ? binding.points : fallback.points;
+  return points.map((point) => vec3(Number(point[0]), Number(point[1]), Number(point[2])));
+}
+
+function bindingCurveOptions(context, key, fallback) {
+  const binding = context?.bindings?.[key] || fallback;
+  return {
+    type: binding.curveType || fallback.curveType || "catmull-rom",
+    closed: binding.closed === true || fallback.closed === true,
+    subdivisions: Number(binding.subdivisions || fallback.subdivisions || 8),
+    tension: Number(binding.tension ?? fallback.tension ?? 0.5),
+    degree: Number(binding.degree || fallback.degree || 3),
+    handles: (binding.handles || fallback.handles || []).map((handle) => handle ? {
+      mode: handle.mode || "auto",
+      ...(handle.in ? { in: vec3(Number(handle.in[0]), Number(handle.in[1]), Number(handle.in[2])) } : {}),
+      ...(handle.out ? { out: vec3(Number(handle.out[0]), Number(handle.out[1]), Number(handle.out[2])) } : {}),
+    } : undefined),
+    arcLength: binding.arcLength ?? fallback.arcLength ?? true,
+    ...(Number(binding.sampleCount || fallback.sampleCount) > 1 ? {
+      sampleCount: Number(binding.sampleCount || fallback.sampleCount),
+    } : {}),
+  };
+}
+
+function bindingPointAttribute(context, key, index, name, fallback) {
+  return Number(context?.bindings?.[key]?.pointAttributes?.[index]?.[name] ?? fallback);
+}
+
+function sampledBindingAttributes(context, key, sampleCount) {
+  const binding = context?.bindings?.[key];
+  const pointCount = binding?.points?.length || 0;
+  const names = ["width", "height", "tilt", "twist"];
+  return Array.from({ length: sampleCount }, (_, sample) => Object.fromEntries(names.map((name) => [
+    name,
+    sampleCurveAttribute({
+      keys: Array.from({ length: pointCount }, (_, index) => ({
+        t: pointCount > 1 ? index / (pointCount - 1) : 0,
+        value: bindingPointAttribute(context, key, index, name, name === "width" ? 1 : 0),
+      })),
+      interpolation: "smooth",
+    }, sampleCount > 1 ? sample / (sampleCount - 1) : 0),
+  ])));
+}
+
+function curvePointScale(params, spec) {
+  if (!spec) return 1;
+  const value = Number(params[spec.key]);
+  return Number.isFinite(value) && Math.abs(spec.default) > 1e-8 ? value / spec.default : 1;
+}
+
+function attachCurveEditor(id, label, points, {
+  closed = false,
+  scale = {},
+  offset = {},
+  curveType = "catmull-rom",
+} = {}) {
+  const model = PROC_MODELS[id];
+  if (!model) return;
+  const key = "guideCurve";
+  const defaultBinding = {
+    kind: closed ? "region" : "curve",
+    points,
+    closed,
+    curveType,
+    subdivisions: 8,
+    tension: 0.5,
+    degree: 3,
+    arcLength: true,
+    pointAttributes: points.map(() => ({ width: 1, height: 0, tilt: 0, twist: 0 })),
+  };
+  const originalBuild = model.build.bind(model);
+  model.workflowPreset = editableWorkflow(
+    model,
+    key,
+    label,
+    closed ? "region" : "curve",
+    defaultBinding,
+    {
+      curveType,
+      curveTypes: ["catmull-rom", "bezier", "b-spline", "polyline"],
+      subdivisions: 8,
+      tension: 0.5,
+      degree: 3,
+      arcLength: true,
+      attributes: ["width", "height", "tilt", "twist"],
+    },
+  );
+  model.build = (params, context) => {
+    const authoredPoints = bindingVec3Points(context, key, defaultBinding).map((point, index) => vec3(
+      point.x * curvePointScale(params, scale.x) + Number(params[offset.x] ?? 0),
+      point.y * curvePointScale(params, scale.y) + Number(params[offset.y] ?? 0)
+        + bindingPointAttribute(context, key, index, "height", 0),
+      point.z * curvePointScale(params, scale.z) + Number(params[offset.z] ?? 0),
+    ));
+    const controlPoints = controlCurve(authoredPoints, bindingCurveOptions(context, key, defaultBinding)).points;
+    const curveAttributes = sampledBindingAttributes(context, key, controlPoints.length);
+    return originalBuild({ ...params, controlPoints, curveAttributes }, context);
+  };
+  model.assetMeta = {
+    ...(model.assetMeta || {}),
+    capabilities: [...new Set([...(model.assetMeta?.capabilities || []), "视口曲线拖拽", "控制点增删", "高度编辑"])],
+  };
+}
+
+function latticePoints(size, rows = 4, columns = 4) {
+  const half = size * 0.5;
+  return Array.from({ length: rows }, (_, row) => -half + (row / (rows - 1)) * size)
+    .flatMap((z) => Array.from({ length: columns }, (_, column) => [
+      -half + (column / (columns - 1)) * size,
+      0,
+      z,
+    ]));
+}
+
+function attachSurfaceEditor(id, label, size, partNames) {
+  const model = PROC_MODELS[id];
+  if (!model) return;
+  const key = "controlSurface";
+  const rows = 4;
+  const columns = 4;
+  const points = latticePoints(size, rows, columns);
+  const defaultBinding = {
+    kind: "surface",
+    points,
+    rows,
+    columns,
+    closed: false,
+    surfaceInterpolation: "b-spline",
+    degree: 3,
+  };
+  const basePoints = points.map((point) => vec3(point[0], point[1], point[2]));
+  const acceptsPart = (name) => partNames.some((pattern) => pattern.endsWith("*")
+    ? name.startsWith(pattern.slice(0, -1))
+    : name === pattern);
+  const originalBuild = model.build.bind(model);
+  model.workflowPreset = editableWorkflow(model, key, label, "surface", defaultBinding, {
+    rows,
+    columns,
+    surfaceInterpolation: "b-spline",
+    degree: 3,
+  });
+  model.build = (params, context) => {
+    const suppliedPoints = context?.bindings?.[key]?.points;
+    const editedPoints = suppliedPoints?.length === basePoints.length
+      ? suppliedPoints.map((point) => vec3(Number(point[0]), Number(point[1]), Number(point[2])))
+      : basePoints;
+    const parts = originalBuild(params, context);
+    const acceptedParts = parts.filter((part) => acceptsPart(part.name));
+    let bounds;
+    for (const part of acceptedParts) {
+      for (const point of part.mesh.positions) {
+        bounds = bounds || { minX: point.x, maxX: point.x, minZ: point.z, maxZ: point.z };
+        bounds.minX = Math.min(bounds.minX, point.x);
+        bounds.maxX = Math.max(bounds.maxX, point.x);
+        bounds.minZ = Math.min(bounds.minZ, point.z);
+        bounds.maxZ = Math.max(bounds.maxZ, point.z);
+      }
+    }
+    return parts.map((part) => acceptsPart(part.name)
+      ? { ...part, mesh: deformByControlLattice(part.mesh, basePoints, editedPoints, {
+        rows,
+        columns,
+        interpolation: "b-spline",
+        degree: 3,
+        bounds,
+      }) }
+      : part);
+  };
+  model.assetMeta = {
+    ...(model.assetMeta || {}),
+    capabilities: [...new Set([...(model.assetMeta?.capabilities || []), "视口曲面控制网格", "局部高程塑形"])],
+  };
+}
+
+function sampleGuidePoint(points, t) {
+  if (points.length === 1) return points[0];
+  const position = Math.max(0, Math.min(1, t)) * (points.length - 1);
+  const index = Math.min(points.length - 2, Math.floor(position));
+  const local = position - index;
+  const start = points[index];
+  const end = points[index + 1];
+  return vec3(
+    start.x + (end.x - start.x) * local,
+    start.y + (end.y - start.y) * local,
+    start.z + (end.z - start.z) * local,
+  );
+}
+
+function sampleGuideAttributes(attributes, t) {
+  if (!attributes.length) return { width: 1, height: 0, tilt: 0, twist: 0 };
+  if (attributes.length === 1) return attributes[0];
+  const position = Math.max(0, Math.min(1, t)) * (attributes.length - 1);
+  const index = Math.min(attributes.length - 2, Math.floor(position));
+  const local = position - index;
+  const start = attributes[index];
+  const end = attributes[index + 1];
+  return Object.fromEntries(["width", "height", "tilt", "twist"].map((key) => [
+    key,
+    Number(start[key] ?? 0) + (Number(end[key] ?? 0) - Number(start[key] ?? 0)) * local,
+  ]));
+}
+
+function deformMeshAlongGuide(mesh, guidePoints, height, guideAttributes = []) {
+  const safeHeight = Math.max(1e-6, height);
+  const positions = mesh.positions.map((position) => {
+    const t = Math.max(0, Math.min(1, position.y / safeHeight));
+    const guide = sampleGuidePoint(guidePoints, t);
+    const attributes = sampleGuideAttributes(guideAttributes, t);
+    const width = Number(attributes.width ?? 1);
+    const twist = Number(attributes.twist ?? 0) * Math.PI / 180;
+    const cos = Math.cos(twist);
+    const sin = Math.sin(twist);
+    const x = position.x * width;
+    const z = position.z * width;
+    return vec3(
+      x * cos - z * sin + guide.x,
+      position.y + guide.y - t * safeHeight,
+      x * sin + z * cos + guide.z,
+    );
+  });
+  return recomputeNormals({
+    positions,
+    normals: mesh.normals,
+    uvs: mesh.uvs,
+    indices: mesh.indices,
+  });
+}
+
+function attachSpineEditor(id, label = "主干导向曲线") {
+  const model = PROC_MODELS[id];
+  const heightSchema = model?.schema?.find((entry) => entry.key === "height");
+  if (!model || !heightSchema) return;
+  const defaultHeight = Number(heightSchema.default);
+  const key = "trunkGuide";
+  const defaultBinding = {
+    kind: "curve",
+    points: [0, 0.25, 0.5, 0.75, 1].map((t) => [0, defaultHeight * t, 0]),
+    closed: false,
+    curveType: "catmull-rom",
+    subdivisions: 8,
+    tension: 0.5,
+    degree: 3,
+    arcLength: true,
+    pointAttributes: [0, 0.25, 0.5, 0.75, 1].map(() => ({ width: 1, height: 0, tilt: 0, twist: 0 })),
+  };
+  const originalBuild = model.build.bind(model);
+  model.workflowPreset = editableWorkflow(model, key, label, "curve", defaultBinding, {
+    curveType: "catmull-rom",
+    curveTypes: ["catmull-rom", "bezier", "b-spline", "polyline"],
+    subdivisions: 8,
+    tension: 0.5,
+    degree: 3,
+    arcLength: true,
+    attributes: ["width", "height", "tilt", "twist"],
+  });
+  model.build = (params, context) => {
+    const height = Number(params.height ?? defaultHeight);
+    const authoredPoints = bindingVec3Points(context, key, defaultBinding).map((point, index) => vec3(
+      point.x,
+      point.y * height / defaultHeight + bindingPointAttribute(context, key, index, "height", 0),
+      point.z,
+    ));
+    const guidePoints = controlCurve(authoredPoints, bindingCurveOptions(context, key, defaultBinding)).points;
+    const guideAttributes = sampledBindingAttributes(context, key, guidePoints.length);
+    return originalBuild(params, context).map((part) => ["wood", "trunk", "foliage", "leaves", "fronds"].includes(part.name)
+      ? { ...part, mesh: deformMeshAlongGuide(part.mesh, guidePoints, height, guideAttributes) }
+      : part);
+  };
+  model.assetMeta = {
+    ...(model.assetMeta || {}),
+    capabilities: [...new Set([...(model.assetMeta?.capabilities || []), "视口主干曲线", "树冠随主干变形"])],
+  };
+}
+
+function attachCurveGraphEditor(id, label = "分叉曲线图") {
+  const model = PROC_MODELS[id];
+  if (!model) return;
+  const key = "curveGraph";
+  const points = [
+    [-2.4, 0, -1.4], [-0.8, 0.18, -1.4], [0.8, -0.12, -1.4], [2.4, 0.08, -1.4],
+    [-2.4, 0.12, 0], [-0.8, -0.08, 0], [0.8, 0.16, 0], [2.4, -0.06, 0],
+    [-2.4, -0.1, 1.4], [-0.8, 0.14, 1.4], [0.8, 0, 1.4], [2.4, 0.1, 1.4],
+  ];
+  const edges = [];
+  for (let row = 0; row < 3; row++) {
+    for (let column = 0; column < 3; column++) edges.push({ from: row * 4 + column, to: row * 4 + column + 1 });
+  }
+  for (let row = 0; row < 2; row++) {
+    for (let column = 0; column < 4; column++) edges.push({ from: row * 4 + column, to: (row + 1) * 4 + column });
+  }
+  const defaultBinding = {
+    kind: "curve-graph",
+    points,
+    edges,
+    curveType: "catmull-rom",
+    subdivisions: 8,
+    tension: 0.5,
+    degree: 3,
+    arcLength: true,
+    pointAttributes: points.map(() => ({ width: 1, height: 0, tilt: 0, twist: 0 })),
+  };
+  const originalBuild = model.build.bind(model);
+  model.workflowPreset = editableWorkflow(model, key, label, "curve-graph", defaultBinding, {
+    curveType: "catmull-rom",
+    curveTypes: ["catmull-rom", "bezier", "b-spline", "polyline"],
+    subdivisions: 8,
+    tension: 0.5,
+    degree: 3,
+    arcLength: true,
+    attributes: ["width", "height", "tilt", "twist"],
+  });
+  model.build = (params, context) => {
+    const binding = context?.bindings?.[key] || defaultBinding;
+    const graphPoints = bindingVec3Points(context, key, defaultBinding).map((point, index) => vec3(
+      point.x,
+      point.y + bindingPointAttribute(context, key, index, "height", 0),
+      point.z,
+    ));
+    const radius = Number(params.radius ?? 0.055);
+    const pipeMeshes = (binding.edges || defaultBinding.edges).map((edge) => {
+      const from = graphPoints[Number(edge.from ?? edge[0])];
+      const to = graphPoints[Number(edge.to ?? edge[1])];
+      if (!from || !to) return null;
+      const controls = [from, ...(edge.points || []).map((point) => vec3(...point)), to];
+      const curve = controlCurve(controls, {
+        ...bindingCurveOptions(context, key, defaultBinding),
+        type: edge.curveType || binding.curveType || "catmull-rom",
+        closed: false,
+      });
+      return sweep(curve, { radius, sides: 10, caps: true });
+    }).filter(Boolean);
+    const junctions = graphPoints.map((point) => transform(sphere(radius * 2.15, 14, 10), { translate: point }));
+    const parts = originalBuild(params, context);
+    return parts.map((part) => part.name === "pipe_network"
+      ? { ...part, mesh: merge(...pipeMeshes) }
+      : part.name === "pipe_junctions"
+        ? { ...part, mesh: merge(...junctions) }
+        : part.name === "shortest_route"
+          ? { ...part, mesh: merge() }
+          : part);
+  };
+  model.assetMeta = {
+    ...(model.assetMeta || {}),
+    capabilities: [...new Set([...(model.assetMeta?.capabilities || []), "分叉曲线图", "节点与分支编辑"])],
+  };
+}
+
+attachCurveGraphEditor("houdini-howtos-curve-graph", "管网分叉图");
+
+attachCurveEditor("road", "道路中心线", [[0, 0, -21], [6, 0, -7], [-6, 0, 7], [0, 0, 21]], { scale: { x: { key: "curve", default: 6 }, z: { key: "length", default: 42 } } });
+attachCurveEditor("freeway", "高速中心线", [[-9, 0, -32], [9, 0, -11], [-9, 0, 11], [9, 0, 32]], { scale: { x: { key: "bend", default: 9 }, z: { key: "length", default: 64 } }, offset: { y: "elevation" } });
+attachCurveEditor("railway", "铁路中心线", [[-6, 0, -20], [6, 0, -7], [-6, 0, 7], [6, 0, 20]], { scale: { x: { key: "bend", default: 6 }, z: { key: "length", default: 40 } } });
+attachCurveEditor("viaduct", "高架桥中心线", [[0, 0, -40], [0, 5, -26], [0, 8, -12], [0, 8, 12], [0, 5, 26], [0, 0, 40]], { scale: { y: { key: "clearance", default: 8 }, z: { key: "length", default: 80 } } });
+attachCurveEditor("suspension-bridge", "桥面控制线", [[-45, 0, 0], [-27, -3.2, 2.8], [-9, -5.2, 1.2], [9, -5.2, -1.2], [27, -3.2, -2.8], [45, 0, 0]], { scale: { x: { key: "spanLength", default: 90 }, y: { key: "valleyDepth", default: 5.5 }, z: { key: "pathBend", default: 3.2 } } });
+attachCurveEditor("pcg-brick-wall", "砖墙基线", [[-3.2, 0, 0], [-1.1, 0, 0.15], [1.1, 0, 0.35], [3.2, 0, 0.48]], { scale: { x: { key: "length", default: 6.4 }, z: { key: "curveDepth", default: 0.48 } } });
+attachCurveEditor("pcg-palisade-wall", "木栅围合边界", [[-4.8, 0, -3.2], [0, 0, -4.4], [4.8, 0, -3.2], [5.5, 0, 0], [4.8, 0, 3.2], [0, 0, 4.4], [-4.8, 0, 3.2], [-5.5, 0, 0]], { closed: true, scale: { x: { key: "length", default: 30 }, z: { key: "length", default: 30 } } });
+attachCurveEditor("spline-stone-wall", "石墙基线", [[-9, 0, 0], [-3, 0.6, 3.2], [3, -0.4, -1.4], [9, 0.2, 0.6]], { scale: { x: { key: "length", default: 18 }, y: { key: "terrain", default: 0.8 }, z: { key: "bend", default: 3.2 } } });
+attachCurveEditor("realistic-spline-path", "岩石路径中心线", [[-17, 0, 0], [-11, 0.8, 3.2], [-5, 1.6, -2], [1, 1.2, 4.8], [7, 0.4, -3.2], [12, 0.8, 2], [17, 0, 0]], { scale: { x: { key: "length", default: 34 }, y: { key: "elevation", default: 2.2 }, z: { key: "meander", default: 4.8 } } });
+attachCurveEditor("pcg-spline-curb-sidewalk", "道路样条", [[-17, 0, -2], [-10, 0, -6], [-3, 0, -3], [5, 0, 5], [12, 0, 7], [17, 0, 2]], { scale: { x: { key: "length", default: 34 }, z: { key: "bend", default: 7 } } });
+attachCurveEditor("pcg-curb-boulevard", "林荫道路样条", [[-23, 0, -2.7], [-15, 0, -3], [-6, 0, -1.9], [4, 0, 0.3], [14, 0, 2.7], [23, 0, 3]], { scale: { x: { key: "length", default: 46 }, z: { key: "bend", default: 8 } } });
+attachCurveEditor("pcg-curb-market-street", "商业街样条", [[-19, 0, -1.7], [-14, 0, -3.6], [-6, 0, -3.2], [1, 0, 1.7], [8, 0, 4], [14, 0, 1.9], [19, 0, -1.1]], { scale: { x: { key: "length", default: 38 }, z: { key: "bend", default: 9.5 } } });
+attachCurveEditor("pcg-curb-riverside-walk", "滨河步道样条", [[-27, 0, -3.4], [-20, 0.05, -4.8], [-11, 0.1, -2.9], [-2, 0.16, 1], [8, 0.1, 4.1], [17, 0.05, 3.1], [27, 0, -0.6]], { scale: { x: { key: "length", default: 54 }, z: { key: "bend", default: 12 } } });
+attachCurveEditor("pcg-curb-civic-crescent", "市政广场样条", [[-22, 0, -0.7], [-18, 0, 3.9], [-11, 0, 8.1], [-2, 0, 10.4], [8, 0, 9.2], [17, 0, 5.3], [22, 0, 0]], { scale: { x: { key: "length", default: 44 }, z: { key: "bend", default: 14 } } });
+attachCurveEditor("procedural-river", "河道中心线", [[0, 0, -11.5], [2.8, 0, -7.5], [-3.2, 0, -3], [3.6, 0, 2], [-2.4, 0, 7], [0, 0, 11.5]], { scale: { x: { key: "meander", default: 3.8 }, z: { key: "size", default: 24 } } });
+attachCurveEditor("river-lake", "入湖河道中心线", [[-6.5, 0, -17.3], [-2.8, 0, -12], [-5.4, 0, -6.5], [0.6, 0, -1], [-1.2, 0, 2.2], [2.3, 0, 4.2]], { scale: { x: { key: "meander", default: 4.2 }, z: { key: "size", default: 36 } } });
+attachCurveEditor("pcg-biome-river", "湿地河道中心线", [[0, 0, -14.4], [2.3, 0, -9], [-2.8, 0, -3], [3, 0, 3], [-2.1, 0, 9], [0, 0, 14.4]], { scale: { x: { key: "meander", default: 3.2 }, z: { key: "size", default: 30 } } });
+attachCurveEditor("polygon-island", "岛屿海岸边界", [[-4.8, 0, -2.8], [-2.2, 0, -5], [2.5, 0, -4.6], [5, 0, -1.8], [4.3, 0, 3.1], [1.2, 0, 5], [-3.4, 0, 4.2], [-5.2, 0, 0.8]], { closed: true, scale: { x: { key: "size", default: 12 }, z: { key: "size", default: 12 } } });
+attachCurveEditor("titan-cable", "电杆锚点与悬垂路径", [[-18, 6, 0], [-6, 6.4, 0], [6, 5.9, 0], [18, 5.6, 0]], { scale: { x: { key: "span", default: 12 }, y: { key: "poleHeight", default: 6 } } });
+attachCurveEditor("waterfall", "瀑布落水纵断线", [[0, 8.72, -0.95], [0.18, 7.2, -0.7], [-0.16, 4.8, -0.1], [0.12, 2.2, 0.65], [0, 0.22, 1.02]], { scale: { y: { key: "height", default: 8.5 }, z: { key: "depth", default: 3.4 } } });
+attachCurveEditor("surface-sketch-vine", "藤蔓表面笔划", [[-2.35, 0.25, 0.4], [-1.8, 1.1, 0.4], [-2.1, 2.1, 0.4], [-1.1, 3.2, 0.4], [-0.5, 4.5, 0.4], [0.6, 5.1, 0.4]], { scale: { x: { key: "wallWidth", default: 6.5 }, y: { key: "wallHeight", default: 5.4 } } });
+
+attachSurfaceEditor("terrain-island", "岛屿地形控制面", 10, ["terrain"]);
+attachSurfaceEditor("lunar-crater-surface", "月面控制网格", 120, ["lunar_surface"]);
+attachSurfaceEditor("pcg-river-valley", "河谷控制网格", 26, ["river_valley_terrain", "river_valley_water"]);
+attachSurfaceEditor("terrain-layered", "分层地形控制网格", 24, ["terrain"]);
+attachSurfaceEditor("fterrain", "字段地形控制网格", 4, ["terrain"]);
+attachSurfaceEditor("cliff-panel-study", "崖壁控制网格", 14, ["cliff_panel_*"]);
+attachSurfaceEditor("rock-formation", "岩体控制网格", 4, ["rock"]);
+attachSurfaceEditor("stylized-rock-island", "浮岛岩体控制网格", 6.4, ["cliff_faces", "recessed_rock", "underside_spires", "terrace_rocks", "grass_caps"]);
+attachSurfaceEditor("easy-cliff-rock", "岩山群控制网格", 13, ["cliff_*"]);
+attachSurfaceEditor("houdini-cave", "洞体控制网格", 12, ["caveShell"]);
+attachSurfaceEditor("ue5-pcg-cave", "洞网控制网格", 28, ["caveShell", "floorRocks", "wallRocks", "ceilingRocks"]);
+attachSurfaceEditor("grasshopper-landscape-contour", "等高线地形控制网格", 3.4, ["contour_*"]);
+attachSurfaceEditor("grasshopper-reaction-diffusion", "反应扩散浮雕控制网格", 3.4, ["reaction_diffusion_plate"]);
+attachSurfaceEditor("pcg-cell-map", "六边格群岛控制网格", 10, ["cell_map_coast", "cell_cluster_*"]);
+attachSurfaceEditor("pcg-world", "生物群系世界控制网格", 12, ["terrain", "resources"]);
+attachSurfaceEditor("pcg-vegetation", "植被地形控制网格", 18, ["terrain", "trees", "rocks"]);
+attachSurfaceEditor("stylized-ocean-environment", "海洋大形控制网格", 72, ["stylized_ocean_surface"]);
+attachSurfaceEditor("meadow", "草地控制网格", 4, ["ground", "grass", "rocks"]);
+attachSurfaceEditor("rock-pile", "岩石堆控制网格", 5, ["rocks"]);
+attachSurfaceEditor("pcg-rock-cluster", "岩石群落控制网格", 14, ["*"]);
+
+const EXTENDED_SURFACE_EDITORS = Object.freeze([
+  ["roof-generator", "屋面轮廓控制面", 12],
+  ["building", "建筑体量控制面", 14],
+  ["procedural-building", "建筑体量控制面", 16],
+  ["sidefx-modular-house", "模块住宅体量控制面", 12],
+  ["houdini-lake-house", "湖畔住宅体量控制面", 16],
+  ["pcg-cartoon-house", "卡通住宅体量控制面", 11],
+  ["urban-artdeco", "装饰艺术塔楼体量控制面", 20],
+  ["urban-glass", "玻璃塔楼体量控制面", 20],
+  ["urban-brick", "砖砌公寓体量控制面", 20],
+  ["urban-office", "办公塔楼体量控制面", 20],
+  ["urban-brownstone", "褐石住宅体量控制面", 20],
+  ["urban-corporate", "企业塔楼体量控制面", 20],
+  ["japanese-street-building", "日式街屋体量控制面", 12],
+  ["hong-kong-cyber-house", "赛博街屋体量控制面", 10],
+  ["kowloon-cyber-courtyard", "九龙院落控制面", 40],
+  ["chinese-hall", "中式殿堂屋面控制面", 20],
+  ["cityblock", "城市街区控制面", 48],
+  ["city-district", "城区布局控制面", 80],
+  ["city-district-roadnet", "城区路网控制面", 100],
+  ["road-network", "道路网络控制面", 96],
+  ["citygen-road-growth", "道路生长控制面", 100],
+  ["citygen-residential", "住宅路网控制面", 100],
+  ["citygen-downtown", "核心城区路网控制面", 100],
+  ["watabou-city", "河流聚落控制面", 80],
+  ["residential-community", "社区路网控制面", 90],
+  ["roman-town", "罗马街区控制面", 60],
+  ["townscaper-harbour", "港湾聚落控制面", 30],
+  ["chinese-townscaper", "中式水城控制面", 32],
+  ["mountain-village", "山村地貌控制面", 70],
+  ["town-scene", "山地城镇控制面", 80],
+  ["procedural-game-map", "游戏地图控制面", 90],
+  ["multilevel-interchange", "多层立交控制面", 190],
+  ["intersection", "道路交叉口控制面", 44],
+  ["streetscene", "街道场景控制面", 60],
+  ["pcg-forest", "森林地表控制面", 36],
+  ["forest-floor", "林下地表控制面", 12],
+  ["ecosystem-art-tool", "生态地表控制面", 54],
+  ["ecosystem-brush-editor", "生态笔刷区域控制面", 54],
+  ["biome-blend-world", "生物群系混合控制面", 54],
+  ["ecosystem-bake-pipeline", "生态烘焙区域控制面", 54],
+  ["ecological-association", "生态关联区域控制面", 54],
+  ["ecosystem-lod-streaming", "生态流送区域控制面", 54],
+  ["terrain-ecology-feedback", "地形生态反馈控制面", 54],
+  ["ecosystem-succession", "生态演替区域控制面", 54],
+  ["dual-grid-forest-camp", "森林营地控制面", 34],
+  ["dual-grid-river-mill", "河谷磨坊控制面", 34],
+]);
+
+for (const [id, label, size] of EXTENDED_SURFACE_EDITORS) {
+  attachSurfaceEditor(id, label, size, ["*"]);
+}
+
+const SPINE_EDIT_MODEL_IDS = Object.freeze([...new Set([
+  "bonsai", "veg-tree", "veg-growing-tree", "veg-stylized-tree",
+  "veg-authored-broadleaf", "veg-trellis-fruit", "veg-column-cypress",
+  "veg-conifer", "veg-palm", "titan-tree", "street-tree",
+  ...Object.keys(PROC_MODELS).filter((id) => id.startsWith("speedtree-")
+    && PROC_MODELS[id]?.schema?.some((entry) => entry.key === "height")),
+])]);
+
+for (const id of SPINE_EDIT_MODEL_IDS) attachSpineEditor(id);
+
+export const SPATIAL_EDIT_AUDIT = Object.freeze({
+  registryCount: Object.keys(PROC_MODELS).length,
+  curveModels: Object.freeze([
+    "drawable-path-fence", "scatter-path-lights", "road", "freeway", "railway", "viaduct",
+    "suspension-bridge", "pcg-brick-wall", "pcg-palisade-wall", "spline-stone-wall",
+    "realistic-spline-path", "pcg-spline-curb-sidewalk", "pcg-curb-boulevard",
+    "pcg-curb-market-street", "pcg-curb-riverside-walk", "pcg-curb-civic-crescent",
+    "procedural-river", "river-lake", "pcg-biome-river",
+    "titan-cable", "waterfall", "surface-sketch-vine",
+    ...SPINE_EDIT_MODEL_IDS,
+  ]),
+  regionModels: Object.freeze(["masked-region-grove", "pcg-palisade-wall", "polygon-island"]),
+  surfaceModels: Object.freeze([
+    "terrain-island", "lunar-crater-surface", "pcg-river-valley",
+    "terrain-layered", "fterrain", "cliff-panel-study",
+    "rock-formation", "stylized-rock-island", "easy-cliff-rock",
+    "houdini-cave", "ue5-pcg-cave", "grasshopper-landscape-contour",
+    "grasshopper-reaction-diffusion", "pcg-cell-map", "pcg-world",
+    "pcg-vegetation", "stylized-ocean-environment", "meadow",
+    "rock-pile", "pcg-rock-cluster",
+    ...EXTENDED_SURFACE_EDITORS.map(([id]) => id),
+  ]),
+});
 
 export function defaultParams(model) {
   const p = {};

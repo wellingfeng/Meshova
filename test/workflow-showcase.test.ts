@@ -20,6 +20,18 @@ describe("Workflow showcase models", () => {
     expect(parts.map((part) => part.label)).toEqual(["围栏立柱", "围栏横杆"]);
   });
 
+  it("路径绑定的插值类型驱动真实几何", () => {
+    const points = [[0, 0, 0], [2, 0, 4], [4, 0, -4], [6, 0, 0]] as const;
+    const params = { postSpacing: 0.5, postHeight: 1.2, railRadius: 0.05 };
+    const catmull = buildDrawableFenceParts(params, {
+      bindings: { path: { kind: "curve", points, curveType: "catmull-rom", subdivisions: 8 } },
+    });
+    const bezier = buildDrawableFenceParts(params, {
+      bindings: { path: { kind: "curve", points, curveType: "bezier", subdivisions: 8 } },
+    });
+    expect(catmull[1]!.mesh.positions).not.toEqual(bezier[1]!.mesh.positions);
+  });
+
   it("区域林地使用确定性散布", () => {
     const params = { density: 0.7, spacing: 0.7, treeScale: 1, seed: 42 };
     const first = buildRegionGroveParts(params);

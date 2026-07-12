@@ -30,6 +30,7 @@ type RGB = [number, number, number];
 export type ProceduralWallStyle = "palisade" | "stone";
 
 export interface ProceduralWallParams {
+  readonly controlPoints?: ReadonlyArray<Vec3>;
   style: ProceduralWallStyle;
   length: number;
   bend: number;
@@ -101,6 +102,9 @@ const MORTAR: RGB = [0.11, 0.115, 0.105];
 function resolveParams(params: Partial<ProceduralWallParams>): ProceduralWallParams {
   const base = { ...PROCEDURAL_WALL_DEFAULTS, ...params };
   return {
+    ...(base.controlPoints && base.controlPoints.length >= 2
+      ? { controlPoints: base.controlPoints.map((point) => vec3(point.x, point.y, point.z)) }
+      : {}),
     style: base.style === "stone" ? "stone" : "palisade",
     length: Math.max(4, base.length),
     bend: clamp(base.bend, -base.length * 0.45, base.length * 0.45),
@@ -117,6 +121,12 @@ function resolveParams(params: Partial<ProceduralWallParams>): ProceduralWallPar
 }
 
 function makeGuide(params: ProceduralWallParams): Curve {
+  if (params.controlPoints && params.controlPoints.length >= 2) {
+    return polyline(
+      params.controlPoints.map((point) => vec3(point.x, point.y, point.z)),
+      params.enclosure,
+    );
+  }
   if (params.enclosure) {
     const ratio = 0.68;
     const unitCircumference = Math.PI * (3 * (1 + ratio) - Math.sqrt((3 + ratio) * (1 + 3 * ratio)));
@@ -301,9 +311,12 @@ function buildGate(layout: ProceduralWallLayout): { wood: Mesh[]; cloth: Mesh[];
     rotate: vec3(0, center.yaw, 0),
     translate: add(bannerCenter, scale(center.normal, params.thickness * 0.7)),
   }));
-  trim.push(transform(box(params.gateWidth * 0.07, params.height * 0.42, 0.045), {
-    rotate: vec3(0, center.yaw, 0),
-    translate: add(bannerCenter, scale(center.normal, params.thickness * 0.74)),
+  trim.push(transform(box(params.gateWidth * 0.07, params.height * 0.38, 0.045), {
+    rotate: vec3(0, center.yaw + 0.01, 0),
+    translate: add(
+      add(bannerCenter, vec3(0, 0.025, 0)),
+      scale(center.normal, params.thickness * 0.74 + 0.04),
+    ),
   }));
   return { wood, cloth, trim };
 }
@@ -358,12 +371,15 @@ function buildPalisade(layout: ProceduralWallLayout): NamedPart[] {
     }));
     const clothCenter = add(poleCenter, add(scale(frame.tangent, params.height * 0.16), vec3(0, params.height * 1.08, 0)));
     bannerCloth.push(transform(box(params.height * 0.34, params.height * 0.52, 0.03), {
-      rotate: vec3(0, frame.yaw, 0),
+      rotate: vec3(0, frame.yaw + 0.01, 0),
       translate: clothCenter,
     }));
-    bannerTrim.push(transform(box(params.height * 0.055, params.height * 0.52, 0.04), {
+    bannerTrim.push(transform(box(params.height * 0.055, params.height * 0.48, 0.04), {
       rotate: vec3(0, frame.yaw, 0),
-      translate: add(clothCenter, scale(frame.tangent, params.height * 0.02)),
+      translate: add(
+        add(clothCenter, scale(frame.tangent, params.height * 0.02)),
+        add(scale(frame.normal, 0.035), vec3(0, 0.025, 0)),
+      ),
     }));
   }
 

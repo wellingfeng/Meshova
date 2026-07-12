@@ -35,7 +35,24 @@ export interface WorkflowAssetSlot {
   readonly default?: unknown;
 }
 
-export type WorkflowBindingKind = "surface" | "curve" | "region" | "selection" | "point-cloud";
+export type WorkflowBindingKind = "surface" | "curve" | "curve-graph" | "region" | "selection" | "point-cloud";
+
+export interface WorkflowBindingEditor {
+  readonly rows?: number;
+  readonly columns?: number;
+  readonly plane?: "xy" | "xz" | "yz" | "camera";
+  readonly curveType?: "polyline" | "catmull-rom" | "bezier" | "b-spline";
+  readonly curveTypes?: ReadonlyArray<"polyline" | "catmull-rom" | "bezier" | "b-spline">;
+  readonly subdivisions?: number;
+  readonly tension?: number;
+  readonly degree?: number;
+  readonly tangentMode?: "auto" | "aligned" | "mirrored" | "free" | "corner";
+  readonly tangentModes?: ReadonlyArray<"auto" | "aligned" | "mirrored" | "free" | "corner">;
+  readonly arcLength?: boolean;
+  readonly sampleCount?: number;
+  readonly attributes?: ReadonlyArray<"width" | "height" | "tilt" | "twist" | "material">;
+  readonly surfaceInterpolation?: "bilinear" | "b-spline";
+}
 
 export interface WorkflowBindingSlot {
   readonly key: string;
@@ -43,6 +60,7 @@ export interface WorkflowBindingSlot {
   readonly kind: WorkflowBindingKind;
   readonly required?: boolean;
   readonly default?: unknown;
+  readonly editor?: WorkflowBindingEditor;
 }
 
 export interface WorkflowMetadata {

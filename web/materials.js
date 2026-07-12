@@ -13,13 +13,55 @@ import {
   SBS_REPRO,
   SBS_PARAM_SCHEMA,
   defaultSbsParams,
+  BILIBILI_MATERIALS,
+  BILIBILI_MATERIAL_DEFINITIONS,
+  BILIBILI_MATERIAL_PARAM_SCHEMA,
+  defaultBilibiliMaterialParams,
+  URBAN_MATERIALS,
+  URBAN_MATERIAL_DEFINITIONS,
+  URBAN_MATERIAL_PARAM_SCHEMA,
+  defaultUrbanMaterialParams,
+  bakeUrbanMaterial as bakeUrbanMaterialTexture,
+  ADVANCED_MATERIALS,
+  ADVANCED_MATERIAL_DEFINITIONS,
+  ADVANCED_MATERIAL_PARAM_SCHEMA,
+  defaultAdvancedMaterialParams,
+  THIRD_BATCH_MATERIALS,
+  THIRD_BATCH_MATERIAL_DEFINITIONS,
+  THIRD_BATCH_MATERIAL_PARAM_SCHEMA,
+  defaultThirdBatchMaterialParams,
+  FOURTH_BATCH_MATERIALS,
+  FOURTH_BATCH_MATERIAL_DEFINITIONS,
+  FOURTH_BATCH_MATERIAL_PARAM_SCHEMA,
+  defaultFourthBatchMaterialParams,
+  FIFTH_BATCH_MATERIALS,
+  FIFTH_BATCH_MATERIAL_DEFINITIONS,
+  FIFTH_BATCH_MATERIAL_PARAM_SCHEMA,
+  defaultFifthBatchMaterialParams,
+  SIXTH_BATCH_MATERIALS,
+  SIXTH_BATCH_MATERIAL_DEFINITIONS,
+  SIXTH_BATCH_MATERIAL_PARAM_SCHEMA,
+  defaultSixthBatchMaterialParams,
+  SEVENTH_BATCH_MATERIALS,
+  SEVENTH_BATCH_MATERIAL_DEFINITIONS,
+  SEVENTH_BATCH_MATERIAL_PARAM_SCHEMA,
+  defaultSeventhBatchMaterialParams,
+  EIGHTH_BATCH_MATERIALS,
+  EIGHTH_BATCH_MATERIAL_DEFINITIONS,
+  EIGHTH_BATCH_MATERIAL_PARAM_SCHEMA,
+  defaultEighthBatchMaterialParams,
+  NINTH_BATCH_MATERIALS,
+  NINTH_BATCH_MATERIAL_DEFINITIONS,
+  NINTH_BATCH_MATERIAL_PARAM_SCHEMA,
+  defaultNinthBatchMaterialParams,
+  OPENPBR_REALTIME_WGSL,
   buildSurface,
   resolvePhysical,
   resolveWaterSurfaceParams,
   SURFACE_LABELS,
   SURFACE_PARAM_SCHEMA,
   defaultSurfaceParams,
-} from "/dist/index.js?v=water7";
+} from "/dist/index.js?v=volume10";
 
 /** Convert a Meshova float TextureBuffer to a three DataTexture. */
 function bufferToDataTexture(tex, { srgb = false } = {}) {
@@ -57,16 +99,116 @@ export function bakeStandardMaterial(presetName, size = 256, params = {}) {
 
 /** Build a three material from an already-assembled Meshova Material. */
 function materialFromMeshovaMaterial(m) {
+  const maximumEmission = maximumChannel(m.emission);
   return new THREE.MeshStandardMaterial({
     map: bufferToDataTexture(m.baseColor, { srgb: true }),
     metalnessMap: bufferToDataTexture(m.metallic),
     roughnessMap: bufferToDataTexture(m.roughness),
     normalMap: bufferToDataTexture(m.normal),
     aoMap: bufferToDataTexture(m.ao),
+    emissiveMap: bufferToDataTexture(m.emission, { srgb: true }),
+    emissive: new THREE.Color(maximumEmission > 0 ? 0xffffff : 0x000000),
+    emissiveIntensity: maximumEmission > 0 ? 1.6 : 1,
     metalness: 1.0,
     roughness: 1.0,
     normalScale: new THREE.Vector2(1, 1),
   });
+}
+
+function maximumChannel(tex) {
+  let maximum = 0;
+  for (const value of tex.data) maximum = Math.max(maximum, value);
+  return maximum;
+}
+
+function minimumChannel(tex) {
+  let minimum = 1;
+  for (const value of tex.data) minimum = Math.min(minimum, value);
+  return minimum;
+}
+
+function anisotropyToDataTexture(strength, rotation) {
+  const rgba = new Uint8Array(strength.width * strength.height * 4);
+  for (let pixel = 0; pixel < strength.width * strength.height; pixel++) {
+    const angle = (rotation.data[pixel] ?? 0) * Math.PI * 2;
+    rgba[pixel * 4] = Math.round((Math.cos(angle) * 0.5 + 0.5) * 255);
+    rgba[pixel * 4 + 1] = Math.round((Math.sin(angle) * 0.5 + 0.5) * 255);
+    rgba[pixel * 4 + 2] = Math.round(Math.max(0, Math.min(1, strength.data[pixel] ?? 0)) * 255);
+    rgba[pixel * 4 + 3] = 255;
+  }
+  const texture = new THREE.DataTexture(rgba, strength.width, strength.height, THREE.RGBAFormat);
+  texture.colorSpace = THREE.NoColorSpace;
+  texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+  texture.needsUpdate = true;
+  return texture;
+}
+
+function colorStrengthToDataTexture(color, strength) {
+  const rgba = new Uint8Array(strength.width * strength.height * 4);
+  for (let pixel = 0; pixel < strength.width * strength.height; pixel++) {
+    const amount = Math.max(0, Math.min(1, strength.data[pixel] ?? 0));
+    rgba[pixel * 4] = Math.round(Math.max(0, Math.min(1, color.data[pixel * 3] ?? 0)) * amount * 255);
+    rgba[pixel * 4 + 1] = Math.round(Math.max(0, Math.min(1, color.data[pixel * 3 + 1] ?? 0)) * amount * 255);
+    rgba[pixel * 4 + 2] = Math.round(Math.max(0, Math.min(1, color.data[pixel * 3 + 2] ?? 0)) * amount * 255);
+    rgba[pixel * 4 + 3] = 255;
+  }
+  const texture = new THREE.DataTexture(rgba, strength.width, strength.height, THREE.RGBAFormat);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+  texture.needsUpdate = true;
+  return texture;
+}
+
+function materialFromMeshovaExtendedMaterial(material) {
+  const maximumTransmission = maximumChannel(material.transmission);
+  const maximumAnisotropy = maximumChannel(material.anisotropy);
+  const minimumOpacity = minimumChannel(material.opacity);
+  const maximumEmission = maximumChannel(material.emission);
+  const layered = material.clearcoat && material.sheen && material.iridescence;
+  const parameters = {
+    map: bufferToDataTexture(material.baseColor, { srgb: true }),
+    metalnessMap: bufferToDataTexture(material.metallic),
+    roughnessMap: bufferToDataTexture(material.roughness),
+    normalMap: bufferToDataTexture(material.normal),
+    aoMap: bufferToDataTexture(material.ao),
+    emissiveMap: bufferToDataTexture(material.emission),
+    alphaMap: bufferToDataTexture(material.opacity),
+    transmissionMap: bufferToDataTexture(material.transmission),
+    anisotropyMap: anisotropyToDataTexture(material.anisotropy, material.anisotropyRotation),
+    metalness: 1,
+    roughness: 1,
+    normalScale: new THREE.Vector2(1, 1),
+    emissive: new THREE.Color(maximumEmission > 0 ? 0xffffff : 0x000000),
+    emissiveIntensity: material.physical.emissiveIntensity,
+    transmission: maximumTransmission > 0.001 ? 1 : 0,
+    anisotropy: maximumAnisotropy > 0.001 ? 1 : 0,
+    ior: material.physical.ior,
+    thickness: material.physical.thickness,
+    dispersion: material.physical.dispersion ?? 0,
+    transparent: minimumOpacity < 0.999 || maximumTransmission > 0.001,
+    alphaTest: material.physical.alphaCutoff,
+    side: material.physical.alphaCutoff > 0 ? THREE.DoubleSide : THREE.FrontSide,
+  };
+  if (layered) {
+    parameters.clearcoatMap = bufferToDataTexture(material.clearcoat);
+    parameters.clearcoatRoughnessMap = bufferToDataTexture(material.clearcoatRoughness);
+    parameters.clearcoat = material.physical.clearcoat;
+    parameters.clearcoatRoughness = material.physical.clearcoatRoughness;
+    parameters.sheenColorMap = colorStrengthToDataTexture(material.sheenColor, material.sheen);
+    parameters.sheen = material.physical.sheen;
+    parameters.sheenColor = new THREE.Color(0xffffff);
+    parameters.sheenRoughness = material.physical.sheenRoughness;
+    parameters.thicknessMap = bufferToDataTexture(material.thicknessMap);
+    parameters.thickness = material.physical.thickness;
+    parameters.iridescenceMap = bufferToDataTexture(material.iridescence);
+    parameters.iridescenceThicknessMap = bufferToDataTexture(material.iridescenceThickness);
+    parameters.iridescence = material.physical.iridescence;
+    parameters.iridescenceIOR = material.physical.iridescenceIor;
+    parameters.iridescenceThicknessRange = [100, 900];
+    parameters.attenuationDistance = material.physical.attenuationDistance;
+    parameters.attenuationColor = new THREE.Color(...material.physical.attenuationColor);
+  }
+  return new THREE.MeshPhysicalMaterial(parameters);
 }
 
 /**
@@ -86,6 +228,236 @@ export { PRESET_PARAM_SCHEMA, defaultMatParams };
 /** SBS reproduction recipe names (field presets keyed by reference folder). */
 export const SBS_REPRO_NAMES = Object.keys(SBS_REPRO);
 export { SBS_PARAM_SCHEMA, defaultSbsParams };
+export const BILIBILI_MATERIAL_NAMES = Object.keys(BILIBILI_MATERIALS);
+export {
+  BILIBILI_MATERIAL_DEFINITIONS,
+  BILIBILI_MATERIAL_PARAM_SCHEMA,
+  defaultBilibiliMaterialParams,
+};
+export const URBAN_MATERIAL_NAMES = Object.keys(URBAN_MATERIALS);
+export {
+  URBAN_MATERIAL_DEFINITIONS,
+  URBAN_MATERIAL_PARAM_SCHEMA,
+  defaultUrbanMaterialParams,
+};
+export const ADVANCED_MATERIAL_NAMES = Object.keys(ADVANCED_MATERIALS);
+export {
+  ADVANCED_MATERIAL_DEFINITIONS,
+  ADVANCED_MATERIAL_PARAM_SCHEMA,
+  defaultAdvancedMaterialParams,
+};
+export const THIRD_BATCH_MATERIAL_NAMES = Object.keys(THIRD_BATCH_MATERIALS);
+export {
+  THIRD_BATCH_MATERIAL_DEFINITIONS,
+  THIRD_BATCH_MATERIAL_PARAM_SCHEMA,
+  defaultThirdBatchMaterialParams,
+};
+export const FOURTH_BATCH_MATERIAL_NAMES = Object.keys(FOURTH_BATCH_MATERIALS);
+export {
+  FOURTH_BATCH_MATERIAL_DEFINITIONS,
+  FOURTH_BATCH_MATERIAL_PARAM_SCHEMA,
+  defaultFourthBatchMaterialParams,
+};
+export const FIFTH_BATCH_MATERIAL_NAMES = Object.keys(FIFTH_BATCH_MATERIALS);
+export {
+  FIFTH_BATCH_MATERIAL_DEFINITIONS,
+  FIFTH_BATCH_MATERIAL_PARAM_SCHEMA,
+  defaultFifthBatchMaterialParams,
+};
+export const SIXTH_BATCH_MATERIAL_NAMES = Object.keys(SIXTH_BATCH_MATERIALS);
+export {
+  SIXTH_BATCH_MATERIAL_DEFINITIONS,
+  SIXTH_BATCH_MATERIAL_PARAM_SCHEMA,
+  defaultSixthBatchMaterialParams,
+};
+export const SEVENTH_BATCH_MATERIAL_NAMES = Object.keys(SEVENTH_BATCH_MATERIALS);
+export {
+  SEVENTH_BATCH_MATERIAL_DEFINITIONS,
+  SEVENTH_BATCH_MATERIAL_PARAM_SCHEMA,
+  defaultSeventhBatchMaterialParams,
+};
+export const EIGHTH_BATCH_MATERIAL_NAMES = Object.keys(EIGHTH_BATCH_MATERIALS);
+export {
+  EIGHTH_BATCH_MATERIAL_DEFINITIONS,
+  EIGHTH_BATCH_MATERIAL_PARAM_SCHEMA,
+  defaultEighthBatchMaterialParams,
+};
+export const NINTH_BATCH_MATERIAL_NAMES = Object.keys(NINTH_BATCH_MATERIALS);
+export {
+  NINTH_BATCH_MATERIAL_DEFINITIONS,
+  NINTH_BATCH_MATERIAL_PARAM_SCHEMA,
+  defaultNinthBatchMaterialParams,
+};
+
+/**
+ * User-facing material taxonomy. Categories describe where a material is used,
+ * never which tutorial, batch, or implementation produced it.
+ */
+export const MATERIAL_USE_CATEGORIES = [
+  {
+    id: "metal-industrial",
+    label: "金属与工业",
+    names: [
+      "rustyMetal", "corrugatedMetal", "manholeCover", "bakedSmartMaterial", "controlPanel", "Metal_Knurled_01", "Metal_Knurled_02", "Metal_Knurled_03",
+      "Tiles_Metallic_01", "stylizedCoins", "sciFiIndustrialPanel", "brushedMetalGrille",
+      "damagedPaintedMetal", "machinedBrushedMetal", "sciFiHardSurfacePanel",
+      "sciFiHullHeightSystem",
+      "sciFiHullMaterialSystem",
+      "layeredAutomotivePaint", "reactionPatinatedCopper",
+      "clearcoatCarbonFiber", "etchedDamascusSteel", "weldedHeatTintSteel",
+      "galvanizedSpangleSteel", "powderCoatedMetal",
+      "marineCorrodedSteel",
+      "contactPolishedBrass", "chippedPaintedToolSteel", "seasonedCastIronCookware",
+      "biofouledShipHull", "rainPatinatedCopperRoof",
+    ],
+  },
+  {
+    id: "wood-bamboo",
+    label: "木材与竹材",
+    names: [
+      "wood", "Wood_Parquet_01", "Wood_Parquet_02", "Wood_Base_01",
+      "Stylized_03_Wood_Planks", "Wood_OBS_01", "stylizedWoodPlanks", "redWoodPlanks",
+      "bambooBlind", "bambooRaft", "bamboo", "bambooBasket", "stylizedBark",
+      "stylizedWood", "treeBarkRings",
+      "thermallyCharredWood",
+      "laminatedPlywood",
+      "trafficPolishedWoodStairs",
+      "woodMaterialSystem",
+    ],
+  },
+  {
+    id: "ground-road",
+    label: "地面与道路",
+    names: [
+      "tileFloor", "Tiles_01", "Tiles_04", "Tiles_02", "earthyGround", "floorTiles",
+      "stylizedFloorTilesA", "stylizedRoad", "realisticSteps", "stylizedFloorTilesB",
+      "urbanGroundKit", "wetDrainConcrete", "wornAsphaltRoad",
+      "tidalBeachSediment",
+      "compactedSnowRuts", "hangarOilStainedFloor",
+      "trafficWornSafetyFloor",
+    ],
+  },
+  {
+    id: "wall-facade",
+    label: "墙面与建筑饰面",
+    names: [
+      "brickWall", "Wall_KitchenTiles_01", "Stylized_01_Bricks", "Wall_PaintedRough_01",
+      "Facades_07", "facadeMaterialPipeline", "Wall_Walpaper_01", "Concrete_Decorative_01", "realisticConcreteWallA",
+      "realisticConcreteWallB", "plasterWall", "stylizedStoneWall", "stylizedRedWall",
+      "stylizedBrickWall", "stylizedMarble", "damagedPlasterBrick", "damagedPlasterSystem", "floodFillBrickWall",
+      "continuousVeinMarble", "spalledRebarConcrete",
+      "crackleCeramicGlaze", "ancientWeatheredWall",
+      "rainWashedConcrete", "layeredGraffitiWall",
+      "rustBleedRebarConcrete",
+    ],
+  },
+  {
+    id: "roof-tiles",
+    label: "屋顶与瓦片",
+    names: ["stylizedRoofTilesA", "stylizedRoofTilesB", "layeredRoofTiles"],
+  },
+  {
+    id: "atmosphere-water",
+    label: "大气、海洋与体积",
+    names: ["evolvingCumulusCloud", "combustionFireAndSmoke", "spectralOceanSeafoam"],
+  },
+  {
+    id: "natural-surface",
+    label: "岩石与自然地表",
+    names: [
+      "terrain", "Stylized_06_Sand", "Stylized_08_Snow", "simpleRock", "volcanicRock",
+      "meteorSurface", "stylizedGround", "stylizedDesert", "stylizedSnow", "forestGround",
+      "layeredCliff", "meltingSnow", "wetMudPuddles", "coolingLava",
+      "sceneAwareMossyRock", "slopeHeightTerrainBlend", "windErodedSandstone", "stylizedCellRock",
+      "foldedErodedRockStrata", "deformableWetSandMud",
+    ],
+  },
+  {
+    id: "vegetation-organic",
+    label: "植被与有机表面",
+    names: ["Stylized_15_Grass", "stylizedGrass", "vascularLeaf", "competitiveBiologicalColony", "organicCellScales", "displacedBarkMossGrowth"],
+  },
+  {
+    id: "textile-soft",
+    label: "织物、皮革与软装",
+    names: ["plushFur", "stylizedBurlap", "stylizedCarpet", "wovenFabric", "wovenFabricSystem", "agedLeather", "directionalVelvetSilk", "compressedVehicleLeather", "dualLobeHumanHair", "directionalDenseFur", "geometricWovenYarn", "anisotropicLayeredFeather"],
+  },
+  {
+    id: "glass-transparent",
+    label: "玻璃、冰与透明材质",
+    names: ["glassBlocks", "framedWindow", "fracturedGlacierIce", "translucentJadeWax", "dispersiveCutGem", "solidOpticalGlass", "tintedFlowingLiquid", "multiscaleCellularFoam", "iridescentSoapBubbles", "compactedSnowIceCrust", "flowingMoltenGlass"],
+  },
+  {
+    id: "plastic-packaging",
+    label: "塑料与包装",
+    names: ["Plastic_01", "Plastic_02", "Plastic_03", "Plastic_04", "Plastic_BubbleWrap_01", "uvAgedPlastic", "fibrousAbsorbentPaper", "layeredCorrugatedCardboard"],
+  },
+  {
+    id: "architectural-components",
+    label: "建筑构件材质",
+    names: ["stylizedColumn", "stylizedStoneColumn", "trimSheetPipeline"],
+  },
+  {
+    id: "signage-decals",
+    label: "标识与贴花",
+    names: ["decalGlyphSystem"],
+  },
+  {
+    id: "objects-decoration",
+    label: "器物与装饰",
+    names: ["ceramic", "lanternPaper", "ornamentalPattern", "nacreOilFilm", "holographicDiffractionFilm", "kilnFiredClay", "limescaleCeramicBasin"],
+  },
+  {
+    id: "character-biological",
+    label: "角色与生物表面",
+    names: ["Skin_02", "Skin_03", "layeredHumanSkin", "anatomicalWetEye"],
+  },
+  {
+    id: "food",
+    label: "食品",
+    names: ["Food_Rice_01"],
+  },
+  {
+    id: "surface-contamination",
+    label: "污染与湿痕",
+    names: ["weatherStack", "contaminatedCondensationSurface", "wornMudTireRubber"],
+  },
+];
+
+export const ALL_MATERIAL_NAMES = [
+  ...NINTH_BATCH_MATERIAL_NAMES,
+  ...EIGHTH_BATCH_MATERIAL_NAMES,
+  ...SEVENTH_BATCH_MATERIAL_NAMES,
+  ...SIXTH_BATCH_MATERIAL_NAMES,
+  ...FIFTH_BATCH_MATERIAL_NAMES,
+  ...FOURTH_BATCH_MATERIAL_NAMES,
+  ...THIRD_BATCH_MATERIAL_NAMES,
+  ...ADVANCED_MATERIAL_NAMES,
+  ...URBAN_MATERIAL_NAMES,
+  ...BILIBILI_MATERIAL_NAMES,
+  ...SBS_REPRO_NAMES,
+  ...PRESET_NAMES,
+  ...BUILDER_NAMES,
+];
+
+const materialUseCategoryByName = new Map();
+for (const category of MATERIAL_USE_CATEGORIES) {
+  for (const name of category.names) {
+    if (materialUseCategoryByName.has(name)) throw new Error(`material appears in multiple use categories: ${name}`);
+    materialUseCategoryByName.set(name, category);
+  }
+}
+const uncategorizedMaterialNames = ALL_MATERIAL_NAMES.filter((name) => !materialUseCategoryByName.has(name));
+const unknownCategorizedNames = [...materialUseCategoryByName.keys()].filter((name) => !ALL_MATERIAL_NAMES.includes(name));
+if (uncategorizedMaterialNames.length || unknownCategorizedNames.length) {
+  throw new Error(
+    `invalid material use taxonomy; uncategorized=${uncategorizedMaterialNames.join(",")}; unknown=${unknownCategorizedNames.join(",")}`,
+  );
+}
+
+export function materialUseCategory(name) {
+  return materialUseCategoryByName.get(name) ?? null;
+}
 
 /** True if `name` is a buffer-chain material builder rather than a field preset. */
 export function isBuilder(name) {
@@ -97,6 +469,46 @@ export function isSbsRepro(name) {
   return Object.prototype.hasOwnProperty.call(SBS_REPRO, name);
 }
 
+export function isBilibiliMaterial(name) {
+  return Object.prototype.hasOwnProperty.call(BILIBILI_MATERIALS, name);
+}
+
+export function isUrbanMaterial(name) {
+  return Object.prototype.hasOwnProperty.call(URBAN_MATERIALS, name);
+}
+
+export function isAdvancedMaterial(name) {
+  return Object.prototype.hasOwnProperty.call(ADVANCED_MATERIALS, name);
+}
+
+export function isThirdBatchMaterial(name) {
+  return Object.prototype.hasOwnProperty.call(THIRD_BATCH_MATERIALS, name);
+}
+
+export function isFourthBatchMaterial(name) {
+  return Object.prototype.hasOwnProperty.call(FOURTH_BATCH_MATERIALS, name);
+}
+
+export function isFifthBatchMaterial(name) {
+  return Object.prototype.hasOwnProperty.call(FIFTH_BATCH_MATERIALS, name);
+}
+
+export function isSixthBatchMaterial(name) {
+  return Object.prototype.hasOwnProperty.call(SIXTH_BATCH_MATERIALS, name);
+}
+
+export function isSeventhBatchMaterial(name) {
+  return Object.prototype.hasOwnProperty.call(SEVENTH_BATCH_MATERIALS, name);
+}
+
+export function isEighthBatchMaterial(name) {
+  return Object.prototype.hasOwnProperty.call(EIGHTH_BATCH_MATERIALS, name);
+}
+
+export function isNinthBatchMaterial(name) {
+  return Object.prototype.hasOwnProperty.call(NINTH_BATCH_MATERIALS, name);
+}
+
 /** Bake an SBS reproduction recipe into a three MeshStandardMaterial. */
 export function bakeSbsReproMaterial(name, size = 256, params = {}) {
   const fn = SBS_REPRO[name];
@@ -105,10 +517,110 @@ export function bakeSbsReproMaterial(name, size = 256, params = {}) {
   return materialFromMeshovaMaterial(m);
 }
 
+export function bakeBilibiliMaterial(name, size = 256, params = {}) {
+  const fn = BILIBILI_MATERIALS[name];
+  if (!fn) throw new Error("unknown bilibili material: " + name);
+  const m = materialFromFields(size, fn(params));
+  return materialFromMeshovaMaterial(m);
+}
+
+export function bakeUrbanMaterial(name, size = 256, params = {}) {
+  if (!URBAN_MATERIALS[name]) throw new Error("unknown urban material: " + name);
+  const m = bakeUrbanMaterialTexture(name, size, params);
+  return materialFromMeshovaMaterial(m);
+}
+
+export function bakeAdvancedMaterial(name, size = 256, params = {}) {
+  const fn = ADVANCED_MATERIALS[name];
+  if (!fn) throw new Error("unknown advanced material: " + name);
+  return materialFromMeshovaMaterial(fn(size, params));
+}
+
+export function bakeThirdBatchMaterial(name, size = 256, params = {}) {
+  const fn = THIRD_BATCH_MATERIALS[name];
+  if (!fn) throw new Error("unknown third batch material: " + name);
+  return materialFromMeshovaExtendedMaterial(fn(size, params));
+}
+
+export function bakeFourthBatchMaterial(name, size = 256, params = {}) {
+  const fn = FOURTH_BATCH_MATERIALS[name];
+  if (!fn) throw new Error("unknown fourth batch material: " + name);
+  return materialFromMeshovaExtendedMaterial(fn(size, params));
+}
+
+export function bakeFifthBatchMaterial(name, size = 256, params = {}) {
+  const fn = FIFTH_BATCH_MATERIALS[name];
+  if (!fn) throw new Error("unknown fifth batch material: " + name);
+  return materialFromMeshovaExtendedMaterial(fn(size, params));
+}
+
+export function bakeSixthBatchMaterial(name, size = 256, params = {}) {
+  const fn = SIXTH_BATCH_MATERIALS[name];
+  if (!fn) throw new Error("unknown sixth batch material: " + name);
+  return materialFromMeshovaExtendedMaterial(fn(size, params));
+}
+
+export function bakeSeventhBatchMaterial(name, size = 256, params = {}) {
+  const fn = SEVENTH_BATCH_MATERIALS[name];
+  if (!fn) throw new Error("unknown seventh batch material: " + name);
+  return materialFromMeshovaExtendedMaterial(fn(size, params));
+}
+
+export function bakeEighthBatchMaterial(name, size = 256, params = {}) {
+  const fn = EIGHTH_BATCH_MATERIALS[name];
+  if (!fn) throw new Error("unknown eighth batch material: " + name);
+  const source = fn(size, params);
+  const material = materialFromMeshovaExtendedMaterial(source);
+  // Eighth-batch materials are dielectric and non-emissive. Keep these as
+  // scalars in the WebGL fallback so transmission + iridescence stay under
+  // common 16-sampler limits. Height already contributes through normalMap;
+  // the full WebGPU WGSL still samples all 19 layers.
+  material.metalnessMap?.dispose();
+  material.metalnessMap = null;
+  material.metalness = 0;
+  material.emissiveMap?.dispose();
+  material.emissiveMap = null;
+  material.userData.openPbrWgsl = OPENPBR_REALTIME_WGSL;
+  material.userData.realtimeChannelCount = 19;
+  material.userData.worldScale = params.worldScale ?? 1;
+  return material;
+}
+
+export function bakeNinthBatchMaterial(name, size = 256, params = {}) {
+  const fn = NINTH_BATCH_MATERIALS[name];
+  if (!fn) throw new Error("unknown ninth batch material: " + name);
+  const source = fn(size, params);
+  const material = materialFromMeshovaExtendedMaterial(source);
+  material.metalnessMap?.dispose();
+  material.metalnessMap = null;
+  material.metalness = 0;
+  if (name !== "combustionFireAndSmoke" && name !== "flowingMoltenGlass") {
+    material.emissiveMap?.dispose();
+    material.emissiveMap = null;
+  }
+  material.userData.openPbrWgsl = OPENPBR_REALTIME_WGSL;
+  material.userData.volumeWgsl = source.ninthBatchRuntime.volumeWgsl;
+  material.userData.volumeReference = source.ninthBatchRuntime.volumeReference;
+  material.userData.displacementPlan = source.ninthBatchRuntime.displacement;
+  material.userData.runtimeMode = source.ninthBatchRuntime.mode;
+  material.userData.realtimeChannelCount = 19;
+  return material;
+}
+
 /** Bake any known material (preset, builder or SBS repro) by name. */
 export function bakeMaterial(name, size = 256, params = {}) {
   if (isBuilder(name)) return bakeBuilderMaterial(name, size, params);
   if (isSbsRepro(name)) return bakeSbsReproMaterial(name, size, params);
+  if (isBilibiliMaterial(name)) return bakeBilibiliMaterial(name, size, params);
+  if (isUrbanMaterial(name)) return bakeUrbanMaterial(name, size, params);
+  if (isAdvancedMaterial(name)) return bakeAdvancedMaterial(name, size, params);
+  if (isThirdBatchMaterial(name)) return bakeThirdBatchMaterial(name, size, params);
+  if (isFourthBatchMaterial(name)) return bakeFourthBatchMaterial(name, size, params);
+  if (isFifthBatchMaterial(name)) return bakeFifthBatchMaterial(name, size, params);
+  if (isSixthBatchMaterial(name)) return bakeSixthBatchMaterial(name, size, params);
+  if (isSeventhBatchMaterial(name)) return bakeSeventhBatchMaterial(name, size, params);
+  if (isEighthBatchMaterial(name)) return bakeEighthBatchMaterial(name, size, params);
+  if (isNinthBatchMaterial(name)) return bakeNinthBatchMaterial(name, size, params);
   return bakeStandardMaterial(name, size, params);
 }
 
@@ -240,6 +752,7 @@ export function bakeWaterSurface(surfaceRef, size = 256, fallbackColor = [0.1, 0
     shader.uniforms.uWaterDepthResolution = { value: new THREE.Vector2(1, 1) };
     shader.uniforms.uWaterCameraNear = { value: 0.1 };
     shader.uniforms.uWaterCameraFar = { value: 1000 };
+    shader.uniforms.uWaterReversedDepth = { value: 0 };
     shader.uniforms.uWaterDepthAvailable = { value: 0 };
     shader.uniforms.uWaterShallowColor = { value: new THREE.Color(...params.tint) };
     shader.uniforms.uWaterDeepColor = { value: new THREE.Color(...params.deepColor) };
@@ -299,6 +812,7 @@ uniform sampler2D uWaterSceneDepth;
 uniform vec2 uWaterDepthResolution;
 uniform float uWaterCameraNear;
 uniform float uWaterCameraFar;
+uniform float uWaterReversedDepth;
 uniform float uWaterDepthAvailable;
 uniform vec3 uWaterShallowColor;
 uniform vec3 uWaterDeepColor;
@@ -326,7 +840,10 @@ vec2 meshovaScreenUv = gl_FragCoord.xy / max(uWaterDepthResolution, vec2(1.0));
 float meshovaSceneDepth = unpackRGBAToDepth(texture2D(uWaterSceneDepth, meshovaScreenUv));
 float meshovaWaterDepth = meshovaWaterLinearDepth(gl_FragCoord.z);
 float meshovaBehindDepth = meshovaWaterLinearDepth(meshovaSceneDepth);
-float meshovaWaterColumn = meshovaSceneDepth >= 0.9999
+bool meshovaWaterBackground = uWaterReversedDepth > 0.5
+  ? meshovaSceneDepth <= 0.0001
+  : meshovaSceneDepth >= 0.9999;
+float meshovaWaterColumn = meshovaWaterBackground
   ? uWaterAttenuationDistance * 4.0
   : max(0.0, meshovaBehindDepth - meshovaWaterDepth);
 meshovaWaterColumn = mix(uWaterAttenuationDistance * 2.0, meshovaWaterColumn, uWaterDepthAvailable);

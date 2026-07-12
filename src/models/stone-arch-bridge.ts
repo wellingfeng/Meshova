@@ -167,7 +167,7 @@ export function buildStoneArchBridgeParts(
         facadePointsBySide.get(side)!.push(vec3(
           centerX - (p.archRadius + p.ringThickness / 2) * Math.cos(angle),
           p.springHeight + (p.archRadius + p.ringThickness / 2) * Math.sin(angle),
-          side * (p.depth / 2 + 0.035),
+          side * (p.depth / 2 + 0.09),
         ));
       }
       ringMeshes.push(profileSweep(

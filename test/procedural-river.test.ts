@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildProceduralRiverParts, scoreProceduralRiver } from "../src/index.js";
+import { buildProceduralRiverParts, scoreProceduralRiver, vec3 } from "../src/index.js";
 
 const compact = {
   resolution: 24,
@@ -81,5 +81,19 @@ describe("procedural river", () => {
     expect(water.positions.length).toBeGreaterThan(4);
     expect(water.positions.length % 2).toBe(0);
     expect(water.indices.length).toBe((water.positions.length - 2) * 3);
+  });
+
+  it("rebuilds the river and scatter from editable control points", () => {
+    const parts = buildProceduralRiverParts({
+      ...compact,
+      bankRocks: 0,
+      riverBoulders: 0,
+      trees: 0,
+      flowStreaks: 0,
+      controlPoints: [vec3(-5, 0, -11), vec3(-5, 0, 0), vec3(-5, 0, 11)],
+    });
+    const water = parts.find((part) => part.name === "procedural_river_water")!.mesh;
+    const averageX = water.positions.reduce((sum, point) => sum + point.x, 0) / water.positions.length;
+    expect(averageX).toBeCloseTo(-5, 1);
   });
 });

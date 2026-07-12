@@ -109,7 +109,7 @@ const errors = [];
 page.on("pageerror", (e) => errors.push(String(e)));
 page.on("console", (m) => { if (m.type() === "error") errors.push(m.text()); });
 
-await page.goto(base + "/", { waitUntil: "networkidle" });
+await page.goto(base + "/", { waitUntil: "domcontentloaded" });
 await page.addStyleTag({ content: "#critiqueBadge{display:none!important}" });
 await page.waitForFunction(() => !!window.__meshova, null, { timeout: 90000 });
 await page.evaluate(() => window.__meshovaReady);

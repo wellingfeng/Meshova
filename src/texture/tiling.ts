@@ -151,6 +151,116 @@ export function floodFillGradient(
   }
   return out;
 }
+
+export interface FloodFillHeightOptions extends FloodFillOptions {
+  seed?: number;
+  base?: number;
+  variation?: number;
+}
+
+/** Assign one deterministic height to each connected component. */
+export function floodFillHeight(
+  mask: TextureBuffer,
+  opts: FloodFillHeightOptions = {},
+): TextureBuffer {
+  const { labels, count, width, height } = labelComponents(mask, opts);
+  const seed = opts.seed ?? 0;
+  const base = clamp(opts.base ?? 0.5, 0, 1);
+  const variation = clamp(opts.variation ?? 0.5, 0, 1);
+  const values = new Float32Array(count + 1);
+  for (let component = 1; component <= count; component++) {
+    const hash = ((component * 2654435761) ^ (seed * 40503)) >>> 0;
+    const random = makeRng(hash).next() * 2 - 1;
+    values[component] = clamp(base + random * variation, 0, 1);
+  }
+  const output = makeTexture(width, height, 1);
+  for (let index = 0; index < labels.length; index++) {
+    output.data[index] = values[labels[index]!]!;
+  }
+  return output;
+}
+
+export interface FloodFillSlopeOptions extends FloodFillOptions {
+  seed?: number;
+  angle?: number;
+  angleVariation?: number;
+}
+
+/** Build an independently oriented 0..1 planar slope inside every component. */
+export function floodFillSlope(
+  mask: TextureBuffer,
+  opts: FloodFillSlopeOptions = {},
+): TextureBuffer {
+  const { labels, count, width, height } = labelComponents(mask, opts);
+  const minimumX = new Float32Array(count + 1).fill(Infinity);
+  const maximumX = new Float32Array(count + 1).fill(-Infinity);
+  const minimumY = new Float32Array(count + 1).fill(Infinity);
+  const maximumY = new Float32Array(count + 1).fill(-Infinity);
+  for (let yCoord = 0; yCoord < height; yCoord++) {
+    for (let xCoord = 0; xCoord < width; xCoord++) {
+      const component = labels[yCoord * width + xCoord]!;
+      if (component === 0) continue;
+      minimumX[component] = Math.min(minimumX[component]!, xCoord);
+      maximumX[component] = Math.max(maximumX[component]!, xCoord);
+      minimumY[component] = Math.min(minimumY[component]!, yCoord);
+      maximumY[component] = Math.max(maximumY[component]!, yCoord);
+    }
+  }
+
+  const baseAngle = opts.angle ?? 0;
+  const angleVariation = Math.max(0, opts.angleVariation ?? Math.PI);
+  const seed = opts.seed ?? 0;
+  const angles = new Float32Array(count + 1);
+  for (let component = 1; component <= count; component++) {
+    const hash = ((component * 2246822519) ^ (seed * 3266489917)) >>> 0;
+    angles[component] = baseAngle + (makeRng(hash).next() * 2 - 1) * angleVariation;
+  }
+
+  const output = makeTexture(width, height, 1);
+  for (let yCoord = 0; yCoord < height; yCoord++) {
+    for (let xCoord = 0; xCoord < width; xCoord++) {
+      const index = yCoord * width + xCoord;
+      const component = labels[index]!;
+      if (component === 0) continue;
+      const centerX = (minimumX[component]! + maximumX[component]!) * 0.5;
+      const centerY = (minimumY[component]! + maximumY[component]!) * 0.5;
+      const halfWidth = Math.max(0.5, (maximumX[component]! - minimumX[component]!) * 0.5);
+      const halfHeight = Math.max(0.5, (maximumY[component]! - minimumY[component]!) * 0.5);
+      const angle = angles[component]!;
+      const directionX = Math.cos(angle);
+      const directionY = Math.sin(angle);
+      const extent = Math.abs(directionX) * halfWidth + Math.abs(directionY) * halfHeight;
+      const projection = (xCoord - centerX) * directionX + (yCoord - centerY) * directionY;
+      output.data[index] = clamp(projection / Math.max(1, extent) * 0.5 + 0.5, 0, 1);
+    }
+  }
+  return output;
+}
+
+export interface FloodFillSelectOptions extends FloodFillOptions {
+  seed?: number;
+  probability?: number;
+}
+
+/** Select whole connected components with a seeded probability. */
+export function floodFillSelect(
+  mask: TextureBuffer,
+  opts: FloodFillSelectOptions = {},
+): TextureBuffer {
+  const { labels, count, width, height } = labelComponents(mask, opts);
+  const seed = opts.seed ?? 0;
+  const probability = clamp(opts.probability ?? 0.5, 0, 1);
+  const selected = new Uint8Array(count + 1);
+  for (let component = 1; component <= count; component++) {
+    const hash = ((component * 3266489917) ^ (seed * 668265263)) >>> 0;
+    selected[component] = makeRng(hash).next() < probability ? 1 : 0;
+  }
+  const output = makeTexture(width, height, 1);
+  for (let index = 0; index < labels.length; index++) {
+    output.data[index] = selected[labels[index]!]!;
+  }
+  return output;
+}
 export interface MakeTileOptions {
   /** Blend band width as a fraction of size (0..0.5). */
   band?: number;
@@ -191,6 +301,12 @@ export function makeTile(tex: TextureBuffer, opts: MakeTileOptions = {}): Textur
 export interface TileSamplerOptions {
   /** Instances per row/column. */
   count?: number;
+  /** Optional independent column count. Overrides count. */
+  countX?: number;
+  /** Optional independent row count. Overrides count. */
+  countY?: number;
+  /** Fraction of candidate cells populated. */
+  density?: number;
   /** Random position jitter in cell fraction (0..0.5). */
   jitter?: number;
   /** Random scale range [min,max] applied to each instance. */
@@ -199,6 +315,12 @@ export interface TileSamplerOptions {
   rotation?: number;
   /** Random per-instance value spread written to output brightness (0..1). */
   valueSpread?: number;
+  /** Minimum center separation in cell units. 0 disables collision rejection. */
+  collision?: number;
+  /** Controls where instances may spawn, sampled at each candidate center. */
+  mask?: TextureBuffer | ((u: number, v: number) => number);
+  /** Max preserves silhouettes; add builds overlapping piles. */
+  blend?: "max" | "add";
   seed?: number;
 }
 
@@ -214,30 +336,50 @@ export function tileSampler(
   opts: TileSamplerOptions = {},
 ): TextureBuffer {
   const count = Math.max(1, Math.floor(opts.count ?? 6));
+  const countX = Math.max(1, Math.floor(opts.countX ?? count));
+  const countY = Math.max(1, Math.floor(opts.countY ?? count));
+  const density = clamp(opts.density ?? 1, 0, 1);
   const jitter = clamp(opts.jitter ?? 0.2, 0, 0.5);
   const scaleRange = opts.scaleRange ?? [0.8, 1.2];
   const rotation = opts.rotation ?? 0;
   const valueSpread = clamp(opts.valueSpread ?? 0, 0, 1);
+  const collision = Math.max(0, opts.collision ?? 0);
+  const blend = opts.blend ?? "max";
   const seed = opts.seed ?? 0;
   const out = makeTexture(size, size, 1);
+
+  const sampleMask = (u: number, v: number): number => {
+    if (!opts.mask) return 1;
+    if (typeof opts.mask === "function") return clamp(opts.mask(u, v), 0, 1);
+    const x = Math.min(opts.mask.width - 1, Math.max(0, Math.floor(u * opts.mask.width)));
+    const y = Math.min(opts.mask.height - 1, Math.max(0, Math.floor((1 - v) * opts.mask.height)));
+    return clamp(sample(opts.mask, x, y), 0, 1);
+  };
 
   // precompute per-instance transforms
   interface Inst { cx: number; cy: number; s: number; ang: number; val: number; }
   const insts: Inst[] = [];
-  for (let gy = 0; gy < count; gy++) {
-    for (let gx = 0; gx < count; gx++) {
+  const cellX = 1 / countX;
+  const cellY = 1 / countY;
+  const cell = Math.min(cellX, cellY);
+  for (let gy = 0; gy < countY; gy++) {
+    for (let gx = 0; gx < countX; gx++) {
       const h = ((gx * 73856093) ^ (gy * 19349663) ^ (seed * 83492791)) >>> 0;
       const rng = makeRng(h);
-      const cx = (gx + 0.5) / count + (rng.next() - 0.5) * jitter / count;
-      const cy = (gy + 0.5) / count + (rng.next() - 0.5) * jitter / count;
+      if (density < 1 && rng.next() > density) continue;
+      const cx = (gx + 0.5) / countX + (rng.next() - 0.5) * jitter * cellX;
+      const cy = (gy + 0.5) / countY + (rng.next() - 0.5) * jitter * cellY;
+      if (opts.mask && rng.next() > sampleMask(cx, cy)) continue;
       const s = scaleRange[0] + rng.next() * (scaleRange[1] - scaleRange[0]);
       const ang = (rng.next() - 0.5) * 2 * rotation;
       const val = 1 - rng.next() * valueSpread;
+      if (collision > 0 && insts.some((item) => Math.hypot(item.cx - cx, item.cy - cy) < collision * cell)) {
+        continue;
+      }
       insts.push({ cx, cy, s, ang, val });
     }
   }
 
-  const cell = 1 / count;
   for (let y = 0; y < size; y++) {
     const v = 1 - (y + 0.5) / size;
     for (let x = 0; x < size; x++) {
@@ -256,7 +398,7 @@ export function tileSampler(
         const lv = (du * sa + dv * ca) * inv + 0.5;
         if (lu < 0 || lu > 1 || lv < 0 || lv > 1) continue;
         const m = shapeFn(lu, lv) * it.val;
-        if (m > acc) acc = m;
+        acc = blend === "add" ? acc + m : Math.max(acc, m);
       }
       out.data[y * size + x] = clamp(acc, 0, 1);
     }
@@ -264,3 +406,163 @@ export function tileSampler(
   return out;
 }
 
+export interface WangTileSource {
+  readonly texture: TextureBuffer;
+  readonly north: number;
+  readonly east: number;
+  readonly south: number;
+  readonly west: number;
+  readonly weight?: number;
+}
+
+export interface WangTileOptions {
+  tilesX?: number;
+  tilesY?: number;
+  seed?: number;
+  allowRotations?: boolean;
+  colorCorrection?: boolean;
+  colorJitter?: number;
+}
+
+export interface WangTilePlacement {
+  readonly tile: number;
+  readonly quarterTurns: number;
+  readonly north: number;
+  readonly east: number;
+  readonly south: number;
+  readonly west: number;
+}
+
+export interface WangTileResult {
+  readonly texture: TextureBuffer;
+  readonly placements: ReadonlyArray<WangTilePlacement>;
+  readonly tilesX: number;
+  readonly tilesY: number;
+}
+
+export function wangTileTexture(
+  sources: readonly WangTileSource[],
+  options: WangTileOptions = {},
+): WangTileResult {
+  if (sources.length === 0) throw new Error("Wang tile sources must not be empty");
+  const first = sources[0]!.texture;
+  const allowRotations = options.allowRotations ?? true;
+  if (allowRotations && first.width !== first.height) {
+    throw new Error("rotated Wang tiles must be square");
+  }
+  for (const source of sources) {
+    if (
+      source.texture.width !== first.width
+      || source.texture.height !== first.height
+      || source.texture.channels !== first.channels
+    ) {
+      throw new Error("Wang tile sources must share dimensions and channels");
+    }
+  }
+  const tilesX = Math.max(1, Math.floor(options.tilesX ?? 4));
+  const tilesY = Math.max(1, Math.floor(options.tilesY ?? tilesX));
+  const rotations = allowRotations ? 4 : 1;
+  const candidates = sources.flatMap((source, tile) => Array.from({ length: rotations }, (_, quarterTurns) => {
+    const edges = rotateEdges([source.north, source.east, source.south, source.west], quarterTurns);
+    return {
+      tile,
+      quarterTurns,
+      north: edges[0],
+      east: edges[1],
+      south: edges[2],
+      west: edges[3],
+      weight: Math.max(0, source.weight ?? 1),
+    } satisfies WangTilePlacement & { weight: number };
+  }));
+  const rng = makeRng(options.seed ?? 0);
+  const placements: WangTilePlacement[] = [];
+  for (let tileY = 0; tileY < tilesY; tileY++) {
+    for (let tileX = 0; tileX < tilesX; tileX++) {
+      const north = tileY > 0 ? placements[(tileY - 1) * tilesX + tileX]!.south : undefined;
+      const west = tileX > 0 ? placements[tileY * tilesX + tileX - 1]!.east : undefined;
+      const matches = candidates.filter((candidate) => (
+        (north === undefined || candidate.north === north)
+        && (west === undefined || candidate.west === west)
+      ));
+      if (matches.length === 0) {
+        throw new Error(`Wang tile set cannot satisfy cell ${tileX},${tileY}`);
+      }
+      placements.push(weightedChoice(matches, rng.next()));
+    }
+  }
+  const output = makeTexture(first.width * tilesX, first.height * tilesY, first.channels);
+  const means = sources.map((source) => textureMean(source.texture));
+  const globalMean = means[0]!.map((_, channel) => (
+    means.reduce((sum, mean) => sum + mean[channel]!, 0) / means.length
+  ));
+  const colorCorrection = options.colorCorrection ?? true;
+  const colorJitter = clamp(options.colorJitter ?? 0.035, 0, 1);
+  for (let tileY = 0; tileY < tilesY; tileY++) {
+    for (let tileX = 0; tileX < tilesX; tileX++) {
+      const placement = placements[tileY * tilesX + tileX]!;
+      const source = sources[placement.tile]!.texture;
+      const mean = means[placement.tile]!;
+      const jitterRng = makeRng(((options.seed ?? 0) * 83492791 ^ tileX * 73856093 ^ tileY * 19349663) >>> 0);
+      const brightness = jitterRng.range(1 - colorJitter, 1 + colorJitter);
+      for (let y = 0; y < first.height; y++) {
+        for (let x = 0; x < first.width; x++) {
+          const sourcePixel = rotatedPixel(x, y, first.width, first.height, placement.quarterTurns);
+          for (let channel = 0; channel < first.channels; channel++) {
+            const value = sample(source, sourcePixel.x, sourcePixel.y, channel);
+            const corrected = colorCorrection ? value + globalMean[channel]! - mean[channel]! : value;
+            const destination = (
+              ((tileY * first.height + y) * output.width + tileX * first.width + x) * first.channels
+              + channel
+            );
+            output.data[destination] = clamp(corrected * brightness, 0, 1);
+          }
+        }
+      }
+    }
+  }
+  return { texture: output, placements, tilesX, tilesY };
+}
+
+function rotateEdges(
+  edges: readonly [number, number, number, number],
+  quarterTurns: number,
+): [number, number, number, number] {
+  const turns = ((quarterTurns % 4) + 4) % 4;
+  return [0, 1, 2, 3].map((edge) => edges[(edge - turns + 4) % 4]!) as [number, number, number, number];
+}
+
+function rotatedPixel(
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  quarterTurns: number,
+): { x: number; y: number } {
+  const turns = ((quarterTurns % 4) + 4) % 4;
+  if (turns === 1) return { x: y, y: width - 1 - x };
+  if (turns === 2) return { x: width - 1 - x, y: height - 1 - y };
+  if (turns === 3) return { x: height - 1 - y, y: x };
+  return { x, y };
+}
+
+function textureMean(texture: TextureBuffer): number[] {
+  const mean = Array.from({ length: texture.channels }, () => 0);
+  const pixelCount = texture.width * texture.height;
+  for (let pixel = 0; pixel < pixelCount; pixel++) {
+    for (let channel = 0; channel < texture.channels; channel++) {
+      mean[channel] = mean[channel]! + texture.data[pixel * texture.channels + channel]!;
+    }
+  }
+  return mean.map((value) => value / pixelCount);
+}
+
+function weightedChoice<T extends { weight: number }>(values: readonly T[], random: number): T {
+  const total = values.reduce((sum, value) => sum + value.weight, 0);
+  if (total <= 0) return values[Math.min(values.length - 1, Math.floor(random * values.length))]!;
+  let cursor = random * total;
+  for (const value of values) {
+    cursor -= value.weight;
+    if (cursor <= 0) return value;
+  }
+  return values[values.length - 1]!;
+}

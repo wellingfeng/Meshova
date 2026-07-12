@@ -11,9 +11,9 @@ import {
   box,
   bounds,
   cylinder,
+  loftSurface,
   makeMesh,
   merge,
-  recomputeNormals,
   sphere,
   torus,
   transform,
@@ -129,64 +129,10 @@ function ringFromSection(ctx: ScaleContext, s: BodySection): Vec3[] {
 }
 
 function loftSections(ctx: ScaleContext, sections: BodySection[]): Mesh {
-  return loftRings(sections.map((s) => ringFromSection(ctx, s)));
-}
-
-function loftRings(rings: Vec3[][]): Mesh {
-  const ringSize = rings[0]?.length ?? 0;
-  if (rings.length < 2 || ringSize < 3) {
-    return makeMesh({ positions: [], normals: [], uvs: [], indices: [] });
-  }
-  const positions: Vec3[] = [];
-  const normals: Vec3[] = [];
-  const uvs = [];
-  const indices: number[] = [];
-
-  for (let i = 0; i < rings.length; i++) {
-    const ring = rings[i]!;
-    for (let j = 0; j < ringSize; j++) {
-      positions.push(ring[j]!);
-      normals.push(vec3(0, 1, 0));
-      uvs.push(vec2(j / ringSize, i / Math.max(1, rings.length - 1)));
-    }
-  }
-  for (let i = 0; i < rings.length - 1; i++) {
-    for (let j = 0; j < ringSize; j++) {
-      const a = i * ringSize + j;
-      const b = i * ringSize + ((j + 1) % ringSize);
-      const c = (i + 1) * ringSize + j;
-      const d = (i + 1) * ringSize + ((j + 1) % ringSize);
-      indices.push(a, c, b, b, c, d);
-    }
-  }
-
-  const frontCenter = positions.length;
-  positions.push(avg(rings[0]!));
-  normals.push(vec3(0, 0, -1));
-  uvs.push(vec2(0.5, 0.5));
-  for (let j = 0; j < ringSize; j++) indices.push(frontCenter, j, (j + 1) % ringSize);
-
-  const rearBase = (rings.length - 1) * ringSize;
-  const rearCenter = positions.length;
-  positions.push(avg(rings[rings.length - 1]!));
-  normals.push(vec3(0, 0, 1));
-  uvs.push(vec2(0.5, 0.5));
-  for (let j = 0; j < ringSize; j++) indices.push(rearCenter, rearBase + ((j + 1) % ringSize), rearBase + j);
-
-  return recomputeNormals(makeMesh({ positions, normals, uvs, indices }));
-}
-
-function avg(points: Vec3[]): Vec3 {
-  let x = 0;
-  let y = 0;
-  let z = 0;
-  for (const p of points) {
-    x += p.x;
-    y += p.y;
-    z += p.z;
-  }
-  const inv = 1 / points.length;
-  return vec3(x * inv, y * inv, z * inv);
+  return loftSurface(sections.map((section) => ringFromSection(ctx, section)), {
+    longitudinalSubdivisions: 5,
+    crossSectionSubdivisions: 3,
+  });
 }
 
 function quad(a: Vec3, b: Vec3, c: Vec3, d: Vec3): Mesh {
@@ -393,7 +339,7 @@ export function buildGmcCanyonAt4xParts(params: Partial<GmcCanyonAt4xParams> = {
     partBox(ctx, vec3(0.1, 0.6, 0.07), vec3(-0.88, 1.32, 0.52), vec3(0.2, 0, 0)),
     partBox(ctx, vec3(0.1, 0.6, 0.07), vec3(0.88, 1.32, 0.52), vec3(0.2, 0, 0)),
   ), PAINT, "carPaint", { color: PAINT, seed: 232 });
-  add(parts, "cab_black_roof", partBox(ctx, vec3(1.36, 0.055, 1.02), vec3(0, 1.82, -0.23)), BLACK, "plastic", { color: BLACK, roughness: 0.18 });
+  add(parts, "cab_black_roof", partBox(ctx, vec3(1.52, 0.055, 1.04), vec3(0, 1.755, -0.23)), BLACK, "plastic", { color: BLACK, roughness: 0.18 });
 
   add(parts, "glass_pack", quadStrip([
     [
@@ -484,10 +430,10 @@ export function buildGmcCanyonAt4xParts(params: Partial<GmcCanyonAt4xParams> = {
     partBox(ctx, vec3(1.2, 0.07, 0.11), vec3(0, 0.32, 1.2)),
   ), BLACK, "metal", { color: BLACK, roughness: 0.6 });
   add(parts, "roof_rails", merge(
-    partBox(ctx, vec3(0.07, 0.06, 1.0), vec3(-0.56, 1.91, -0.23)),
-    partBox(ctx, vec3(0.07, 0.06, 1.0), vec3(0.56, 1.91, -0.23)),
-    partBox(ctx, vec3(1.08, 0.045, 0.06), vec3(0, 1.91, -0.67)),
-    partBox(ctx, vec3(1.08, 0.045, 0.06), vec3(0, 1.91, 0.2)),
+    partBox(ctx, vec3(0.07, 0.05, 1.0), vec3(-0.58, 1.7975, -0.23)),
+    partBox(ctx, vec3(0.07, 0.05, 1.0), vec3(0.58, 1.7975, -0.23)),
+    partBox(ctx, vec3(1.12, 0.04, 0.06), vec3(0, 1.7975, -0.67)),
+    partBox(ctx, vec3(1.12, 0.04, 0.06), vec3(0, 1.7975, 0.2)),
   ), BLACK, "metal", { color: BLACK, roughness: 0.42 });
 
   if (p.armor > 0.45) {

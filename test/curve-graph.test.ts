@@ -2,6 +2,8 @@ import { describe, it, expect } from "vitest";
 import {
   curveGraphPathToCurve,
   curveGraphShortestPath,
+  moveCurveGraphNode,
+  sampleCurveGraph,
   makeCurveGraph,
   sweep,
   triangleCount,
@@ -28,6 +30,20 @@ describe("curve graph", () => {
     const curve = curveGraphPathToCurve(graph, path);
     expect(curve.points.length).toBe(3);
     expect(triangleCount(sweep(curve, { radius: 0.05, sides: 6 }))).toBeGreaterThan(0);
+  });
+
+  it("samples smooth graph branches and moves junctions immutably", () => {
+    const graph = makeCurveGraph(
+      [
+        { id: "a", position: vec3(0, 0, 0) },
+        { id: "b", position: vec3(2, 0, 0) },
+      ],
+      [{ from: "a", to: "b", points: [vec3(0, 0, 0), vec3(1, 1, 0), vec3(2, 0, 0)], curve: { type: "catmull-rom", subdivisions: 6 } }],
+    );
+    expect(sampleCurveGraph(graph)[0]!.curve.points.length).toBeGreaterThan(3);
+    const moved = moveCurveGraphNode(graph, "a", vec3(-1, 0, 0));
+    expect(moved.nodes[0]!.position.x).toBe(-1);
+    expect(graph.nodes[0]!.position.x).toBe(0);
   });
 
   it("keeps explicit curved edge points when extracting paths", () => {

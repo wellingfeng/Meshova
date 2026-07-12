@@ -360,6 +360,7 @@ export function buildUe5PcgCaveParts(options: Ue5PcgCaveOptions = {}): NamedPart
           scaleRange: [0.45, 1.25],
           randomYaw: true,
           alignToNormal: true,
+          surfaceOffset: 0.03,
         },
       ),
       color: [cave.color[0] * 0.82, cave.color[1] * 0.84, cave.color[2] * 0.86],

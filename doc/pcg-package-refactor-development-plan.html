@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Meshova 稳定内核 + PCG 包重构开发计划</title>
+<style>
+  :root {
+    --bg: #090d14;
+    --panel: #111824;
+    --panel-2: #172131;
+    --panel-3: #0d141f;
+    --line: #2a3950;
+    --text: #e7eef8;
+    --muted: #91a1b8;
+    --blue: #55a7ff;
+    --cyan: #43d9c5;
+    --green: #79df8b;
+    --amber: #f0b45a;
+    --red: #ff7b72;
+    --purple: #bf8cff;
+    --code: #080c12;
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background:
+      radial-gradient(circle at 15% 0%, rgba(85, 167, 255, .10), transparent 30rem),
+      radial-gradient(circle at 100% 12%, rgba(67, 217, 197, .07), transparent 34rem),
+      var(--bg);
+    color: var(--text);
+    font: 15px/1.72 -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+  }
+  a { color: var(--blue); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code {
+    padding: 1px 6px;
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    background: var(--code);
+    color: #d8bcff;
+    font: 13px/1.5 Consolas, "JetBrains Mono", monospace;
+  }
+  pre {
+    margin: 14px 0;
+    padding: 16px 18px;
+    overflow: auto;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--code);
+    color: #cdd9e5;
+    font: 13px/1.58 Consolas, "JetBrains Mono", monospace;
+  }
+  strong { color: #fff; }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 250px minmax(0, 1120px);
+    gap: 34px;
+    max-width: 1440px;
+    margin: 0 auto;
+    padding: 32px 28px 96px;
+  }
+  .side {
+    position: sticky;
+    top: 22px;
+    align-self: start;
+    max-height: calc(100vh - 44px);
+    overflow: auto;
+    padding: 18px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: rgba(17, 24, 36, .92);
+    backdrop-filter: blur(12px);
+  }
+  .side-title { margin-bottom: 12px; color: #fff; font-weight: 700; }
+  .side a {
+    display: block;
+    padding: 5px 8px;
+    border-radius: 6px;
+    color: var(--muted);
+    font-size: 13px;
+  }
+  .side a:hover { background: var(--panel-2); color: var(--text); text-decoration: none; }
+  .side .minor { padding-left: 18px; font-size: 12px; }
+  main { min-width: 0; }
+
+  header { padding: 22px 0 12px; }
+  h1 {
+    margin: 0 0 8px;
+    font-size: clamp(28px, 4vw, 42px);
+    line-height: 1.18;
+    letter-spacing: -.5px;
+  }
+  h2 {
+    margin: 54px 0 16px;
+    padding-left: 13px;
+    border-left: 4px solid var(--blue);
+    font-size: 23px;
+    line-height: 1.3;
+  }
+  h3 { margin: 28px 0 10px; color: var(--cyan); font-size: 17px; }
+  h4 { margin: 20px 0 8px; color: var(--amber); font-size: 15px; }
+  p { margin: 9px 0; }
+  ul, ol { margin: 8px 0; padding-left: 23px; }
+  li { margin: 5px 0; }
+  .subtitle { margin: 0; color: var(--muted); font-size: 14px; }
+
+  .hero {
+    display: grid;
+    grid-template-columns: 1.4fr .8fr;
+    gap: 16px;
+    margin-top: 22px;
+  }
+  .card, .callout {
+    border: 1px solid var(--line);
+    border-radius: 11px;
+    background: rgba(17, 24, 36, .9);
+  }
+  .card { padding: 18px 20px; }
+  .callout { margin: 14px 0; padding: 13px 16px; }
+  .callout.key { border-left: 4px solid var(--green); background: rgba(121, 223, 139, .05); }
+  .callout.warn { border-left: 4px solid var(--amber); background: rgba(240, 180, 90, .06); }
+  .callout.stop { border-left: 4px solid var(--red); background: rgba(255, 123, 114, .06); }
+  .metric { color: #fff; font-size: 28px; font-weight: 750; line-height: 1.1; }
+  .metric-label { color: var(--muted); font-size: 12px; }
+  .metric-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  .metric-box { padding: 13px; border: 1px solid var(--line); border-radius: 9px; background: var(--panel-3); }
+
+  .tags { margin: 12px 0; }
+  .tag {
+    display: inline-block;
+    margin: 0 6px 6px 0;
+    padding: 2px 9px;
+    border: 1px solid currentColor;
+    border-radius: 20px;
+    font-size: 12px;
+  }
+  .blue { color: var(--blue); }
+  .green { color: var(--green); }
+  .amber { color: var(--amber); }
+  .purple { color: var(--purple); }
+  .red { color: var(--red); }
+
+  .arch {
+    margin: 18px 0;
+    padding: 24px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: linear-gradient(145deg, rgba(23, 33, 49, .92), rgba(13, 20, 31, .96));
+    text-align: center;
+  }
+  .arch-row { display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; }
+  .arch-box {
+    min-width: 205px;
+    padding: 11px 16px;
+    border: 1px solid var(--blue);
+    border-radius: 9px;
+    background: var(--panel-3);
+  }
+  .arch-box.package { border-color: var(--cyan); }
+  .arch-box.output { border-color: var(--purple); }
+  .arch-box small { display: block; color: var(--muted); }
+  .arrow { padding: 5px 0; color: var(--muted); font-size: 19px; }
+
+  table { width: 100%; margin: 14px 0; border-collapse: collapse; font-size: 14px; }
+  th, td { padding: 10px 12px; border: 1px solid var(--line); text-align: left; vertical-align: top; }
+  th { background: var(--panel-2); color: var(--blue); font-weight: 650; }
+  tr:nth-child(even) td { background: rgba(255, 255, 255, .014); }
+  .nowrap { white-space: nowrap; }
+  .status { font-weight: 700; }
+  .status.keep { color: var(--green); }
+  .status.move { color: var(--amber); }
+  .status.remove { color: var(--red); }
+
+  .phase {
+    display: grid;
+    grid-template-columns: 84px 1fr;
+    gap: 17px;
+    margin: 16px 0;
+    padding: 17px;
+    border: 1px solid var(--line);
+    border-radius: 11px;
+    background: var(--panel);
+  }
+  .phase-id {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 52px;
+    border: 1px solid var(--blue);
+    border-radius: 9px;
+    color: var(--blue);
+    font-size: 20px;
+    font-weight: 800;
+  }
+  .phase h3 { margin: 0 0 7px; color: #fff; }
+  .phase p { color: var(--muted); }
+  .deliverables { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .deliverables > div { padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-3); }
+  .deliverables b { color: var(--cyan); }
+
+  .checklist { list-style: none; padding-left: 0; }
+  .checklist li { position: relative; padding-left: 24px; }
+  .checklist li::before { content: "✓"; position: absolute; left: 0; color: var(--green); font-weight: 800; }
+  .banlist { list-style: none; padding-left: 0; }
+  .banlist li { position: relative; padding-left: 24px; }
+  .banlist li::before { content: "×"; position: absolute; left: 2px; color: var(--red); font-weight: 800; }
+
+  footer {
+    margin-top: 62px;
+    padding-top: 20px;
+    border-top: 1px solid var(--line);
+    color: var(--muted);
+    font-size: 13px;
+  }
+
+  @media (max-width: 980px) {
+    .layout { grid-template-columns: 1fr; padding: 22px 18px 72px; }
+    .side { position: static; max-height: none; }
+    .side a { display: inline-block; }
+    .side .minor { padding-left: 8px; }
+    .hero { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 680px) {
+    .metric-grid, .deliverables { grid-template-columns: 1fr; }
+    .phase { grid-template-columns: 1fr; }
+    .phase-id { width: 76px; }
+    table { display: block; max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    th, td { padding: 8px; }
+  }
+  @media print {
+    body { background: #fff; color: #111; }
+    .layout { display: block; max-width: none; padding: 0; }
+    .side { display: none; }
+    .card, .callout, .arch, .phase, pre, .metric-box { background: #fff; color: #111; break-inside: avoid; }
+    code, pre { color: #111; background: #f6f6f6; }
+    h2 { break-after: avoid; }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+  <nav class="side" aria-label="文档目录">
+    <div class="side-title">开发计划目录</div>
+    <a href="#decision">核心决策</a>
+    <a href="#current">现状与问题</a>
+    <a href="#goals">目标与非目标</a>
+    <a href="#architecture">目标架构</a>
+    <a class="minor" href="#boundary">内核边界</a>
+    <a class="minor" href="#package">PCG 包结构</a>
+    <a class="minor" href="#authoring">脚本规范</a>
+    <a href="#catalog">加载、Web 与传播</a>
+    <a href="#migration">全量迁移策略</a>
+    <a class="minor" href="#model-waves">模型迁移波次</a>
+    <a class="minor" href="#material-waves">材质迁移波次</a>
+    <a href="#phases">实施阶段</a>
+    <a href="#testing">测试与验收</a>
+    <a href="#governance">版本与治理</a>
+    <a href="#risks">风险与控制</a>
+    <a href="#done">完成定义</a>
+  </nav>
+
+  <main>
+    <header>
+      <div class="tags">
+        <span class="tag blue">脚本唯一事实源</span>
+        <span class="tag green">稳定内核</span>
+        <span class="tag purple">可扩展 PCG 包</span>
+        <span class="tag amber">全量内容迁移</span>
+      </div>
+      <h1>Meshova「稳定内核 + PCG 包」重构开发计划</h1>
+      <p class="subtitle">只做架构与迁移计划，不修改现有源码。面向普通 TypeScript、Web 实时预览、URL 传播、AI 阅读与扩展。</p>
+    </header>
+
+    <section class="hero">
+      <div class="card">
+        <h3 style="margin-top:0">一句话方案</h3>
+        <p><strong>保留普通 TypeScript 脚本；取消节点蓝图路线。</strong>内核只提供稳定、领域无关的算法与运行契约。所有模型、材质、领域生成逻辑、参数定义、展示元数据进入可版本化 PCG 包。</p>
+        <p>首期不拆多个 npm 产品：仓库内先落成 <strong>一个稳定内核 + 一个官方 PCG 包</strong>。领域分类只是包内目录。以后确有独立发布需求，再拆包。</p>
+        <div class="callout key"><strong>硬指标：</strong>新增模型或材质时，核心源码零修改、Web 查看器零手写注册、普通 TS 可直接阅读和调试。</div>
+      </div>
+      <div class="card">
+        <h3 style="margin-top:0">当前规模快照</h3>
+        <div class="metric-grid">
+          <div class="metric-box"><div class="metric">152</div><div class="metric-label"><code>src/models</code> 文件</div></div>
+          <div class="metric-box"><div class="metric">64</div><div class="metric-label"><code>src/texture</code> 文件</div></div>
+          <div class="metric-box"><div class="metric">189</div><div class="metric-label"><code>examples</code> 文件</div></div>
+          <div class="metric-box"><div class="metric">10,844</div><div class="metric-label"><code>web/procmodels.js</code> 行</div></div>
+        </div>
+        <p class="subtitle" style="margin-top:12px">数量按 2026-07-12 工作区盘点；迁移前由脚本生成精确资产清单。</p>
+      </div>
+    </section>
+
+    <h2 id="decision">1. 核心决策</h2>
+    <table>
+      <tr><th>问题</th><th>决策</th><th>原因</th></tr>
+      <tr><td>节点蓝图</td><td><strong>不做</strong></td><td>不保存图、节点 ID、端口、连线。避免两套作者系统与 AI 阅读噪声。</td></tr>
+      <tr><td>内容事实源</td><td><strong>普通 TypeScript</strong></td><td>模型与材质保持函数、条件、循环、抽象、重构能力；可读、可测、可 Diff。</td></tr>
+      <tr><td>系统分层</td><td><strong>稳定内核 + PCG 包</strong></td><td>只保留两层发布概念。领域库与内容配方使用同一 PCG 包机制。</td></tr>
+      <tr><td>首期包数量</td><td><strong>一个官方 PCG 包</strong></td><td>减少目录、版本、依赖、发布复杂度。按领域分目录，不急于拆发布单元。</td></tr>
+      <tr><td>领域逻辑</td><td><strong>放 PCG 包内</strong></td><td>车辆、建筑、植被、道路、织物等逻辑仍会变化，不承诺核心级稳定性。</td></tr>
+      <tr><td>注册方式</td><td><strong>构建期自动目录</strong></td><td>新增内容不再改 <code>web/procmodels.js</code>、<code>web/materials.js</code> 或根导出表。</td></tr>
+      <tr><td>现有 OpPlan / WorkflowPreset</td><td><strong>停止作为新内容标准</strong></td><td>它们仍是图式数据。保留兼容或内部诊断价值，不作为 PCG 包作者格式。</td></tr>
+    </table>
+
+    <div class="callout stop">
+      <strong>明确排除：</strong>不把 TS 编译成可编辑节点；不从节点反写脚本；不把模型保存成 OpPlan JSON；不要求领域函数进入核心后才能被 Web 使用。
+    </div>
+
+    <h2 id="current">2. 现状与根因</h2>
+    <h3>2.1 当前混合方式</h3>
+    <table>
+      <tr><th>位置</th><th>当前职责</th><th>问题</th></tr>
+      <tr><td><code>src/models/</code></td><td>具体模型、默认参数、领域辅助函数、展示属性</td><td>随根库统一导出；增加内容等同扩张内核。</td></tr>
+      <tr><td><code>src/texture/</code></td><td>纹理缓冲/滤镜/PBR 基础 + 大量具体材质与批次内容</td><td>底层算法与内容配方混放；稳定性边界不清。</td></tr>
+      <tr><td><code>src/geometry/</code></td><td>网格基础 + 道路、河流、岩石、建筑等领域算法</td><td>通用算法与高频变化领域系统混放。</td></tr>
+      <tr><td><code>src/vegetation/</code></td><td>曲线框架、枝叶、生长、物种、编辑、LOD</td><td>既含通用算法，也含完整领域产品逻辑。</td></tr>
+      <tr><td><code>web/procmodels.js</code></td><td>模型参数 Schema、包装 build、分类、空间编辑配置</td><td>10,844 行手工注册；模型实现与 Web 接入重复描述。</td></tr>
+      <tr><td><code>web/materials.js</code></td><td>多个材质表拼接、标签、分类、运行适配</td><td>每批材质需要扩表；浏览器目录成为第二事实源。</td></tr>
+      <tr><td><code>examples/</code></td><td>模型/材质入口、导出脚本、演示</td><td>大量一对一包装；与内容目录重复。</td></tr>
+      <tr><td><code>src/index.ts</code></td><td>导出几乎全部模块，包括 models</td><td>公共 API 面积随内容增长；无法稳定版本语义。</td></tr>
+    </table>
+
+    <h3>2.2 根因</h3>
+    <ul>
+      <li>“能复用”被等同于“应进入核心”。领域函数复用几次后直接进入 <code>src</code> 公共面。</li>
+      <li>模型脚本只保留参数和调用；真正造型逻辑在内核模块。新模型缺能力时只能继续改核心。</li>
+      <li>内容缺少统一自描述入口。Web、CLI、测试、示例各自维护注册信息。</li>
+      <li>基础算法、领域工具、最终内容没有稳定性等级与晋升门槛。</li>
+      <li>现有 WorkflowPreset 尝试解决参数与绑定，但以 OpPlan 图为主体，不符合“普通脚本唯一事实源”。</li>
+    </ul>
+
+    <h2 id="goals">3. 目标与非目标</h2>
+    <div class="deliverables">
+      <div>
+        <b>必须实现</b>
+        <ul class="checklist">
+          <li>内核 API 小、领域无关、按 SemVer 稳定。</li>
+          <li>模型与材质由普通 TS 完整表达。</li>
+          <li>PCG 包可含领域工具、模型、材质、资源、测试。</li>
+          <li>新增内容不改内核、不改 Web 手工注册。</li>
+          <li>Node 与浏览器加载同一内容入口。</li>
+          <li>Seed、参数、版本可组成稳定分享链接。</li>
+          <li>AI 可只读单个入口及其局部依赖。</li>
+          <li>现有全部模型、材质完成迁移与回归。</li>
+        </ul>
+      </div>
+      <div>
+        <b>本轮不做</b>
+        <ul class="banlist">
+          <li>节点编辑器、图序列化、脚本转蓝图。</li>
+          <li>任意远程代码默认直跑主线程。</li>
+          <li>一次性大爆炸搬迁。</li>
+          <li>迁移期间顺手重写模型外观。</li>
+          <li>为了拆包先搭复杂插件市场。</li>
+          <li>把每个领域拆成独立 npm 包。</li>
+          <li>把所有领域辅助函数晋升为核心 API。</li>
+        </ul>
+      </div>
+    </div>
+
+    <h2 id="architecture">4. 目标架构</h2>
+    <div class="arch">
+      <div class="arch-row">
+        <div class="arch-box package"><strong>AI / 人类作者</strong><small>编写普通 TypeScript</small></div>
+      </div>
+      <div class="arrow">▼</div>
+      <div class="arch-row">
+        <div class="arch-box package"><strong>官方 PCG 包</strong><small>领域工具 + 模型 + 材质 + 元数据 + 测试</small></div>
+        <div class="arch-box package"><strong>第三方 PCG 包</strong><small>同一格式；后期开放</small></div>
+      </div>
+      <div class="arrow">▼ 仅依赖稳定公开 API</div>
+      <div class="arch-row">
+        <div class="arch-box"><strong>Meshova 内核</strong><small>math / random / mesh / field / PBR / runtime / export</small></div>
+      </div>
+      <div class="arrow">▼</div>
+      <div class="arch-row">
+        <div class="arch-box output"><strong>Web 查看器</strong><small>目录加载、参数 UI、实时预览、分享</small></div>
+        <div class="arch-box output"><strong>CLI / Agent</strong><small>执行、截图、优化、导出</small></div>
+      </div>
+    </div>
+
+    <div class="callout key">
+      <strong>只有两个发布概念：</strong>内核、PCG 包。<code>defineModel</code>、<code>defineMaterial</code>、包目录协议属于内核契约，不另建“节点 SDK”产品。领域库属于 PCG 包，不另建“插件层”。
+    </div>
+
+    <h3 id="boundary">4.1 内核边界</h3>
+    <table>
+      <tr><th>稳定留在内核</th><th>迁入 PCG 包</th><th>判定规则</th></tr>
+      <tr><td>向量、矩阵、标量、确定性随机、Noise 基础</td><td>具体风格 Noise 组合、某材质专用 Pattern</td><td>是否独立于资产类别与艺术目标。</td></tr>
+      <tr><td>Mesh / Curve / PointCloud / Field / TextureBuffer 数据结构</td><td>车辆、屋顶、道路、河流、岩层、树种等组合结构</td><td>是否是所有 PCG 包共同需要的数据契约。</td></tr>
+      <tr><td>图元、变换、合并、查询、拓扑、布尔、细分、UV、基础散布</td><td>城市路网、建筑立面、生态规则、植被生长、机械装配</td><td>是否可用短名称说明数学操作，而非业务名词。</td></tr>
+      <tr><td>纹理采样、滤镜、SDF、通道混合、PBR 数据与校验</td><td>木材、织物、锈蚀、墙面、科幻面板等完整材质系统</td><td>是否输出通用计算能力，而非可直接展示的成品风格。</td></tr>
+      <tr><td>执行上下文、缓存协议、沙箱、导入导出、错误模型</td><td>模型默认参数、标签、颜色、来源元数据、缩略图</td><td>是否决定“怎么运行”，而不是“生成什么”。</td></tr>
+      <tr><td>PCG 包契约与目录加载器</td><td>官方内容目录、分类、模型/材质列表</td><td>机制留核心，清单由内容生成。</td></tr>
+    </table>
+
+    <h4>核心晋升门槛</h4>
+    <p>PCG 包中的函数只有同时满足以下条件，才可提案进入内核：</p>
+    <ul>
+      <li>领域无关；名称不含具体资产或风格。</li>
+      <li>至少被两个独立领域真实复用，不以“未来可能复用”为依据。</li>
+      <li>输入输出使用稳定核心类型；无展示元数据、资源路径、UI 假设。</li>
+      <li>确定性、边界行为、错误语义已有完整测试。</li>
+      <li>API 已在 PCG 包中演化过，能承诺 SemVer 与弃用周期。</li>
+    </ul>
+
+    <h3 id="package">4.2 PCG 包结构</h3>
+    <p>首期只建立一个 <code>pcg/official</code>。目录按领域组织；不等于多个发布包。</p>
+    <pre>pcg/
+└─ official/
+   ├─ meshova.pcg.ts              # 包元数据；普通 TS
+   ├─ shared/                     # 包内复用领域工具
+   │  ├─ architecture/
+   │  ├─ infrastructure/
+   │  ├─ vegetation/
+   │  ├─ vehicles/
+   │  └─ materials/
+   ├─ models/
+   │  ├─ architecture/
+   │  │  └─ cottage.model.ts
+   │  ├─ vehicles/
+   │  ├─ environments/
+   │  ├─ vegetation/
+   │  ├─ props/
+   │  └─ characters/
+   ├─ materials/
+   │  ├─ natural/
+   │  ├─ architectural/
+   │  ├─ manufactured/
+   │  ├─ textile/
+   │  └─ stylized/
+   ├─ assets/                     # 可选参考、字体、查找表；无生成结果位图事实源
+   ├─ tests/                      # 内容契约、确定性、视觉回归
+   └─ previews/                   # 缩略图与基准截图；均可重新生成
+
+generated/pcg-catalog.ts          # 构建生成；禁止手改
+src/                              # 稳定内核；不再包含具体模型/成品材质</pre>
+
+    <h4>何时再拆多个 PCG 包</h4>
+    <p>满足任一真实条件再拆：独立发布节奏、独立维护者、依赖体积明显不同、许可证不同、用户只需下载某领域。未满足前，目录隔离足够。</p>
+
+    <h3 id="authoring">4.3 脚本作者格式</h3>
+    <p><code>defineModel</code> 与 <code>defineMaterial</code> 只做类型检查、元数据收集、参数校验。<strong>build 内仍是普通 TS，不形成图。</strong></p>
+
+    <pre>import {
+  box, cylinder, merge, transform, vec3,
+  defineModel,
+} from "@meshova/core";
+import { placeAtCorners } from "../../shared/architecture/place-at-corners.js";
+
+interface ChairParams {
+  width: number;
+  depth: number;
+  height: number;
+}
+
+export default defineModel&lt;ChairParams&gt;({
+  id: "chair",
+  version: 1,
+  label: "四腿椅",
+  params: {
+    width:  { kind: "number", default: 0.62, min: 0.4, max: 1.0 },
+    depth:  { kind: "number", default: 0.58, min: 0.4, max: 0.9 },
+    height: { kind: "number", default: 0.82, min: 0.6, max: 1.2 },
+  },
+  build(params) {
+    const seat = box(params.width, 0.1, params.depth);
+    const leg = cylinder(0.035, params.height - 0.1, 12);
+    const legs = placeAtCorners(leg, seat);
+    return [{ name: "座面", mesh: seat }, { name: "椅腿", mesh: merge(...legs) }];
+  },
+});</pre>
+
+    <pre>import { defineMaterial, materialFromFields } from "@meshova/core";
+import { brushedWoodFields } from "../../shared/materials/wood.js";
+
+export default defineMaterial({
+  id: "warm-oak",
+  version: 1,
+  label: "暖色橡木",
+  params: {
+    grainScale: { kind: "number", default: 9, min: 2, max: 24 },
+    seed: { kind: "seed", default: 7 },
+  },
+  build(params) {
+    return materialFromFields(brushedWoodFields(params));
+  },
+});</pre>
+
+    <h4>作者规则</h4>
+    <ul>
+      <li>脚本入口短：元数据、参数、build、输出。复杂逻辑拆到同目录或 <code>shared</code>。</li>
+      <li>入口不得依赖 Web DOM、Node 文件系统、当前时间、隐式全局状态。</li>
+      <li>随机必须来自显式 Seed；包内 helper 同样遵守。</li>
+      <li>参数使用语义名称；UI 不显示 <code>root.0</code>、<code>component_1</code> 等原始对象名。</li>
+      <li>来源只写内部元数据；公开名称只描述内容与用途。</li>
+      <li>模型与材质可互相引用稳定 ID，但禁止循环包依赖。</li>
+      <li>性能关键、真正通用的算法才能进入核心；先在 PCG 包验证。</li>
+    </ul>
+
+    <h2 id="catalog">5. 加载、Web 预览与传播</h2>
+    <h3>5.1 自动目录</h3>
+    <p>浏览器不能运行时扫描仓库。采用<strong>构建期扫描 + 生成目录 + 运行时动态导入</strong>：</p>
+    <ol>
+      <li>扫描 <code>*.model.ts</code>、<code>*.material.ts</code>。</li>
+      <li>静态加载定义，校验 ID、版本、参数、标签、依赖。</li>
+      <li>生成 <code>generated/pcg-catalog.ts</code>，包含轻量元数据与动态 import。</li>
+      <li>Web、CLI、Agent 统一消费生成目录。</li>
+      <li>生成文件不手改；CI 检查生成结果是否最新。</li>
+    </ol>
+
+    <div class="arch">
+      <div class="arch-row"><div class="arch-box package">PCG 脚本文件</div></div>
+      <div class="arrow">▼ 构建期扫描与校验</div>
+      <div class="arch-row"><div class="arch-box">统一 Catalog</div></div>
+      <div class="arrow">▼</div>
+      <div class="arch-row">
+        <div class="arch-box output">Web 查看器</div>
+        <div class="arch-box output">CLI</div>
+        <div class="arch-box output">AI Agent</div>
+        <div class="arch-box output">测试工具</div>
+      </div>
+    </div>
+
+    <h3>5.2 Web 查看器</h3>
+    <ul>
+      <li>模型/材质列表、分类、搜索、参数面板、空间绑定全部读定义元数据。</li>
+      <li>选择条目后动态加载对应脚本；不一次打包全部内容。</li>
+      <li>查看器只负责通用交互，不含某模型特判。</li>
+      <li>空间编辑能力由可选 <code>bindings</code> 元数据声明，build 接收普通类型数据。</li>
+      <li>材质预览继续使用程序化实时生成，不把预览位图当材质源。</li>
+    </ul>
+
+    <h3>5.3 分享标识</h3>
+    <p>链接至少锁定：包 ID、条目类型、条目 ID、主版本、参数、Seed、可选绑定。示意：</p>
+    <pre>/view?pkg=meshova.official@1&amp;asset=model:chair@1&amp;seed=7&amp;params=...</pre>
+    <p>官方条目优先短 URL。外部包可导出包文件或发布 npm 包；远程执行后期进入 Worker 沙箱，默认无 DOM、无网络、有限时与内存。</p>
+
+    <h2 id="migration">6. 全量迁移策略</h2>
+    <div class="callout warn">
+      <strong>不做大爆炸。</strong>先建契约和兼容适配，再按领域迁移。每个波次保持旧入口可运行；视觉与测试通过后切目录。迁移阶段不同时改变造型算法。
+    </div>
+
+    <h3>6.1 迁移前资产台账</h3>
+    <p>先用只读扫描生成台账。每个模型/材质一行，至少记录：</p>
+    <table>
+      <tr><th>字段</th><th>用途</th></tr>
+      <tr><td>稳定 ID / 类型 / 当前入口</td><td>识别重复定义、失联内容、Web 与 CLI 名称差异。</td></tr>
+      <tr><td>实现文件 / Web 包装 / 示例 / 测试</td><td>建立完整搬迁链，不遗留第二事实源。</td></tr>
+      <tr><td>直接依赖与领域依赖</td><td>判断 helper 留入口、进包内 shared、或保留核心。</td></tr>
+      <tr><td>参数 / Seed / 绑定 / 材质引用</td><td>生成统一定义；保持分享与编辑能力。</td></tr>
+      <tr><td>当前截图 / 几何统计 / PBR 统计</td><td>形成迁移前基线。</td></tr>
+      <tr><td>迁移状态 / 负责人 / 阻塞项</td><td>控制全量重构进度。</td></tr>
+    </table>
+
+    <h3>6.2 单个模型迁移模板</h3>
+    <ol>
+      <li>锁定当前默认参数、Seed、多视角截图、部件名、三角面数范围、包围盒。</li>
+      <li>创建 <code>*.model.ts</code>，把 Web Schema、标签、绑定合并到定义。</li>
+      <li>把具体 build 逻辑从 <code>src/models</code> 移入 PCG 包。</li>
+      <li>仅该模型使用的 helper 放模型目录；同领域复用 helper 放 <code>shared/&lt;domain&gt;</code>。</li>
+      <li>通过兼容导出保持旧示例和测试短期可用。</li>
+      <li>让 Catalog 驱动 Web；删除 <code>procmodels.js</code> 中对应手工包装与特判。</li>
+      <li>迁移测试到 PCG 包；运行结构、确定性、截图回归。</li>
+      <li>所有消费者切换后删除旧实现与兼容导出。</li>
+    </ol>
+
+    <h3>6.3 单个材质迁移模板</h3>
+    <ol>
+      <li>锁定参数、Seed、PBR 通道统计、预览球截图、导出文件集合。</li>
+      <li>区分底层算子与成品配方；Buffer、Filter、PBR 校验留核心。</li>
+      <li>具体材质、批次集合、风格系统移入 <code>pcg/official/materials</code>。</li>
+      <li>复用领域函数移入 <code>shared/materials</code>；禁止因复用一次就提升核心。</li>
+      <li>让 Catalog 生成 Web 材质列表与标签；删除手工名称数组。</li>
+      <li>迁移烘焙测试与截图；验证浏览器、Node 结果一致。</li>
+      <li>所有消费者切换后删除旧 preset/批次导出。</li>
+    </ol>
+
+    <h3 id="model-waves">6.4 模型迁移波次</h3>
+    <table>
+      <tr><th>波次</th><th>范围</th><th>先后理由</th><th>重点拆分</th></tr>
+      <tr><td class="nowrap"><strong>M0 试点</strong></td><td>简单道具 + 参数化建筑 + 一个含绑定的地形/路径模型</td><td>同时验证简单组合、领域 helper、Web 空间编辑。</td><td>定义契约、Catalog、兼容层。</td></tr>
+      <tr><td><strong>M1 道具与家具</strong></td><td>家具、容器、装饰、低复杂度硬表面</td><td>依赖少、回归成本低；快速清理大量包装。</td><td>局部 helper、参数 Schema、材质引用。</td></tr>
+      <tr><td><strong>M2 建筑与室内</strong></td><td>住宅、屋顶、城堡、街屋、室内组合、模块套件</td><td>复用关系清晰；适合形成包内 architecture shared。</td><td>屋顶、立面、门窗、房间布局。</td></tr>
+      <tr><td><strong>M3 交通与机械</strong></td><td>车辆、机械结构、道路、铁路、桥梁、立交</td><td>复杂但边界明确；可验证组合与曲线依赖。</td><td>装配、车轮、道路截面、轨迹、桥跨。</td></tr>
+      <tr><td><strong>M4 地形与环境</strong></td><td>岛屿、河流、湖泊、洞穴、城市、生态系统、游戏地图</td><td>依赖 Field、Scatter、绑定与多层系统；后迁风险低。</td><td>通用 Field 留核心；地貌策略、生态规则进包。</td></tr>
+      <tr><td><strong>M5 植被</strong></td><td>树、灌木、藤蔓、草、物种库、编辑与 LOD 配方</td><td>当前 <code>src/vegetation</code> 混合最深，需要独立审计。</td><td>曲线/实例/LOD 基础留核心；生长、树种、装配进包。</td></tr>
+      <tr><td><strong>M6 角色与服装</strong></td><td>人形、四足、服装模板、悬垂配方</td><td>模拟和内容边界特殊；最后处理。</td><td>XPBD 求解器留核心候选；体型、服装、角色模板进包。</td></tr>
+    </table>
+
+    <h3 id="material-waves">6.5 材质迁移波次</h3>
+    <table>
+      <tr><th>波次</th><th>范围</th><th>保留核心</th><th>迁入包</th></tr>
+      <tr><td><strong>T0 试点</strong></td><td>基础金属 + 木材 + 织物各一个</td><td>PBR、Buffer、采样、基础 Filter</td><td>完整配方、参数、预览元数据</td></tr>
+      <tr><td><strong>T1 基础预设</strong></td><td>现有 <code>presets.ts</code>、常用表面</td><td>通用 Pattern / Ramp / Blend</td><td>rustyMetal、plushFur、ceramic 等成品</td></tr>
+      <tr><td><strong>T2 自然与建筑</strong></td><td>木、石、土、植被、墙面、屋面、道路</td><td>通用形态学与噪声算子</td><td>材质系统、区域规则、默认值</td></tr>
+      <tr><td><strong>T3 制造与硬表面</strong></td><td>金属、涂层、磨损、控制面板、Trim、贴花</td><td>Geometry Bake 与通用 Wear 原语候选</td><td>生产管线组合、风格与资产规则</td></tr>
+      <tr><td><strong>T4 织物与复杂表面</strong></td><td>织物、编织、软体、分层材质</td><td>通用坐标变换、滤镜、通道组合</td><td>纤维结构、织法、成品表面</td></tr>
+      <tr><td><strong>T5 批次与实验模块</strong></td><td>advanced、third～ninth、教学复现、体积系统</td><td>通过审计后晋升的少量通用算法</td><td>其余批次内容、参考拟合、展示配方</td></tr>
+    </table>
+
+    <h3>6.6 现有目录处置</h3>
+    <table>
+      <tr><th>目录/文件</th><th>目标</th><th>最终状态</th></tr>
+      <tr><td><code>src/models/</code></td><td>全部具体模型进入 <code>pcg/official/models</code></td><td><span class="status remove">删除</span>，或仅保留短期兼容转发。</td></tr>
+      <tr><td><code>src/texture/</code></td><td>拆出底层纹理核；成品材质进入 PCG 包</td><td><span class="status keep">保留核心子集</span>。</td></tr>
+      <tr><td><code>src/geometry/</code></td><td>领域算法逐项审计</td><td><span class="status keep">保留通用子集</span>，领域组合迁出。</td></tr>
+      <tr><td><code>src/vegetation/</code></td><td>基础曲线/实例/LOD 与生长配方分离</td><td><span class="status move">大部分迁入 PCG 包</span>。</td></tr>
+      <tr><td><code>web/procmodels.js</code></td><td>由 Catalog + 通用适配取代</td><td><span class="status remove">删除巨型注册表</span>。</td></tr>
+      <tr><td><code>web/materials.js</code></td><td>保留渲染适配；内容列表由 Catalog 提供</td><td><span class="status keep">缩为通用桥接层</span>。</td></tr>
+      <tr><td><code>examples/</code></td><td>保留少量教程；批量执行改为通用 CLI</td><td><span class="status move">删除一对一包装</span>。</td></tr>
+      <tr><td><code>src/agent/opplan.ts</code></td><td>内部兼容、诊断或 AI 实验</td><td><span class="status keep">不进入内容主链</span>。</td></tr>
+      <tr><td><code>src/recipes/workflow.ts</code></td><td>提取参数、资产槽、绑定等有用契约</td><td><span class="status move">改为脚本定义元数据；图主体退役</span>。</td></tr>
+    </table>
+
+    <h2 id="phases">7. 实施阶段</h2>
+
+    <div class="phase">
+      <div class="phase-id">P0</div>
+      <div>
+        <h3>基线与架构冻结</h3>
+        <p>先知道有什么、谁依赖谁、当前输出是什么。迁移期禁止无关结构重写。</p>
+        <div class="deliverables">
+          <div><b>交付</b><br>资产台账、依赖图、核心候选清单、迁移 ADR、截图与统计基线。</div>
+          <div><b>退出条件</b><br>每个现有模型/材质都有稳定 ID、入口、测试/截图、迁移波次。</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="phase">
+      <div class="phase-id">P1</div>
+      <div>
+        <h3>PCG 契约与自动 Catalog</h3>
+        <p>只建最小契约：定义、校验、发现、加载。避免提前做市场、远程安装、复杂依赖解析。</p>
+        <div class="deliverables">
+          <div><b>交付</b><br><code>defineModel</code>、<code>defineMaterial</code>、<code>definePcgPackage</code>、参数/绑定类型、构建期扫描器。</div>
+          <div><b>退出条件</b><br>未改 Web 注册表即可发现一个新模型和一个新材质；Node 与浏览器加载同一入口。</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="phase">
+      <div class="phase-id">P2</div>
+      <div>
+        <h3>纵向试点</h3>
+        <p>迁移简单模型、复杂模型、绑定模型、基础材质、复杂材质。暴露契约缺口。</p>
+        <div class="deliverables">
+          <div><b>交付</b><br>M0 + T0 试点、兼容导出、Web 参数面板、通用截图与导出命令。</div>
+          <div><b>退出条件</b><br>试点输出达基线；新内容加入时核心与 Viewer 源码零修改。</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="phase">
+      <div class="phase-id">P3</div>
+      <div>
+        <h3>Web 注册层收敛</h3>
+        <p>让 Catalog 成为模型库、材质库、搜索、分类、参数、绑定的唯一内容来源。</p>
+        <div class="deliverables">
+          <div><b>交付</b><br>动态加载、分享 URL、通用绑定适配、内容搜索、错误隔离。</div>
+          <div><b>退出条件</b><br><code>procmodels.js</code> 不再新增条目；<code>materials.js</code> 不再维护内容名称数组。</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="phase">
+      <div class="phase-id">P4</div>
+      <div>
+        <h3>全量模型迁移</h3>
+        <p>按 M1～M6 推进。每波结束再清理对应旧路径，禁止跨波次提前删除。</p>
+        <div class="deliverables">
+          <div><b>交付</b><br>全部模型脚本、领域 shared、包内测试与预览、旧入口迁移记录。</div>
+          <div><b>退出条件</b><br>模型 Catalog 覆盖现有库；<code>src/models</code> 无真实实现；Web 与 CLI 全部走包。</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="phase">
+      <div class="phase-id">P5</div>
+      <div>
+        <h3>全量材质迁移</h3>
+        <p>按 T1～T5 推进。每次迁移明确“核心算子”和“成品配方”。</p>
+        <div class="deliverables">
+          <div><b>交付</b><br>全部材质脚本、包内材质 shared、通用浏览器烘焙桥、回归截图。</div>
+          <div><b>退出条件</b><br>具体材质不再从核心导出；Node 与浏览器同 Seed 输出一致。</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="phase">
+      <div class="phase-id">P6</div>
+      <div>
+        <h3>核心瘦身与兼容清理</h3>
+        <p>最后再收紧公共导出，避免迁移中反复破坏消费者。</p>
+        <div class="deliverables">
+          <div><b>交付</b><br>核心入口白名单、弃用清单、包边界 lint、依赖方向检查、迁移指南。</div>
+          <div><b>退出条件</b><br>PCG 包可依赖核心；核心与 Web 不反向依赖官方内容；旧注册与兼容层清零。</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="phase">
+      <div class="phase-id">P7</div>
+      <div>
+        <h3>外部扩展与发布验证</h3>
+        <p>核心与官方包稳定后，再验证第三方包。先本地安装，后远程沙箱。</p>
+        <div class="deliverables">
+          <div><b>交付</b><br>最小第三方示例包、打包命令、版本锁定、能力声明、安全执行策略。</div>
+          <div><b>退出条件</b><br>仓库外包能在 CLI 与 Web 预览；不修改 Meshova 核心或官方包。</div>
+        </div>
+      </div>
+    </div>
+
+    <h2 id="testing">8. 测试与验收</h2>
+    <h3>8.1 分层测试</h3>
+    <table>
+      <tr><th>层</th><th>测试</th><th>失败表示</th></tr>
+      <tr><td>内核单元</td><td>数学、拓扑、Buffer、PBR、随机、导入导出、错误边界</td><td>稳定算法或契约回归。</td></tr>
+      <tr><td>包契约</td><td>ID 唯一、版本合法、参数默认值合法、无禁用依赖、输出类型正确</td><td>内容无法被通用运行时安全加载。</td></tr>
+      <tr><td>确定性</td><td>同版本 + 同参数 + 同 Seed 的结构哈希一致</td><td>无法复现、分享、截图回归或 AI 迭代。</td></tr>
+      <tr><td>几何质量</td><td>有限坐标、有效索引、法线、包围盒、面数范围、空部件、退化面</td><td>模型迁移或运行异常。</td></tr>
+      <tr><td>材质质量</td><td>通道尺寸、有限值、PBR 范围、法线长度、浏览器/Node 差异</td><td>材质不可用或跨端不一致。</td></tr>
+      <tr><td>视觉回归</td><td>标准视角截图 + 容差比较 + 人工抽检</td><td>造型、分组、材质或相机表现变化。</td></tr>
+      <tr><td>Web E2E</td><td>目录发现、搜索、加载、调参、绑定、分享链接、错误隔离</td><td>传播与用户使用链中断。</td></tr>
+      <tr><td>边界测试</td><td>核心不得 import <code>pcg</code>；Viewer 不得引用具体资产 ID</td><td>分层再次腐化。</td></tr>
+    </table>
+
+    <h3>8.2 每个迁移条目的验收门</h3>
+    <ul class="checklist">
+      <li>默认参数输出可生成，Seed 可复现。</li>
+      <li>参数最小值、最大值、典型值均不报错。</li>
+      <li>部件语义标签保留；原始 importer 名称仅作内部键。</li>
+      <li>Web、CLI、测试使用同一入口。</li>
+      <li>旧截图与新截图在约定容差内；有意变化必须单独记录。</li>
+      <li>旧注册、旧包装、旧导出无剩余消费者。</li>
+      <li>新实现不向核心加入内容专用函数。</li>
+    </ul>
+
+    <h2 id="governance">9. 版本、依赖与治理</h2>
+    <h3>9.1 版本规则</h3>
+    <table>
+      <tr><th>对象</th><th>规则</th></tr>
+      <tr><td>内核</td><td>SemVer。破坏核心类型/函数必须升主版本；提供弃用周期和迁移说明。</td></tr>
+      <tr><td>PCG 包</td><td>独立 SemVer。领域 helper 可在包内变化；对外条目 ID 与主版本决定分享链接兼容。</td></tr>
+      <tr><td>模型/材质条目</td><td>具有内容版本。默认参数或视觉大幅变化时升条目版本，不悄悄改变旧分享结果。</td></tr>
+      <tr><td>生成目录</td><td>无手工版本；由包版本与条目版本推导。</td></tr>
+    </table>
+
+    <h3>9.2 依赖方向</h3>
+    <pre>允许：PCG 模型 ─→ 包内 shared ─→ Meshova 内核
+允许：PCG 材质 ─→ 包内 shared ─→ Meshova 内核
+允许：Web / CLI ─→ Catalog ─→ PCG 条目 ─→ 内核
+
+禁止：Meshova 内核 ─→ 官方 PCG 包
+禁止：Web 查看器 ─→ 某个具体模型文件
+禁止：模型 A ─→ 另一个模型入口的内部实现
+禁止：运行时全局自注册副作用</pre>
+
+    <h3>9.3 变更审查问题</h3>
+    <ul>
+      <li>这段代码描述通用计算，还是某类资产怎么生成？后者进 PCG 包。</li>
+      <li>新增模型是否需要改核心或 Viewer？若需要，先判断契约缺口还是特判。</li>
+      <li>共享 helper 是否已有两个领域消费者？没有则留局部。</li>
+      <li>改变默认值是否会破坏旧分享链接？需要时保留旧条目版本。</li>
+      <li>AI 阅读入口是否需要跨越过多文件？入口应短，helper 应按语义命名。</li>
+    </ul>
+
+    <h2 id="risks">10. 风险与控制</h2>
+    <table>
+      <tr><th>风险</th><th>影响</th><th>控制</th></tr>
+      <tr><td>迁移变成造型重写</td><td>无法判断架构回归还是视觉改动。</td><td>搬迁与美术改进分开提交；先做行为等价迁移。</td></tr>
+      <tr><td>“稳定内核”过瘦</td><td>各 PCG 内容重复实现基础算法。</td><td>允许包内 shared；通过真实复用数据再晋升核心。</td></tr>
+      <tr><td>“稳定内核”继续膨胀</td><td>新增内容仍修改核心。</td><td>建立核心晋升门槛、导出白名单、依赖边界检查。</td></tr>
+      <tr><td>官方 PCG 包过大</td><td>Web 初始加载慢。</td><td>Catalog 只带元数据；条目动态 import；按入口切块。</td></tr>
+      <tr><td>参数定义重复</td><td>脚本与 UI 再次分叉。</td><td>参数 Schema 与 build 同文件；Web 只读定义。</td></tr>
+      <tr><td>第三方脚本安全</td><td>远程代码访问 DOM、网络或耗尽资源。</td><td>外部包后置；Worker 沙箱、能力声明、限时、限内存、默认禁网。</td></tr>
+      <tr><td>版本链接失效</td><td>传播内容不可复现。</td><td>分享锁定包/条目主版本、参数、Seed；旧主版本保留可加载产物。</td></tr>
+      <tr><td>旧注册清理不彻底</td><td>两套事实源长期共存。</td><td>台账记录消费者；波次结束必须删除对应手工注册。</td></tr>
+      <tr><td>现有脏工作区冲突</td><td>迁移覆盖并行开发。</td><td>实施前划定迁移批次；小步提交；不批量格式化无关文件。</td></tr>
+    </table>
+
+    <h2 id="done">11. 完成定义</h2>
+    <div class="card">
+      <ul class="checklist">
+        <li>所有正式模型、材质均由 PCG 包普通 TS 入口定义。</li>
+        <li>核心公共入口不再导出具体模型、成品材质、内容列表。</li>
+        <li>新增一个模型或材质只改 PCG 包；Catalog 自动生成。</li>
+        <li><code>web/procmodels.js</code> 巨型手工注册被删除或缩为无内容特判的通用适配。</li>
+        <li><code>web/materials.js</code> 不再维护多个材质名称数组。</li>
+        <li>Web 参数、搜索、分类、绑定、分享全部来自统一定义。</li>
+        <li>CLI、Agent、Web、测试使用同一条目加载链。</li>
+        <li>全部迁移条目通过确定性、结构、PBR、截图、Web E2E 回归。</li>
+        <li>核心对 PCG 包零反向依赖；Viewer 对具体资产 ID 零硬编码。</li>
+        <li>不存在节点蓝图文件、OpPlan 内容包或脚本/图双向同步负担。</li>
+        <li>仓库外最小示例 PCG 包可被安装、预览、分享，不修改核心。</li>
+      </ul>
+    </div>
+
+    <h3>最终产品心智</h3>
+    <div class="arch">
+      <div class="arch-row">
+        <div class="arch-box"><strong>Meshova 内核</strong><small>稳定工具箱；慢变化</small></div>
+        <div class="arch-box package"><strong>PCG 包</strong><small>普通 TS 内容与领域能力；快变化</small></div>
+      </div>
+      <div class="arrow">▼</div>
+      <div class="arch-row"><div class="arch-box output"><strong>Web / CLI / AI 共用</strong><small>即时预览 · 易传播 · 可复现 · 易扩展</small></div></div>
+    </div>
+
+    <footer>
+      Meshova 架构重构计划 · 2026-07-12<br>
+      文档范围：计划与验收标准。未执行源码迁移，未引入节点蓝图。
+    </footer>
+  </main>
+</div>
+</body>
+</html>

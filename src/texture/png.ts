@@ -120,13 +120,18 @@ function clamp01(x: number): number {
   return x < 0 ? 0 : x > 1 ? 1 : x;
 }
 
-/** Convert a texture buffer to a PNG byte array (1 or 3 channels). */
+/** Convert a texture buffer to a PNG byte array (1, 3 or 4 channels). */
 export function textureToPNG(tex: TextureBuffer): Uint8Array {
   const { width, height, channels, data } = tex;
   if (channels === 1) {
     const px = new Uint8Array(width * height);
     for (let i = 0; i < px.length; i++) px[i] = toByte(data[i]!);
     return encodePNG(width, height, 1, px);
+  }
+  if (channels === 4) {
+    const px = new Uint8Array(width * height * 4);
+    for (let i = 0; i < px.length; i++) px[i] = toByte(data[i]!);
+    return encodePNG(width, height, 4, px);
   }
   // emit RGB
   const px = new Uint8Array(width * height * 3);

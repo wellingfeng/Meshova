@@ -22,6 +22,8 @@ import {
   PRESETS,
   PRESET_PARAM_SCHEMA,
   defaultMatParams,
+  corrugatedMetal,
+  manholeCover,
   rustyMetal,
 } from "../src/index.js";
 
@@ -181,6 +183,66 @@ describe("preset params", () => {
     };
     // more rust => more area non-metallic => lower mean metallic
     expect(avg(high.metallic)).toBeLessThan(avg(low.metallic));
+  });
+
+  it("corrugated metal is deterministic and physically valid", () => {
+    const first = materialFromFields(64, corrugatedMetal({ seed: 17 }));
+    const second = materialFromFields(64, corrugatedMetal({ seed: 17 }));
+    expect(first.height.data).toEqual(second.height.data);
+    expect(first.roughness.data).toEqual(second.roughness.data);
+    expect(validateMaterial(first)).toEqual([]);
+  });
+
+  it("corrugated metal ridge count controls profile frequency", () => {
+    const countBands = (ridges: number) => {
+      const material = materialFromFields(128, corrugatedMetal({ ridges, wear: 0, dirt: 0 }));
+      const y = 64;
+      let bands = 0;
+      let inside = false;
+      for (let x = 0; x < 128; x++) {
+        const high = sample(material.height, x, y) > 0.72;
+        if (high && !inside) bands++;
+        inside = high;
+      }
+      return bands;
+    };
+    expect(countBands(18)).toBeGreaterThan(countBands(6) * 2);
+  });
+
+  it("corrugated metal dirt lowers metallic response", () => {
+    const clean = materialFromFields(64, corrugatedMetal({ dirt: 0 }));
+    const dirty = materialFromFields(64, corrugatedMetal({ dirt: 1 }));
+    const average = (values: Float32Array) => values.reduce((sum, value) => sum + value, 0) / values.length;
+    expect(average(dirty.metallic.data)).toBeLessThan(average(clean.metallic.data));
+  });
+
+  it("manhole cover is deterministic and physically valid", () => {
+    const first = materialFromFields(64, manholeCover({ seed: 23 }));
+    const second = materialFromFields(64, manholeCover({ seed: 23 }));
+    expect(first.height.data).toEqual(second.height.data);
+    expect(first.metallic.data).toEqual(second.metallic.data);
+    expect(validateMaterial(first)).toEqual([]);
+  });
+
+  it("manhole cover separates metal from surrounding pavement", () => {
+    const material = materialFromFields(96, manholeCover({ dirt: 0, groundBlend: 0 }));
+    expect(sample(material.metallic, 48, 48)).toBeGreaterThan(0.95);
+    expect(sample(material.metallic, 3, 3)).toBeLessThan(0.05);
+    expect(sample(material.height, 48, 48)).toBeGreaterThan(sample(material.height, 3, 3) + 0.25);
+  });
+
+  it("manhole cover radius controls metal coverage", () => {
+    const average = (values: Float32Array) => values.reduce((sum, value) => sum + value, 0) / values.length;
+    const small = materialFromFields(96, manholeCover({ coverRadius: 0.27, dirt: 0, groundBlend: 0 }));
+    const large = materialFromFields(96, manholeCover({ coverRadius: 0.46, dirt: 0, groundBlend: 0 }));
+    expect(average(large.metallic.data)).toBeGreaterThan(average(small.metallic.data) * 2);
+  });
+
+  it("manhole cover dirt reduces metallic response", () => {
+    const average = (values: Float32Array) => values.reduce((sum, value) => sum + value, 0) / values.length;
+    const clean = materialFromFields(96, manholeCover({ dirt: 0, groundBlend: 0 }));
+    const dirty = materialFromFields(96, manholeCover({ dirt: 1, groundBlend: 1 }));
+    expect(average(dirty.metallic.data)).toBeLessThan(average(clean.metallic.data));
   });
 
   it("brickWall columns param is accepted without error", () => {

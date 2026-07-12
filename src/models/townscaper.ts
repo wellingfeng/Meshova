@@ -433,7 +433,7 @@ export function buildTownscaperScene(params: Partial<TownscaperParams> = {}): To
           const isGroundArch = floor === 1 && hash01(x * 7 + side, z * 11 + floor, p.seed + 503) < p.archDensity;
           if (isGroundArch) {
             doors.push(facadeBox(a, b, p.cellSize * 0.48, p.floorHeight * 0.68, 0.07, p.floorHeight * 0.35, outward + 0.018));
-            trims.push(archTrim(a, b, p.floorHeight, outward + 0.07));
+            trims.push(archTrim(a, b, p.floorHeight, outward + 0.11));
             archCount++;
             continue;
           }

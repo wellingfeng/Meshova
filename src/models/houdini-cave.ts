@@ -148,8 +148,8 @@ export function buildHoudiniCaveParts(options: HoudiniCaveOptions = {}): NamedPa
   const rng = makeRng(cave.seed + 701);
   const rockPositions = [
     vec3(cave.entranceOffsetZ - cave.entranceWidth * 0.72, 0, cave.depth * 0.45),
-    vec3(cave.entranceOffsetZ + cave.entranceWidth * 0.76, 0, cave.depth * 0.46),
-    vec3(cave.entranceOffsetZ - cave.entranceWidth * 1.05, 0, cave.depth * 0.34),
+    vec3(cave.entranceOffsetZ + cave.entranceWidth * 0.76, 0.03, cave.depth * 0.46),
+    vec3(cave.entranceOffsetZ - cave.entranceWidth * 1.05, 0.06, cave.depth * 0.34),
   ];
   for (let index = 0; index < cave.entranceRocks; index++) {
     const radius = cave.height * (0.12 + rng.next() * 0.08);

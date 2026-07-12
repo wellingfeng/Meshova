@@ -205,7 +205,7 @@ function addTimberFrame(
   wingRise: number,
 ): void {
   const beam = Math.max(0.08, p.width * 0.022);
-  const frontZ = mainCenterZ + p.depth * 0.5 + 0.035;
+  const frontZ = mainCenterZ + p.depth * 0.5 + 0.08;
   const wallMidY = baseY + p.wallHeight * 0.53;
   for (const x of [-p.width * 0.5, 0, p.width * 0.5]) {
     add(groups, "timber_frame", placedBox(beam, p.wallHeight + 0.06, beam, x, baseY + p.wallHeight * 0.5, frontZ));
@@ -214,10 +214,10 @@ function addTimberFrame(
   add(groups, "timber_frame", placedBox(p.width + beam, beam, beam, 0, eaveY - beam * 0.5, frontZ));
 
   for (const x of [wingCenterX - wingWidth * 0.5, wingCenterX, wingCenterX + wingWidth * 0.5]) {
-    add(groups, "timber_frame", placedBox(beam, p.wallHeight + 0.08, beam, x, baseY + p.wallHeight * 0.5, wingFrontZ + 0.018));
+    add(groups, "timber_frame", placedBox(beam, p.wallHeight + 0.08, beam, x, baseY + p.wallHeight * 0.5, wingFrontZ + 0.08));
   }
-  add(groups, "timber_frame", placedBox(wingWidth + beam, beam, beam, wingCenterX, wallMidY, wingFrontZ + 0.018));
-  add(groups, "timber_frame", placedBox(wingWidth + beam, beam, beam, wingCenterX, eaveY - beam * 0.5, wingFrontZ + 0.018));
+  add(groups, "timber_frame", placedBox(wingWidth + beam, beam, beam, wingCenterX, wallMidY, wingFrontZ + 0.08));
+  add(groups, "timber_frame", placedBox(wingWidth + beam, beam, beam, wingCenterX, eaveY - beam * 0.5, wingFrontZ + 0.08));
 
   const apex = vec3(wingCenterX, eaveY + wingRise, wingGableFrontZ + 0.006);
   const left = vec3(wingCenterX - wingWidth * 0.5, eaveY, wingGableFrontZ + 0.006);
@@ -354,7 +354,7 @@ function addBayWindow(
 
 function addFrontWindow(groups: Map<string, Group>, x: number, y: number, z: number, width: number, height: number): void {
   const frame = Math.max(0.065, width * 0.1);
-  add(groups, "window_glass", placedBox(width, height, 0.055, x, y, z));
+  add(groups, "window_glass", placedBox(Math.max(0.01, width - 0.03), Math.max(0.01, height - 0.03), 0.045, x, y, z - 0.012));
   add(groups, "window_frames", placedBox(width + frame * 2, frame, 0.09, x, y + height * 0.5 + frame * 0.5, z + 0.012));
   add(groups, "window_frames", placedBox(width + frame * 2, frame, 0.09, x, y - height * 0.5 - frame * 0.5, z + 0.012));
   add(groups, "window_frames", placedBox(frame, height, 0.09, x - width * 0.5 - frame * 0.5, y, z + 0.012));

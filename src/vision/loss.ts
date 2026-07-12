@@ -47,6 +47,8 @@ export interface TargetOptions {
  */
 export interface ReferenceTarget {
   readonly raster: Raster;
+  /** Foreground mask in original canvas coordinates. */
+  readonly mask: import("./silhouette.js").Mask;
   readonly maskNorm: import("./silhouette.js").Mask;
   /** Mean foreground RGB (0..255) — robust color anchor across lighting. */
   readonly meanRgb: [number, number, number];
@@ -77,6 +79,7 @@ export function makeReferenceTarget(pngBytes: Uint8Array, options?: TargetOption
   const maskNorm = opts.normalize ? normalizeMask(fg) : fg;
   return {
     raster,
+    mask: fg,
     maskNorm,
     // Color anchored on the foreground mean only, so the backdrop (which
     // differs between a photo and the viewer's clear color) doesn't pollute
@@ -121,4 +124,3 @@ export function scoreRenderRaster(target: ReferenceTarget, render: Raster): Scor
 export function formatScore(b: ScoreBreakdown): string {
   return `score=${b.score.toFixed(3)} (silhouetteIoU=${b.silhouetteIoU.toFixed(3)}, color=${b.colorSimilarity.toFixed(3)})`;
 }
-

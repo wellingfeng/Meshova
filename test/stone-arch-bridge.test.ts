@@ -3,6 +3,7 @@ import {
   bounds,
   buildStoneArchBridgeParts,
   triangleCount,
+  zFightingReport,
 } from "../src/index.js";
 
 describe("stone arch bridge", () => {
@@ -32,5 +33,13 @@ describe("stone arch bridge", () => {
     expect(repeated.map((part) => triangleCount(part.mesh))).toEqual(
       three.map((part) => triangleCount(part.mesh)),
     );
+  });
+
+  it("keeps decorative arch rings proud of the bridge body", () => {
+    const report = zFightingReport(buildStoneArchBridgeParts(), {
+      includeSamePart: false,
+      maxTriangles: Number.POSITIVE_INFINITY,
+    });
+    expect(report.pairs).toBe(0);
   });
 });

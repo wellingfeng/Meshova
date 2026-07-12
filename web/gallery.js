@@ -9,59 +9,22 @@ import * as THREE from "three";
 import { PROC_MODELS, defaultParams } from "/web/procmodels.js?v=pcgriver1";
 import { isGalleryModelVisible } from "/web/model-visibility.js?v=howtos1";
 import { createRankedModelLibrary } from "/web/model-ranking.js?v=aesthetic2";
-import { bakeMaterial, SBS_REPRO_NAMES, PRESET_NAMES, BUILDER_NAMES } from "/web/materials.js?v=japanese1";
+import { catOf, normalizeModelName } from "/web/gallery-categories.js?v=usecat4";
+import {
+  bakeMaterial,
+  bakeSurface,
+  ALL_MATERIAL_NAMES,
+  MATERIAL_USE_CATEGORIES,
+} from "/web/materials.js?v=usecat4";
 
 // 材质条目：与模型同库展示，用方块缩略图；点击跳 matlab.html 单材质渲染器。
-const MATERIAL_CATS = [
-  { id: "sbs", label: "材质·SBS复现", names: SBS_REPRO_NAMES },
-  { id: "preset", label: "材质·内置预设", names: PRESET_NAMES },
-  { id: "builder", label: "材质·拼接", names: BUILDER_NAMES },
-];
-
-// 分类：把模型 id 归到便于浏览的组，未列出的归“其它”。
-const CATEGORY = {
-  teddy: "角色", "cartoon-mech-pilot": "角色", "stylized-humanoid": "角色",
-  tshirt: "服装", skirt: "服装", pants: "服装", dress: "服装", hoodie: "服装",
-  "sports-car": "载具",
-  "hard-surface-kit": "硬表面",
-  officechair: "家具", wineglass: "家具", "interior-room": "家具", "procedural-building": "建筑",
-  tower: "建筑", pagoda: "建筑", building: "建筑", "japanese-street-building": "建筑", cityblock: "建筑", "city-district": "城市", "night-metropolis": "城市", "garden-metropolis": "城市", "city-district-roadnet": "城市", "watabou-city": "城市", "road-network": "基建", "procedural-game-map": "程序化地图", "random-dungeon": "程序化地图", streetscene: "建筑", freeway: "建筑",
-  road: "基建", railway: "基建", viaduct: "基建", pylon: "基建", "tower-crane": "基建", "wind-turbine": "基建",
-  "toll-station": "基建", "tunnel-portal": "基建", intersection: "基建",
-  "titan-rail": "Titan复刻", "titan-fence": "Titan复刻", "titan-cable": "Titan复刻",
-  "titan-adboard": "Titan复刻", "titan-shrub": "Titan复刻", "titan-platform": "Titan复刻",
-  "titan-building": "Titan复刻", "titan-stacking": "Titan复刻",
-  "urban-artdeco": "建筑", "urban-glass": "建筑", "urban-brick": "建筑",
-  "urban-office": "建筑", "urban-brownstone": "建筑", "urban-corporate": "建筑",
-  "rooftop-kit": "城市", scaffolding: "城市", "bus-stop": "城市", bicycle: "城市",
-  billboard: "城市", "container-yard": "城市", "manhole-cover": "城市", "barrier-run": "城市",
-  "fire-escape": "城市", newsstand: "城市", "traffic-signal": "城市",
-  "umbrella-table": "城市", "street-tree": "城市", "wfc-rooftop": "城市",
-  rock: "自然", mushroom: "自然", meadow: "自然", vine: "自然", "vine-slope": "自然", "ivy-ruins": "自然", "vine-covered-rock": "自然", "ue5-pcg-cave": "自然",
-  "rice-field": "植被", "pcg-biome-river": "植被", "river-lake": "地形",
-  fterrain: "地形", "terrain-island": "地形", "pcg-pathfinding": "地形",
-  "veg-tree": "植被", "veg-shrub": "植被", "veg-grass": "植被",
-  "veg-conifer": "植被", "veg-palm": "植被", "veg-tree-lod": "植被", "veg-garden": "植被",
-  sphere: "基础", smooth: "基础", spring: "基础", gear: "基础", csg: "基础",
-  "drawable-path-fence": "程序工作流", "masked-region-grove": "程序工作流", "scatter-path-lights": "程序工作流",
-};
-CATEGORY["multilevel-interchange"] = "基建";
-const catOf = (id, fallback) => {
-  if (id === "fterrain" || id.startsWith("terrain-")) return "地形";
-  if (id.startsWith("citygen-")) return "城市";
-  if (id.startsWith("veg-")) return "植被";
-  if (id.startsWith("assembly-")) return "植被";
-  if (id.startsWith("mech-")) return "机械";
-  if (id.startsWith("ruin-")) return "建筑";
-  if (fallback === "meshova") return "Meshova 生成";
-  if (id.startsWith("urban-")) return "建筑";
-  if (id === "blender-howtos" || id.startsWith("blender-howtos-") || id.startsWith("blender-")) return "BlenderHowtos复刻";
-  if (id === "houdini-howtos" || id.startsWith("houdini-howtos-")) return "HoudiniHowtos复刻";
-  if (id.startsWith("speedtree-tutorial-")) return "SpeedTree教程复刻";
-  if (id === "speedtree-species-lineup" || id === "speedtree-guided-canopy" || /^speedtree-(oak|maple|birch|willow|pine|spruce|palm)$/.test(id)) return "SpeedTree-lite";
-  if (id === "speedtree-custom-lineup" || id.startsWith("speedtree-custom-")) return "SpeedTree-lite 新树型";
-  return fallback || CATEGORY[id] || "其它";
-};
+const galleryMaterialNames = new Set(ALL_MATERIAL_NAMES);
+const MATERIAL_CATS = MATERIAL_USE_CATEGORIES
+  .map((category) => ({
+    ...category,
+    names: category.names.filter((name) => galleryMaterialNames.has(name)),
+  }))
+  .filter((category) => category.names.length > 0);
 
 function isGeneratedLibraryEntry(m) {
   if (!m || !m.id || !m.file || PROC_MODELS[m.id] || !isGalleryModelVisible(m.id)) return false;
@@ -80,7 +43,7 @@ async function loadGeneratedEntries() {
       .map((m) => ({
         id: m.id,
         model: {
-          name: m.name || m.id,
+          name: normalizeModelName(m.name || m.id, m.id),
           assetMeta: {
             description: m.description || "",
             tags: Array.isArray(m.tags) ? m.tags : [],
@@ -90,7 +53,7 @@ async function loadGeneratedEntries() {
             source: m.source || "generated",
           },
         },
-        cat: catOf(m.id, m.category || "生成模型"),
+        cat: catOf(m.id, m),
         generated: true,
         file: m.file,
         // 生成/最近修改时间：服务端已按 .json 文件 mtime 注入兜底。
@@ -185,7 +148,13 @@ function getRenderContext() {
     canvas = document.createElement("canvas");
     canvas.width = THUMB;
     canvas.height = THUMB * 0.75;
-    renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false, preserveDrawingBuffer: true });
+    renderer = new THREE.WebGLRenderer({
+      canvas,
+      antialias: true,
+      alpha: false,
+      preserveDrawingBuffer: true,
+      reversedDepthBuffer: true,
+    });
     renderer.setPixelRatio(1);
     renderer.setSize(canvas.width, canvas.height, false);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -233,6 +202,8 @@ function renderMaterialThumb(name) {
 
 const textureLoader = new THREE.TextureLoader();
 const textureCache = new Map();
+const surfaceMaterialCache = new Map();
+const SURFACE_THUMB_SIZE = 96;
 
 function resolveTexture(path) {
   if (!path) return null;
@@ -256,13 +227,27 @@ function loadTexture(path, { srgb = false, flipY = true } = {}) {
 
 function materialForViewerPart(part, hasVColors) {
   const c = part.color || [0.8, 0.8, 0.8];
-  const mat = new THREE.MeshStandardMaterial({
-    color: hasVColors ? 0xffffff : new THREE.Color(c[0], c[1], c[2]),
-    vertexColors: hasVColors,
-    roughness: 0.62,
-    metalness: 0.05,
-  });
   const t = part.textures;
+  let mat = null;
+  if (part.surface && !t) {
+    const cacheKey = JSON.stringify([part.surface, c]);
+    let cached = surfaceMaterialCache.get(cacheKey);
+    if (cached === undefined) {
+      cached = bakeSurface(part.surface, SURFACE_THUMB_SIZE, c) || null;
+      surfaceMaterialCache.set(cacheKey, cached);
+    }
+    if (cached) mat = cached.clone();
+  }
+  if (!mat) {
+    mat = new THREE.MeshStandardMaterial({
+      color: hasVColors ? 0xffffff : new THREE.Color(c[0], c[1], c[2]),
+      roughness: 0.62,
+      metalness: 0.05,
+    });
+  }
+  mat.vertexColors = hasVColors;
+  if (hasVColors) mat.color.setRGB(1, 1, 1);
+  if (part.doubleSided) mat.side = THREE.DoubleSide;
   if (!t) return mat;
   const baseColor = loadTexture(t.baseColor, { srgb: true });
   const normal = loadTexture(t.normal);
@@ -500,8 +485,13 @@ grid.innerHTML = "";
 const generatedEntries = await loadGeneratedEntries();
 const procEntries = Object.entries(PROC_MODELS)
   .filter(([id]) => isGalleryModelVisible(id))
-  .map(([id, model]) => ({ id, model, cat: catOf(id, model.category), generated: false }));
-// 材质条目：三大类展平，标记 isMaterial，与模型同库排在末尾。
+  .map(([id, model]) => ({
+    id,
+    model: { ...model, name: normalizeModelName(model.name || id, id) },
+    cat: catOf(id, model),
+    generated: false,
+  }));
+// 材质条目：按实际用途展平，标记 isMaterial，与模型同库排在末尾。
 const materialEntries = [];
 for (const cat of MATERIAL_CATS) {
   for (const name of cat.names) {
@@ -595,12 +585,16 @@ const ICON_PATHS = {
   rotate: "M21 12a9 9 0 11-2.6-6.4M21 4v4h-4",
 };
 const CAT_TO_ICON = {
-  角色: "person", 服装: "shirt", 载具: "car", 硬表面: "cube", 家具: "sofa",
-  建筑: "building", 基建: "bridge", 城市: "city", 程序化地图: "map", 自然: "leaf", 地形: "mountain",
-  植被: "tree", 机械: "robot", 基础: "cube", "Titan复刻": "tower",
-  BlenderHowtos复刻: "sparkles", HoudiniHowtos复刻: "sparkles", SpeedTree教程复刻: "tree", "SpeedTree-lite": "tree", "SpeedTree-lite 新树型": "tree",
-  "Meshova 生成": "sparkles", 生成模型: "cube", 程序工作流: "layers", 其它: "dots",
-  "材质·SBS复现": "sliders", "材质·内置预设": "palette", "材质·拼接": "swatch",
+  角色: "person", 生物: "leaf", 服装: "shirt", 载具: "car", 家具: "sofa", 家电: "cube",
+  卫浴设施: "cube", 灯具: "dots", 机械: "robot", 工具与设备: "sliders", 管线与机电: "bridge", 道具与装饰: "palette",
+  建筑构件: "building", 建筑: "building", 室内空间: "sofa", 城市与聚落: "city",
+  道路与基建: "bridge", 地图与关卡: "map", 地形: "mountain", 水体: "dots",
+  植被: "tree", 岩石与自然物: "mountain", 环境场景: "layers", 技术演示: "cube",
+  "金属与工业": "sliders", "木材与竹材": "swatch", "地面与道路": "bridge",
+  "墙面与建筑饰面": "building", "屋顶与瓦片": "building", "岩石与自然地表": "mountain",
+  "植被与有机表面": "leaf", "织物、皮革与软装": "swatch", "玻璃、冰与透明材质": "cube",
+  "塑料与包装": "cube", 建筑构件: "building", 器物与装饰: "palette",
+  "角色与生物表面": "person", 食品: "dots",
 };
 function svgIcon(key) {
   const d = ICON_PATHS[key] || ICON_PATHS.dots;
@@ -611,13 +605,12 @@ const iconFor = (c) => svgIcon(CAT_TO_ICON[c] || "dots");
 // 主题分组：把分类归到便于浏览的大组，只显示实际存在的分类。
 const MATERIAL_LABELS = MATERIAL_CATS.map((c) => c.label);
 const CAT_GROUPS = [
-  { label: "角色 & 服装", cats: ["角色", "服装"] },
-  { label: "载具 & 机械", cats: ["载具", "机械", "硬表面"] },
-  { label: "建筑 & 城市", cats: ["建筑", "城市", "基建", "程序化地图"] },
-  { label: "自然 & 植被", cats: ["自然", "地形", "植被"] },
-  { label: "复刻 & 教程", cats: ["Titan复刻", "HoudiniHowtos复刻", "SpeedTree教程复刻", "SpeedTree-lite", "SpeedTree-lite 新树型"] },
-  { label: "家具 & 基础", cats: ["家具", "基础"] },
-  { label: "生成 & 工作流", cats: ["程序工作流", "Meshova 生成", "生成模型", "其它"] },
+  { label: "角色 & 生物", cats: ["角色", "生物", "服装"] },
+  { label: "载具 & 设备", cats: ["载具", "机械", "工具与设备", "管线与机电"] },
+  { label: "室内 & 道具", cats: ["家具", "家电", "卫浴设施", "灯具", "道具与装饰"] },
+  { label: "建筑 & 城市", cats: ["建筑构件", "建筑", "室内空间", "城市与聚落", "道路与基建", "地图与关卡"] },
+  { label: "自然 & 环境", cats: ["地形", "水体", "植被", "岩石与自然物", "环境场景"] },
+  { label: "技术", cats: ["技术演示"] },
   { label: "材质", cats: MATERIAL_LABELS },
 ];
 
@@ -630,6 +623,7 @@ const cards = entries.map((e) => {
   card.dataset.cat = e.cat;
   card.dataset.specialUrl = e.specialUrl || "";
   card.dataset.generated = e.generated ? "true" : "false";
+  card.dataset.file = e.file || "";
   const semantic = semanticMeta(e.model);
   card.dataset.semantic = semantic.searchText;
   // 骨架屏：缩略图区先显示等尺寸的占位块（含微光扫过），避免加载时布局跳动。
@@ -841,7 +835,7 @@ function statsBadgeHtml({ parts, tris, verts }) {
 
 function fallbackThumbHtml(entry, message = "暂无缩略图") {
   const name = entry?.model?.name || entry?.id || "模型";
-  return `<div class="fallback">${iconFor(entry?.cat || "其它")}<span class="t">${name}</span><span class="m">${message}</span></div>`;
+  return `<div class="fallback">${iconFor(entry?.cat || "基础")}<span class="t">${name}</span><span class="m">${message}</span></div>`;
 }
 
 // ---- 悬停转盘：hover 时懒生成一组 360° 帧，循环切换 <img> src ----

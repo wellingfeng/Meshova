@@ -29,7 +29,7 @@ import {
 } from "../clothing/garment-agent.js";
 import {
   makeReferenceTarget,
-  scoreRenderPng,
+  evaluateReferencePng,
   base64ToBytes,
   bytesToBase64,
   type ScoreBreakdown,
@@ -103,7 +103,7 @@ export async function imageToGarment(opts: ImageToGarmentOptions): Promise<Image
   const evaluate = async (spec: GarmentSpec): Promise<number> => {
     const parts = buildSpec(spec, opts.measures ?? {});
     const r = await opts.render(parts, spec, evalIndex);
-    const breakdown = scoreRenderPng(target, base64ToBytes(r.imageBase64));
+    const breakdown = evaluateReferencePng(target, base64ToBytes(r.imageBase64));
     opts.onStep?.({ evalIndex, spec, score: breakdown.score });
     if (!bestScore || breakdown.score > bestScore.score) bestScore = breakdown;
     evalIndex++;
@@ -126,4 +126,3 @@ export async function imageToGarment(opts: ImageToGarmentOptions): Promise<Image
     evaluations: opt.evaluations,
   };
 }
-

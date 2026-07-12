@@ -219,5 +219,12 @@ describe("cityBlocks real roads", () => {
     });
     expect(triangleCount(r.roadParts.roundaboutMesh)).toBeGreaterThan(0);
     expect(triangleCount(r.roadParts.islandMesh)).toBeGreaterThan(0);
+    expect(zFightingReport([
+      { name: "road_markings", mesh: merge(r.roadParts.markingMesh, r.roadParts.crosswalkMesh) },
+      { name: "roundabout_islands", mesh: r.roadParts.islandMesh },
+    ], {
+      includeSamePart: false,
+      maxTriangles: Number.POSITIVE_INFINITY,
+    }).pairs).toBe(0);
   });
 });

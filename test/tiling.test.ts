@@ -5,6 +5,9 @@ import {
   labelComponents,
   floodFillRandom,
   floodFillGradient,
+  floodFillHeight,
+  floodFillSelect,
+  floodFillSlope,
   makeTile,
   tileSampler,
   shape,
@@ -61,6 +64,21 @@ describe("tiling: flood fill", () => {
     // leftmost foreground < rightmost foreground along U
     expect(sample(g, 1, 16)).toBeLessThan(sample(g, SIZE - 2, 16));
   });
+
+  it("builds per-component height, slope and selection maps", () => {
+    const mask = generate(SIZE, SIZE, 1, (u, v) => {
+      const left = Math.hypot(u - 0.25, v - 0.5) < 0.12 ? 1 : 0;
+      const right = Math.hypot(u - 0.75, v - 0.5) < 0.12 ? 1 : 0;
+      return Math.max(left, right);
+    });
+    const height = floodFillHeight(mask, { seed: 11, base: 0.5, variation: 0.4 });
+    const slope = floodFillSlope(mask, { seed: 11, angle: 0, angleVariation: 0 });
+    const selected = floodFillSelect(mask, { seed: 11, probability: 1 });
+    expect(sample(height, 8, 16)).not.toBe(sample(height, 24, 16));
+    expect(sample(slope, 6, 16)).toBeLessThan(sample(slope, 10, 16));
+    expect(sample(selected, 8, 16)).toBe(1);
+    expect(sample(selected, 0, 0)).toBe(0);
+  });
 });
 
 describe("tiling: makeTile", () => {
@@ -100,5 +118,28 @@ describe("tiling: tileSampler", () => {
     const a = tileSampler(SIZE, disc, { count: 4, seed: 9 });
     const b = tileSampler(SIZE, disc, { count: 4, seed: 9 });
     expect(sample(a, 16, 16)).toBe(sample(b, 16, 16));
+  });
+
+  it("supports rectangular grids, density masks and collision rejection", () => {
+    const disc = shape({ type: "disc", size: 0.45 });
+    const mask = generate(SIZE, SIZE, 1, (u) => (u < 0.5 ? 1 : 0));
+    const sparse = tileSampler(SIZE, disc, {
+      countX: 8,
+      countY: 3,
+      density: 0.8,
+      collision: 0.9,
+      mask,
+      seed: 12,
+    });
+    let left = 0;
+    let right = 0;
+    for (let y = 0; y < SIZE; y++) {
+      for (let x = 0; x < SIZE; x++) {
+        if (x < SIZE / 2) left += sample(sparse, x, y);
+        else right += sample(sparse, x, y);
+      }
+    }
+    expect(left).toBeGreaterThan(0);
+    expect(right).toBe(0);
   });
 });

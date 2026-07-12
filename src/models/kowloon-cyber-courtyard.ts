@@ -81,8 +81,8 @@ export function buildKowloonCyberCourtyardParts(
   const p = normalizeParams(params);
   const rng = makeRng(p.seed >>> 0);
   const parts: NamedPart[] = [];
-  const northSouthWidth = Math.max(3.6, p.courtyardWidth - p.alleyWidth);
-  const eastWestWidth = Math.max(3.6, p.courtyardDepth - p.alleyWidth);
+  const northSouthWidth = Math.max(3.6, p.courtyardWidth - p.alleyWidth - 0.12);
+  const eastWestWidth = Math.max(3.6, p.courtyardDepth - p.alleyWidth - 0.12);
 
   for (let index = 0; index < SIDES.length; index++) {
     const side = SIDES[index]!;
@@ -109,7 +109,13 @@ export function buildKowloonCyberCourtyardParts(
         ...part,
         name: `${side.key}_${part.name}`,
         label: `${side.label}${part.label || part.name}`,
-        mesh: transform(part.mesh, { rotate: vec3(0, side.yaw, 0), translate: offset }),
+        mesh: transform(part.mesh, {
+          rotate: vec3(0, side.yaw, 0),
+          translate: offset,
+          scale: part.name === "balcony_slabs" || part.name === "street_canopy" || part.name === "canopy_posts"
+            ? vec3(0.9, 1, 0.9)
+            : vec3(1, 1, 1),
+        }),
         metadata: {
           ...part.metadata,
           style: "九龙城围合赛博天井",
@@ -219,12 +225,12 @@ function addCourtyard(
 }
 
 function addAlleyThresholds(parts: NamedPart[], p: KowloonCyberCourtyardParams): void {
-  const alleyDepth = p.buildingDepth * 1.05;
+  const alleyDepth = p.buildingDepth * 0.88;
   const meshes = [
-    transform(box(p.alleyWidth, 0.055, alleyDepth), { translate: vec3(0, -0.015, (p.courtyardDepth + alleyDepth) / 2) }),
-    transform(box(p.alleyWidth, 0.055, alleyDepth), { translate: vec3(0, -0.015, -(p.courtyardDepth + alleyDepth) / 2) }),
-    transform(box(alleyDepth, 0.055, p.alleyWidth), { translate: vec3((p.courtyardWidth + alleyDepth) / 2, -0.015, 0) }),
-    transform(box(alleyDepth, 0.055, p.alleyWidth), { translate: vec3(-(p.courtyardWidth + alleyDepth) / 2, -0.015, 0) }),
+    transform(box(p.alleyWidth, 0.055, alleyDepth), { translate: vec3(0, -0.015, (p.courtyardDepth + alleyDepth) / 2 + 0.05) }),
+    transform(box(p.alleyWidth, 0.055, alleyDepth), { translate: vec3(0, -0.015, -(p.courtyardDepth + alleyDepth) / 2 - 0.05) }),
+    transform(box(alleyDepth, 0.055, p.alleyWidth), { translate: vec3((p.courtyardWidth + alleyDepth) / 2 + 0.05, -0.015, 0) }),
+    transform(box(alleyDepth, 0.055, p.alleyWidth), { translate: vec3(-(p.courtyardWidth + alleyDepth) / 2 - 0.05, -0.015, 0) }),
   ];
   parts.push(part(
     "narrow_alleys",

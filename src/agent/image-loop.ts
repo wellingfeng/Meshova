@@ -19,14 +19,20 @@ import { extractCode, type LlmClient, type LlmMessage } from "./llm.js";
 import type { NamedPart } from "../geometry/export.js";
 import {
   makeReferenceTarget,
-  scoreRenderPng,
-  formatScore,
+  evaluateReferencePng,
+  gateReferenceCandidate,
+  formatCandidateDecision,
+  formatReferenceEvaluation,
   scoreSolidity,
   applySolidity,
   formatSolidity,
   bytesToBase64,
   base64ToBytes,
   type ReferenceTarget,
+  type ReferenceEvaluation,
+  type ReferenceEvaluationOptions,
+  type ReferenceCandidateDecision,
+  type ReferenceCandidateGateOptions,
   type ScoreBreakdown,
   type SolidityBreakdown,
   type TargetOptions,
@@ -64,6 +70,10 @@ export interface ImageLoopOptions {
   /** Stop early once score >= this threshold (0..1). Default 0.9. */
   targetScore?: number;
   scoreOptions?: TargetOptions;
+  /** Staged mask/framing/edge/appearance evaluation settings. */
+  evaluationOptions?: ReferenceEvaluationOptions;
+  /** Accepted-best gate: improvements cannot regress locked shape metrics. */
+  candidateGate?: ReferenceCandidateGateOptions;
   /**
    * Penalty weight for the solidity check (flat-shape guard), >=0. Only applies
    * when the renderer returns auxViewsBase64. Default 0.5. Set 0 to disable.
@@ -92,10 +102,14 @@ export interface ImageAgentStep {
   run: RunScriptResult;
   imageBase64?: string;
   score?: ScoreBreakdown;
+  /** Formal D0-D3 evaluation with frame-preserving shape metrics. */
+  evaluation?: ReferenceEvaluation;
   /** Reference-free solidity (flat-shape) result, when aux views were given. */
   solidity?: SolidityBreakdown;
   /** Score after folding solidity into the shape score (what `best` ranks on). */
   combinedScore?: number;
+  /** Whether this candidate replaced the accepted best. */
+  gate?: ReferenceCandidateDecision;
   /** Mesh critic report (geometry + proportion, and VLM axes at milestones). */
   critique?: CritiqueReport;
 }
@@ -155,7 +169,12 @@ Rules:
 - Output ONLY one fenced \`\`\`js code block.`;
 }
 
-function feedback(run: RunScriptResult, score: ScoreBreakdown | undefined, solidity: SolidityBreakdown | undefined): string {
+function feedback(
+  run: RunScriptResult,
+  evaluation: ReferenceEvaluation | undefined,
+  solidity: SolidityBreakdown | undefined,
+  gate: ReferenceCandidateDecision | undefined,
+): string {
   if (!run.ok) {
     return `The script failed.\nError: ${run.error}\nReturn the corrected full snippet.`;
   }
@@ -163,11 +182,11 @@ function feedback(run: RunScriptResult, score: ScoreBreakdown | undefined, solid
     "Script ran. Stats:",
     run.summary,
   ];
-  if (score) {
+  if (evaluation) {
     lines.push(
-      `Match vs reference: ${formatScore(score)}`,
+      `Match vs reference: ${formatReferenceEvaluation(evaluation)}`,
       "The FIRST attached image is the reference photo; the SECOND is your render.",
-      "Improve the silhouette match (shape/proportions/part layout). Return an improved full snippet, or the same one if it already matches well.",
+      "Improve normalized shape and canvas-space framing together. Fix camera/framing, proportions, boundaries, and part layout before appearance.",
     );
   } else {
     lines.push("No score available this turn; judge from the attached images.");
@@ -176,6 +195,12 @@ function feedback(run: RunScriptResult, score: ScoreBreakdown | undefined, solid
     lines.push(
       `Solidity warning: ${formatSolidity(solidity)}.`,
       "The model's footprint collapses from some angles — it reads as flat/billboard-like. Give it real volume/depth on all axes (extrude, thicken, add cross-section), not just a front-facing slab.",
+    );
+  }
+  if (gate && !gate.accepted) {
+    lines.push(
+      `Candidate gate: ${formatCandidateDecision(gate)}.`,
+      "This revision did not replace the accepted best. Recover locked shape metrics; do not trade one solved region for another.",
     );
   }
   return lines.join("\n");
@@ -216,6 +241,7 @@ export async function runImageLoop(opts: ImageLoopOptions): Promise<ImageLoopRes
     let imageBase64: string | undefined;
     let renderNotes: string | undefined;
     let score: ScoreBreakdown | undefined;
+    let evaluation: ReferenceEvaluation | undefined;
     let solidity: SolidityBreakdown | undefined;
     let combinedScore: number | undefined;
     if (run.ok) {
@@ -223,15 +249,16 @@ export async function runImageLoop(opts: ImageLoopOptions): Promise<ImageLoopRes
         const r = await opts.render(run.parts, i);
         imageBase64 = r.imageBase64;
         renderNotes = r.notes;
-        score = scoreRenderPng(target, base64ToBytes(r.imageBase64));
+        evaluation = evaluateReferencePng(target, base64ToBytes(r.imageBase64), opts.evaluationOptions);
+        score = evaluation;
         // Reference-free solidity from extra angles: the main render plus any
         // aux views form the set whose footprint collapse we measure.
         if (r.auxViewsBase64 && r.auxViewsBase64.length > 0) {
           const views = [r.imageBase64, ...r.auxViewsBase64].map(base64ToBytes);
           solidity = scoreSolidity(views, { renderBg: opts.scoreOptions?.renderBg ?? [13, 17, 23] });
-          combinedScore = applySolidity(score.score, solidity.solidity, opts.solidityPenalty ?? 0.5);
+          combinedScore = applySolidity(evaluation.score, solidity.solidity, opts.solidityPenalty ?? 0.5);
         } else {
-          combinedScore = score.score;
+          combinedScore = evaluation.score;
         }
       } catch {
         renderNotes = "(render/score failed; continuing with stats only)";
@@ -268,25 +295,39 @@ export async function runImageLoop(opts: ImageLoopOptions): Promise<ImageLoopRes
       }
     }
 
+    let gate: ReferenceCandidateDecision | undefined;
+    if (evaluation !== undefined && combinedScore !== undefined) {
+      const incumbent = best?.evaluation !== undefined && best.combinedScore !== undefined
+        ? { evaluation: best.evaluation, rankScore: best.combinedScore }
+        : null;
+      gate = gateReferenceCandidate(
+        { evaluation, rankScore: combinedScore },
+        incumbent,
+        opts.candidateGate,
+      );
+    }
+
     const step: ImageAgentStep = { iteration: i, script, run };
     if (imageBase64 !== undefined) step.imageBase64 = imageBase64;
     if (score !== undefined) step.score = score;
+    if (evaluation !== undefined) step.evaluation = evaluation;
     if (solidity !== undefined) step.solidity = solidity;
     if (combinedScore !== undefined) step.combinedScore = combinedScore;
+    if (gate !== undefined) step.gate = gate;
     if (report !== undefined) step.critique = report;
     steps.push(step);
     opts.onStep?.(step);
 
     // Rank on the combined (solidity-adjusted) score so a flat shape can't win
     // just by matching the front silhouette.
-    if (combinedScore !== undefined && (best?.combinedScore === undefined || combinedScore > best.combinedScore)) best = step;
+    if (gate?.accepted) best = step;
 
     if (best?.combinedScore !== undefined && best.combinedScore >= targetScore) break;
     if (i === maxIterations - 1) break;
 
     // Feedback turn: attach reference first, then the latest render, so the
     // model can compare the two directly.
-    let fb = feedback(run, score, solidity);
+    let fb = feedback(run, evaluation, solidity, gate);
     if (report) fb += `\n\nAutomated mesh review — address MUST FIX first:\n${formatCritique(report)}`;
     messages.push({
       role: "user",
@@ -301,7 +342,7 @@ export async function runImageLoop(opts: ImageLoopOptions): Promise<ImageLoopRes
   return {
     success: !!best,
     steps,
-    best: best ?? steps[steps.length - 1] ?? null,
+    best,
     target,
   };
 }

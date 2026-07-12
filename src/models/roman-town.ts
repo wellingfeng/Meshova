@@ -271,7 +271,7 @@ function addBuildingBar(bag: PartBag, spec: BarSpec, p: RomanTownParams): void {
   bag.add(
     "stone_plinths",
     "街墙石质基座",
-    place(transform(box(spec.length + 0.08, 0.22, spec.depth + 0.08), { translate: vec3(0, 0.11, 0) }), spec),
+    place(transform(box(spec.length + 0.08, 0.22, spec.depth + 0.08), { translate: vec3(0, 0.07, 0) }), spec),
     pal.trim,
     surface("stone", pal.trim, { scale: 7, roughness: 0.88 }),
   );
@@ -383,7 +383,7 @@ function addUpperWindow(
   bag.add(
     "upper_window_glass",
     "上层深窗洞",
-    place(transform(box(w, h, 0.035), { translate: vec3(x, y, z) }), spec),
+    place(transform(box(w - 0.03, h - 0.03, 0.03), { translate: vec3(x, y, z - 0.02) }), spec),
     GLASS,
     { type: "glass", params: { tint: GLASS, roughness: 0.12 } },
   );
@@ -476,21 +476,21 @@ function addRoofTerrace(bag: PartBag, spec: BarSpec, height: number, rng: Rng): 
   bag.add("roof_terrace_decks", "屋顶露台地坪", place(slab, spec), PIAZZA_STONE, surface("romanCobblestone", PIAZZA_STONE, { columns: 10, rows: 18, seed: spec.seed }));
   const parapetH = 0.34;
   const parapets = merge(
-    transform(box(spec.length + 0.12, parapetH, 0.14), { translate: vec3(0, height + parapetH / 2, -spec.depth / 2) }),
-    transform(box(spec.length + 0.12, parapetH, 0.14), { translate: vec3(0, height + parapetH / 2, spec.depth / 2) }),
-    transform(box(0.14, parapetH, spec.depth), { translate: vec3(-spec.length / 2, height + parapetH / 2, 0) }),
-    transform(box(0.14, parapetH, spec.depth), { translate: vec3(spec.length / 2, height + parapetH / 2, 0) }),
+    transform(box(spec.length + 0.2, parapetH, 0.14), { translate: vec3(0, height + 0.15 + parapetH / 2, -spec.depth / 2 - 0.04) }),
+    transform(box(spec.length + 0.2, parapetH, 0.14), { translate: vec3(0, height + 0.15 + parapetH / 2, spec.depth / 2 + 0.04) }),
+    transform(box(0.14, parapetH, spec.depth), { translate: vec3(-spec.length / 2 - 0.04, height + 0.15 + parapetH / 2, 0) }),
+    transform(box(0.14, parapetH, spec.depth), { translate: vec3(spec.length / 2 + 0.04, height + 0.15 + parapetH / 2, 0) }),
   );
-  bag.add("roof_terrace_parapets", "屋顶露台女儿墙", place(parapets, spec), [0.72, 0.61, 0.45], surface("weatheredPlaster", [0.72, 0.61, 0.45], { wear: 0.38, seed: spec.seed }));
+  bag.add("roof_terrace_parapets", "屋顶露台女儿墙", place(transform(parapets, { rotate: vec3(0, 0.005, 0) }), spec), [0.72, 0.61, 0.45], surface("weatheredPlaster", [0.72, 0.61, 0.45], { wear: 0.38, seed: spec.seed }));
 
   const pergolaX = spec.length * rng.range(-0.2, 0.2);
   const ph = 1.05;
   const pergola = merge(
     ...[-1, 1].flatMap((sx) => [-1, 1].map((sz) => transform(box(0.08, ph, 0.08), {
-      translate: vec3(pergolaX + sx * 0.75, height + ph / 2, sz * 0.72),
+      translate: vec3(pergolaX + sx * 0.75, height + 0.15 + ph / 2, sz * 0.72),
     }))),
-    transform(box(1.65, 0.08, 0.1), { translate: vec3(pergolaX, height + ph, -0.72) }),
-    transform(box(1.65, 0.08, 0.1), { translate: vec3(pergolaX, height + ph, 0.72) }),
+    transform(box(1.65, 0.08, 0.1), { translate: vec3(pergolaX, height + 0.15 + ph, -0.72) }),
+    transform(box(1.65, 0.08, 0.1), { translate: vec3(pergolaX, height + 0.15 + ph, 0.72) }),
   );
   bag.add("roof_pergolas", "屋顶露台木棚架", place(pergola, spec), WOOD, surface("wood", WOOD, { roughness: 0.75 }));
 
@@ -572,4 +572,3 @@ export function summarizeRomanTown(parts: NamedPart[]): {
     depth: b.max.z - b.min.z,
   };
 }
-

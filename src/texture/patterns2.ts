@@ -151,7 +151,62 @@ export interface BrickOptions {
   mortar?: number;
   /** Row horizontal offset fraction (0.5 = running bond). */
   offset?: number;
+  /** Fixed rotation inside each brick cell, in radians. */
+  rotation?: number;
+  /** Seeded per-brick rotation range, in radians. */
+  rotationVariation?: number;
+  /** Rounded edge width in cell fraction for brickHeight(). */
+  bevel?: number;
+  /** Seeded per-brick height spread for brickHeight(). */
+  heightVariation?: number;
+  /** Probability of removing small edge regions in brickHeight(). */
+  chipAmount?: number;
+  /** Size of chipped edge regions in cell fraction. */
+  chipScale?: number;
   seed?: number;
+}
+
+export interface BrickSample {
+  column: number;
+  row: number;
+  localU: number;
+  localV: number;
+  edge: number;
+  mask: number;
+  value: number;
+}
+
+function brickHash(column: number, row: number, seed: number, salt = 0): number {
+  const hash = ((column * 73856093) ^ (row * 19349663) ^ (seed * 83492791) ^ salt) >>> 0;
+  return makeRng(hash).next();
+}
+
+/** Resolve brick-local coordinates and seeded identity for higher-level generators. */
+export function sampleBrick(
+  uCoord: number,
+  vCoord: number,
+  opts: BrickOptions = {},
+): BrickSample {
+  const columns = Math.max(1, opts.columns ?? 6);
+  const rows = Math.max(1, opts.rows ?? 12);
+  const mortar = clamp(opts.mortar ?? 0.05, 0, 0.49);
+  const rowOffset = opts.offset ?? 0.5;
+  const row = Math.floor(vCoord * rows);
+  const shiftedU = uCoord * columns + (row % 2) * rowOffset;
+  const column = Math.floor(shiftedU);
+  const rawU = shiftedU - Math.floor(shiftedU);
+  const rawV = vCoord * rows - Math.floor(vCoord * rows);
+  const value = brickHash(column, row, opts.seed ?? 0);
+  const angle = (opts.rotation ?? 0) + (value * 2 - 1) * (opts.rotationVariation ?? 0);
+  const cosine = Math.cos(-angle);
+  const sine = Math.sin(-angle);
+  const centeredU = rawU - 0.5;
+  const centeredV = rawV - 0.5;
+  const localU = centeredU * cosine - centeredV * sine + 0.5;
+  const localV = centeredU * sine + centeredV * cosine + 0.5;
+  const edge = Math.min(localU, 1 - localU, localV, 1 - localV);
+  const mask = edge > mortar ? 1 : 0;
+  return { column, row, localU, localV, edge, mask, value };
 }
 
 /**
@@ -159,33 +214,38 @@ export interface BrickOptions {
  * value available via brickValue(). The running-bond stagger is configurable.
  */
 export function brick(opts: BrickOptions = {}): (u: number, v: number) => number {
-  const cols = opts.columns ?? 6;
-  const rows = opts.rows ?? 12;
-  const mortar = clamp(opts.mortar ?? 0.05, 0, 0.49);
-  const rowOffset = opts.offset ?? 0.5;
-  return (u, v) => {
-    const row = Math.floor(v * rows);
-    const shift = (row % 2) * rowOffset;
-    const bu = (u * cols + shift) % 1;
-    const bv = (v * rows) % 1;
-    const inX = bu > mortar && bu < 1 - mortar;
-    const inY = bv > mortar && bv < 1 - mortar;
-    return inX && inY ? 1 : 0;
-  };
+  return (uCoord, vCoord) => sampleBrick(uCoord, vCoord, opts).mask;
 }
 
 /** Per-brick random value in [0,1], same layout as brick(). For color variation. */
 export function brickValue(opts: BrickOptions = {}): (u: number, v: number) => number {
-  const cols = opts.columns ?? 6;
-  const rows = opts.rows ?? 12;
-  const rowOffset = opts.offset ?? 0.5;
+  return (uCoord, vCoord) => sampleBrick(uCoord, vCoord, opts).value;
+}
+
+/** Beveled, chipped, per-brick height field. Mortar stays at zero. */
+export function brickHeight(opts: BrickOptions = {}): (u: number, v: number) => number {
+  const mortar = clamp(opts.mortar ?? 0.05, 0, 0.49);
+  const bevel = Math.max(0.001, opts.bevel ?? 0.08);
+  const heightVariation = clamp(opts.heightVariation ?? 0.12, 0, 1);
+  const chipAmount = clamp(opts.chipAmount ?? 0, 0, 1);
+  const chipScale = Math.max(0.001, opts.chipScale ?? 0.08);
   const seed = opts.seed ?? 0;
-  return (u, v) => {
-    const row = Math.floor(v * rows);
-    const shift = (row % 2) * rowOffset;
-    const col = Math.floor(u * cols + shift);
-    const h = ((col * 73856093) ^ (row * 19349663) ^ (seed * 83492791)) >>> 0;
-    return makeRng(h).next();
+  return (uCoord, vCoord) => {
+    const cell = sampleBrick(uCoord, vCoord, opts);
+    if (cell.mask === 0) return 0;
+    const edgeHeight = smoothstep(0, bevel, cell.edge - mortar);
+    const brickLevel = 1 - heightVariation + cell.value * heightVariation;
+    const chipX = Math.floor(cell.localU / chipScale);
+    const chipY = Math.floor(cell.localV / chipScale);
+    const chipRandom = brickHash(
+      cell.column * 97 + chipX,
+      cell.row * 101 + chipY,
+      seed,
+      0x9e3779b9,
+    );
+    const nearEdge = cell.edge - mortar < chipScale;
+    const chipped = nearEdge && chipRandom < chipAmount;
+    return clamp(edgeHeight * brickLevel * (chipped ? 0.12 : 1), 0, 1);
   };
 }
 
@@ -231,4 +291,3 @@ export function smoothVoronoi(
     return clamp(dist + 0.5, 0, 1);
   };
 }
-

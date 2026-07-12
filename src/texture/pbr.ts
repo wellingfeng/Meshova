@@ -61,16 +61,24 @@ export function scalarMap(
 export function heightToNormal(
   height: TextureBuffer,
   strength = 2,
+  tileable = false,
 ): TextureBuffer {
   const w = height.width;
   const h = height.height;
   const out = makeTexture(w, h, 3);
+  const read = tileable
+    ? (sampleX: number, sampleY: number) => sample(
+      height,
+      ((sampleX % w) + w) % w,
+      ((sampleY % h) + h) % h,
+    )
+    : (sampleX: number, sampleY: number) => sample(height, sampleX, sampleY);
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
-      const l = sample(height, x - 1, y);
-      const r = sample(height, x + 1, y);
-      const d = sample(height, x, y - 1);
-      const u = sample(height, x, y + 1);
+      const l = read(x - 1, y);
+      const r = read(x + 1, y);
+      const d = read(x, y - 1);
+      const u = read(x, y + 1);
       // gradient; v axis points up so (u - d) is +Y slope
       const dx = (l - r) * strength;
       const dy = (d - u) * strength;
@@ -132,6 +140,8 @@ export interface MaterialFields {
   emission?: (u: number, v: number) => [number, number, number];
   /** Normal bump strength when derived from height. */
   normalStrength?: number;
+  /** Wrap height samples across opposite edges when deriving a tileable normal map. */
+  tileable?: boolean;
 }
 
 /**
@@ -149,7 +159,7 @@ export function materialFromFields(size: number, fields: MaterialFields): Materi
   const ao = scalarMap(size, fields.ao ?? (() => 1));
   const height = scalarMap(size, fields.height ?? (() => 0.5));
   const emission = baseColorMap(size, fields.emission ?? (() => [0, 0, 0]));
-  const normal = heightToNormal(height, fields.normalStrength ?? 2);
+  const normal = heightToNormal(height, fields.normalStrength ?? 2, fields.tileable ?? false);
   return { baseColor, metallic, roughness, normal, ao, height, emission };
 }
 

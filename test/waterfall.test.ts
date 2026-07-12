@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildWaterfallParts, scoreWaterfall } from "../src/models/waterfall.js";
+import { vec3 } from "../src/math/vec3.js";
 
 const compactOptions = {
   seed: 23,
@@ -43,5 +44,14 @@ describe("procedural waterfall", () => {
     const firstSheet = first.find((part) => part.name === "waterfall_sheet_1")!;
     const secondSheet = second.find((part) => part.name === "waterfall_sheet_1")!;
     expect(secondSheet.mesh.positions).not.toEqual(firstSheet.mesh.positions);
+  });
+
+  it("follows an editable plunge path", () => {
+    const controlPoints = [vec3(-2, 8, -1), vec3(1, 5, 0), vec3(3, 0.2, 2)];
+    const parts = buildWaterfallParts({ ...compactOptions, controlPoints });
+    const sheet = parts.find((part) => part.name === "waterfall_sheet_1")!.mesh.positions;
+    expect(Math.min(...sheet.map((point) => point.x))).toBeLessThan(-1);
+    expect(Math.max(...sheet.map((point) => point.x))).toBeGreaterThan(1);
+    expect(Math.max(...sheet.map((point) => point.z))).toBeGreaterThan(1.5);
   });
 });

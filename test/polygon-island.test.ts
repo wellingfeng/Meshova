@@ -4,6 +4,7 @@ import {
   buildPolygonIslandParts,
   islandGraphToMesh,
   triangleCount,
+  vec3,
   vertexCount,
 } from "../src/index.js";
 
@@ -56,5 +57,22 @@ describe("polygon island generator", () => {
     expect(names).toContain("ocean");
     expect(parts.find((p) => p.name === "island")!.surface?.type).toBe("mossyStone");
     expect(parts.find((p) => p.name === "ocean")!.surface?.type).toBe("water");
+  });
+
+  it("uses an editable region as the coastline boundary", () => {
+    const graph = buildIslandGraph({
+      seed: 4,
+      points: 625,
+      boundary: [
+        vec3(-5, 0, -4),
+        vec3(0, 0, -4),
+        vec3(0, 0, 4),
+        vec3(-5, 0, 4),
+      ],
+    });
+    const land = graph.cells.filter((cell) => !cell.water);
+    expect(land.length).toBeGreaterThan(20);
+    expect(land.every((cell) => cell.site.x <= 0 && cell.site.x >= -5)).toBe(true);
+    expect(land.every((cell) => cell.site.y <= 4 && cell.site.y >= -4)).toBe(true);
   });
 });

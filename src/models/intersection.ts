@@ -357,8 +357,8 @@ function buildAngledIntersectionParts(p: IntersectionParams, specs: readonly Int
           rotate: vec3(0, -branch.angle, 0),
           translate: vec3(centre.x, 0.08, centre.z),
         }));
-        const curb = branchPoint(branch, radius + branch.length / 2, side * (branch.halfWidth + 0.1));
-        curbMeshes.push(transform(box(branch.length, 0.22, 0.2), {
+        const curb = branchPoint(branch, radius + branch.length / 2, side * (branch.halfWidth + 0.13));
+        curbMeshes.push(transform(box(Math.max(0.01, branch.length - 0.04), 0.22, 0.2), {
           rotate: vec3(0, -branch.angle, 0),
           translate: vec3(curb.x, 0.18, curb.z),
         }));
@@ -368,10 +368,18 @@ function buildAngledIntersectionParts(p: IntersectionParams, specs: readonly Int
       const leftMouth = boundary[i * 4 + 3]!;
       const nextRightMouth = boundary[((i + 1) % branches.length) * 4]!;
       sidewalkMeshes.push(segmentBox(leftMouth, nextRightMouth, p.sidewalkWidth, 0.16, 0.08, p.sidewalkWidth / 2));
-      curbMeshes.push(segmentBox(leftMouth, nextRightMouth, 0.2, 0.22, 0.18, 0.1));
+      const curbStart = {
+        x: leftMouth.x + (nextRightMouth.x - leftMouth.x) * 0.002,
+        z: leftMouth.z + (nextRightMouth.z - leftMouth.z) * 0.002,
+      };
+      const curbEnd = {
+        x: nextRightMouth.x + (leftMouth.x - nextRightMouth.x) * 0.002,
+        z: nextRightMouth.z + (leftMouth.z - nextRightMouth.z) * 0.002,
+      };
+      curbMeshes.push(segmentBox(curbStart, curbEnd, 0.2, 0.22, 0.18, 0.1));
     }
     parts.push({ name: "sidewalks", label: "人行道", mesh: merge(...sidewalkMeshes), color: SIDEWALK, surface: concS(SIDEWALK, 0.7) });
-    parts.push({ name: "curbs", label: "路缘石", mesh: merge(...curbMeshes), color: CURB, surface: concS(CURB, 0.7) });
+    parts.push({ name: "curbs", label: "路缘石", mesh: transform(merge(...curbMeshes), { scale: vec3(1.003, 1, 1.003) }), color: CURB, surface: concS(CURB, 0.7) });
   }
   return parts;
 }
@@ -452,12 +460,12 @@ export function buildIntersectionParts(params: Partial<IntersectionParams> = {})
         const size = (outer - hw) + sw;
         walk.push(transform(box(size, 0.16, size), { translate: vec3(px, 0.08, pz) }));
         // Curb strip facing the road on the two inner edges.
-        curbs.push(transform(box(size, 0.22, 0.2), { translate: vec3(px, 0.18, cz * (hw - 0.1)) }));
-        curbs.push(transform(box(0.2, 0.22, size), { translate: vec3(cx * (hw - 0.1), 0.18, pz) }));
+        curbs.push(transform(box(size - 0.04, 0.22, 0.2), { translate: vec3(px, 0.18, cz * (hw - 0.07)) }));
+        curbs.push(transform(box(0.2, 0.22, size - 0.04), { translate: vec3(cx * (hw - 0.07), 0.18, pz) }));
       }
     }
     parts.push({ name: "sidewalks", label: "人行道", mesh: merge(...walk), color: SIDEWALK, surface: concS(SIDEWALK, 0.7) });
-    parts.push({ name: "curbs", label: "路缘石", mesh: merge(...curbs), color: CURB, surface: concS(CURB, 0.7) });
+    parts.push({ name: "curbs", label: "路缘石", mesh: transform(merge(...curbs), { scale: vec3(1.003, 1, 1.003) }), color: CURB, surface: concS(CURB, 0.7) });
   }
 
   return parts;

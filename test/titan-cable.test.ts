@@ -68,6 +68,15 @@ describe("titan-cable (tutorial_cable.hda)", () => {
     expect(mp).toBeGreaterThan(fp);
   });
 
+  it("uses editable pole-top anchors", () => {
+    const anchors = [vec3(-4, 4, -2), vec3(0, 7, 1), vec3(5, 5, 3)];
+    const parts = buildTitanCableParts({ controlPoints: anchors, subCables: 0 });
+    const poles = parts.find((part) => part.name === "poles")!.mesh.positions;
+    expect(Math.min(...poles.map((point) => point.z))).toBeLessThan(-1.8);
+    expect(Math.max(...poles.map((point) => point.z))).toBeGreaterThan(2.8);
+    expect(Math.max(...poles.map((point) => point.y))).toBeGreaterThan(6.5);
+  });
+
   it("metal poles switch surface", () => {
     expect(buildTitanCableParts({ metalPoles: true }).find((p) => p.name === "poles")!.surface?.type).toBe("metal");
     expect(buildTitanCableParts({ metalPoles: false }).find((p) => p.name === "poles")!.surface?.type).toBe("wood");

@@ -10,9 +10,9 @@ import {
 import {
   box,
   cylinder,
+  loftSurface,
   makeMesh,
   merge,
-  recomputeNormals,
   sphere,
   torus,
   transform,
@@ -108,62 +108,10 @@ function ringFromSection(ctx: ScaleContext, s: BodySection): Vec3[] {
 }
 
 function loftSections(ctx: ScaleContext, sections: BodySection[]): Mesh {
-  return loftRings(sections.map((s) => ringFromSection(ctx, s)));
-}
-
-function loftRings(rings: Vec3[][]): Mesh {
-  const ringSize = rings[0]?.length ?? 0;
-  if (rings.length < 2 || ringSize < 3) {
-    return makeMesh({ positions: [], normals: [], uvs: [], indices: [] });
-  }
-  const positions: Vec3[] = [];
-  const normals: Vec3[] = [];
-  const uvs = [];
-  const indices: number[] = [];
-  for (let i = 0; i < rings.length; i++) {
-    const ring = rings[i]!;
-    for (let j = 0; j < ringSize; j++) {
-      positions.push(ring[j]!);
-      normals.push(vec3(0, 1, 0));
-      uvs.push(vec2(j / ringSize, i / (rings.length - 1)));
-    }
-  }
-  for (let i = 0; i < rings.length - 1; i++) {
-    for (let j = 0; j < ringSize; j++) {
-      const a = i * ringSize + j;
-      const b = i * ringSize + ((j + 1) % ringSize);
-      const c = (i + 1) * ringSize + j;
-      const d = (i + 1) * ringSize + ((j + 1) % ringSize);
-      indices.push(a, c, b, b, c, d);
-    }
-  }
-  const frontCenter = positions.length;
-  positions.push(avg(rings[0]!));
-  normals.push(vec3(0, 0, -1));
-  uvs.push(vec2(0.5, 0.5));
-  for (let j = 0; j < ringSize; j++) indices.push(frontCenter, j, (j + 1) % ringSize);
-
-  const rearBase = (rings.length - 1) * ringSize;
-  const rearCenter = positions.length;
-  positions.push(avg(rings[rings.length - 1]!));
-  normals.push(vec3(0, 0, 1));
-  uvs.push(vec2(0.5, 0.5));
-  for (let j = 0; j < ringSize; j++) indices.push(rearCenter, rearBase + ((j + 1) % ringSize), rearBase + j);
-
-  return recomputeNormals(makeMesh({ positions, normals, uvs, indices }));
-}
-
-function avg(points: Vec3[]): Vec3 {
-  let x = 0;
-  let y = 0;
-  let z = 0;
-  for (const p of points) {
-    x += p.x;
-    y += p.y;
-    z += p.z;
-  }
-  const inv = 1 / points.length;
-  return vec3(x * inv, y * inv, z * inv);
+  return loftSurface(sections.map((section) => ringFromSection(ctx, section)), {
+    longitudinalSubdivisions: 5,
+    crossSectionSubdivisions: 3,
+  });
 }
 
 function quad(a: Vec3, b: Vec3, c: Vec3, d: Vec3): Mesh {
@@ -277,16 +225,16 @@ export function buildSportsCarParts(params: Partial<SportsCarParams> = {}): Name
       sv(ctx, -0.8, 0.69, 1.56),
     ],
     [
-      sv(ctx, -0.58, 1.055, -0.5),
-      sv(ctx, -0.06, 1.075, -0.43),
-      sv(ctx, -0.06, 1.06, 0.68),
+      sv(ctx, -0.58, 1.045, -0.5),
+      sv(ctx, -0.06, 1.055, -0.43),
+      sv(ctx, -0.06, 1.045, 0.68),
       sv(ctx, -0.58, 1.035, 0.62),
     ],
     [
-      sv(ctx, 0.06, 1.075, -0.43),
-      sv(ctx, 0.58, 1.055, -0.5),
+      sv(ctx, 0.06, 1.055, -0.43),
+      sv(ctx, 0.58, 1.045, -0.5),
       sv(ctx, 0.58, 1.035, 0.62),
-      sv(ctx, 0.06, 1.06, 0.68),
+      sv(ctx, 0.06, 1.045, 0.68),
     ],
     [
       sv(ctx, -0.93, 0.73, -0.8),
@@ -314,9 +262,9 @@ export function buildSportsCarParts(params: Partial<SportsCarParams> = {}): Name
     ],
   ]), WINDOW, "plastic", blackGlassParams);
   add(parts, "t_top_roof_frame", merge(
-    partBox(ctx, vec3(0.09, 0.038, 1.22), vec3(0, 1.06, 0.08)),
-    partBox(ctx, vec3(0.075, 0.04, 1.18), vec3(-0.62, 1.035, 0.08)),
-    partBox(ctx, vec3(0.075, 0.04, 1.18), vec3(0.62, 1.035, 0.08)),
+    partBox(ctx, vec3(0.09, 0.032, 1.22), vec3(0, 1.05, 0.08)),
+    partBox(ctx, vec3(0.075, 0.032, 1.18), vec3(-0.62, 1.035, 0.08)),
+    partBox(ctx, vec3(0.075, 0.032, 1.18), vec3(0.62, 1.035, 0.08)),
     partBox(ctx, vec3(1.28, 0.04, 0.075), vec3(0, 1.03, -0.48)),
     partBox(ctx, vec3(1.18, 0.038, 0.075), vec3(0, 1.0, 0.66)),
   ), PAINT, "carPaint", { color: PAINT, seed: 13 });

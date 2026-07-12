@@ -10,6 +10,7 @@ import {
   decodePNG,
   hueHistogram,
   hueSimilarity,
+  maskFromBackground,
   maskFromPhoto,
   maskIoU,
   normalizeMask,
@@ -29,7 +30,7 @@ const gridSize = 160;
 const refRaster = resizeNearest(decodePNG(new Uint8Array(readFileSync(resolve(refPath)))), gridSize, gridSize);
 const renderRaster = resizeNearest(decodePNG(new Uint8Array(readFileSync(resolve(renderPath)))), gridSize, gridSize);
 const refMask = normalizeMask(maskFromPhoto(refRaster));
-const renderMask = normalizeMask(maskFromPhoto(renderRaster));
+const renderMask = normalizeMask(maskFromBackground(renderRaster, borderColor(renderRaster), 18));
 const silhouetteIoU = maskIoU(refMask, renderMask);
 const colorSimilarity = hueSimilarity(
   hueHistogram(refRaster, 12, refMask),
@@ -53,4 +54,25 @@ console.log(`written: ${outPath}`);
 if (report.score < threshold) {
   console.error(`reference score failed: ${report.score.toFixed(3)} < ${threshold.toFixed(3)}`);
   process.exit(1);
+}
+
+function borderColor(raster: { width: number; height: number; data: Uint8Array }): [number, number, number] {
+  const sum = [0, 0, 0];
+  let samples = 0;
+  const sample = (x: number, y: number) => {
+    const offset = (y * raster.width + x) * 4;
+    sum[0] += raster.data[offset] ?? 0;
+    sum[1] += raster.data[offset + 1] ?? 0;
+    sum[2] += raster.data[offset + 2] ?? 0;
+    samples++;
+  };
+  for (let x = 0; x < raster.width; x++) {
+    sample(x, 0);
+    sample(x, raster.height - 1);
+  }
+  for (let y = 1; y < raster.height - 1; y++) {
+    sample(0, y);
+    sample(raster.width - 1, y);
+  }
+  return sum.map((value) => Math.round(value / samples)) as [number, number, number];
 }

@@ -7,7 +7,6 @@ export const HIDDEN_GALLERY_MODEL_IDS = new Set([
   "gear",
   "officechair",
   "dragonfly",
-  "buick-riviera-1965",
   "midnight-horse",
   "reference-dog",
   "cartoon-mech-pilot",

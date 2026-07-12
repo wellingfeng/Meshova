@@ -32,6 +32,7 @@ export interface PcgBiomeRiverParams {
   rocks: number;
   snags: number;
   seed: number;
+  readonly controlPoints?: ReadonlyArray<Vec3>;
 }
 
 export const PCG_BIOME_RIVER_DEFAULTS: PcgBiomeRiverParams = {
@@ -67,6 +68,7 @@ export function buildPcgBiomeRiverParts(
     terrainHeight: 0.72,
     points: 11,
     seed: p.seed,
+    ...(p.controlPoints ? { controlPoints: p.controlPoints } : {}),
   });
   const waterLevel = 0.55;
   const rng = makeRng(p.seed * 131 + 17);
@@ -174,6 +176,9 @@ function resolveParams(params: Partial<PcgBiomeRiverParams>): PcgBiomeRiverParam
     rocks: clampInt(p.rocks, 0, 100),
     snags: clampInt(p.snags, 0, 40),
     seed: Math.round(p.seed),
+    ...(p.controlPoints && p.controlPoints.length >= 2
+      ? { controlPoints: p.controlPoints.map((point) => vec3(point.x, point.y, point.z)) }
+      : {}),
   };
 }
 

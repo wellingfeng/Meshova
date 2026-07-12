@@ -34,6 +34,7 @@ Implemented core stack:
 | `random` | seeded Perlin noise (`noise2`/`noise3`) + fractal Brownian motion (`fbm2`/`fbm3`) |
 | `sandbox` | restricted script execution with a loop guard (op budget + wall-clock timeout) |
 | `geometry` | primitives, transforms, curves/sweep, scatter, CSG, subdivision, fields |
+| `geometry` | non-destructive modifier stacks with ordered evaluation, toggles, and stage previews |
 | `geometry` | Houdini-style `Ramp`, `PointCloud`, `InstancePlan`, `copyToPoints` flow |
 | `texture` | procedural PBR fields, presets, PNG export, browser material baking |
 | `viewer` | live procedural model editor plus headless screenshots |
@@ -77,6 +78,18 @@ const height = fbm2(noise, 0.5, 0.5, { octaves: 5 });
 
 const rng = makeRng(7);
 const jitter = rng.range(-0.1, 0.1); // same seed → same value, every run
+```
+
+## Example: non-destructive modifier stack
+
+```ts
+import { applyModifierStack, bevelModifier, box, mirrorModifier, subdivisionModifier } from "meshova";
+
+const result = applyModifierStack(box(1, 1, 1), [
+  bevelModifier({ width: 0.08, segments: 2 }),
+  mirrorModifier({ axis: "x" }),
+  subdivisionModifier({ mode: "catmull-clark", levels: 1 }),
+]);
 ```
 
 ## License

@@ -25,6 +25,8 @@ import {
   canonicalizeReference,
   formatViewpoint,
   type MaterialChoice,
+  type ReferenceEvaluationOptions,
+  type ReferenceCandidateGateOptions,
   type ScoreBreakdown,
   type TargetOptions,
 } from "../vision/index.js";
@@ -42,6 +44,8 @@ export interface ImageToModelOptions {
   /** Stop early once shape score >= this (0..1). Default 0.9. */
   targetScore?: number;
   scoreOptions?: TargetOptions;
+  evaluationOptions?: ReferenceEvaluationOptions;
+  candidateGate?: ReferenceCandidateGateOptions;
   /**
    * Penalty weight for the flat-shape (solidity) guard, >=0. Effective only
    * when `render` returns auxViewsBase64 (extra angles). Default 0.5; 0 off.
@@ -116,6 +120,8 @@ export async function imageToModel(opts: ImageToModelOptions): Promise<ImageToMo
   };
   if (opts.targetScore !== undefined) loopOpts.targetScore = opts.targetScore;
   if (opts.scoreOptions !== undefined) loopOpts.scoreOptions = opts.scoreOptions;
+  if (opts.evaluationOptions !== undefined) loopOpts.evaluationOptions = opts.evaluationOptions;
+  if (opts.candidateGate !== undefined) loopOpts.candidateGate = opts.candidateGate;
   if (opts.solidityPenalty !== undefined) loopOpts.solidityPenalty = opts.solidityPenalty;
 
   const shape = await runImageLoop(loopOpts);

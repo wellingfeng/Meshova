@@ -86,27 +86,27 @@ export function buildDualGridFarm(params: Partial<DualGridFarmParams> = {}): Dua
   parts.push(part(
     "grass_dual_grid",
     "双网格草地",
-    buildDualGridLayer(grid, "grass", {
+    transform(buildDualGridLayer(grid, "grass", {
       tileSize: p.tileSize,
       topY: grassTop,
       skirtBottomY: 0,
       subdivisions: p.edgeResolution,
       smoothCorners: true,
-    }),
+    }), { scale: vec3(0.997, 1, 0.997) }),
     GRASS,
     { type: "stylizedFoliage", params: { color: GRASS, bands: 3, seed: p.seed } },
   ));
   parts.push(part(
     "grass_edge_shadow",
     "草地边缘阴影",
-    buildDualGridLayer(grid, "grass", {
+    transform(buildDualGridLayer(grid, "grass", {
       tileSize: p.tileSize,
       topY: grassTop * 0.48,
       skirtBottomY: 0,
       subdivisions: p.edgeResolution,
       threshold: 0.42,
       smoothCorners: true,
-    }),
+    }), { scale: vec3(1.002, 1, 1.002) }),
     GRASS_EDGE,
     { type: "stylizedFoliage", params: { color: GRASS_EDGE, bands: 2, seed: p.seed + 1 } },
   ));

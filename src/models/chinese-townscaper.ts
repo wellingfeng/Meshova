@@ -291,7 +291,8 @@ function collectHallParts(
         if (part.surface) group.surface = part.surface;
       }
     }
-    group.meshes.push(transform(part.mesh, { rotate: vec3(0, yaw, 0), translate: vec3(x, y, z) }));
+    const clearanceY = part.name === "ridgeBeasts" ? 0.1 : 0;
+    group.meshes.push(transform(part.mesh, { rotate: vec3(0, yaw, 0), translate: vec3(x, y + clearanceY, z) }));
     groups.set(key, group);
   }
 }
@@ -338,7 +339,7 @@ export function buildChineseTownscaperScene(
         bridges.push(connectorMesh(cell, neighbour, 1.05, 0.24));
         bridgeCount++;
       } else {
-        paths.push(connectorMesh(cell, neighbour, 0.62, 0.16));
+        paths.push(connectorMesh(cell, neighbour, 0.62, 0.19));
       }
     }
   }

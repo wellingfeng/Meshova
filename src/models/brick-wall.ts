@@ -24,6 +24,7 @@ import {
   box,
   curveLength,
   makeMesh,
+  polyline,
   resampleCurve,
   transform,
   computeNormals,
@@ -35,6 +36,7 @@ import {
 type RGB = [number, number, number];
 
 export interface PcgBrickWallParams {
+  readonly controlPoints?: ReadonlyArray<Vec3>;
   /** Horizontal guide span. The curved path length is slightly longer. */
   length: number;
   /** Total wall height. */
@@ -105,6 +107,9 @@ function resolveParams(params: Partial<PcgBrickWallParams>): PcgBrickWallParams 
   const base = { ...PCG_BRICK_WALL_DEFAULTS, ...params };
   const lengthV = Math.max(1.2, base.length);
   return {
+    ...(base.controlPoints && base.controlPoints.length >= 2
+      ? { controlPoints: base.controlPoints.map((point) => vec3(point.x, point.y, point.z)) }
+      : {}),
     length: lengthV,
     height: Math.max(0.8, base.height),
     depth: Math.max(0.08, base.depth),
@@ -130,6 +135,11 @@ function tintColor(c: RGB, amount: number): RGB {
 }
 
 function makeGuideCurve(p: PcgBrickWallParams): Curve {
+  if (p.controlPoints && p.controlPoints.length >= 2) {
+    return resampleCurve(polyline(p.controlPoints.map((point) => vec3(point.x, point.y, point.z))), {
+      count: Math.max(32, p.columns * 4 + 1),
+    });
+  }
   const h = p.length * 0.5;
   const guide = bezier(
     vec3(-h, 0, 0),

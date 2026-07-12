@@ -333,7 +333,7 @@ function buildMarshRuins(p: DualGridSceneParams): { parts: NamedPart[]; props: n
     const z = Math.sin(angle) * radius;
     const height = rng.range(1.2, 3.1) * scale;
     columns.push(transform(cylinder(0.28 * scale, height, 8), {
-      translate: vec3(x, baseY + height / 2, z),
+      translate: vec3(x, baseY + 0.03 + height / 2, z),
     }));
   }
   ruins.push(

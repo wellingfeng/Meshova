@@ -25,6 +25,8 @@ export interface PoissonScatterOptions {
   randomYaw?: boolean;
   /** Align instance +Y to surface normal. */
   alignToNormal?: boolean;
+  /** Move each instance away from the sampled surface along its normal. */
+  surfaceOffset?: number;
 }
 
 interface SurfaceSample {
@@ -70,6 +72,7 @@ export function poissonScatter(
   const [smin, smax] = opts.scaleRange ?? [1, 1];
   const randomYaw = opts.randomYaw ?? false;
   const alignToNormal = opts.alignToNormal ?? true;
+  const surfaceOffset = opts.surfaceOffset ?? 0;
 
   // Cumulative area table.
   const triCount = target.indices.length / 3;
@@ -109,7 +112,7 @@ export function poissonScatter(
     const yaw = randomYaw ? rng.next() * Math.PI * 2 : 0;
     let inst = transformInstance(instance, s, yaw);
     if (alignToNormal) inst = alignYTo(inst, sample.normal);
-    placed.push(translateMesh(inst, sample.point));
+    placed.push(translateMesh(inst, add(sample.point, scale(sample.normal, surfaceOffset))));
   }
   return placed.length ? merge(...placed) : merge();
 }

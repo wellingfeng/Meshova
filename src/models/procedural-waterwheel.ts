@@ -149,7 +149,7 @@ function ringPair(
 }
 
 function buildSpokes(p: ProceduralWaterwheelParams, centerY: number): Mesh {
-  const innerRadius = p.radius * 0.34;
+  const innerRadius = p.radius * 0.34 + Math.max(0.1, p.ringThickness * 0.66) * 0.58;
   const outerRadius = p.radius - p.ringThickness * 0.62;
   const beamLength = outerRadius - innerRadius;
   const beamCenter = (outerRadius + innerRadius) / 2;

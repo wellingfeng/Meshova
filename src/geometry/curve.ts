@@ -17,8 +17,304 @@ export interface Curve {
   closed: boolean;
 }
 
+export type ControlCurveType = "polyline" | "catmull-rom" | "bezier" | "b-spline";
+
+export type BezierHandleMode = "auto" | "aligned" | "mirrored" | "free" | "corner";
+
+/** Relative handle vectors stored per Bezier anchor. */
+export interface BezierControlHandles {
+  readonly mode?: BezierHandleMode;
+  readonly in?: Vec3;
+  readonly out?: Vec3;
+}
+
+export interface ControlCurveOptions {
+  readonly type?: ControlCurveType;
+  readonly closed?: boolean;
+  /** Samples generated for each control-point span. */
+  readonly subdivisions?: number;
+  /** Catmull-Rom tangent scale. 0 makes straight easing; 0.5 is standard. */
+  readonly tension?: number;
+  /** B-spline degree. Clamped to the available control points. */
+  readonly degree?: number;
+  /** Per-anchor Bezier handles. Missing handles use automatic tangents. */
+  readonly handles?: ReadonlyArray<BezierControlHandles | undefined>;
+  /** Rebuild samples at uniform arc-length spacing. */
+  readonly arcLength?: boolean;
+  /** Point count used by arc-length resampling. Defaults to interpolated count. */
+  readonly sampleCount?: number;
+  /** Target spacing used when sampleCount is omitted. */
+  readonly segmentLength?: number;
+}
+
 export function polyline(points: Vec3[], closed = false): Curve {
   return { points: points.map((p) => ({ ...p })), closed };
+}
+
+/**
+ * Samples editable control points into a render/build curve. The control
+ * polygon stays separate from the sampled result, so viewport editing and
+ * downstream geometry can use the same interpolation without baking points.
+ */
+export function controlCurve(
+  controlPoints: ReadonlyArray<Vec3>,
+  options: ControlCurveOptions = {},
+): Curve {
+  const points = controlPoints.map((point) => ({ ...point }));
+  const closed = options.closed ?? false;
+  if (points.length < 2) return { points, closed };
+
+  const type = options.type ?? "catmull-rom";
+  const subdivisions = Math.max(1, Math.floor(options.subdivisions ?? 8));
+  let curve: Curve;
+  if (type === "polyline") curve = { points, closed };
+  else if (type === "bezier") {
+    curve = sampleBezierControlCurve(points, closed, subdivisions, options.tension ?? 0.5, options.handles);
+  } else if (type === "b-spline") {
+    curve = sampleBSplineControlCurve(points, closed, subdivisions, options.degree ?? 3);
+  } else {
+    curve = sampleCatmullRomControlCurve(points, closed, subdivisions, options.tension ?? 0.5);
+  }
+  if (!options.arcLength || curve.points.length < 2) return curve;
+  return resampleCurve(curve, {
+    ...(options.sampleCount !== undefined ? { count: options.sampleCount } : {}),
+    ...(options.segmentLength !== undefined ? { segmentLength: options.segmentLength } : {}),
+    ...options.sampleCount === undefined && options.segmentLength === undefined ? { count: curve.points.length } : {},
+  });
+}
+
+function sampleCatmullRomControlCurve(
+  points: ReadonlyArray<Vec3>,
+  closed: boolean,
+  subdivisions: number,
+  tension: number,
+): Curve {
+  if (points.length < 3) return { points: points.map((point) => ({ ...point })), closed };
+  const out: Vec3[] = [];
+  const count = points.length;
+  const pointAt = (index: number): Vec3 => closed
+    ? points[(index + count) % count]!
+    : points[Math.max(0, Math.min(count - 1, index))]!;
+  const spans = closed ? count : count - 1;
+
+  for (let span = 0; span < spans; span++) {
+    const p0 = pointAt(span - 1);
+    const p1 = pointAt(span);
+    const p2 = pointAt(span + 1);
+    const p3 = pointAt(span + 2);
+    const m1 = scale(sub(p2, p0), tension);
+    const m2 = scale(sub(p3, p1), tension);
+    for (let sample = 0; sample < subdivisions; sample++) {
+      out.push(cubicHermite(p1, p2, m1, m2, sample / subdivisions));
+    }
+  }
+  if (!closed) out.push({ ...points[count - 1]! });
+  return { points: out, closed };
+}
+
+function sampleBezierControlCurve(
+  points: ReadonlyArray<Vec3>,
+  closed: boolean,
+  subdivisions: number,
+  tension: number,
+  authoredHandles?: ReadonlyArray<BezierControlHandles | undefined>,
+): Curve {
+  const handles = resolveBezierControlHandles(points, {
+    closed,
+    tension,
+    ...(authoredHandles ? { handles: authoredHandles } : {}),
+  });
+  const spans = closed ? points.length : points.length - 1;
+  const out: Vec3[] = [];
+  for (let span = 0; span < spans; span++) {
+    const next = (span + 1) % points.length;
+    const p0 = points[span]!;
+    const p1 = add(p0, handles[span]!.out!);
+    const p3 = points[next]!;
+    const p2 = add(p3, handles[next]!.in!);
+    for (let sample = 0; sample < subdivisions; sample++) {
+      out.push(cubicBezierPoint(p0, p1, p2, p3, sample / subdivisions));
+    }
+  }
+  if (!closed) out.push({ ...points[points.length - 1]! });
+  return { points: out, closed };
+}
+
+export function resolveBezierControlHandles(
+  points: ReadonlyArray<Vec3>,
+  options: Pick<ControlCurveOptions, "closed" | "tension" | "handles"> = {},
+): Array<Required<BezierControlHandles>> {
+  const closed = options.closed ?? false;
+  const tension = options.tension ?? 0.5;
+  const authored = options.handles ?? [];
+  const count = points.length;
+  const automatic = points.map((point, index) => {
+    const previous = closed
+      ? points[(index - 1 + count) % count]!
+      : points[Math.max(0, index - 1)]!;
+    const next = closed
+      ? points[(index + 1) % count]!
+      : points[Math.min(count - 1, index + 1)]!;
+    const endpointScale = !closed && (index === 0 || index === count - 1) ? 2 : 1;
+    const tangent = scale(sub(next, previous), tension * endpointScale / 3);
+    return { mode: "auto" as const, in: scale(tangent, -1), out: tangent };
+  });
+  return points.map((_, index) => {
+    const source = authored[index];
+    const mode = source?.mode ?? "auto";
+    if (mode === "auto") return automatic[index]!;
+    if (mode === "corner") return { mode, in: vec3(), out: vec3() };
+    let incoming = source?.in ? { ...source.in } : { ...automatic[index]!.in };
+    let outgoing = source?.out ? { ...source.out } : { ...automatic[index]!.out };
+    if (mode === "mirrored") {
+      if (source?.out) incoming = negateVec3(outgoing);
+      else outgoing = negateVec3(incoming);
+    } else if (mode === "aligned") {
+      if (source?.out) incoming = alignedOpposite(outgoing, length(incoming));
+      else outgoing = alignedOpposite(incoming, length(outgoing));
+    }
+    return { mode, in: incoming, out: outgoing };
+  });
+}
+
+function negateVec3(vector: Vec3): Vec3 {
+  return vec3(-vector.x || 0, -vector.y || 0, -vector.z || 0);
+}
+
+function alignedOpposite(vector: Vec3, targetLength: number): Vec3 {
+  const magnitude = length(vector);
+  return magnitude > 1e-12 ? scale(vector, -targetLength / magnitude) : vec3();
+}
+
+function cubicBezierPoint(p0: Vec3, p1: Vec3, p2: Vec3, p3: Vec3, t: number): Vec3 {
+  const mt = 1 - t;
+  const a = mt * mt * mt;
+  const b = 3 * mt * mt * t;
+  const c = 3 * mt * t * t;
+  const d = t * t * t;
+  return vec3(
+    a * p0.x + b * p1.x + c * p2.x + d * p3.x,
+    a * p0.y + b * p1.y + c * p2.y + d * p3.y,
+    a * p0.z + b * p1.z + c * p2.z + d * p3.z,
+  );
+}
+
+function sampleBSplineControlCurve(
+  points: ReadonlyArray<Vec3>,
+  closed: boolean,
+  subdivisions: number,
+  requestedDegree: number,
+): Curve {
+  const degree = Math.max(1, Math.min(Math.floor(requestedDegree), points.length - 1));
+  const spanCount = closed ? points.length : Math.max(1, points.length - degree);
+  const sampleCount = Math.max(2, spanCount * subdivisions);
+
+  if (closed) {
+    const wrapped = [...points, ...points.slice(0, degree)].map((point) => ({ ...point }));
+    const knots = Array.from({ length: wrapped.length + degree + 1 }, (_, index) => index);
+    const out: Vec3[] = [];
+    for (let sample = 0; sample < sampleCount; sample++) {
+      const t = degree + (sample / sampleCount) * points.length;
+      out.push(deBoor(wrapped, knots, degree, t, Math.min(wrapped.length - 1, Math.floor(t))));
+    }
+    return { points: out, closed: true };
+  }
+
+  const knots = clampedUniformKnots(points.length, degree);
+  const out: Vec3[] = [];
+  for (let sample = 0; sample <= sampleCount; sample++) {
+    const t = sample / sampleCount;
+    const span = findKnotSpan(knots, points.length, degree, t);
+    out.push(deBoor(points, knots, degree, t, span));
+  }
+  return { points: out, closed: false };
+}
+
+function clampedUniformKnots(controlPointCount: number, degree: number): number[] {
+  const knotCount = controlPointCount + degree + 1;
+  const interiorCount = controlPointCount - degree - 1;
+  return Array.from({ length: knotCount }, (_, index) => {
+    if (index <= degree) return 0;
+    if (index >= controlPointCount) return 1;
+    return (index - degree) / (interiorCount + 1);
+  });
+}
+
+function findKnotSpan(knots: ReadonlyArray<number>, controlPointCount: number, degree: number, t: number): number {
+  if (t >= 1) return controlPointCount - 1;
+  for (let span = degree; span < controlPointCount; span++) {
+    if (t >= knots[span]! && t < knots[span + 1]!) return span;
+  }
+  return degree;
+}
+
+function deBoor(
+  points: ReadonlyArray<Vec3>,
+  knots: ReadonlyArray<number>,
+  degree: number,
+  t: number,
+  span: number,
+): Vec3 {
+  const work = Array.from({ length: degree + 1 }, (_, index) => ({ ...points[span - degree + index]! }));
+  for (let level = 1; level <= degree; level++) {
+    for (let index = degree; index >= level; index--) {
+      const knotIndex = span - degree + index;
+      const denominator = knots[knotIndex + degree - level + 1]! - knots[knotIndex]!;
+      const alpha = denominator > 1e-12 ? (t - knots[knotIndex]!) / denominator : 0;
+      work[index] = lerpVec3(work[index - 1]!, work[index]!, alpha);
+    }
+  }
+  return work[degree]!;
+}
+
+function cubicHermite(p0: Vec3, p1: Vec3, m0: Vec3, m1: Vec3, t: number): Vec3 {
+  const t2 = t * t;
+  const t3 = t2 * t;
+  const h00 = 2 * t3 - 3 * t2 + 1;
+  const h10 = t3 - 2 * t2 + t;
+  const h01 = -2 * t3 + 3 * t2;
+  const h11 = t3 - t2;
+  return vec3(
+    p0.x * h00 + m0.x * h10 + p1.x * h01 + m1.x * h11,
+    p0.y * h00 + m0.y * h10 + p1.y * h01 + m1.y * h11,
+    p0.z * h00 + m0.z * h10 + p1.z * h01 + m1.z * h11,
+  );
+}
+
+function lerpVec3(a: Vec3, b: Vec3, t: number): Vec3 {
+  return vec3(
+    a.x + (b.x - a.x) * t,
+    a.y + (b.y - a.y) * t,
+    a.z + (b.z - a.z) * t,
+  );
+}
+
+export type CurveAttributeInterpolation = "linear" | "smooth" | "step";
+
+export interface CurveAttributeKey {
+  readonly t: number;
+  readonly value: number;
+}
+
+export interface CurveAttributeTrack {
+  readonly keys: ReadonlyArray<CurveAttributeKey>;
+  readonly interpolation?: CurveAttributeInterpolation;
+}
+
+export function sampleCurveAttribute(track: CurveAttributeTrack, t: number): number {
+  if (track.keys.length === 0) return 0;
+  const keys = [...track.keys].sort((a, b) => a.t - b.t);
+  const position = Math.max(0, Math.min(1, t));
+  if (position <= keys[0]!.t) return keys[0]!.value;
+  if (position >= keys[keys.length - 1]!.t) return keys[keys.length - 1]!.value;
+  const upper = keys.findIndex((key) => key.t >= position);
+  const start = keys[upper - 1]!;
+  const end = keys[upper]!;
+  if (track.interpolation === "step") return start.value;
+  const span = Math.max(1e-12, end.t - start.t);
+  let local = (position - start.t) / span;
+  if (track.interpolation === "smooth") local = local * local * (3 - 2 * local);
+  return start.value + (end.value - start.value) * local;
 }
 
 /** Total arc length of a curve (sum of segment lengths; wraps if closed). */

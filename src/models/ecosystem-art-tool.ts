@@ -301,7 +301,7 @@ export function buildEcosystemArtToolParts(
     {
       name: "ground_cover",
       label: "草本地被",
-      mesh: groundMesh,
+      mesh: transform(groundMesh, { translate: vec3(0, 0.025, 0) }),
       color: GRASS,
       surface: { type: "foliage", params: { color: GRASS, translucency: 0.22 } },
       windWeight: foliageWindWeights(groundMesh, 0.55, 0.4),

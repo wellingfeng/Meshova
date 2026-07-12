@@ -32,6 +32,8 @@ const POLE: RGB = [0.33, 0.24, 0.15];
 const METAL: RGB = [0.4, 0.41, 0.44];
 
 export interface TitanCableParams {
+  /** Optional editable pole-top anchors. */
+  controlPoints?: ReadonlyArray<Vec3>;
   /** Number of poles along the run. */
   poles: number;
   /** Horizontal distance between poles (metres). */
@@ -66,6 +68,9 @@ export const TITAN_CABLE_DEFAULTS: TitanCableParams = {
 
 /** Deterministic pole-top anchor positions along +X. */
 function anchors(p: TitanCableParams): Vec3[] {
+  if (p.controlPoints && p.controlPoints.length >= 2) {
+    return p.controlPoints.map((point) => vec3(point.x, point.y, point.z));
+  }
   const out: Vec3[] = [];
   const total = (p.poles - 1) * p.span;
   for (let i = 0; i < p.poles; i++) {

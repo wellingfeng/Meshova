@@ -5,6 +5,7 @@ import {
   heteroTerrain,
   wave,
   brick,
+  brickHeight,
   brickValue,
   smoothVoronoi,
   materialFromFields,
@@ -67,6 +68,27 @@ describe("brick", () => {
   it("brickValue is deterministic per cell", () => {
     const bv = brickValue({ columns: 4, rows: 8, seed: 1 });
     expect(bv(0.1, 0.1)).toBe(bv(0.12, 0.11)); // same brick
+  });
+  it("brickHeight adds deterministic bevel, variation and chips", () => {
+    const first = brickHeight({
+      columns: 4,
+      rows: 8,
+      seed: 9,
+      bevel: 0.08,
+      heightVariation: 0.25,
+      chipAmount: 0.4,
+    });
+    const second = brickHeight({
+      columns: 4,
+      rows: 8,
+      seed: 9,
+      bevel: 0.08,
+      heightVariation: 0.25,
+      chipAmount: 0.4,
+    });
+    inRange01(first);
+    expect(first(0.31, 0.42)).toBe(second(0.31, 0.42));
+    expect(first(0.001, 0.001)).toBe(0);
   });
 });
 

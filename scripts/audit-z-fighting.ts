@@ -1,7 +1,13 @@
 import * as Meshova from "../src/index.js";
 import { zFightingReport, type NamedPart } from "../src/index.js";
 
-const REQUIRES_ARGS = new Set(["buildClimbingVineParts"]);
+const REQUIRES_ARGS = new Set([
+  "buildClimbingVineParts",
+  "buildDrawableFenceParts",
+  "buildDungeonThemeParts",
+  "buildPathLightsParts",
+  "buildRegionGroveParts",
+]);
 const moduleExports = Meshova as unknown as Record<string, unknown>;
 const builders = Object.keys(moduleExports)
   .filter((name) =>

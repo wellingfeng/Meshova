@@ -3,6 +3,7 @@ import {
   buildProceduralSiloParts,
   PROCEDURAL_SILO_DEFAULTS,
 } from "../src/models/procedural-silo.js";
+import { meshMetrics } from "../src/critique/geometry-metrics.js";
 
 describe("procedural-silo", () => {
   it("builds semantic shaft/deck/module/stair/core parts", () => {
@@ -44,5 +45,11 @@ describe("procedural-silo", () => {
 
   it("default radius matches tutorial-style large shaft scale", () => {
     expect(PROCEDURAL_SILO_DEFAULTS.radius).toBeCloseTo(5.2, 3);
+  });
+
+  it("solidifies the transmissive elevator tube", () => {
+    const glass = buildProceduralSiloParts().find((part) => part.name === "elevator_glass")!;
+    expect(meshMetrics(glass.mesh).watertight).toBe(true);
+    expect(glass.doubleSided).toBeUndefined();
   });
 });

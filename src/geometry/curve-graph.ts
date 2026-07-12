@@ -8,7 +8,7 @@
  */
 import type { Vec3 } from "../math/vec3.js";
 import { length, sub } from "../math/vec3.js";
-import { polyline, type Curve } from "./curve.js";
+import { controlCurve, polyline, type ControlCurveOptions, type Curve } from "./curve.js";
 
 export interface CurveGraphNode {
   id: string;
@@ -21,6 +21,8 @@ export interface CurveGraphEdge {
   cost?: number;
   /** Optional polyline for the edge. Should include endpoints in world space. */
   points?: Vec3[];
+  /** Optional interpolation for this branch. */
+  curve?: ControlCurveOptions;
 }
 
 export interface CurveGraph {
@@ -35,6 +37,7 @@ export function makeCurveGraph(nodes: CurveGraphNode[] = [], edges: CurveGraphEd
       const edge: CurveGraphEdge = { from: e.from, to: e.to };
       if (e.cost !== undefined) edge.cost = e.cost;
       if (e.points) edge.points = e.points.map((p) => ({ ...p }));
+      if (e.curve) edge.curve = cloneCurveOptions(e.curve);
       return edge;
     }),
   };
@@ -114,7 +117,12 @@ export function curveGraphShortestPath(graph: CurveGraph, start: string, goal: s
   return path.reverse();
 }
 
-export function curveGraphPathToCurve(graph: CurveGraph, path: ReadonlyArray<string>, closed = false): Curve {
+export function curveGraphPathToCurve(
+  graph: CurveGraph,
+  path: ReadonlyArray<string>,
+  closed = false,
+  options: ControlCurveOptions = {},
+): Curve {
   const pts: Vec3[] = [];
   for (let i = 0; i < path.length; i++) {
     const node = curveGraphNode(graph, path[i]!);
@@ -124,10 +132,39 @@ export function curveGraphPathToCurve(graph: CurveGraph, path: ReadonlyArray<str
     const nextId = path[i + 1]!;
     const edge = curveGraphEdge(graph, node.id, nextId);
     if (!edge) continue;
-    const edgePts = edgePathPoints(graph, edge, node.id === edge.from);
+    const edgePts = sampledEdgePoints(graph, edge, node.id === edge.from, options);
     for (let j = 1; j < edgePts.length; j++) pts.push({ ...edgePts[j]! });
   }
   return polyline(pts, closed);
+}
+
+export interface SampledCurveGraphEdge {
+  readonly edge: CurveGraphEdge;
+  readonly curve: Curve;
+}
+
+export function sampleCurveGraph(
+  graph: CurveGraph,
+  options: ControlCurveOptions = {},
+): SampledCurveGraphEdge[] {
+  return graph.edges.map((edge) => ({
+    edge,
+    curve: controlCurve(edgePathPoints(graph, edge, true), { ...options, ...edge.curve, closed: false }),
+  }));
+}
+
+export function moveCurveGraphNode(graph: CurveGraph, id: string, position: Vec3): CurveGraph {
+  return makeCurveGraph(
+    graph.nodes.map((node) => node.id === id ? { ...node, position: { ...position } } : node),
+    graph.edges,
+  );
+}
+
+export function removeCurveGraphNode(graph: CurveGraph, id: string): CurveGraph {
+  return makeCurveGraph(
+    graph.nodes.filter((node) => node.id !== id),
+    graph.edges.filter((edge) => edge.from !== id && edge.to !== id),
+  );
 }
 
 function edgeCost(graph: CurveGraph, edge: CurveGraphEdge): number {
@@ -152,4 +189,28 @@ function edgePathPoints(graph: CurveGraph, edge: CurveGraphEdge, forward: boolea
     points = a && b ? [{ ...a }, { ...b }] : [];
   }
   return forward ? points : points.slice().reverse();
+}
+
+function sampledEdgePoints(
+  graph: CurveGraph,
+  edge: CurveGraphEdge,
+  forward: boolean,
+  options: ControlCurveOptions,
+): Vec3[] {
+  const points = edgePathPoints(graph, edge, forward);
+  if (!edge.curve && Object.keys(options).length === 0) return points;
+  return controlCurve(points, { ...options, ...edge.curve, closed: false }).points;
+}
+
+function cloneCurveOptions(options: ControlCurveOptions): ControlCurveOptions {
+  return {
+    ...options,
+    ...(options.handles ? {
+      handles: options.handles.map((handle) => handle ? {
+        ...handle,
+        ...(handle.in ? { in: { ...handle.in } } : {}),
+        ...(handle.out ? { out: { ...handle.out } } : {}),
+      } : undefined),
+    } : {}),
+  };
 }

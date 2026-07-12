@@ -30,6 +30,7 @@ export interface RiverLakeParams {
   backwater: number;
   flowStreaks: number;
   seed: number;
+  readonly controlPoints?: ReadonlyArray<Vec3>;
 }
 
 export const RIVER_LAKE_DEFAULTS: RiverLakeParams = {
@@ -72,9 +73,10 @@ interface NearestRiver {
 
 export function buildRiverLakeParts(params: Partial<RiverLakeParams> = {}): NamedPart[] {
   const p = resolveParams(params);
+  const lakePlacement = riverLakeInlet(p);
   const lake: LakeShape = {
-    centerX: p.size * 0.08,
-    centerZ: p.size * 0.2,
+    centerX: lakePlacement?.centerX ?? p.size * 0.08,
+    centerZ: lakePlacement?.centerZ ?? p.size * 0.2,
     radiusX: p.lakeRadiusX,
     radiusZ: p.lakeRadiusZ,
     phase: p.seed * 0.173,
@@ -235,25 +237,46 @@ function resolveParams(params: Partial<RiverLakeParams>): RiverLakeParams {
     backwater: clamp01(p.backwater),
     flowStreaks: clampInt(p.flowStreaks, 0, 100),
     seed: Math.round(p.seed),
+    ...(p.controlPoints && p.controlPoints.length >= 2
+      ? { controlPoints: p.controlPoints.map((point) => vec3(point.x, point.y, point.z)) }
+      : {}),
+  };
+}
+
+function riverLakeInlet(p: RiverLakeParams): { centerX: number; centerZ: number } | null {
+  if (!p.controlPoints || p.controlPoints.length < 2) return null;
+  const last = p.controlPoints[p.controlPoints.length - 1]!;
+  const previous = p.controlPoints[p.controlPoints.length - 2]!;
+  const dx = last.x - previous.x;
+  const dz = last.z - previous.z;
+  const length = Math.hypot(dx, dz) || 1;
+  const lead = p.lakeRadiusZ * 0.56;
+  return {
+    centerX: last.x + dx / length * lead,
+    centerZ: last.z + dz / length * lead,
   };
 }
 
 function buildRiverSamples(p: RiverLakeParams, lake: LakeShape): RiverSample[] {
   const rng = makeRng(p.seed * 41 + 7);
-  const controlPoints: Vec3[] = [];
+  const controlPoints: Vec3[] = p.controlPoints && p.controlPoints.length >= 2
+    ? p.controlPoints.map((point) => vec3(point.x, point.y, point.z))
+    : [];
   const pointCount = 15;
   const startZ = -p.size * 0.48;
   const endZ = lake.centerZ - lake.radiusZ * 0.56;
   const startX = -p.size * 0.18;
   const endX = lake.centerX - lake.radiusX * 0.08;
-  for (let index = 0; index < pointCount; index++) {
-    const t = index / (pointCount - 1);
-    const envelope = Math.sin(Math.PI * t);
-    const x = startX + (endX - startX) * t
-      + (Math.sin(t * Math.PI * 3.4 + p.seed * 0.11) * 0.72
-        + Math.sin(t * Math.PI * 7.2 - p.seed * 0.05) * 0.18
-        + (rng.next() - 0.5) * 0.16) * p.meander * envelope;
-    controlPoints.push(vec3(x, 0, startZ + (endZ - startZ) * t));
+  if (controlPoints.length === 0) {
+    for (let index = 0; index < pointCount; index++) {
+      const t = index / (pointCount - 1);
+      const envelope = Math.sin(Math.PI * t);
+      const x = startX + (endX - startX) * t
+        + (Math.sin(t * Math.PI * 3.4 + p.seed * 0.11) * 0.72
+          + Math.sin(t * Math.PI * 7.2 - p.seed * 0.05) * 0.18
+          + (rng.next() - 0.5) * 0.16) * p.meander * envelope;
+      controlPoints.push(vec3(x, 0, startZ + (endZ - startZ) * t));
+    }
   }
   const points = smoothCurve(polyline(controlPoints), 5).points;
   const distances = cumulativeDistances(points);

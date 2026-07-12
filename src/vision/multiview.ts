@@ -12,14 +12,19 @@
  * worst view so the optimizer fixes its weakest angle instead of over-fitting
  * one flattering pose.
  */
-import { scoreRenderRaster, type ReferenceTarget, type ScoreBreakdown } from "./loss.js";
+import type { ReferenceTarget } from "./loss.js";
+import {
+  evaluateReferenceRaster,
+  type ReferenceEvaluation,
+  type ReferenceEvaluationOptions,
+} from "./reference-evaluation.js";
 import { decodePNG } from "./png.js";
 import type { Raster } from "./raster.js";
 
 export interface ViewScore {
   /** View id, e.g. "front" | "side" | "persp" | "top". */
   view: string;
-  score: ScoreBreakdown;
+  score: ReferenceEvaluation;
 }
 
 export interface MultiViewBreakdown {
@@ -41,6 +46,8 @@ export interface MultiViewBreakdown {
 }
 
 export interface MultiViewOptions {
+  /** Per-view D0-D3 reference evaluation settings. */
+  evaluation?: ReferenceEvaluationOptions;
   /**
    * Blend between mean and worst-view emphasis, 0..1. 0 = pure mean,
    * 1 = pure worst-view. Default 0.35: mostly the average, but a bad angle
@@ -81,7 +88,7 @@ export function scoreMultiView(pairs: ViewPair[], options?: MultiViewOptions): M
 
   const perView: ViewScore[] = pairs.map((p) => ({
     view: p.view,
-    score: scoreRenderRaster(p.target, asRaster(p.render)),
+    score: evaluateReferenceRaster(p.target, asRaster(p.render), options?.evaluation),
   }));
 
   let sumScore = 0, sumIoU = 0, sumColor = 0;

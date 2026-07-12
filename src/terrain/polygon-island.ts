@@ -38,6 +38,8 @@ export interface PolygonIslandOptions {
   jitter?: number;
   /** Number of river sources. */
   rivers?: number;
+  /** Optional editable coastline boundary in world XZ coordinates. */
+  boundary?: ReadonlyArray<Vec3>;
 }
 
 export interface IslandCell {
@@ -91,6 +93,7 @@ export const POLYGON_ISLAND_DEFAULTS: Required<PolygonIslandOptions> = {
   islandFactor: 0.72,
   jitter: 0.62,
   rivers: 8,
+  boundary: [],
 };
 
 /** Jittered-grid sample sites, deterministic. Returns [x,z] pairs in world space. */
@@ -229,14 +232,19 @@ export function buildIslandGraph(options: PolygonIslandOptions = {}): IslandGrap
   // Water classification: radial island shape modulated by noise.
   const half = size * 0.5;
   const factor = Math.max(0.2, o.islandFactor);
+  const boundary = o.boundary && o.boundary.length >= 3 ? o.boundary : null;
   for (const c of cells) {
     const nx = c.site.x / half;
     const nz = c.site.y / half;
     const radial = Math.hypot(nx, nz);
     if (radial > 0.985) c.border = true;
-    const bump = fbm2(shapeNoise, nx * 1.7 + 3.1, nz * 1.7 - 2.4, { octaves: 4, gain: 0.5 }) * 0.5 + 0.5;
-    const landShape = bump - factor * radial * radial;
-    c.water = c.border || landShape < o.seaLevel * (1 - 0.001);
+    if (boundary) {
+      c.water = c.border || !pointInBoundary(c.site, boundary);
+    } else {
+      const bump = fbm2(shapeNoise, nx * 1.7 + 3.1, nz * 1.7 - 2.4, { octaves: 4, gain: 0.5 }) * 0.5 + 0.5;
+      const landShape = bump - factor * radial * radial;
+      c.water = c.border || landShape < o.seaLevel * (1 - 0.001);
+    }
   }
 
   classifyOcean(cells);
@@ -246,6 +254,18 @@ export function buildIslandGraph(options: PolygonIslandOptions = {}): IslandGrap
   assignBiomes(cells);
 
   return { size, height: Math.max(0.2, o.height), seed, cells, triangles, rivers: collectRivers(cells) };
+}
+
+function pointInBoundary(point: Vec2, boundary: ReadonlyArray<Vec3>): boolean {
+  let inside = false;
+  for (let index = 0, previous = boundary.length - 1; index < boundary.length; previous = index++) {
+    const a = boundary[index]!;
+    const b = boundary[previous]!;
+    const crosses = (a.z > point.y) !== (b.z > point.y)
+      && point.x < (b.x - a.x) * (point.y - a.z) / (b.z - a.z) + a.x;
+    if (crosses) inside = !inside;
+  }
+  return inside;
 }
 
 function linkNeighbors(cells: IslandCell[], a: number, b: number): void {

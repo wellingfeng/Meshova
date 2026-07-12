@@ -69,7 +69,7 @@ export function buildPcgCellMapParts(params: Partial<PcgCellMapParams> = {}): Na
     const field = radial * 1.3 + noise.noise2(cell.center.x * 0.24, cell.center.y * 0.24) * 0.32;
     if (field < 0.23) continue;
     const height = 0.16 + Math.max(0, field) * p.relief;
-    const inset = field < 0.36 ? 0.88 : 0.93;
+    const inset = field < 0.36 ? 0.82 : 0.86;
     const mesh = cellPrism(cell, p.cellSize * inset, height, -0.12);
     if (field < 0.36) coast.push(mesh);
     else {
@@ -175,6 +175,7 @@ export function buildPcgRiverValleyParts(params: Partial<PcgRiverValleyParams> =
 }
 
 export interface SurfaceSketchVineParams {
+  readonly controlPoints?: ReadonlyArray<Vec3>;
   wallWidth: number;
   wallHeight: number;
   strokeOffset: number;
@@ -201,11 +202,13 @@ export function buildSurfaceSketchVineParts(params: Partial<SurfaceSketchVinePar
   });
   const surface = meshSurface(wall);
   const noise = makeNoise(p.seed);
-  const branches = [
-    sketchSamples(p, noise, -0.28, 0.9, 1),
-    sketchSamples(p, noise, 0.08, 0.72, -1),
-    sketchSamples(p, noise, 0.32, 0.55, 1),
-  ];
+  const branches = p.controlPoints && p.controlPoints.length >= 2
+    ? [p.controlPoints.map((point) => vec3(point.x, point.y, point.z))]
+    : [
+        sketchSamples(p, noise, -0.28, 0.9, 1),
+        sketchSamples(p, noise, 0.08, 0.72, -1),
+        sketchSamples(p, noise, 0.32, 0.55, 1),
+      ];
   const strokes = branches.map((samples) => projectSurfaceStroke(samples, surface, {
     spacing: 0.16,
     smoothing: 3,

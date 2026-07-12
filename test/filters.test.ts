@@ -7,11 +7,14 @@ import {
   curve,
   histogramScan,
   histogramRange,
+  autoLevels,
   invert,
   clampTex,
   blendTex,
   minTex,
   maxTex,
+  dilateMask,
+  erodeMask,
   warp,
   slopeBlur,
   sharpen,
@@ -22,6 +25,7 @@ import {
   gradientMap,
   normalInvert,
   normalCombine,
+  scaleNormal,
   curvature,
   aoFromHeight,
   distanceField,
@@ -85,6 +89,14 @@ describe("filters: histogram & invert", () => {
     expect(sample(invert(t), 0, 0)).toBeCloseTo(0.8, 5);
     expect(sample(clampTex(ramp01(() => 2), 0, 1), 0, 0)).toBe(1);
   });
+  it("autoLevels stretches the measured range without mutating input", () => {
+    const source = ramp01((u) => 0.2 + u * 0.4);
+    const before = [...source.data];
+    const normalized = autoLevels(source);
+    expect(Math.min(...normalized.data)).toBeCloseTo(0, 5);
+    expect(Math.max(...normalized.data)).toBeCloseTo(1, 5);
+    expect([...source.data]).toEqual(before);
+  });
 });
 
 describe("filters: blend & min/max", () => {
@@ -93,6 +105,14 @@ describe("filters: blend & min/max", () => {
     const b = ramp01(() => 0.5);
     const out = blendTex(a, b, { mode: "multiply", opacity: 1 });
     expect(sample(out, 0, 0)).toBeCloseTo(0.25, 5);
+  });
+  it("dilates and erodes bright mask regions", () => {
+    const point = generate(SIZE, SIZE, 1, (_u, _v, x, y) => (x === 8 && y === 8 ? 1 : 0));
+    const expanded = dilateMask(point, { radius: 2 });
+    const contracted = erodeMask(expanded, { radius: 2 });
+    expect(sample(expanded, 9, 8)).toBe(1);
+    expect(sample(contracted, 8, 8)).toBe(1);
+    expect(sample(contracted, 10, 8)).toBe(0);
   });
   it("copy with opacity interpolates", () => {
     const fg = ramp01(() => 1);
@@ -128,6 +148,13 @@ describe("filters: warp, slopeBlur, sharpen, edge", () => {
     const slope = ramp01((u) => u);
     const s = slopeBlur(t, slope, { intensity: 3, samples: 4 });
     expect(s.data.length).toBe(t.data.length);
+  });
+  it("slopeBlur min and max modes move height in opposite directions", () => {
+    const t = ramp01((u) => u);
+    const slope = ramp01((u) => u);
+    const eroded = slopeBlur(t, slope, { intensity: 8, samples: 2, mode: "min" });
+    const expanded = slopeBlur(t, slope, { intensity: 8, samples: 2, mode: "max" });
+    expect(sample(eroded, 8, 8)).toBeLessThanOrEqual(sample(expanded, 8, 8));
   });
   it("sharpen stays in range", () => {
     const t = ramp01((u, v) => (u + v) / 2);
@@ -182,6 +209,15 @@ describe("filters: normal & geometry-derived", () => {
     const out = normalCombine(flat, flat);
     // z channel should stay near 1 for two flat normals
     expect(sample(out, 4, 4, 2)).toBeGreaterThan(0.9);
+  });
+  it("scaleNormal strengthens tangent components and preserves length", () => {
+    const normal = generate(SIZE, SIZE, 3, () => [0.6, 0.5, 0.99]);
+    const strong = scaleNormal(normal, 2);
+    const x = sample(strong, 4, 4, 0) * 2 - 1;
+    const y = sample(strong, 4, 4, 1) * 2 - 1;
+    const z = sample(strong, 4, 4, 2) * 2 - 1;
+    expect(x).toBeGreaterThan(0.2);
+    expect(Math.hypot(x, y, z)).toBeCloseTo(1, 5);
   });
   it("curvature is ~0.5 on a flat field", () => {
     const flat = ramp01(() => 0.5);

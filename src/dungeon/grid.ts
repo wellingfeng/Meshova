@@ -575,7 +575,7 @@ function defaultMarkerMesh(marker: DungeonMarker, context: DungeonThemeContext):
     const clearWidth = context.tileSize * 0.62;
     const frameWidth = Math.max(context.wallThickness * 1.4, context.tileSize * 0.12);
     const lintelHeight = Math.max(context.wallThickness * 1.5, context.wallHeight * 0.14);
-    const sideHeight = context.wallHeight;
+    const sideHeight = context.wallHeight - 0.04;
     const local = merge(
       transform(box(frameWidth, sideHeight, context.wallThickness * 1.8), {
         translate: vec3(-(clearWidth + frameWidth) * 0.5, sideHeight * 0.5, 0),
@@ -589,7 +589,7 @@ function defaultMarkerMesh(marker: DungeonMarker, context: DungeonThemeContext):
     );
     return transform(local, {
       rotate: vec3(0, marker.rotationY, 0),
-      translate: vec3(centerX, 0, centerZ),
+      translate: vec3(centerX, 0.03, centerZ),
     });
   }
   const radius = context.tileSize * 0.28;

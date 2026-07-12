@@ -207,7 +207,7 @@ function addRoads(bag: SceneBag, p: GardenMetropolisParams): void {
     bag.add("park_connectors", "公园连接道路", UNIT_BOX, ROAD, {
       type: "wetGround",
       params: { color: ROAD, roughness: 0.72, wetness: 0.06, seed: p.seed + 4 },
-    }, [x, 0.05, 5], [6, 0.1, p.depth * 0.78]);
+    }, [x, 0.075, 5], [6, 0.1, p.depth * 0.78]);
   }
 }
 
@@ -353,7 +353,7 @@ function addTower(
   const addMass = (localX: number, y: number, localZ: number, sx: number, sy: number, sz: number): void => {
     const point = localPoint(x, z, yaw, localX, localZ);
     bag.add(massName, `都市塔楼${paletteIndex + 1}`, UNIT_BOX, palette.color, palette.surface,
-      [point.x, y, point.z], [sx, sy, sz], [0, yaw, 0]);
+      [point.x, y + 0.03 + paletteIndex * 0.05, point.z], [sx * 0.65, sy, sz * 0.65], [0, yaw, 0]);
   };
   addMass(0, podiumHeight * 0.5, 0, width * 1.18, podiumHeight, depth * 1.16);
 
