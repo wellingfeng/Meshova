@@ -459,6 +459,11 @@ function openModal({ url, title, sub }) {
   document.body.style.overflow = "hidden";
 }
 
+function galleryPageUrl(webPage, rootPage = `web/${webPage}`) {
+  const galleryLivesInWebDir = location.pathname.endsWith("web/gallery.html");
+  return galleryLivesInWebDir ? `./${webPage}` : `./${rootPage}`;
+}
+
 // iframe 内的子页面自带“← 模型库”返回链接，嵌在模态里会造成嵌套画廊，隐藏它。
 // 同源可直接访问 contentDocument。
 modalFrame.addEventListener("load", () => {
@@ -518,7 +523,7 @@ const showcaseEntries = [
     id: "biome-grassland",
     model: { name: "程序化草地生态" },
     cat: "植被",
-    specialUrl: "/web/biome-grassland.html",
+    specialUrl: "biome-grassland.html",
     thumbCandidates: ["/out/biome-grassland.png"],
     stats: { parts: 7, tris: 840000, verts: 910000 },
     subtitle: "生态掩膜 · 6 层实例散布",
@@ -527,7 +532,7 @@ const showcaseEntries = [
     id: "vertex-grass",
     model: { name: "GPU 实例化程序草地" },
     cat: "植被",
-    specialUrl: "/web/vertex-grass.html",
+    specialUrl: "vertex-grass.html",
     thumbCandidates: ["/out/vertex-grass.png"],
     stats: { parts: 2, tris: 700000, verts: 822801 },
     subtitle: "50k 实例 · 2 Draw Calls",
@@ -536,7 +541,7 @@ const showcaseEntries = [
     id: "shallow-water",
     model: { name: "峡谷浅水方程" },
     cat: "地形",
-    specialUrl: "/web/shallow-water.html",
+    specialUrl: "shallow-water.html",
     thumbCandidates: ["/out/shots/shallow-water-evolved.png"],
     stats: { parts: 2, tris: 36100, verts: 18432 },
     subtitle: "SWE 求解 · 动态洪水与障碍绕流",
@@ -640,7 +645,7 @@ const cards = entries.map((e) => {
   card.onclick = () => {
     if (e.specialUrl) {
       openModal({
-        url: e.specialUrl,
+        url: galleryPageUrl(e.specialUrl),
         title: e.model.name,
         sub: `${e.cat} · ${e.id}`,
       });
@@ -648,7 +653,7 @@ const cards = entries.map((e) => {
     }
     if (e.isMaterial) {
       openModal({
-        url: `/web/matlab.html?cat=${encodeURIComponent(e.matCat)}&mat=${encodeURIComponent(e.matName)}`,
+        url: `${galleryPageUrl("matlab.html")}?cat=${encodeURIComponent(e.matCat)}&mat=${encodeURIComponent(e.matName)}`,
         title: e.model.name,
         sub: e.cat,
       });
@@ -656,7 +661,7 @@ const cards = entries.map((e) => {
     }
     const modelParam = e.generated ? (e.file || `${e.id}.json`) : e.id;
     openModal({
-      url: `/web/index.html?model=${encodeURIComponent(modelParam)}`,
+      url: `${galleryPageUrl("index.html", "viewer.html")}?model=${encodeURIComponent(modelParam)}`,
       title: e.model.name,
       sub: [e.cat, ...semantic.tags.slice(0, 3)].join(" · "),
     });

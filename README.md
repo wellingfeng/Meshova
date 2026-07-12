@@ -16,11 +16,6 @@ Web procedural modeling + procedural PBR material library, driven by AI-written 
   </a>
 </p>
 
-<p>
-  <img src="docs/assets/meshova-teddy.png" alt="Meshova 卡通小熊模型预览" width="49%" />
-  <img src="docs/assets/meshova-sports-car.png" alt="Meshova 红色跑车模型预览" width="49%" />
-</p>
-
 - **Script-first DSL** (restricted TypeScript calling the library), not node graphs — code is the AI's native language.
 - **WebGPU** for compute acceleration and PBR + IBL rendering.
 - **Headless screenshot loop** so an AI can write a script → render → self-evaluate the image → revise. This visual self-iteration is the core differentiator vs. black-box text-to-3D.

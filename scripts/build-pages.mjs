@@ -113,11 +113,7 @@ function rewriteWebJs(filename, text) {
     return out
       .replaceAll('from "/web/', 'from "./')
       .replaceAll('import("/web/', 'import("./')
-      .replaceAll('fetch("/web/', 'fetch("./')
-      .replaceAll("`/web/matlab.html?", "`./matlab.html?")
-      .replace(/`\/web\/index\.html\?model=\$\{([^}]+)\}`/g, (_, expr) => {
-        return "`./viewer.html?model=${" + expr + "}`";
-      });
+      .replaceAll('fetch("/web/', 'fetch("./');
   }
   if (filename === "matlab.js") {
     return out
@@ -257,6 +253,11 @@ async function main() {
   const ids = parseExportedModelIds(procSource).filter((id) => !HIDDEN_GALLERY_MODEL_IDS.has(id));
   for (const id of ids) {
     await writeText(join(outDir, "models", `${id}.html`), modelPage(id, names.get(id)));
+  }
+
+  const galleryScript = await readText(join(outDir, "web", "gallery.js"));
+  if (!galleryScript.includes('galleryPageUrl("index.html", "viewer.html")')) {
+    throw new Error("Pages gallery does not route model cards to viewer.html");
   }
 
   console.log(`Meshova Pages built: ${outDir}`);
