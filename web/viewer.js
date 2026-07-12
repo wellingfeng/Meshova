@@ -747,7 +747,7 @@ function stopModelBuildWorker() {
 
 function ensureModelBuildWorker() {
   if (modelBuildWorker) return modelBuildWorker;
-  modelBuildWorker = new Worker("/web/model-build-worker.js?v=responsive2", { type: "module" });
+  modelBuildWorker = new Worker(new URL("./model-build-worker.js?v=responsive2", import.meta.url), { type: "module" });
   modelBuildWorker.onmessage = (event) => {
     const message = event.data || {};
     if (!pendingWorkerBuild || message.requestId !== pendingWorkerBuild.requestId) return;

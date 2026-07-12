@@ -1,4 +1,4 @@
-import { mkdir, readFile, rm, writeFile, cp } from "node:fs/promises";
+import { mkdir, readFile, readdir, rm, writeFile, cp } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -67,8 +67,23 @@ function rewriteMaterialHtml(html) {
   return out.replace("</head>", '<link rel="icon" href="../favicon.ico" />\n</head>');
 }
 
+function rewriteStandaloneHtml(html) {
+  return html
+    .replaceAll('href="/web/gallery.html"', 'href="../index.html"')
+    .replaceAll('"/web/vendor/three.module.js"', '"./vendor/three.module.js"')
+    .replaceAll('"/web/vendor/addons/"', '"./vendor/addons/"')
+    .replace(/src="\/web\/([^\"]+)"/g, 'src="./$1"')
+    .replace(/href="\/web\/([^\"]+)"/g, 'href="./$1"');
+}
+
 function rewriteWebJs(filename, text) {
   let out = text
+    .replaceAll('"/web/', '"./')
+    .replaceAll("'/web/", "'./")
+    .replaceAll('`/web/', '`./')
+    .replaceAll('"/dist/', '"../dist/')
+    .replaceAll("'/dist/", "'../dist/")
+    .replaceAll('`/dist/', '`../dist/')
     .replace(/fetch\("\/out\/([^"]+)",/g, 'fetch(new URL("../out/$1", import.meta.url),')
     .replace(/fetch\(`\/out\/([^`]+)`,/g, 'fetch(new URL(`../out/$1`, import.meta.url),')
     .replaceAll("`/out/shots/${entry.id}-orbit35.png`", "new URL(`../out/shots/${entry.id}-orbit35.png`, import.meta.url).href")
@@ -225,17 +240,16 @@ async function main() {
   await writeText(join(outDir, "web", "index.html"), rewriteHtmlForWeb(await readText(join(webDir, "index.html")), "viewer"));
   await writeText(join(outDir, "web", "matlab.html"), rewriteMaterialHtml(await readText(join(webDir, "matlab.html"))));
 
-  for (const filename of [
-    "gallery.js",
-    "materials.js",
-    "matlab.js",
-    "procmodels.js",
-    "viewer.js",
-    "speedtree-tutorial-procmodels.js",
-    "model-visibility.js",
-  ]) {
+  const webFiles = await readdir(join(outDir, "web"));
+  for (const filename of webFiles.filter((filename) => filename.endsWith(".js"))) {
     const path = join(outDir, "web", filename);
     await writeText(path, rewriteWebJs(filename, await readText(path)));
+  }
+  for (const filename of webFiles.filter((filename) =>
+    filename.endsWith(".html") && !["gallery.html", "index.html", "matlab.html"].includes(filename)
+  )) {
+    const path = join(outDir, "web", filename);
+    await writeText(path, rewriteStandaloneHtml(await readText(path)));
   }
 
   const procSource = await readText(procModelsPath);
