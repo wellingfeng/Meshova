@@ -26,6 +26,11 @@ const MATERIAL_CATS = MATERIAL_USE_CATEGORIES
   }))
   .filter((category) => category.names.length > 0);
 
+function outUrl(path) {
+  const normalized = String(path || "").replace(/^\/+/, "");
+  return new URL(`../out/${normalized}`, import.meta.url).href;
+}
+
 function isGeneratedLibraryEntry(m) {
   if (!m || !m.id || !m.file || PROC_MODELS[m.id] || !isGalleryModelVisible(m.id)) return false;
   const id = String(m.id);
@@ -34,7 +39,7 @@ function isGeneratedLibraryEntry(m) {
 
 async function loadGeneratedEntries() {
   try {
-    const res = await fetch("/out/models.json", { cache: "no-store" });
+    const res = await fetch(outUrl("models.json"), { cache: "no-store" });
     if (!res.ok) return [];
     const data = await res.json();
     const models = Array.isArray(data.models) ? data.models : [];
@@ -66,14 +71,14 @@ async function loadGeneratedEntries() {
 
 function generatedThumbCandidates(entry) {
   const base = [
-    `/out/shots/${entry.id}-persp.png`,
-    `/out/shots/${entry.id}-front.png`,
-    `/out/shots/${entry.id}-side.png`,
-    `/out/shots/${entry.id}-top.png`,
+    outUrl(`shots/${entry.id}-persp.png`),
+    outUrl(`shots/${entry.id}-front.png`),
+    outUrl(`shots/${entry.id}-side.png`),
+    outUrl(`shots/${entry.id}-top.png`),
   ];
   if (entry.id.startsWith("terrain-")) {
     return [
-      `/out/shots/${entry.id}-orbit35.png`,
+      outUrl(`shots/${entry.id}-orbit35.png`),
       ...base,
     ];
   }
@@ -207,8 +212,10 @@ const SURFACE_THUMB_SIZE = 96;
 
 function resolveTexture(path) {
   if (!path) return null;
-  if (/^(https?:)?\/\//i.test(path) || path.startsWith("/")) return path;
-  return `/out/${path}`;
+  if (/^(https?:)?\/\//i.test(path)) return path;
+  if (path.startsWith("/out/")) return outUrl(path.slice(5));
+  if (path.startsWith("/")) return path;
+  return outUrl(path);
 }
 
 function loadTexture(path, { srgb = false, flipY = true } = {}) {
@@ -351,6 +358,7 @@ async function buildProcRoot(model) {
     const hasVColors = Array.isArray(part.colors) && part.colors.length === part.mesh.positions.length * 3;
     if (hasVColors) geo.setAttribute("color", new THREE.BufferAttribute(new Float32Array(part.colors), 3));
     const mat = materialForViewerPart(part, hasVColors);
+    mat.side = THREE.DoubleSide;
     root.add(new THREE.Mesh(geo, mat));
   }
   return { root, verts, tris, parts: parts.length };
@@ -514,7 +522,7 @@ const showcaseEntries = [
     model: { name: "程序化草地生态" },
     cat: "植被",
     specialUrl: "biome-grassland.html",
-    thumbCandidates: ["/out/biome-grassland.png"],
+    thumbCandidates: [new URL("./assets/biome-grassland.png", import.meta.url).href],
     stats: { parts: 7, tris: 840000, verts: 910000 },
     subtitle: "生态掩膜 · 6 层实例散布",
   },
@@ -523,7 +531,7 @@ const showcaseEntries = [
     model: { name: "GPU 实例化程序草地" },
     cat: "植被",
     specialUrl: "vertex-grass.html",
-    thumbCandidates: ["/out/vertex-grass.png"],
+    thumbCandidates: [new URL("./assets/vertex-grass.png", import.meta.url).href],
     stats: { parts: 2, tris: 700000, verts: 822801 },
     subtitle: "50k 实例 · 2 Draw Calls",
   },
@@ -532,7 +540,7 @@ const showcaseEntries = [
     model: { name: "峡谷浅水方程" },
     cat: "地形",
     specialUrl: "shallow-water.html",
-    thumbCandidates: ["/out/shots/shallow-water-evolved.png"],
+    thumbCandidates: [new URL("./assets/shallow-water-evolved.png", import.meta.url).href],
     stats: { parts: 2, tris: 36100, verts: 18432 },
     subtitle: "SWE 求解 · 动态洪水与障碍绕流",
     title: "96 × 96 浅水网格 · CFL 自适应子步 · 质量守恒 · 动态湿干边界",
@@ -859,7 +867,7 @@ async function ensureTurnFrames(entry) {
   try {
     let build;
     if (entry.generated) {
-      const res = await fetch(`/out/${entry.file}`, { cache: "no-store" });
+      const res = await fetch(outUrl(entry.file), { cache: "no-store" });
       if (!res.ok) throw new Error("no model");
       build = buildViewerModelRoot(await res.json());
     } else {
@@ -900,7 +908,7 @@ function wireTurntable(entry) {
 async function fillGeneratedCard(entry) {
   const thumb = entry.card.querySelector(".thumb");
   try {
-    const res = await fetch(`/out/${entry.file}`, { cache: "no-store" });
+    const res = await fetch(outUrl(entry.file), { cache: "no-store" });
     if (!res.ok) throw new Error("模型文件不存在");
     const model = await res.json();
     let tris = Math.round(model?.meta?.tris ?? 0);
