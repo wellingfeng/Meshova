@@ -31,12 +31,12 @@ function rewriteHtmlForRoot(html, kind) {
     .replaceAll('"/web/vendor/three.module.js"', '"./web/vendor/three.module.js"')
     .replaceAll('"/web/vendor/addons/"', '"./web/vendor/addons/"');
   if (kind === "gallery") {
-    out = out.replaceAll('src="/web/gallery.js"', 'src="./web/gallery.js"');
+    out = out.replace(/src="\/web\/gallery\.js([^\"]*)"/g, 'src="./web/gallery.js$1"');
   } else {
     out = out
       .replaceAll('href="/web/gallery.html"', 'href="./index.html"')
       .replaceAll("← 模型库", "模型库")
-      .replaceAll('src="/web/viewer.js"', 'src="./web/viewer.js"');
+      .replace(/src="\/web\/viewer\.js([^\"]*)"/g, 'src="./web/viewer.js$1"');
   }
   return out.replace("</head>", '<link rel="icon" href="./favicon.ico" />\n</head>');
 }
@@ -46,12 +46,12 @@ function rewriteHtmlForWeb(html, kind) {
     .replaceAll('"/web/vendor/three.module.js"', '"./vendor/three.module.js"')
     .replaceAll('"/web/vendor/addons/"', '"./vendor/addons/"');
   if (kind === "gallery") {
-    out = out.replaceAll('src="/web/gallery.js"', 'src="./gallery.js"');
+    out = out.replace(/src="\/web\/gallery\.js([^\"]*)"/g, 'src="./gallery.js$1"');
   } else {
     out = out
       .replaceAll('href="/web/gallery.html"', 'href="../index.html"')
       .replaceAll("← 模型库", "模型库")
-      .replaceAll('src="/web/viewer.js"', 'src="./viewer.js"');
+      .replace(/src="\/web\/viewer\.js([^\"]*)"/g, 'src="./viewer.js$1"');
   }
   return out.replace("</head>", '<link rel="icon" href="../favicon.ico" />\n</head>');
 }
@@ -62,7 +62,7 @@ function rewriteMaterialHtml(html) {
   const out = html
     .replaceAll('"/web/vendor/three.module.js"', '"./vendor/three.module.js"')
     .replaceAll('"/web/vendor/addons/"', '"./vendor/addons/"')
-    .replaceAll('src="/web/matlab.js"', 'src="./matlab.js"')
+    .replace(/src="\/web\/matlab\.js([^\"]*)"/g, 'src="./matlab.js$1"')
     .replaceAll('href="/web/gallery.html"', 'href="../index.html"');
   return out.replace("</head>", '<link rel="icon" href="../favicon.ico" />\n</head>');
 }
