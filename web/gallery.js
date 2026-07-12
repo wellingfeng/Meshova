@@ -111,7 +111,15 @@ let scene = null;
 let camera = null;
 let renderContext = null;
 let renderContextError = null;
+let blankThumbPixels = null;
 const thumbCameraDir = new THREE.Vector3(0.7, 0.55, 0.9).normalize();
+
+function readThumbnailPixels() {
+  const pixels = new Uint8Array(canvas.width * canvas.height * 4);
+  const context = renderer.getContext();
+  context.readPixels(0, 0, canvas.width, canvas.height, context.RGBA, context.UNSIGNED_BYTE, pixels);
+  return pixels;
+}
 // Sketchfab 风格浅色影棚背景：中心亮、四周略深的径向渐变，模型像摆在展台上。
 function makeStudioBackground() {
   const c = document.createElement("canvas");
@@ -173,12 +181,34 @@ function getRenderContext() {
     const rim = new THREE.DirectionalLight(0xffffff, 1.2); rim.position.set(0, 3, -5);
     scene.add(key, fill, rim, new THREE.HemisphereLight(0xffffff, 0xcfcfcf, 1.0));
     scene.environment = makeEnv(renderer);
+    renderer.render(scene, camera);
+    blankThumbPixels = readThumbnailPixels();
     renderContext = { canvas, renderer, scene, camera };
     return renderContext;
   } catch (err) {
     renderContextError = err instanceof Error ? err : new Error(String(err));
     throw renderContextError;
   }
+}
+
+function thumbnailHasContent(minChangedPixels = 32) {
+  if (!canvas || !blankThumbPixels) return true;
+  const pixels = readThumbnailPixels();
+  let changed = 0;
+  for (let offset = 0; offset < pixels.length; offset += 4) {
+    const difference = Math.abs(pixels[offset] - blankThumbPixels[offset])
+      + Math.abs(pixels[offset + 1] - blankThumbPixels[offset + 1])
+      + Math.abs(pixels[offset + 2] - blankThumbPixels[offset + 2]);
+    if (difference <= 12) continue;
+    changed += 1;
+    if (changed >= minChangedPixels) return true;
+  }
+  return false;
+}
+
+function thumbnailDataUrl() {
+  if (!thumbnailHasContent()) throw new Error("缩略图仅包含背景");
+  return canvas.toDataURL("image/png");
 }
 
 // 材质缩略图用的方块（第二套 uv 供 aoMap）。
@@ -196,7 +226,7 @@ function renderMaterialThumb(name) {
   scene.add(root);
   frameRoot(root);
   renderer.render(scene, camera);
-  const url = canvas.toDataURL("image/png");
+  const url = thumbnailDataUrl();
   scene.remove(root);
   for (const k of ["map", "normalMap", "roughnessMap", "metalnessMap", "aoMap", "emissiveMap"]) {
     if (material[k] && material[k].dispose) material[k].dispose();
@@ -376,7 +406,7 @@ async function renderThumb(model) {
   scene.add(root);
   frameRoot(root);
   renderer.render(scene, camera);
-  const url = canvas.toDataURL("image/png");
+  const url = thumbnailDataUrl();
   disposeRoot(root);
   return { url, verts, tris, parts };
 }
@@ -396,7 +426,7 @@ function renderTurntableFromRoot(root, count) {
     camera.position.set(Math.sin(a) * radius, y, Math.cos(a) * radius);
     camera.lookAt(0, 0, 0);
     renderer.render(scene, camera);
-    frames.push(canvas.toDataURL("image/png"));
+    frames.push(thumbnailDataUrl());
   }
   return frames;
 }
@@ -430,7 +460,7 @@ function renderViewerModelThumb(viewerModel) {
   scene.add(root);
   frameRoot(root);
   renderer.render(scene, camera);
-  const url = canvas.toDataURL("image/png");
+  const url = thumbnailDataUrl();
   disposeRoot(root);
   return { url, verts, tris, parts };
 }
@@ -921,11 +951,13 @@ async function fillGeneratedCard(entry) {
     try {
       const rendered = renderViewerModelThumb(model);
       thumbUrl = rendered.url;
+      entry.card.dataset.previewSource = "live";
       if (!tris) tris = Math.round(rendered.tris);
       if (!verts) verts = Math.round(rendered.verts);
       if (!parts) parts = rendered.parts;
     } catch {
       thumbUrl = await firstLoadableImage(generatedThumbCandidates(entry));
+      if (thumbUrl) entry.card.dataset.previewSource = "static";
     }
     if (!thumbUrl) throw new Error("无缩略图");
     entry.thumbUrl = thumbUrl;
@@ -990,6 +1022,7 @@ async function renderOne(entry) {
   }
   try {
     const { url, verts, tris, parts } = await renderThumb(model);
+    card.dataset.previewSource = "live";
     entry.thumbUrl = url;
     entry.stats = { parts, tris, verts };
     thumb.innerHTML =
@@ -1001,8 +1034,16 @@ async function renderOne(entry) {
     card.title = full;
     wireTurntable(entry);
   } catch (e) {
-    thumb.innerHTML = fallbackThumbHtml(entry, "需要 WebGL 预览");
-    card.title = e?.message || String(e);
+    const thumbUrl = await firstLoadableImage(generatedThumbCandidates(entry));
+    if (thumbUrl) {
+      entry.thumbUrl = thumbUrl;
+      entry.turnFailed = true;
+      card.dataset.previewSource = "static";
+      thumb.innerHTML = `<img src="${thumbUrl}" alt="${model.name}" />`;
+    } else {
+      thumb.innerHTML = fallbackThumbHtml(entry, "需要 WebGL 预览");
+      card.title = e?.message || String(e);
+    }
   }
 }
 
