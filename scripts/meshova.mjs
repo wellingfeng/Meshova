@@ -107,10 +107,15 @@ async function upsertManifest(id, displayName, file) {
     try { data = JSON.parse(await readFile(manifestPath, "utf8")); } catch { data = { models: [] }; }
   }
   if (!Array.isArray(data.models)) data.models = [];
+  const now = new Date().toISOString();
   const entry = { id, name: displayName, file, category: "meshova" };
   const i = data.models.findIndex((m) => m && m.id === id);
-  if (i >= 0) data.models[i] = { ...data.models[i], ...entry };
-  else data.models.push(entry);
+  if (i >= 0) {
+    // 更新已有模型：保留首次生成时间 createdAt，刷新 updatedAt。
+    data.models[i] = { ...data.models[i], ...entry, createdAt: data.models[i].createdAt || now, updatedAt: now };
+  } else {
+    data.models.push({ ...entry, createdAt: now, updatedAt: now });
+  }
   await writeFile(manifestPath, JSON.stringify(data, null, 2) + "\n");
 }
 

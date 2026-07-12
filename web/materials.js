@@ -7,14 +7,19 @@ import * as THREE from "three";
 import {
   materialFromFields,
   PRESETS,
+  PRESET_PARAM_SCHEMA,
+  defaultMatParams,
   MATERIAL_BUILDERS,
   SBS_REPRO,
+  SBS_PARAM_SCHEMA,
+  defaultSbsParams,
   buildSurface,
   resolvePhysical,
+  resolveWaterSurfaceParams,
   SURFACE_LABELS,
   SURFACE_PARAM_SCHEMA,
   defaultSurfaceParams,
-} from "/dist/index.js";
+} from "/dist/index.js?v=water7";
 
 /** Convert a Meshova float TextureBuffer to a three DataTexture. */
 function bufferToDataTexture(tex, { srgb = false } = {}) {
@@ -77,8 +82,10 @@ export function bakeBuilderMaterial(builderName, size = 256, params = {}) {
 
 export const PRESET_NAMES = Object.keys(PRESETS);
 export const BUILDER_NAMES = Object.keys(MATERIAL_BUILDERS);
+export { PRESET_PARAM_SCHEMA, defaultMatParams };
 /** SBS reproduction recipe names (field presets keyed by reference folder). */
 export const SBS_REPRO_NAMES = Object.keys(SBS_REPRO);
+export { SBS_PARAM_SCHEMA, defaultSbsParams };
 
 /** True if `name` is a buffer-chain material builder rather than a field preset. */
 export function isBuilder(name) {
@@ -189,6 +196,176 @@ export function bakeSurface(surfaceRef, size = 256, fallbackColor = [0.8, 0.8, 0
     mat.depthWrite = false;
   }
   mat.envMapIntensity = 1.0;
+  mat.needsUpdate = true;
+  return mat;
+}
+
+const WATER_BODY_CODE = { river: 0, pond: 1, ocean: 2 };
+
+export function bakeWaterSurface(surfaceRef, size = 256, fallbackColor = [0.1, 0.35, 0.42]) {
+  const params = resolveWaterSurfaceParams(surfaceRef?.params || {});
+  const mat = bakeSurface({ type: "water", params }, size, fallbackColor);
+  if (!mat) return null;
+  const angle = params.flowAngle * Math.PI / 180;
+  const bodyCode = WATER_BODY_CODE[params.body] ?? WATER_BODY_CODE.pond;
+
+  mat.transparent = true;
+  mat.opacity = 1;
+  mat.depthWrite = false;
+  mat.transmission = 0;
+  mat.thickness = 0;
+  mat.normalMap = null;
+  const normalStrength = params.body === "ocean" ? 0.24 : (params.body === "river" ? 0.46 : 0.34);
+  mat.normalScale.set(normalStrength, normalStrength);
+  mat.envMapIntensity = params.body === "ocean" ? 1.3 : 1.15;
+  mat.userData.isWaterSurface = true;
+  mat.userData.waterTime = 0;
+  mat.userData.waterParams = params;
+
+  const previousCompile = mat.onBeforeCompile;
+  mat.onBeforeCompile = (shader) => {
+    if (typeof previousCompile === "function") previousCompile(shader);
+    shader.uniforms.uWaterTime = { value: mat.userData.waterTime || 0 };
+    shader.uniforms.uWaterBody = { value: bodyCode };
+    shader.uniforms.uWaterFlow = { value: new THREE.Vector2(Math.cos(angle), Math.sin(angle)) };
+    shader.uniforms.uWaterWaveAmplitude = { value: params.waveAmplitude };
+    shader.uniforms.uWaterWaveScale = { value: params.waveScale };
+    shader.uniforms.uWaterFlowSpeed = { value: params.flowSpeed };
+    shader.uniforms.uWaterFoamStrength = { value: params.foamStrength };
+    shader.uniforms.uWaterShallowWidth = { value: params.shallowWidth };
+    shader.uniforms.uWaterShallowOpacity = { value: params.shallowOpacity };
+    shader.uniforms.uWaterDeepOpacity = { value: params.deepOpacity };
+    shader.uniforms.uWaterAttenuationDistance = { value: params.attenuationDistance };
+    shader.uniforms.uWaterSceneDepth = { value: null };
+    shader.uniforms.uWaterDepthResolution = { value: new THREE.Vector2(1, 1) };
+    shader.uniforms.uWaterCameraNear = { value: 0.1 };
+    shader.uniforms.uWaterCameraFar = { value: 1000 };
+    shader.uniforms.uWaterDepthAvailable = { value: 0 };
+    shader.uniforms.uWaterShallowColor = { value: new THREE.Color(...params.tint) };
+    shader.uniforms.uWaterDeepColor = { value: new THREE.Color(...params.deepColor) };
+    shader.uniforms.uWaterSeed = { value: params.seed * 0.137 };
+
+    shader.vertexShader = shader.vertexShader
+      .replace("#include <common>", `#include <common>
+uniform float uWaterTime;
+uniform float uWaterBody;
+uniform vec2 uWaterFlow;
+uniform float uWaterWaveAmplitude;
+uniform float uWaterWaveScale;
+uniform float uWaterFlowSpeed;
+varying vec2 vMeshovaWaterUv;
+varying vec2 vMeshovaWaterPosition;
+varying float vMeshovaWaterWave;
+float meshovaWaterWave(vec2 p, out vec2 gradient) {
+  vec2 direction = normalize(uWaterFlow + vec2(0.0001));
+  vec2 side = vec2(-direction.y, direction.x);
+  float time = uWaterTime * uWaterFlowSpeed;
+  float phaseA = dot(p, direction) * uWaterWaveScale * 6.28318 - time * 2.2;
+  float phaseB = dot(p, side) * uWaterWaveScale * 9.7 + time * 1.35;
+  float phaseC = dot(p, normalize(direction + side * 0.63)) * uWaterWaveScale * 15.1 - time * 3.1;
+  float bodyAmplitude = uWaterBody > 1.5 ? 1.0 : (uWaterBody < 0.5 ? 0.55 : 0.35);
+  float height = (sin(phaseA) * 0.58 + sin(phaseB) * 0.27 + sin(phaseC) * 0.15)
+    * uWaterWaveAmplitude * bodyAmplitude;
+  gradient = (cos(phaseA) * direction * uWaterWaveScale * 6.28318 * 0.58
+    + cos(phaseB) * side * uWaterWaveScale * 9.7 * 0.27
+    + cos(phaseC) * normalize(direction + side * 0.63) * uWaterWaveScale * 15.1 * 0.15)
+    * uWaterWaveAmplitude * bodyAmplitude;
+  return height;
+}`)
+      .replace("#include <beginnormal_vertex>", `#include <beginnormal_vertex>
+vec2 meshovaWaterGradient;
+meshovaWaterWave(position.xz, meshovaWaterGradient);
+objectNormal = normalize(vec3(-meshovaWaterGradient.x, 1.0, -meshovaWaterGradient.y));`)
+      .replace("#include <begin_vertex>", `#include <begin_vertex>
+vec2 meshovaWaterGradientPosition;
+float meshovaWaterHeight = meshovaWaterWave(position.xz, meshovaWaterGradientPosition);
+transformed.y += meshovaWaterHeight;
+vMeshovaWaterUv = uv;
+vMeshovaWaterPosition = position.xz;
+vMeshovaWaterWave = meshovaWaterHeight;`);
+
+    shader.fragmentShader = shader.fragmentShader
+      .replace("#include <common>", `#include <common>
+#include <packing>
+uniform float uWaterTime;
+uniform float uWaterBody;
+uniform float uWaterFlowSpeed;
+uniform float uWaterFoamStrength;
+uniform float uWaterShallowWidth;
+uniform float uWaterShallowOpacity;
+uniform float uWaterDeepOpacity;
+uniform float uWaterAttenuationDistance;
+uniform sampler2D uWaterSceneDepth;
+uniform vec2 uWaterDepthResolution;
+uniform float uWaterCameraNear;
+uniform float uWaterCameraFar;
+uniform float uWaterDepthAvailable;
+uniform vec3 uWaterShallowColor;
+uniform vec3 uWaterDeepColor;
+uniform float uWaterSeed;
+varying vec2 vMeshovaWaterUv;
+varying vec2 vMeshovaWaterPosition;
+varying float vMeshovaWaterWave;
+float meshovaWaterHash(vec2 p) {
+  p = fract(p * vec2(123.34, 456.21));
+  p += dot(p, p + 45.32 + uWaterSeed);
+  return fract(p.x * p.y);
+}
+float meshovaWaterNoise(vec2 p) {
+  vec2 cell = floor(p);
+  vec2 local = fract(p);
+  local = local * local * (3.0 - 2.0 * local);
+  return mix(mix(meshovaWaterHash(cell), meshovaWaterHash(cell + vec2(1.0, 0.0)), local.x),
+    mix(meshovaWaterHash(cell + vec2(0.0, 1.0)), meshovaWaterHash(cell + 1.0), local.x), local.y);
+}
+float meshovaWaterLinearDepth(float depth) {
+  return -perspectiveDepthToViewZ(depth, uWaterCameraNear, uWaterCameraFar);
+}`)
+      .replace("#include <normal_fragment_maps>", `#include <normal_fragment_maps>
+vec2 meshovaScreenUv = gl_FragCoord.xy / max(uWaterDepthResolution, vec2(1.0));
+float meshovaSceneDepth = unpackRGBAToDepth(texture2D(uWaterSceneDepth, meshovaScreenUv));
+float meshovaWaterDepth = meshovaWaterLinearDepth(gl_FragCoord.z);
+float meshovaBehindDepth = meshovaWaterLinearDepth(meshovaSceneDepth);
+float meshovaWaterColumn = meshovaSceneDepth >= 0.9999
+  ? uWaterAttenuationDistance * 4.0
+  : max(0.0, meshovaBehindDepth - meshovaWaterDepth);
+meshovaWaterColumn = mix(uWaterAttenuationDistance * 2.0, meshovaWaterColumn, uWaterDepthAvailable);
+float meshovaDepthRange = max(0.08, uWaterAttenuationDistance * 0.075);
+float meshovaDepthMix = smoothstep(0.015, meshovaDepthRange, meshovaWaterColumn);
+vec3 meshovaWaterColor = mix(uWaterShallowColor, uWaterDeepColor, meshovaDepthMix);
+float meshovaFresnel = pow(1.0 - abs(dot(normalize(normal), normalize(vViewPosition))), 4.0);
+float meshovaFresnelTint = uWaterBody < 0.5 ? 0.08 : (uWaterBody > 1.5 ? 0.2 : 0.12);
+meshovaWaterColor = mix(meshovaWaterColor, vec3(0.68), meshovaFresnel * meshovaFresnelTint);
+float meshovaTime = uWaterTime * uWaterFlowSpeed;
+float meshovaShoreDistance = max(0.025, uWaterShallowWidth);
+vec2 meshovaFoamUv = uWaterBody < 0.5
+  ? vec2(vMeshovaWaterUv.y * 18.0 - meshovaTime * 2.4, vMeshovaWaterUv.x * 13.0)
+  : vMeshovaWaterPosition * 2.4 + vec2(meshovaTime * 0.28, -meshovaTime * 0.19);
+float meshovaFoamNoise = meshovaWaterNoise(meshovaFoamUv) * 0.68 + meshovaWaterNoise(meshovaFoamUv * 2.13 + 7.1) * 0.32;
+float meshovaShoreMask = 1.0 - smoothstep(meshovaShoreDistance * 0.12, meshovaShoreDistance, meshovaWaterColumn);
+float meshovaShorePhase = meshovaWaterColumn / meshovaShoreDistance * 5.5 - meshovaTime * 1.8 + meshovaFoamNoise * 3.4;
+float meshovaShoreBand = smoothstep(0.5, 0.9, sin(meshovaShorePhase) * 0.5 + 0.5);
+float meshovaShoreFoam = meshovaShoreMask * mix(0.12, 0.82, meshovaShoreBand) * smoothstep(0.34, 0.78, meshovaFoamNoise);
+float meshovaCrestFoam = uWaterBody > 1.5 ? smoothstep(0.045, 0.16, vMeshovaWaterWave) * smoothstep(0.48, 0.82, meshovaFoamNoise) : 0.0;
+vec2 meshovaRiverUv = vec2(vMeshovaWaterUv.x * 9.0, vMeshovaWaterUv.y * 2.8 - meshovaTime * 1.9);
+float meshovaRiverNoise = meshovaWaterNoise(meshovaRiverUv) * 0.62
+  + meshovaWaterNoise(meshovaRiverUv * vec2(2.4, 0.72) + 11.7) * 0.38;
+float meshovaRiverThread = smoothstep(0.7, 0.93,
+  sin((vMeshovaWaterUv.x * 7.0 + meshovaRiverNoise * 0.32) * 6.28318) * 0.5 + 0.5);
+float meshovaRiverPatch = smoothstep(0.58, 0.82, meshovaRiverNoise);
+float meshovaRiverInterior = smoothstep(0.015, 0.14, vMeshovaWaterUv.x)
+  * (1.0 - smoothstep(0.86, 0.985, vMeshovaWaterUv.x));
+float meshovaRiverFlowFoam = uWaterBody < 0.5
+  ? meshovaRiverInterior * (meshovaRiverPatch * 0.72 + meshovaRiverThread * 0.28) * 0.5
+  : 0.0;
+float meshovaFoam = clamp((meshovaShoreFoam + meshovaCrestFoam + meshovaRiverFlowFoam) * uWaterFoamStrength, 0.0, 0.88);
+diffuseColor.rgb = mix(meshovaWaterColor, vec3(0.88, 0.96, 0.98), meshovaFoam);
+float meshovaDepthAlpha = mix(uWaterShallowOpacity, uWaterDeepOpacity, meshovaDepthMix);
+diffuseColor.a = clamp(meshovaDepthAlpha + meshovaFresnel * 0.08 + meshovaFoam * 0.28, 0.05, 0.98);`);
+
+    mat.userData.waterUniforms = shader.uniforms;
+  };
+  mat.customProgramCacheKey = () => "meshova-water-v7";
   mat.needsUpdate = true;
   return mat;
 }

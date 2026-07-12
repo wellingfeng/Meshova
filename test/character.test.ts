@@ -78,6 +78,7 @@ describe("CharacterKit stylized humanoid", () => {
     });
     expect(parts.some((p) => p.name === "body_template_morph")).toBe(true);
     expect(parts.some((p) => p.name === "conformed_body_suit")).toBe(true);
+    expect(parts.find((p) => p.name === "iris_l")?.surface?.type).toBe("glossPaint");
     expect(parts.length).toBeGreaterThan(12);
     for (const part of parts) assertValidMesh(part.mesh);
   });

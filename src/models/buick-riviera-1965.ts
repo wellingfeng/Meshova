@@ -456,7 +456,7 @@ export function buildBuickRiviera1965Parts(params: Partial<BuickRiviera1965Param
     add(parts, `ribbed_rocker_panel_${side}`, merge(
       ...[-3, -2, -1, 0, 1, 2, 3].map((i) => partBox(ctx, vec3(0.026, 0.045, 0.32), vec3(side * 1.035, 0.36, i * 0.42)))
     ), CHROME, "chrome");
-    add(parts, `door_cutline_${side}`, partBox(ctx, vec3(0.018, 0.52, 0.02), vec3(side * 1.03, 0.62, -0.08)), BLACK, "plastic", { color: BLACK, roughness: 0.42 });
+    add(parts, `door_cutline_${side}`, partBox(ctx, vec3(0.018, 0.52, 0.02), vec3(side * 1.05, 0.62, -0.08)), BLACK, "plastic", { color: BLACK, roughness: 0.42 });
     add(parts, `door_handle_${side}`, partBox(ctx, vec3(0.03, 0.05, 0.23), vec3(side * 1.055, 0.74, 0.38)), CHROME, "chrome");
     add(parts, `round_mirror_${side}`, partSphere(ctx, 0.09, vec3(side * 1.06, 0.94, -0.74), vec3(1.1, 0.78, 0.8)), CHROME, "chrome");
     add(parts, `rear_fin_edge_${side}`, partBox(ctx, vec3(0.036, 0.28, 0.78), vec3(side * 0.94, 0.68, 2.02), vec3(0.08, side * 0.08, 0)), CHROME, "chrome");

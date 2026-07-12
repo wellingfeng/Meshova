@@ -74,6 +74,78 @@ export function cylinder(
 }
 
 /**
+ * Truncated cone along Y, centered on origin. `radiusBottom` sits at
+ * -height/2, `radiusTop` at +height/2.
+ */
+export function frustum(
+  radiusBottom = 0.5,
+  radiusTop = 0.25,
+  height = 1,
+  segments = 24,
+  caps = true,
+): Mesh {
+  const seg = Math.max(3, Math.floor(segments));
+  const rb = Math.max(0, radiusBottom);
+  const rt = Math.max(0, radiusTop);
+  const hy = height / 2;
+  const positions = [];
+  const normals = [];
+  const uvs = [];
+  const indices: number[] = [];
+  const sideNy = rb - rt;
+
+  for (let y = 0; y < 2; y++) {
+    const t = y;
+    const py = y === 0 ? -hy : hy;
+    const r = y === 0 ? rb : rt;
+    for (let i = 0; i <= seg; i++) {
+      const u = i / seg;
+      const a = u * TAU;
+      const nx = Math.cos(a);
+      const nz = Math.sin(a);
+      positions.push(vec3(nx * r, py, nz * r));
+      normals.push(normalize(vec3(nx * height, sideNy, nz * height)));
+      uvs.push(vec2(u, t));
+    }
+  }
+  const stride = seg + 1;
+  for (let i = 0; i < seg; i++) {
+    const a = i;
+    const b = i + stride;
+    indices.push(a, b, a + 1, a + 1, b, b + 1);
+  }
+
+  if (caps) {
+    for (const top of [false, true]) {
+      const radius = top ? rt : rb;
+      if (radius <= 0) continue;
+      const py = top ? hy : -hy;
+      const ny = top ? 1 : -1;
+      const center = positions.length;
+      positions.push(vec3(0, py, 0));
+      normals.push(vec3(0, ny, 0));
+      uvs.push(vec2(0.5, 0.5));
+      const ringStart = positions.length;
+      for (let i = 0; i <= seg; i++) {
+        const u = i / seg;
+        const ang = u * TAU;
+        const nx = Math.cos(ang);
+        const nz = Math.sin(ang);
+        positions.push(vec3(nx * radius, py, nz * radius));
+        normals.push(vec3(0, ny, 0));
+        uvs.push(vec2(nx * 0.5 + 0.5, nz * 0.5 + 0.5));
+      }
+      for (let i = 0; i < seg; i++) {
+        const a = ringStart + i;
+        if (top) indices.push(center, a + 1, a);
+        else indices.push(center, a, a + 1);
+      }
+    }
+  }
+  return makeMesh({ positions, normals, uvs, indices });
+}
+
+/**
  * Cone along Y (apex up), centered so base sits at -height/2. Optional base cap.
  */
 export function cone(radius = 0.5, height = 1, segments = 24, cap = true): Mesh {

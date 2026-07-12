@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { box } from "../src/geometry/primitives.js";
 import { voronoiFracture, stackFragments } from "../src/geometry/fracture.js";
 import { bounds } from "../src/geometry/mesh.js";
+import { buildTitanStackingParts } from "../src/models/titan-stacking.js";
 
 describe("voronoiFracture", () => {
   it("produces the requested number of non-empty fragments", () => {
@@ -36,6 +37,15 @@ describe("voronoiFracture", () => {
     }
   });
 
+  it("clips cells instead of duplicating the full source block", () => {
+    const frags = voronoiFracture(box(3, 3, 3), { cells: 12, seed: 5 });
+    const fullSizeCopies = frags.filter((f) => {
+      const b = bounds(f.mesh);
+      return (b.max.x - b.min.x) > 2.7 && (b.max.y - b.min.y) > 2.7 && (b.max.z - b.min.z) > 2.7;
+    });
+    expect(fullSizeCopies).toHaveLength(0);
+  });
+
   it("cells<1 or empty mesh returns no fragments", () => {
     expect(voronoiFracture(box(1, 1, 1), { cells: 0 })).toEqual([]);
   });
@@ -48,5 +58,14 @@ describe("stackFragments", () => {
     const s2 = stackFragments(frags, { seed: 1 });
     expect(s1.length).toBe(frags.length);
     expect(s1[0]!.positions).toEqual(s2[0]!.positions);
+  });
+
+  it("Titan stacking defaults form a low rubble mound, not a vertical tower", () => {
+    const parts = buildTitanStackingParts();
+    const positions = parts.flatMap((part) => [...part.mesh.positions]);
+    const b = bounds({ positions, normals: [], uvs: [], indices: [] });
+    const height = b.max.y - b.min.y;
+    const footprint = Math.max(b.max.x - b.min.x, b.max.z - b.min.z);
+    expect(height).toBeLessThan(footprint * 0.75);
   });
 });

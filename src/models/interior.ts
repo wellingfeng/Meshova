@@ -168,25 +168,31 @@ export function buildInteriorRoom(params: Partial<InteriorRoomParams> = {}): Int
 
   // Room shell: floor + three walls, open front so the viewer can see in.
   const shell: Mesh[] = [];
-  addBox(shell, vec3(width, 0.12, depth), vec3(0, -0.06, 0));
+  addBox(shell, vec3(width, 0.12, depth), vec3(0, -0.14, 0));
   addBox(shell, vec3(width, wallH, wallT), vec3(0, wallH / 2, -halfD));
   addBox(shell, vec3(wallT, wallH, depth), vec3(-halfW, wallH / 2, 0));
   addBox(shell, vec3(wallT, wallH, depth), vec3(halfW, wallH / 2, 0));
+  addBox(shell, vec3(width, wallT, depth), vec3(0, wallH + wallT / 2, 0));
   parts.push(surf("room_shell", merge(...shell), WALL, "concrete", { roughness: 0.82, seed: p.seed }));
 
-  const floor = transform(box(width, 0.08, depth), { translate: vec3(0, 0.0, 0) });
+  const floor = transform(box(width - wallT * 2, 0.08, depth - wallT * 2), { translate: vec3(0, -0.04, 0) });
   parts.push(surf("wood_floor", floor, FLOOR, "wood", { tone: FLOOR, ringScale: 10, seed: p.seed + 1 }));
 
+  const doorW = 0.86 * s;
+  const doorH = Math.min(2.2, wallH - 0.25);
+  const doorX = -halfW * 0.46;
   const trim: Mesh[] = [];
-  addBox(trim, vec3(width, 0.09, 0.08), vec3(0, 0.12, -halfD + wallT));
+  const trimMinX = -halfW + wallT;
+  const trimMaxX = halfW - wallT;
+  const doorTrimMinX = doorX - doorW / 2 - 0.14;
+  const doorTrimMaxX = doorX + doorW / 2 + 0.14;
+  addBox(trim, vec3(doorTrimMinX - trimMinX, 0.09, 0.08), vec3((trimMinX + doorTrimMinX) / 2, 0.12, -halfD + wallT));
+  addBox(trim, vec3(trimMaxX - doorTrimMaxX, 0.09, 0.08), vec3((doorTrimMaxX + trimMaxX) / 2, 0.12, -halfD + wallT));
   addBox(trim, vec3(0.08, 0.09, depth), vec3(-halfW + wallT, 0.12, 0));
   addBox(trim, vec3(0.08, 0.09, depth), vec3(halfW - wallT, 0.12, 0));
   pushMerged(parts, "baseboards", trim, TRIM, "wood", { tone: TRIM, seed: p.seed + 2 });
 
   // Door on the back wall. Leaf is modeled around a hinge pivot.
-  const doorW = 0.86 * s;
-  const doorH = Math.min(2.2, wallH - 0.25);
-  const doorX = -halfW * 0.46;
   const hinge = vec3(doorX - doorW / 2, 0.02, -halfD + wallT + 0.035);
   const doorAngle = -clamp01(p.doorOpen) * Math.PI * 0.5;
   const doorLocal = translateMesh(box(doorW, doorH, 0.08), vec3(doorW / 2, doorH / 2, 0));
@@ -194,8 +200,8 @@ export function buildInteriorRoom(params: Partial<InteriorRoomParams> = {}): Int
   parts.push(surf("door_leaf", doorLeaf, DARK_WOOD, "wood", { tone: DARK_WOOD, seed: p.seed + 3 }));
   const doorFrame: Mesh[] = [];
   addBox(doorFrame, vec3(doorW + 0.18, 0.08, 0.12), vec3(doorX, doorH + 0.06, -halfD + wallT + 0.02));
-  addBox(doorFrame, vec3(0.08, doorH + 0.16, 0.12), vec3(doorX - doorW / 2 - 0.06, doorH / 2, -halfD + wallT + 0.02));
-  addBox(doorFrame, vec3(0.08, doorH + 0.16, 0.12), vec3(doorX + doorW / 2 + 0.06, doorH / 2, -halfD + wallT + 0.02));
+  addBox(doorFrame, vec3(0.08, doorH + 0.16, 0.12), vec3(doorX - doorW / 2 - 0.06, (doorH + 0.16) / 2, -halfD + wallT + 0.02));
+  addBox(doorFrame, vec3(0.08, doorH + 0.16, 0.12), vec3(doorX + doorW / 2 + 0.06, (doorH + 0.16) / 2, -halfD + wallT + 0.02));
   pushMerged(parts, "door_frame", doorFrame, TRIM, "wood", { tone: TRIM, seed: p.seed + 4 });
   joints.push({
     name: "door_hinge",
@@ -227,7 +233,7 @@ export function buildInteriorRoom(params: Partial<InteriorRoomParams> = {}): Int
   addBox(bedFrame, vec3(bedW + 0.18, 0.28, bedD + 0.12), vec3(bedX, 0.22, bedZ));
   addBox(bedFrame, vec3(bedW + 0.25, 0.9, 0.16), vec3(bedX, 0.72, bedZ - bedD / 2 - 0.04));
   pushMerged(parts, "bed_frame", bedFrame, WOOD, "wood", { tone: WOOD, seed: p.seed + 5 });
-  const mattress = transform(box(bedW, 0.28, bedD), { translate: vec3(bedX, 0.48, bedZ + 0.06) });
+  const mattress = transform(box(bedW, 0.28, bedD), { translate: vec3(bedX, 0.5, bedZ + 0.06) });
   parts.push(surf("mattress", mattress, [0.82, 0.82, 0.78], "fabric", { color: [0.82, 0.82, 0.78], seed: p.seed + 6 }));
   const bedding: Mesh[] = [];
   addBox(bedding, vec3(bedW * 0.42, 0.16, 0.42), vec3(bedX - bedW * 0.24, 0.72, bedZ - bedD * 0.35));
@@ -393,11 +399,11 @@ function addChair(seats: Mesh[], frames: Mesh[], center: Vec3, yaw: number, scal
   const frameLocal: Mesh[] = [];
   addBox(local, vec3(0.46 * scale, 0.08 * scale, 0.42 * scale), vec3(0, 0.45 * scale, 0));
   addBox(frameLocal, vec3(0.48 * scale, 0.08 * scale, 0.08 * scale), vec3(0, 0.82 * scale, -0.21 * scale), vec3(-0.18, 0, 0));
-  addBox(frameLocal, vec3(0.06 * scale, 0.72 * scale, 0.06 * scale), vec3(-0.2 * scale, 0.42 * scale, -0.16 * scale), vec3(-0.1, 0, 0));
-  addBox(frameLocal, vec3(0.06 * scale, 0.72 * scale, 0.06 * scale), vec3(0.2 * scale, 0.42 * scale, -0.16 * scale), vec3(-0.1, 0, 0));
+  addBox(frameLocal, vec3(0.05 * scale, 0.72 * scale, 0.05 * scale), vec3(-0.18 * scale, 0.42 * scale, -0.16 * scale), vec3(-0.1, 0, 0));
+  addBox(frameLocal, vec3(0.05 * scale, 0.72 * scale, 0.05 * scale), vec3(0.18 * scale, 0.42 * scale, -0.16 * scale), vec3(-0.1, 0, 0));
   for (const sx of [-1, 1] as const) {
     for (const sz of [-1, 1] as const) {
-      addBox(frameLocal, vec3(0.055 * scale, 0.45 * scale, 0.055 * scale), vec3(sx * 0.18 * scale, 0.22 * scale, sz * 0.16 * scale));
+      addBox(frameLocal, vec3(0.05 * scale, 0.45 * scale, 0.05 * scale), vec3(sx * 0.17 * scale, 0.22 * scale, sz * 0.14 * scale));
     }
   }
   seats.push(transform(merge(...local), { rotate: vec3(0, yaw, 0), translate: center }));

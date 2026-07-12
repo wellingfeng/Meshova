@@ -1,0 +1,956 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SpeedTree × Meshova 树木质量对比</title>
+<style>
+:root{color-scheme:dark;--bg:#0b0f14;--panel:#111820;--line:#26313b;--muted:#8ea2b2;--text:#e6edf3;--blue:#58a6ff;--red:#f85149;--yellow:#d29922;--green:#3fb950}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif}
+header{position:sticky;top:0;z-index:3;background:linear-gradient(180deg,#101720,#101720ee);border-bottom:1px solid var(--line);padding:16px 22px}
+h1{margin:0 0 6px;font-size:22px;letter-spacing:0;font-weight:700}
+.sub{color:var(--muted);font-size:12px}
+.stats{display:grid;grid-template-columns:repeat(4,minmax(140px,1fr));gap:10px;margin:14px 0}
+.stat{background:#0f151c;border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+.stat .k{color:var(--muted);font-size:12px}.stat .v{display:block;font-size:20px;font-weight:800;margin-top:2px}
+main{padding:18px 22px 28px}
+.summary{display:grid;grid-template-columns:1.3fr 1fr;gap:14px;margin-bottom:18px}
+.box{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px}
+.box h2{margin:0 0 10px;font-size:15px}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{border:1px solid #334155;background:#0d131b;border-radius:999px;padding:4px 9px;color:#c7d4df;font-size:12px}
+.row{display:grid;grid-template-columns:minmax(240px,.9fr) minmax(420px,1.25fr) minmax(280px,.85fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:8px;overflow:hidden;margin:14px 0}
+.col{background:#0f151c;min-width:0}
+.col h3{margin:0;padding:9px 11px;border-bottom:1px solid var(--line);font-size:12px;color:var(--muted);letter-spacing:.35px;text-transform:uppercase}
+.media{padding:10px}
+img{display:block;width:100%;background:#f6f7f4;border:1px solid #2f3b46;border-radius:6px;object-fit:contain}
+.ref img{height:380px}
+.angle-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.shot img{height:184px}
+figcaption{margin-top:5px;color:#9fb1c1;font-size:12px}
+figure{margin:0}
+.title{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 12px 0}
+.title h2{font-size:18px;margin:0}
+.score{font-size:22px;font-weight:850;font-variant-numeric:tabular-nums}
+.ok{color:var(--green)}.warn{color:var(--yellow)}.bad{color:var(--red)}
+.metric{display:flex;gap:8px;flex-wrap:wrap;padding:9px 12px 12px}
+.metric span{font-size:12px;color:#c8d3dc;border:1px solid #303b46;background:#0b1118;border-radius:999px;padding:3px 8px}
+.advice{padding:12px}
+.advice h4{margin:0 0 7px;color:#c8d3dc;font-size:13px}
+.advice ul{margin:0 0 12px;padding-left:18px}
+.advice li{margin:4px 0}
+.diag-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin:0 0 12px}
+.diag{border:1px solid #303b46;background:#0b1118;border-radius:6px;padding:7px 8px;min-width:0}
+.diag b{display:block;color:#91a4b5;font-size:11px;font-weight:650}
+.diag span{display:block;color:#d4dee7;font-size:12px;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.diag em{display:block;font-style:normal;font-weight:800;font-size:13px;font-variant-numeric:tabular-nums}
+.diag.ok em{color:var(--green)}.diag.warn em{color:var(--yellow)}.diag.bad em{color:var(--red)}
+.note{color:var(--muted);font-size:12px}
+code{background:#0a0f15;border:1px solid #24303a;border-radius:4px;padding:1px 4px}
+@media (max-width:1050px){.row,.summary{grid-template-columns:1fr}.stats{grid-template-columns:repeat(2,1fr)}.ref img{height:300px}.shot img{height:220px}}
+@media (max-width:640px){main,header{padding-left:12px;padding-right:12px}.stats{grid-template-columns:1fr}.angle-grid{grid-template-columns:1fr}.shot img{height:260px}}
+</style>
+</head>
+<body>
+<header>
+  <h1>SpeedTree × Meshova 树木质量对比</h1>
+  <div class="sub">生成时间 2026/7/11 18:28:05 · 数据源 out\speedtree-fit · SpeedTree 源库当前只用官方预览图；Meshova 已补拍多角度截图。</div>
+  <div class="stats">
+    <div class="stat"><span class="k">样本数</span><span class="v">30</span></div>
+    <div class="stat"><span class="k">平均分</span><span class="v bad">0.381</span></div>
+    <div class="stat"><span class="k">达标数</span><span class="v">1/30</span></div>
+    <div class="stat"><span class="k">目标分</span><span class="v">0.620</span></div>
+  </div>
+</header>
+<main>
+  <section class="summary">
+    <div class="box">
+      <h2>总体结论</h2>
+      <div class="chips">
+        <span class="chip">最大问题：树型模板太少，很多类别被同一套冠层/枝干代理硬套</span>
+        <span class="chip">优先级：先修轮廓，再修颜色，再加材质细节</span>
+        <span class="chip">评分只跑正面；后续拟合应纳入多视角一致性</span>
+        <span class="chip">常见问题：遮罩过满，冠层太团 (13)</span><span class="chip">常见问题：Meshova 剪影偏窄/偏高 (13)</span><span class="chip">常见问题：叶冠/枝量不足 (10)</span><span class="chip">常见问题：Meshova 剪影偏宽/偏矮 (7)</span>
+      </div>
+    </div>
+    <div class="box">
+      <h2>分类均分</h2>
+      <div class="chips"><span class="chip">Palms_&amp;_Cacti 0.315</span><span class="chip">Conifers 0.355</span><span class="chip">Broadleaves 0.412</span><span class="chip">Shrubs_&amp;_Flowers 0.442</span></div>
+      <p class="note">最低样本：QueenPalm 0.209 / Loblolly Pine 0.216 / Scots Pine 0.269 / Jeffrey Pine 0.281 / BananaPlant 0.283 / AloeVera 0.285</p>
+      <p class="note">量化诊断：out\speedtree-compare\diagnostics.json</p>
+    </div>
+  </section>
+<section class="row">
+  <div class="col ref">
+    <div class="title"><h2>Acacia</h2><div class="score bad">0.414</div></div>
+    <div class="metric">
+      <span>Broadleaves / Acacia</span>
+      <span>IoU 0.483</span>
+      <span>颜色 0.236</span>
+      <span>宽高 1.406 → 3.100</span><span>面积 0.150 → 0.106</span>
+    </div>
+    <div class="media"><figure><img src="../out/speedtree-fit/refs/speedtree-library-broadleaves-acacia.png" alt="Acacia SpeedTree"><figcaption>SpeedTree 官方预览 / renders\Broadleaves\Acacia.JPG</figcaption></figure></div>
+  </div>
+  <div class="col">
+    <h3>Meshova 多角度截图</h3>
+    <div class="media angle-grid"><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-broadleaves-acacia-front.png" alt="Acacia 正面"><figcaption>正面</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-broadleaves-acacia-orbitm25_10.png" alt="Acacia 左前 25°"><figcaption>左前 25°</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-broadleaves-acacia-orbit25_10.png" alt="Acacia 右前 25°"><figcaption>右前 25°</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-broadleaves-acacia-side.png" alt="Acacia 侧面"><figcaption>侧面</figcaption></figure></div>
+  </div>
+  <div class="col">
+    <h3>优化建议</h3>
+    <div class="advice">
+      <h4>主要差距</h4>
+      <ul><li>大轮廓可读，但冠幅、主干比例、枝层分布不稳。</li><li>指标：宽高比高 +121%，Meshova 偏宽/偏矮。</li><li>指标：遮罩面积少 -29%，视觉质量不足。</li><li>指标：质量中心偏下，底部太重。</li><li>伞形树冠扁平度和裸干长度不足。</li></ul>
+      <h4>指标诊断</h4>
+      <div class="diag-grid"><div class="diag bad"><b>宽高比</b><span>1.406 → 3.100</span><em>+121%</em></div><div class="diag warn"><b>遮罩面积</b><span>0.150 → 0.106</span><em>-29%</em></div><div class="diag bad"><b>质量高度</b><span>0.294 → 0.456</span><em>+0.162</em></div><div class="diag warn"><b>顶部宽度</b><span>0.614 → 0.395</span><em>-0.219</em></div><div class="diag bad"><b>中段宽度</b><span>0.325 → 0.844</span><em>+0.519</em></div><div class="diag ok"><b>底部宽度</b><span>0.066 → 0.084</span><em>+0.019</em></div><div class="diag ok"><b>边缘复杂度</b><span>28.990 → 27.690</span><em>-4%</em></div><div class="diag ok"><b>颜色距离</b><span>0.000 → 0.080</span><em>0.080</em></div></div><p class="note">几何：高 5.547，宽/高 1.223，深/高 0.859，叶片顶点占比 97%，parts 2。</p>
+      <h4>动作</h4>
+      <ul><li>把 canopy envelope 变成可拟合曲线/体素场；目标先对齐 silhouette IoU。</li><li>收窄 <code>crownScale</code> 或提高裸干高度；底层枝别铺满。</li><li>提高 <code>leafDensity</code>/<code>branchCount</code>；用叶簇体素填冠层空洞。</li><li>提高 crown base；压低底部叶密度和灌木化倾向。</li><li>加 umbrella crown mode：高裸干、水平主枝、扁平冠盘、稀疏底层。</li><li>搜索显示 leafSize+ 有收益：提高叶片/叶簇尺寸上限。</li></ul>
+      <h4>SPM 映射</h4><ul><li>一级分支数≈4.0 → branchCount×0.44</li><li>一级枝长比≈2.33 → crownScale 1.3</li><li>叶实例=6935 → leafDensity×2.3</li><li>SPM 叶尺寸=7 → leafSize×1.17</li><li>SPM 起始角=0.2 → ~32° → branchAngle -20</li></ul>
+      <p class="note">最佳候选：refine-r3-leafSize+ / front。参数：height=5.653, trunk=1.160, crown=0.638, leaf=1.733.</p>
+    </div>
+  </div>
+</section>
+<section class="row">
+  <div class="col ref">
+    <div class="title"><h2>African Boabab</h2><div class="score bad">0.447</div></div>
+    <div class="metric">
+      <span>Broadleaves / African_Baobab</span>
+      <span>IoU 0.493</span>
+      <span>颜色 0.329</span>
+      <span>宽高 1.016 → 1.098</span><span>面积 0.233 → 0.336</span>
+    </div>
+    <div class="media"><figure><img src="../out/speedtree-fit/refs/speedtree-library-broadleaves-african-baobab-africanbaobab-rt.png" alt="African Boabab SpeedTree"><figcaption>SpeedTree 官方预览 / renders\Broadleaves\African Boabab.JPG</figcaption></figure></div>
+  </div>
+  <div class="col">
+    <h3>Meshova 多角度截图</h3>
+    <div class="media angle-grid"><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-broadleaves-african-baobab-africanbaobab-rt-front.png" alt="African Boabab 正面"><figcaption>正面</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-broadleaves-african-baobab-africanbaobab-rt-orbitm25_10.png" alt="African Boabab 左前 25°"><figcaption>左前 25°</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-broadleaves-african-baobab-africanbaobab-rt-orbit25_10.png" alt="African Boabab 右前 25°"><figcaption>右前 25°</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-broadleaves-african-baobab-africanbaobab-rt-side.png" alt="African Boabab 侧面"><figcaption>侧面</figcaption></figure></div>
+  </div>
+  <div class="col">
+    <h3>优化建议</h3>
+    <div class="advice">
+      <h4>主要差距</h4>
+      <ul><li>大轮廓可读，但冠幅、主干比例、枝层分布不稳。</li><li>指标：遮罩面积多 +44%，冠层过满。</li><li>猴面包树识别点是肿胀瓶状主干和稀疏顶部枝。</li></ul>
+      <h4>指标诊断</h4>
+      <div class="diag-grid"><div class="diag ok"><b>宽高比</b><span>1.016 → 1.098</span><em>+8%</em></div><div class="diag bad"><b>遮罩面积</b><span>0.233 → 0.336</span><em>+44%</em></div><div class="diag ok"><b>质量高度</b><span>0.515 → 0.493</span><em>-0.022</em></div><div class="diag ok"><b>顶部宽度</b><span>0.370 → 0.335</span><em>-0.035</em></div><div class="diag ok"><b>中段宽度</b><span>0.781 → 0.855</span><em>+0.073</em></div><div class="diag ok"><b>底部宽度</b><span>0.357 → 0.375</span><em>+0.019</em></div><div class="diag ok"><b>边缘复杂度</b><span>59.036 → 49.863</span><em>-16%</em></div><div class="diag warn"><b>颜色距离</b><span>0.000 → 0.123</span><em>0.123</em></div></div><p class="note">几何：高 6.450，宽/高 0.940，深/高 0.917，叶片顶点占比 86%，parts 2。</p>
+      <h4>动作</h4>
+      <ul><li>把 canopy envelope 变成可拟合曲线/体素场；目标先对齐 silhouette IoU。</li><li>降低 <code>leafDensity</code>；按高度曲线稀疏底部和内部叶片。</li><li>加 swollen trunk spline profile；枝叶只放顶部，不要均匀包冠。</li><li>搜索显示 trunkScale+ 有收益：主干偏细，提升 trunk profile。</li></ul>
+      <h4>SPM 映射</h4><ul><li>一级分支数≈33.0 → branchCount×2.2</li><li>一级枝长比≈0.48 → crownScale 0.7</li><li>叶实例=128 → leafDensity×1.67</li><li>SPM 叶尺寸=12 → leafSize×2</li><li>SPM 起始角=0.3 → ~38° → branchAngle -14</li></ul>
+      <p class="note">最佳候选：refine-r3-trunkScale+ / front。参数：height=3.870, trunk=1.748, crown=1.137, leaf=2.000.</p>
+    </div>
+  </div>
+</section>
+<section class="row">
+  <div class="col ref">
+    <div class="title"><h2>African Olive</h2><div class="score warn">0.482</div></div>
+    <div class="metric">
+      <span>Broadleaves / African_Olive</span>
+      <span>IoU 0.569</span>
+      <span>颜色 0.258</span>
+      <span>宽高 1.595 → 0.905</span><span>面积 0.241 → 0.289</span>
+    </div>
+    <div class="media"><figure><img src="../out/speedtree-fit/refs/speedtree-library-broadleaves-african-olive-africanolive-med.png" alt="African Olive SpeedTree"><figcaption>SpeedTree 官方预览 / renders\Broadleaves\African Olive.JPG</figcaption></figure></div>
+  </div>
+  <div class="col">
+    <h3>Meshova 多角度截图</h3>
+    <div class="media angle-grid"><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-broadleaves-african-olive-africanolive-med-front.png" alt="African Olive 正面"><figcaption>正面</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-broadleaves-african-olive-africanolive-med-orbitm25_10.png" alt="African Olive 左前 25°"><figcaption>左前 25°</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-broadleaves-african-olive-africanolive-med-orbit25_10.png" alt="African Olive 右前 25°"><figcaption>右前 25°</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-broadleaves-african-olive-africanolive-med-side.png" alt="African Olive 侧面"><figcaption>侧面</figcaption></figure></div>
+  </div>
+  <div class="col">
+    <h3>优化建议</h3>
+    <div class="advice">
+      <h4>主要差距</h4>
+      <ul><li>轮廓尚可，细节与颜色拖分。</li><li>指标：宽高比低 -43%，Meshova 偏窄/偏高。</li><li>指标：遮罩面积多 +20%，冠层过满。</li></ul>
+      <h4>指标诊断</h4>
+      <div class="diag-grid"><div class="diag bad"><b>宽高比</b><span>1.595 → 0.905</span><em>-43%</em></div><div class="diag warn"><b>遮罩面积</b><span>0.241 → 0.289</span><em>+20%</em></div><div class="diag ok"><b>质量高度</b><span>0.498 → 0.431</span><em>-0.067</em></div><div class="diag warn"><b>顶部宽度</b><span>0.268 → 0.497</span><em>+0.229</em></div><div class="diag ok"><b>中段宽度</b><span>0.914 → 0.859</span><em>-0.056</em></div><div class="diag warn"><b>底部宽度</b><span>0.341 → 0.165</span><em>-0.175</em></div><div class="diag bad"><b>边缘复杂度</b><span>25.016 → 37.602</span><em>+50%</em></div><div class="diag ok"><b>颜色距离</b><span>0.000 → 0.118</span><em>0.118</em></div></div><p class="note">几何：高 5.445，宽/高 0.771，深/高 0.732，叶片顶点占比 76%，parts 2。</p>
+      <h4>动作</h4>
+      <ul><li>保留当前骨架；追加叶片形状、枝条层级、材质分区。</li><li>扩大 <code>crownScale</code> 或降低 <code>height</code>；优先加横向一级枝。</li><li>降低 <code>leafDensity</code>；按高度曲线稀疏底部和内部叶片。</li><li>搜索显示 crownDepth+ 有收益：冠层厚度不足。</li></ul>
+      <h4>SPM 映射</h4><ul><li>一级分支数≈30.0 → branchCount×2.2</li><li>一级枝长比≈0.67 → crownScale 0.77</li><li>SPM 起始角=0.4 → ~44° → branchAngle -8</li></ul>
+      <p class="note">最佳候选：refine-r3-crownDepth+ / front。参数：height=4.009, trunk=0.840, crown=1.250, leaf=1.140.</p>
+    </div>
+  </div>
+</section>
+<section class="row">
+  <div class="col ref">
+    <div class="title"><h2>Big Leaf Maple</h2><div class="score bad">0.450</div></div>
+    <div class="metric">
+      <span>Broadleaves / Big_Leaf_Maple</span>
+      <span>IoU 0.508</span>
+      <span>颜色 0.301</span>
+      <span>宽高 1.252 → 0.807</span><span>面积 0.294 → 0.325</span>
+    </div>
+    <div class="media"><figure><img src="../out/speedtree-fit/refs/speedtree-library-broadleaves-big-leaf-maple-bigleafmaple-fall-med.png" alt="Big Leaf Maple SpeedTree"><figcaption>SpeedTree 官方预览 / renders\Broadleaves\Big Leaf Maple.JPG</figcaption></figure></div>
+  </div>
+  <div class="col">
+    <h3>Meshova 多角度截图</h3>
+    <div class="media angle-grid"><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-broadleaves-big-leaf-maple-bigleafmaple-fall-med-front.png" alt="Big Leaf Maple 正面"><figcaption>正面</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-broadleaves-big-leaf-maple-bigleafmaple-fall-med-orbitm25_10.png" alt="Big Leaf Maple 左前 25°"><figcaption>左前 25°</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-broadleaves-big-leaf-maple-bigleafmaple-fall-med-orbit25_10.png" alt="Big Leaf Maple 右前 25°"><figcaption>右前 25°</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-broadleaves-big-leaf-maple-bigleafmaple-fall-med-side.png" alt="Big Leaf Maple 侧面"><figcaption>侧面</figcaption></figure></div>
+  </div>
+  <div class="col">
+    <h3>优化建议</h3>
+    <div class="advice">
+      <h4>主要差距</h4>
+      <ul><li>轮廓尚可，细节与颜色拖分。</li><li>指标：宽高比低 -36%，Meshova 偏窄/偏高。</li><li>指标：边缘复杂度低 -32%，剪影太光滑。</li></ul>
+      <h4>指标诊断</h4>
+      <div class="diag-grid"><div class="diag bad"><b>宽高比</b><span>1.252 → 0.807</span><em>-36%</em></div><div class="diag ok"><b>遮罩面积</b><span>0.294 → 0.325</span><em>+10%</em></div><div class="diag ok"><b>质量高度</b><span>0.481 → 0.476</span><em>-0.005</em></div><div class="diag ok"><b>顶部宽度</b><span>0.333 → 0.393</span><em>+0.059</em></div><div class="diag ok"><b>中段宽度</b><span>0.810 → 0.824</span><em>+0.014</em></div><div class="diag ok"><b>底部宽度</b><span>0.188 → 0.260</span><em>+0.071</em></div><div class="diag warn"><b>边缘复杂度</b><span>49.178 → 33.498</span><em>-32%</em></div><div class="diag ok"><b>颜色距离</b><span>0.000 → 0.075</span><em>0.075</em></div></div><p class="note">几何：高 3.213，宽/高 0.786，深/高 0.751，叶片顶点占比 100%，parts 2。</p>
+      <h4>动作</h4>
+      <ul><li>保留当前骨架；追加叶片形状、枝条层级、材质分区。</li><li>扩大 <code>crownScale</code> 或降低 <code>height</code>；优先加横向一级枝。</li><li>增加小枝/叶簇尺度层级；叶片大小做随机分布，不只调总密度。</li><li>搜索显示 leafSize+ 有收益：提高叶片/叶簇尺寸上限。</li></ul>
+      <h4>SPM 映射</h4><ul><li>一级分支数≈13.9 → branchCount×1.54</li><li>一级枝长比≈0.05 → crownScale 0.57</li><li>叶实例=10101 → leafDensity×2.3</li><li>SPM 叶尺寸=2 → leafSize×0.4</li></ul>
+      <p class="note">最佳候选：refine-r3-leafSize+ / front。参数：height=2.464, trunk=1.346, crown=1.037, leaf=0.593.</p>
+    </div>
+  </div>
+</section>
+<section class="row">
+  <div class="col ref">
+    <div class="title"><h2>Cherry Tree</h2><div class="score bad">0.354</div></div>
+    <div class="metric">
+      <span>Broadleaves / Cherry</span>
+      <span>IoU 0.398</span>
+      <span>颜色 0.241</span>
+      <span>宽高 2.722 → 0.566</span><span>面积 0.152 → 0.100</span>
+    </div>
+    <div class="media"><figure><img src="../out/speedtree-fit/refs/speedtree-library-broadleaves-cherry-cherry-blossoms-med.png" alt="Cherry Tree SpeedTree"><figcaption>SpeedTree 官方预览 / renders\Broadleaves\Cherry Tree.JPG</figcaption></figure></div>
+  </div>
+  <div class="col">
+    <h3>Meshova 多角度截图</h3>
+    <div class="media angle-grid"><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-broadleaves-cherry-cherry-blossoms-med-front.png" alt="Cherry Tree 正面"><figcaption>正面</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-broadleaves-cherry-cherry-blossoms-med-orbitm25_10.png" alt="Cherry Tree 左前 25°"><figcaption>左前 25°</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-broadleaves-cherry-cherry-blossoms-med-orbit25_10.png" alt="Cherry Tree 右前 25°"><figcaption>右前 25°</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-broadleaves-cherry-cherry-blossoms-med-side.png" alt="Cherry Tree 侧面"><figcaption>侧面</figcaption></figure></div>
+  </div>
+  <div class="col">
+    <h3>优化建议</h3>
+    <div class="advice">
+      <h4>主要差距</h4>
+      <ul><li>大轮廓可读，但冠幅、主干比例、枝层分布不稳。</li><li>指标：宽高比低 -79%，Meshova 偏窄/偏高。</li><li>指标：遮罩面积少 -34%，视觉质量不足。</li><li>指标：前景均色距离 0.162，颜色不贴参考。</li></ul>
+      <h4>指标诊断</h4>
+      <div class="diag-grid"><div class="diag bad"><b>宽高比</b><span>2.722 → 0.566</span><em>-79%</em></div><div class="diag warn"><b>遮罩面积</b><span>0.152 → 0.100</span><em>-34%</em></div><div class="diag ok"><b>质量高度</b><span>0.536 → 0.469</span><em>-0.067</em></div><div class="diag ok"><b>顶部宽度</b><span>0.366 → 0.377</span><em>+0.011</em></div><div class="diag ok"><b>中段宽度</b><span>0.797 → 0.675</span><em>-0.121</em></div><div class="diag bad"><b>底部宽度</b><span>0.628 → 0.127</span><em>-0.500</em></div><div class="diag ok"><b>边缘复杂度</b><span>30.861 → 32.709</span><em>+6%</em></div><div class="diag warn"><b>颜色距离</b><span>0.000 → 0.162</span><em>0.162</em></div></div><p class="note">几何：高 9.652，宽/高 0.540，深/高 0.467，叶片顶点占比 91%，parts 2。</p>
+      <h4>动作</h4>
+      <ul><li>把 canopy envelope 变成可拟合曲线/体素场；目标先对齐 silhouette IoU。</li><li>扩大 <code>crownScale</code> 或降低 <code>height</code>；优先加横向一级枝。</li><li>提高 <code>leafDensity</code>/<code>branchCount</code>；用叶簇体素填冠层空洞。</li><li>拆 foliage/bark/dry/flower 多材质采样；给落叶/花色独立通道。</li><li>搜索显示 trunkScale- 有收益：主干偏粗，细化枝干衰减。</li></ul>
+      <h4>SPM 映射</h4><ul><li>一级分支数≈10.0 → branchCount×1.11</li><li>一级枝长比≈1.00 → crownScale 0.87</li><li>叶实例=6520 → leafDensity×2.3</li><li>SPM 叶尺寸=0.75 → leafSize×0.4</li><li>SPM 起始角=0.3 → ~38° → branchAngle -14</li></ul>
+      <p class="note">最佳候选：refine-r3-trunkScale- / front。参数：height=7.121, trunk=0.593, crown=1.072, leaf=0.723.</p>
+    </div>
+  </div>
+</section>
+<section class="row">
+  <div class="col ref">
+    <div class="title"><h2>European Aspen</h2><div class="score bad">0.404</div></div>
+    <div class="metric">
+      <span>Broadleaves / European_Aspen</span>
+      <span>IoU 0.492</span>
+      <span>颜色 0.178</span>
+      <span>宽高 0.565 → 0.974</span><span>面积 0.042 → 0.121</span>
+    </div>
+    <div class="media"><figure><img src="../out/speedtree-fit/refs/speedtree-library-broadleaves-european-aspen-europeanaspen-cluster-fall-low.png" alt="European Aspen SpeedTree"><figcaption>SpeedTree 官方预览 / renders\Broadleaves\European Aspen.JPG</figcaption></figure></div>
+  </div>
+  <div class="col">
+    <h3>Meshova 多角度截图</h3>
+    <div class="media angle-grid"><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-broadleaves-european-aspen-europeanaspen-cluster-fall-low-front.png" alt="European Aspen 正面"><figcaption>正面</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-broadleaves-european-aspen-europeanaspen-cluster-fall-low-orbitm25_10.png" alt="European Aspen 左前 25°"><figcaption>左前 25°</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-broadleaves-european-aspen-europeanaspen-cluster-fall-low-orbit25_10.png" alt="European Aspen 右前 25°"><figcaption>右前 25°</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-broadleaves-european-aspen-europeanaspen-cluster-fall-low-side.png" alt="European Aspen 侧面"><figcaption>侧面</figcaption></figure></div>
+  </div>
+  <div class="col">
+    <h3>优化建议</h3>
+    <div class="advice">
+      <h4>主要差距</h4>
+      <ul><li>大轮廓可读，但冠幅、主干比例、枝层分布不稳。</li><li>颜色相似度低，冠/干/枯叶被平均色抹平。</li><li>指标：宽高比高 +72%，Meshova 偏宽/偏矮。</li><li>指标：遮罩面积多 +188%，冠层过满。</li><li>指标：质量中心偏上，顶部太重。</li></ul>
+      <h4>指标诊断</h4>
+      <div class="diag-grid"><div class="diag bad"><b>宽高比</b><span>0.565 → 0.974</span><em>+72%</em></div><div class="diag bad"><b>遮罩面积</b><span>0.042 → 0.121</span><em>+188%</em></div><div class="diag warn"><b>质量高度</b><span>0.596 → 0.466</span><em>-0.130</em></div><div class="diag bad"><b>顶部宽度</b><span>0.185 → 0.543</span><em>+0.358</em></div><div class="diag warn"><b>中段宽度</b><span>0.537 → 0.848</span><em>+0.311</em></div><div class="diag ok"><b>底部宽度</b><span>0.574 → 0.670</span><em>+0.096</em></div><div class="diag bad"><b>边缘复杂度</b><span>14.701 → 28.010</span><em>+91%</em></div><div class="diag ok"><b>颜色距离</b><span>0.000 → 0.079</span><em>0.079</em></div></div><p class="note">几何：高 4.446，宽/高 0.532，深/高 0.523，叶片顶点占比 86%，parts 2。</p>
+      <h4>动作</h4>
+      <ul><li>把 canopy envelope 变成可拟合曲线/体素场；目标先对齐 silhouette IoU。</li><li>参考图分区采样 foliage/bark/dry/flower；材质不要只吃单个 tint。</li><li>收窄 <code>crownScale</code> 或提高裸干高度；底层枝别铺满。</li><li>降低 <code>leafDensity</code>；按高度曲线稀疏底部和内部叶片。</li><li>下移 crown base 或增加中下层枝；减少顶部叶簇集中。</li><li>搜索显示 lean 有收益：加入风向/重力姿态作为可拟合维度。</li></ul>
+      <h4>SPM 映射</h4><ul><li>一级分支数≈45.8 → branchCount×2.2</li><li>一级枝长比≈0.09 → crownScale 0.58</li><li>叶实例=1866 → leafDensity×2.21</li><li>SPM 叶尺寸=1.2 → leafSize×0.4</li><li>SPM 起始角=0.3 → ~38° → branchAngle -14</li></ul>
+      <p class="note">最佳候选：refine-r3-lean+ / front。参数：height=3.135, trunk=2.310, crown=0.650, leaf=0.593.</p>
+    </div>
+  </div>
+</section>
+<section class="row">
+  <div class="col ref">
+    <div class="title"><h2>European Beech</h2><div class="score bad">0.461</div></div>
+    <div class="metric">
+      <span>Broadleaves / European_Beech</span>
+      <span>IoU 0.507</span>
+      <span>颜色 0.343</span>
+      <span>宽高 1.276 → 0.941</span><span>面积 0.266 → 0.213</span>
+    </div>
+    <div class="media"><figure><img src="../out/speedtree-fit/refs/speedtree-library-broadleaves-european-beech-europeanbeech-fall-med.png" alt="European Beech SpeedTree"><figcaption>SpeedTree 官方预览 / renders\Broadleaves\European Beech.JPG</figcaption></figure></div>
+  </div>
+  <div class="col">
+    <h3>Meshova 多角度截图</h3>
+    <div class="media angle-grid"><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-broadleaves-european-beech-europeanbeech-fall-med-front.png" alt="European Beech 正面"><figcaption>正面</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-broadleaves-european-beech-europeanbeech-fall-med-orbitm25_10.png" alt="European Beech 左前 25°"><figcaption>左前 25°</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-broadleaves-european-beech-europeanbeech-fall-med-orbit25_10.png" alt="European Beech 右前 25°"><figcaption>右前 25°</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-broadleaves-european-beech-europeanbeech-fall-med-side.png" alt="European Beech 侧面"><figcaption>侧面</figcaption></figure></div>
+  </div>
+  <div class="col">
+    <h3>优化建议</h3>
+    <div class="advice">
+      <h4>主要差距</h4>
+      <ul><li>轮廓尚可，细节与颜色拖分。</li><li>指标：宽高比低 -26%，Meshova 偏窄/偏高。</li><li>指标：质量中心偏上，顶部太重。</li><li>指标：边缘复杂度低 -60%，剪影太光滑。</li></ul>
+      <h4>指标诊断</h4>
+      <div class="diag-grid"><div class="diag warn"><b>宽高比</b><span>1.276 → 0.941</span><em>-26%</em></div><div class="diag warn"><b>遮罩面积</b><span>0.266 → 0.213</span><em>-20%</em></div><div class="diag bad"><b>质量高度</b><span>0.548 → 0.331</span><em>-0.218</em></div><div class="diag bad"><b>顶部宽度</b><span>0.366 → 0.754</span><em>+0.387</em></div><div class="diag warn"><b>中段宽度</b><span>0.777 → 0.489</span><em>-0.288</em></div><div class="diag bad"><b>底部宽度</b><span>0.635 → 0.092</span><em>-0.543</em></div><div class="diag bad"><b>边缘复杂度</b><span>33.761 → 13.366</span><em>-60%</em></div><div class="diag ok"><b>颜色距离</b><span>0.000 → 0.038</span><em>0.038</em></div></div><p class="note">几何：高 8.832，宽/高 0.687，深/高 0.755，叶片顶点占比 93%，parts 2。</p>
+      <h4>动作</h4>
+      <ul><li>保留当前骨架；追加叶片形状、枝条层级、材质分区。</li><li>扩大 <code>crownScale</code> 或降低 <code>height</code>；优先加横向一级枝。</li><li>下移 crown base 或增加中下层枝；减少顶部叶簇集中。</li><li>增加小枝/叶簇尺度层级；叶片大小做随机分布，不只调总密度。</li><li>搜索显示 trunkScale- 有收益：主干偏粗，细化枝干衰减。</li></ul>
+      <h4>SPM 映射</h4><ul><li>一级分支数≈5.3 → branchCount×0.59</li><li>一级枝长比≈0.90 → crownScale 0.84</li><li>叶实例=4019 → leafDensity×2.3</li><li>SPM 叶尺寸=6.5 → leafSize×1.08</li><li>SPM 起始角=0.416667 → ~45° → branchAngle -7</li></ul>
+      <p class="note">最佳候选：refine-r3-trunkScale- / front。参数：height=6.534, trunk=0.593, crown=1.093, leaf=1.728.</p>
+    </div>
+  </div>
+</section>
+<section class="row">
+  <div class="col ref">
+    <div class="title"><h2>Green Ash</h2><div class="score bad">0.444</div></div>
+    <div class="metric">
+      <span>Broadleaves / Green_Ash</span>
+      <span>IoU 0.536</span>
+      <span>颜色 0.210</span>
+      <span>宽高 1.198 → 0.993</span><span>面积 0.265 → 0.338</span>
+    </div>
+    <div class="media"><figure><img src="../out/speedtree-fit/refs/speedtree-library-broadleaves-green-ash-greenash-fall-med.png" alt="Green Ash SpeedTree"><figcaption>SpeedTree 官方预览 / renders\Broadleaves\Green Ash.JPG</figcaption></figure></div>
+  </div>
+  <div class="col">
+    <h3>Meshova 多角度截图</h3>
+    <div class="media angle-grid"><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-broadleaves-green-ash-greenash-fall-med-front.png" alt="Green Ash 正面"><figcaption>正面</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-broadleaves-green-ash-greenash-fall-med-orbitm25_10.png" alt="Green Ash 左前 25°"><figcaption>左前 25°</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-broadleaves-green-ash-greenash-fall-med-orbit25_10.png" alt="Green Ash 右前 25°"><figcaption>右前 25°</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-broadleaves-green-ash-greenash-fall-med-side.png" alt="Green Ash 侧面"><figcaption>侧面</figcaption></figure></div>
+  </div>
+  <div class="col">
+    <h3>优化建议</h3>
+    <div class="advice">
+      <h4>主要差距</h4>
+      <ul><li>轮廓尚可，细节与颜色拖分。</li><li>颜色相似度低，冠/干/枯叶被平均色抹平。</li><li>指标：遮罩面积多 +28%，冠层过满。</li><li>指标：质量中心偏上，顶部太重。</li></ul>
+      <h4>指标诊断</h4>
+      <div class="diag-grid"><div class="diag warn"><b>宽高比</b><span>1.198 → 0.993</span><em>-17%</em></div><div class="diag warn"><b>遮罩面积</b><span>0.265 → 0.338</span><em>+28%</em></div><div class="diag warn"><b>质量高度</b><span>0.542 → 0.432</span><em>-0.110</em></div><div class="diag warn"><b>顶部宽度</b><span>0.341 → 0.512</span><em>+0.171</em></div><div class="diag ok"><b>中段宽度</b><span>0.800 → 0.853</span><em>+0.054</em></div><div class="diag bad"><b>底部宽度</b><span>0.592 → 0.166</span><em>-0.426</em></div><div class="diag ok"><b>边缘复杂度</b><span>35.403 → 34.189</span><em>-3%</em></div><div class="diag ok"><b>颜色距离</b><span>0.000 → 0.103</span><em>0.103</em></div></div><p class="note">几何：高 3.829，宽/高 0.964，深/高 0.809，叶片顶点占比 89%，parts 2。</p>
+      <h4>动作</h4>
+      <ul><li>保留当前骨架；追加叶片形状、枝条层级、材质分区。</li><li>参考图分区采样 foliage/bark/dry/flower；材质不要只吃单个 tint。</li><li>降低 <code>leafDensity</code>；按高度曲线稀疏底部和内部叶片。</li><li>下移 crown base 或增加中下层枝；减少顶部叶簇集中。</li><li>搜索显示 lean 有收益：加入风向/重力姿态作为可拟合维度。</li></ul>
+      <h4>SPM 映射</h4><ul><li>一级分支数≈26.0 → branchCount×2.2</li><li>一级枝长比≈0.43 → crownScale 0.69</li><li>叶实例=8208 → leafDensity×2.3</li><li>SPM 叶尺寸=1.5 → leafSize×0.4</li><li>SPM 起始角=0.2 → ~32° → branchAngle -20</li></ul>
+      <p class="note">最佳候选：refine-r3-lean+ / front。参数：height=3.003, trunk=1.130, crown=1.255, leaf=0.593.</p>
+    </div>
+  </div>
+</section>
+<section class="row">
+  <div class="col ref">
+    <div class="title"><h2>Japanese Maple</h2><div class="score bad">0.374</div></div>
+    <div class="metric">
+      <span>Broadleaves / Japanese_Maple</span>
+      <span>IoU 0.379</span>
+      <span>颜色 0.360</span>
+      <span>宽高 1.833 → 0.774</span><span>面积 0.071 → 0.243</span>
+    </div>
+    <div class="media"><figure><img src="../out/speedtree-fit/refs/speedtree-library-broadleaves-japanese-maple-japanesemaple-fall-med-2.png" alt="Japanese Maple SpeedTree"><figcaption>SpeedTree 官方预览 / renders\Broadleaves\Japanese Maple.JPG</figcaption></figure></div>
+  </div>
+  <div class="col">
+    <h3>Meshova 多角度截图</h3>
+    <div class="media angle-grid"><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-broadleaves-japanese-maple-japanesemaple-fall-med-2-front.png" alt="Japanese Maple 正面"><figcaption>正面</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-broadleaves-japanese-maple-japanesemaple-fall-med-2-orbitm25_10.png" alt="Japanese Maple 左前 25°"><figcaption>左前 25°</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-broadleaves-japanese-maple-japanesemaple-fall-med-2-orbit25_10.png" alt="Japanese Maple 右前 25°"><figcaption>右前 25°</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-broadleaves-japanese-maple-japanesemaple-fall-med-2-side.png" alt="Japanese Maple 侧面"><figcaption>侧面</figcaption></figure></div>
+  </div>
+  <div class="col">
+    <h3>优化建议</h3>
+    <div class="advice">
+      <h4>主要差距</h4>
+      <ul><li>大轮廓可读，但冠幅、主干比例、枝层分布不稳。</li><li>指标：宽高比低 -58%，Meshova 偏窄/偏高。</li><li>指标：遮罩面积多 +241%，冠层过满。</li><li>指标：质量中心偏上，顶部太重。</li></ul>
+      <h4>指标诊断</h4>
+      <div class="diag-grid"><div class="diag bad"><b>宽高比</b><span>1.833 → 0.774</span><em>-58%</em></div><div class="diag bad"><b>遮罩面积</b><span>0.071 → 0.243</span><em>+241%</em></div><div class="diag warn"><b>质量高度</b><span>0.475 → 0.392</span><em>-0.083</em></div><div class="diag warn"><b>顶部宽度</b><span>0.269 → 0.480</span><em>+0.212</em></div><div class="diag ok"><b>中段宽度</b><span>0.816 → 0.796</span><em>-0.020</em></div><div class="diag ok"><b>底部宽度</b><span>0.113 → 0.076</span><em>-0.036</em></div><div class="diag warn"><b>边缘复杂度</b><span>28.136 → 21.901</span><em>-22%</em></div><div class="diag ok"><b>颜色距离</b><span>0.000 → 0.107</span><em>0.107</em></div></div><p class="note">几何：高 7.924，宽/高 0.702，深/高 0.448，叶片顶点占比 82%，parts 2。</p>
+      <h4>动作</h4>
+      <ul><li>把 canopy envelope 变成可拟合曲线/体素场；目标先对齐 silhouette IoU。</li><li>扩大 <code>crownScale</code> 或降低 <code>height</code>；优先加横向一级枝。</li><li>降低 <code>leafDensity</code>；按高度曲线稀疏底部和内部叶片。</li><li>下移 crown base 或增加中下层枝；减少顶部叶簇集中。</li><li>搜索显示 trunkScale- 有收益：主干偏粗，细化枝干衰减。</li></ul>
+      <h4>SPM 映射</h4><ul><li>一级分支数≈28.0 → branchCount×2.2</li><li>一级枝长比≈0.36 → crownScale 0.66</li><li>叶实例=720 → leafDensity×2.02</li><li>SPM 叶尺寸=12 → leafSize×2</li><li>SPM 起始角=0.1 → ~26° → branchAngle -26</li></ul>
+      <p class="note">最佳候选：refine-r3-trunkScale- / front。参数：height=5.277, trunk=0.593, crown=1.200, leaf=1.961.</p>
+    </div>
+  </div>
+</section>
+<section class="row">
+  <div class="col ref">
+    <div class="title"><h2>Live Oak</h2><div class="score warn">0.490</div></div>
+    <div class="metric">
+      <span>Broadleaves / Live_Oak</span>
+      <span>IoU 0.599</span>
+      <span>颜色 0.208</span>
+      <span>宽高 1.075 → 0.970</span><span>面积 0.109 → 0.281</span>
+    </div>
+    <div class="media"><figure><img src="../out/speedtree-fit/refs/speedtree-library-broadleaves-live-oak-liveoak-rt.png" alt="Live Oak SpeedTree"><figcaption>SpeedTree 官方预览 / renders\Broadleaves\Live Oak.JPG</figcaption></figure></div>
+  </div>
+  <div class="col">
+    <h3>Meshova 多角度截图</h3>
+    <div class="media angle-grid"><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-broadleaves-live-oak-liveoak-rt-front.png" alt="Live Oak 正面"><figcaption>正面</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-broadleaves-live-oak-liveoak-rt-orbitm25_10.png" alt="Live Oak 左前 25°"><figcaption>左前 25°</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-broadleaves-live-oak-liveoak-rt-orbit25_10.png" alt="Live Oak 右前 25°"><figcaption>右前 25°</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-broadleaves-live-oak-liveoak-rt-side.png" alt="Live Oak 侧面"><figcaption>侧面</figcaption></figure></div>
+  </div>
+  <div class="col">
+    <h3>优化建议</h3>
+    <div class="advice">
+      <h4>主要差距</h4>
+      <ul><li>轮廓尚可，细节与颜色拖分。</li><li>颜色相似度低，冠/干/枯叶被平均色抹平。</li><li>指标：遮罩面积多 +158%，冠层过满。</li></ul>
+      <h4>指标诊断</h4>
+      <div class="diag-grid"><div class="diag ok"><b>宽高比</b><span>1.075 → 0.970</span><em>-10%</em></div><div class="diag bad"><b>遮罩面积</b><span>0.109 → 0.281</span><em>+158%</em></div><div class="diag ok"><b>质量高度</b><span>0.426 → 0.391</span><em>-0.035</em></div><div class="diag warn"><b>顶部宽度</b><span>0.411 → 0.572</span><em>+0.160</em></div><div class="diag ok"><b>中段宽度</b><span>0.786 → 0.748</span><em>-0.038</em></div><div class="diag warn"><b>底部宽度</b><span>0.257 → 0.095</span><em>-0.162</em></div><div class="diag warn"><b>边缘复杂度</b><span>17.364 → 22.247</span><em>+28%</em></div><div class="diag ok"><b>颜色距离</b><span>0.000 → 0.074</span><em>0.074</em></div></div><p class="note">几何：高 6.096，宽/高 0.860，深/高 0.876，叶片顶点占比 87%，parts 2。</p>
+      <h4>动作</h4>
+      <ul><li>保留当前骨架；追加叶片形状、枝条层级、材质分区。</li><li>参考图分区采样 foliage/bark/dry/flower；材质不要只吃单个 tint。</li><li>降低 <code>leafDensity</code>；按高度曲线稀疏底部和内部叶片。</li><li>搜索显示 lean 有收益：加入风向/重力姿态作为可拟合维度。</li></ul>
+      <h4>SPM 映射</h4><ul><li>一级分支数≈8.0 → branchCount×0.89</li><li>一级枝长比≈1.00 → crownScale 0.87</li><li>叶实例=440 → leafDensity×1.92</li><li>SPM 叶尺寸=10 → leafSize×1.67</li><li>SPM 起始角=0.3 → ~38° → branchAngle -14</li></ul>
+      <p class="note">最佳候选：refine-r3-lean+ / front。参数：height=4.527, trunk=0.593, crown=1.582, leaf=1.637.</p>
+    </div>
+  </div>
+</section>
+<section class="row">
+  <div class="col ref">
+    <div class="title"><h2>Sugar Maple</h2><div class="score bad">0.371</div></div>
+    <div class="metric">
+      <span>Broadleaves / Sugar_Maple</span>
+      <span>IoU 0.429</span>
+      <span>颜色 0.221</span>
+      <span>宽高 0.877 → 1.000</span><span>面积 0.272 → 0.248</span>
+    </div>
+    <div class="media"><figure><img src="../out/speedtree-fit/refs/speedtree-library-broadleaves-sugar-maple-sugarmaple-fall-med.png" alt="Sugar Maple SpeedTree"><figcaption>SpeedTree 官方预览 / renders\Broadleaves\Sugar Maple.JPG</figcaption></figure></div>
+  </div>
+  <div class="col">
+    <h3>Meshova 多角度截图</h3>
+    <div class="media angle-grid"><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-broadleaves-sugar-maple-sugarmaple-fall-med-front.png" alt="Sugar Maple 正面"><figcaption>正面</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-broadleaves-sugar-maple-sugarmaple-fall-med-orbitm25_10.png" alt="Sugar Maple 左前 25°"><figcaption>左前 25°</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-broadleaves-sugar-maple-sugarmaple-fall-med-orbit25_10.png" alt="Sugar Maple 右前 25°"><figcaption>右前 25°</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-broadleaves-sugar-maple-sugarmaple-fall-med-side.png" alt="Sugar Maple 侧面"><figcaption>侧面</figcaption></figure></div>
+  </div>
+  <div class="col">
+    <h3>优化建议</h3>
+    <div class="advice">
+      <h4>主要差距</h4>
+      <ul><li>大轮廓可读，但冠幅、主干比例、枝层分布不稳。</li></ul>
+      <h4>指标诊断</h4>
+      <div class="diag-grid"><div class="diag ok"><b>宽高比</b><span>0.877 → 1.000</span><em>+14%</em></div><div class="diag ok"><b>遮罩面积</b><span>0.272 → 0.248</span><em>-9%</em></div><div class="diag ok"><b>质量高度</b><span>0.536 → 0.478</span><em>-0.058</em></div><div class="diag ok"><b>顶部宽度</b><span>0.349 → 0.318</span><em>-0.031</em></div><div class="diag ok"><b>中段宽度</b><span>0.679 → 0.623</span><em>-0.056</em></div><div class="diag bad"><b>底部宽度</b><span>0.783 → 0.184</span><em>-0.600</em></div><div class="diag warn"><b>边缘复杂度</b><span>22.164 → 29.210</span><em>+32%</em></div><div class="diag ok"><b>颜色距离</b><span>0.000 → 0.063</span><em>0.063</em></div></div><p class="note">几何：高 4.734，宽/高 0.880，深/高 0.871，叶片顶点占比 91%，parts 2。</p>
+      <h4>动作</h4>
+      <ul><li>把 canopy envelope 变成可拟合曲线/体素场；目标先对齐 silhouette IoU。</li><li>搜索显示 trunkScale+ 有收益：主干偏细，提升 trunk profile。</li></ul>
+      <h4>SPM 映射</h4><ul><li>一级分支数≈10.0 → branchCount×1.11</li><li>一级枝长比≈0.63 → crownScale 0.75</li><li>叶实例=7558 → leafDensity×2.3</li><li>SPM 叶尺寸=2 → leafSize×0.4</li><li>SPM 起始角=0.35 → ~41° → branchAngle -11</li></ul>
+      <p class="note">最佳候选：refine-r3-trunkScale+ / front。参数：height=3.609, trunk=1.561, crown=1.391, leaf=0.640.</p>
+    </div>
+  </div>
+</section>
+<section class="row">
+  <div class="col ref">
+    <div class="title"><h2>Umbrella Thorn Tree</h2><div class="score bad">0.404</div></div>
+    <div class="metric">
+      <span>Broadleaves / Umbrella_Thorn</span>
+      <span>IoU 0.484</span>
+      <span>颜色 0.199</span>
+      <span>宽高 2.101 → 5.750</span><span>面积 0.098 → 0.046</span>
+    </div>
+    <div class="media"><figure><img src="../out/speedtree-fit/refs/speedtree-library-broadleaves-umbrella-thorn-umbrellathorn-med.png" alt="Umbrella Thorn Tree SpeedTree"><figcaption>SpeedTree 官方预览 / renders\Broadleaves\Umbrella Thorn Tree.JPG</figcaption></figure></div>
+  </div>
+  <div class="col">
+    <h3>Meshova 多角度截图</h3>
+    <div class="media angle-grid"><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-broadleaves-umbrella-thorn-umbrellathorn-med-front.png" alt="Umbrella Thorn Tree 正面"><figcaption>正面</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-broadleaves-umbrella-thorn-umbrellathorn-med-orbitm25_10.png" alt="Umbrella Thorn Tree 左前 25°"><figcaption>左前 25°</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-broadleaves-umbrella-thorn-umbrellathorn-med-orbit25_10.png" alt="Umbrella Thorn Tree 右前 25°"><figcaption>右前 25°</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-broadleaves-umbrella-thorn-umbrellathorn-med-side.png" alt="Umbrella Thorn Tree 侧面"><figcaption>侧面</figcaption></figure></div>
+  </div>
+  <div class="col">
+    <h3>优化建议</h3>
+    <div class="advice">
+      <h4>主要差距</h4>
+      <ul><li>大轮廓可读，但冠幅、主干比例、枝层分布不稳。</li><li>颜色相似度低，冠/干/枯叶被平均色抹平。</li><li>指标：宽高比高 +174%，Meshova 偏宽/偏矮。</li><li>指标：遮罩面积少 -53%，视觉质量不足。</li><li>指标：质量中心偏下，底部太重。</li></ul>
+      <h4>指标诊断</h4>
+      <div class="diag-grid"><div class="diag bad"><b>宽高比</b><span>2.101 → 5.750</span><em>+174%</em></div><div class="diag bad"><b>遮罩面积</b><span>0.098 → 0.046</span><em>-53%</em></div><div class="diag warn"><b>质量高度</b><span>0.216 → 0.353</span><em>+0.137</em></div><div class="diag warn"><b>顶部宽度</b><span>0.807 → 0.608</span><em>-0.200</em></div><div class="diag bad"><b>中段宽度</b><span>0.128 → 0.808</span><em>+0.680</em></div><div class="diag ok"><b>底部宽度</b><span>0.048 → 0.193</span><em>+0.145</em></div><div class="diag bad"><b>边缘复杂度</b><span>22.182 → 31.879</span><em>+44%</em></div><div class="diag ok"><b>颜色距离</b><span>0.000 → 0.061</span><em>0.061</em></div></div><p class="note">几何：高 4.402，宽/高 1.702，深/高 1.234，叶片顶点占比 91%，parts 2。</p>
+      <h4>动作</h4>
+      <ul><li>把 canopy envelope 变成可拟合曲线/体素场；目标先对齐 silhouette IoU。</li><li>参考图分区采样 foliage/bark/dry/flower；材质不要只吃单个 tint。</li><li>收窄 <code>crownScale</code> 或提高裸干高度；底层枝别铺满。</li><li>提高 <code>leafDensity</code>/<code>branchCount</code>；用叶簇体素填冠层空洞。</li><li>提高 crown base；压低底部叶密度和灌木化倾向。</li><li>加 umbrella crown mode：高裸干、水平主枝、扁平冠盘、稀疏底层。</li><li>搜索显示 lean 有收益：加入风向/重力姿态作为可拟合维度。</li></ul>
+      <h4>SPM 映射</h4><ul><li>一级分支数≈7.0 → branchCount×0.78</li><li>一级枝长比≈3.50 → crownScale 1.35</li><li>SPM 起始角=0.1 → ~26° → branchAngle -26</li></ul>
+      <p class="note">最佳候选：refine-r3-lean- / front。参数：height=4.796, trunk=1.442, crown=1.045, leaf=1.300.</p>
+    </div>
+  </div>
+</section>
+<section class="row">
+  <div class="col ref">
+    <div class="title"><h2>Weeping Willow</h2><div class="score bad">0.324</div></div>
+    <div class="metric">
+      <span>Broadleaves / Weeping_Willow</span>
+      <span>IoU 0.370</span>
+      <span>颜色 0.206</span>
+      <span>宽高 1.352 → 0.921</span><span>面积 0.251 → 0.211</span>
+    </div>
+    <div class="media"><figure><img src="../out/speedtree-fit/refs/speedtree-library-broadleaves-weeping-willow-weepingwillow-fall-med-2.png" alt="Weeping Willow SpeedTree"><figcaption>SpeedTree 官方预览 / renders\Broadleaves\Weeping Willow.JPG</figcaption></figure></div>
+  </div>
+  <div class="col">
+    <h3>Meshova 多角度截图</h3>
+    <div class="media angle-grid"><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-broadleaves-weeping-willow-weepingwillow-fall-med-2-front.png" alt="Weeping Willow 正面"><figcaption>正面</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-broadleaves-weeping-willow-weepingwillow-fall-med-2-orbitm25_10.png" alt="Weeping Willow 左前 25°"><figcaption>左前 25°</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-broadleaves-weeping-willow-weepingwillow-fall-med-2-orbit25_10.png" alt="Weeping Willow 右前 25°"><figcaption>右前 25°</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-broadleaves-weeping-willow-weepingwillow-fall-med-2-side.png" alt="Weeping Willow 侧面"><figcaption>侧面</figcaption></figure></div>
+  </div>
+  <div class="col">
+    <h3>优化建议</h3>
+    <div class="advice">
+      <h4>主要差距</h4>
+      <ul><li>大轮廓可读，但冠幅、主干比例、枝层分布不稳。</li><li>颜色相似度低，冠/干/枯叶被平均色抹平。</li><li>指标：宽高比低 -32%，Meshova 偏窄/偏高。</li><li>指标：前景均色距离 0.204，颜色不贴参考。</li><li>垂柳缺下垂枝帘，当前冠层太团块。</li></ul>
+      <h4>指标诊断</h4>
+      <div class="diag-grid"><div class="diag warn"><b>宽高比</b><span>1.352 → 0.921</span><em>-32%</em></div><div class="diag ok"><b>遮罩面积</b><span>0.251 → 0.211</span><em>-16%</em></div><div class="diag ok"><b>质量高度</b><span>0.525 → 0.477</span><em>-0.048</em></div><div class="diag warn"><b>顶部宽度</b><span>0.328 → 0.582</span><em>+0.254</em></div><div class="diag warn"><b>中段宽度</b><span>0.885 → 0.686</span><em>-0.199</em></div><div class="diag warn"><b>底部宽度</b><span>0.616 → 0.327</span><em>-0.289</em></div><div class="diag ok"><b>边缘复杂度</b><span>50.449 → 56.901</span><em>+13%</em></div><div class="diag warn"><b>颜色距离</b><span>0.000 → 0.204</span><em>0.204</em></div></div><p class="note">几何：高 6.682，宽/高 0.833，深/高 0.729，叶片顶点占比 80%，parts 2。</p>
+      <h4>动作</h4>
+      <ul><li>把 canopy envelope 变成可拟合曲线/体素场；目标先对齐 silhouette IoU。</li><li>参考图分区采样 foliage/bark/dry/flower；材质不要只吃单个 tint。</li><li>扩大 <code>crownScale</code> 或降低 <code>height</code>；优先加横向一级枝。</li><li>拆 foliage/bark/dry/flower 多材质采样；给落叶/花色独立通道。</li><li>用 hanging twig strands + leaf curtains；叶片沿重力方向成束下垂。</li><li>搜索显示 lean 有收益：加入风向/重力姿态作为可拟合维度。</li></ul>
+      <h4>SPM 映射</h4><ul><li>一级分支数≈18.0 → branchCount×2</li><li>一级枝长比≈0.72 → crownScale 0.78</li><li>叶实例=432 → leafDensity×1.91</li><li>SPM 叶尺寸=1 → leafSize×0.4</li><li>SPM 起始角=0.15 → ~29° → branchAngle -23</li></ul>
+      <p class="note">最佳候选：refine-r3-lean+ / front。参数：height=5.267, trunk=2.310, crown=0.978, leaf=0.520.</p>
+    </div>
+  </div>
+</section>
+<section class="row">
+  <div class="col ref">
+    <div class="title"><h2>White Oak</h2><div class="score bad">0.347</div></div>
+    <div class="metric">
+      <span>Broadleaves / White_Oak</span>
+      <span>IoU 0.372</span>
+      <span>颜色 0.280</span>
+      <span>宽高 1.986 → 1.067</span><span>面积 0.154 → 0.237</span>
+    </div>
+    <div class="media"><figure><img src="../out/speedtree-fit/refs/speedtree-library-broadleaves-white-oak-white-oak-desktop-fall.png" alt="White Oak SpeedTree"><figcaption>SpeedTree 官方预览 / renders\Broadleaves\White Oak.JPG</figcaption></figure></div>
+  </div>
+  <div class="col">
+    <h3>Meshova 多角度截图</h3>
+    <div class="media angle-grid"><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-broadleaves-white-oak-white-oak-desktop-fall-front.png" alt="White Oak 正面"><figcaption>正面</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-broadleaves-white-oak-white-oak-desktop-fall-orbitm25_10.png" alt="White Oak 左前 25°"><figcaption>左前 25°</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-broadleaves-white-oak-white-oak-desktop-fall-orbit25_10.png" alt="White Oak 右前 25°"><figcaption>右前 25°</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-broadleaves-white-oak-white-oak-desktop-fall-side.png" alt="White Oak 侧面"><figcaption>侧面</figcaption></figure></div>
+  </div>
+  <div class="col">
+    <h3>优化建议</h3>
+    <div class="advice">
+      <h4>主要差距</h4>
+      <ul><li>大轮廓可读，但冠幅、主干比例、枝层分布不稳。</li><li>指标：宽高比低 -46%，Meshova 偏窄/偏高。</li><li>指标：遮罩面积多 +53%，冠层过满。</li><li>指标：质量中心偏上，顶部太重。</li><li>指标：边缘复杂度低 -53%，剪影太光滑。</li></ul>
+      <h4>指标诊断</h4>
+      <div class="diag-grid"><div class="diag bad"><b>宽高比</b><span>1.986 → 1.067</span><em>-46%</em></div><div class="diag bad"><b>遮罩面积</b><span>0.154 → 0.237</span><em>+53%</em></div><div class="diag warn"><b>质量高度</b><span>0.509 → 0.383</span><em>-0.126</em></div><div class="diag ok"><b>顶部宽度</b><span>0.532 → 0.559</span><em>+0.027</em></div><div class="diag warn"><b>中段宽度</b><span>0.889 → 0.633</span><em>-0.256</em></div><div class="diag bad"><b>底部宽度</b><span>0.465 → 0.089</span><em>-0.375</em></div><div class="diag bad"><b>边缘复杂度</b><span>43.857 → 20.406</span><em>-53%</em></div><div class="diag ok"><b>颜色距离</b><span>0.000 → 0.036</span><em>0.036</em></div></div><p class="note">几何：高 6.548，宽/高 0.987，深/高 1.121，叶片顶点占比 76%，parts 2。</p>
+      <h4>动作</h4>
+      <ul><li>把 canopy envelope 变成可拟合曲线/体素场；目标先对齐 silhouette IoU。</li><li>扩大 <code>crownScale</code> 或降低 <code>height</code>；优先加横向一级枝。</li><li>降低 <code>leafDensity</code>；按高度曲线稀疏底部和内部叶片。</li><li>下移 crown base 或增加中下层枝；减少顶部叶簇集中。</li><li>增加小枝/叶簇尺度层级；叶片大小做随机分布，不只调总密度。</li><li>搜索显示 lean 有收益：加入风向/重力姿态作为可拟合维度。</li></ul>
+      <p class="note">无可用 SPM 结构统计，当前主要靠预览图轮廓/颜色拟合。</p>
+      <p class="note">最佳候选：refine-r3-lean- / front。参数：height=5.010, trunk=0.593, crown=1.819, leaf=1.482.</p>
+    </div>
+  </div>
+</section>
+<section class="row">
+  <div class="col ref">
+    <div class="title"><h2>Alaska Cedar</h2><div class="score bad">0.288</div></div>
+    <div class="metric">
+      <span>Conifers / Alaska_Cedar</span>
+      <span>IoU 0.343</span>
+      <span>颜色 0.148</span>
+      <span>宽高 1.127 → 0.642</span><span>面积 0.041 → 0.153</span>
+    </div>
+    <div class="media"><figure><img src="../out/speedtree-fit/refs/speedtree-library-conifers-alaska-cedar-alaskacedar-med.png" alt="Alaska Cedar SpeedTree"><figcaption>SpeedTree 官方预览 / renders\Conifers\Alaska Cedar.JPG</figcaption></figure></div>
+  </div>
+  <div class="col">
+    <h3>Meshova 多角度截图</h3>
+    <div class="media angle-grid"><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-conifers-alaska-cedar-alaskacedar-med-front.png" alt="Alaska Cedar 正面"><figcaption>正面</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-conifers-alaska-cedar-alaskacedar-med-orbitm25_10.png" alt="Alaska Cedar 左前 25°"><figcaption>左前 25°</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-conifers-alaska-cedar-alaskacedar-med-orbit25_10.png" alt="Alaska Cedar 右前 25°"><figcaption>右前 25°</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-conifers-alaska-cedar-alaskacedar-med-side.png" alt="Alaska Cedar 侧面"><figcaption>侧面</figcaption></figure></div>
+  </div>
+  <div class="col">
+    <h3>优化建议</h3>
+    <div class="advice">
+      <h4>主要差距</h4>
+      <ul><li>轮廓严重偏离，调单参数收益低。</li><li>颜色相似度低，冠/干/枯叶被平均色抹平。</li><li>指标：宽高比低 -43%，Meshova 偏窄/偏高。</li><li>指标：遮罩面积多 +279%，冠层过满。</li><li>针叶类用普通叶云代理，缺枝轮、针束、下垂枝片。</li></ul>
+      <h4>指标诊断</h4>
+      <div class="diag-grid"><div class="diag bad"><b>宽高比</b><span>1.127 → 0.642</span><em>-43%</em></div><div class="diag bad"><b>遮罩面积</b><span>0.041 → 0.153</span><em>+279%</em></div><div class="diag warn"><b>质量高度</b><span>0.496 → 0.423</span><em>-0.073</em></div><div class="diag warn"><b>顶部宽度</b><span>0.369 → 0.677</span><em>+0.309</em></div><div class="diag ok"><b>中段宽度</b><span>0.500 → 0.614</span><em>+0.114</em></div><div class="diag ok"><b>底部宽度</b><span>0.315 → 0.179</span><em>-0.136</em></div><div class="diag bad"><b>边缘复杂度</b><span>22.742 → 42.671</span><em>+88%</em></div><div class="diag ok"><b>颜色距离</b><span>0.000 → 0.109</span><em>0.109</em></div></div><p class="note">几何：高 6.078，宽/高 0.621，深/高 0.545，叶片顶点占比 85%，parts 2。</p>
+      <h4>动作</h4>
+      <ul><li>先换树型生成器：按物种建专用骨架/冠层包络，再跑参数拟合。</li><li>参考图分区采样 foliage/bark/dry/flower；材质不要只吃单个 tint。</li><li>扩大 <code>crownScale</code> 或降低 <code>height</code>；优先加横向一级枝。</li><li>降低 <code>leafDensity</code>；按高度曲线稀疏底部和内部叶片。</li><li>新增 conifer whorl skeleton：主干节段 + 层状枝轮 + needle/frond card cluster。</li></ul>
+      <h4>SPM 映射</h4><ul><li>一级分支数≈74.0 → branchCount×2.2</li><li>一级枝长比≈0.27 → crownScale 0.64</li></ul>
+      <p class="note">最佳候选：refine-r3-branchAngle+ / front。参数：height=5.080, trunk=0.974, crown=1.304, leaf=1.140.</p>
+    </div>
+  </div>
+</section>
+<section class="row">
+  <div class="col ref">
+    <div class="title"><h2>Bald Cypress</h2><div class="score bad">0.437</div></div>
+    <div class="metric">
+      <span>Conifers / Bald_Cypress</span>
+      <span>IoU 0.409</span>
+      <span>颜色 0.510</span>
+      <span>宽高 0.625 → 0.367</span><span>面积 0.066 → 0.088</span>
+    </div>
+    <div class="media"><figure><img src="../out/speedtree-fit/refs/speedtree-library-conifers-bald-cypress-baldcypress-rt.png" alt="Bald Cypress SpeedTree"><figcaption>SpeedTree 官方预览 / renders\Conifers\Bald Cypress.JPG</figcaption></figure></div>
+  </div>
+  <div class="col">
+    <h3>Meshova 多角度截图</h3>
+    <div class="media angle-grid"><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-conifers-bald-cypress-baldcypress-rt-front.png" alt="Bald Cypress 正面"><figcaption>正面</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-conifers-bald-cypress-baldcypress-rt-orbitm25_10.png" alt="Bald Cypress 左前 25°"><figcaption>左前 25°</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-conifers-bald-cypress-baldcypress-rt-orbit25_10.png" alt="Bald Cypress 右前 25°"><figcaption>右前 25°</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-conifers-bald-cypress-baldcypress-rt-side.png" alt="Bald Cypress 侧面"><figcaption>侧面</figcaption></figure></div>
+  </div>
+  <div class="col">
+    <h3>优化建议</h3>
+    <div class="advice">
+      <h4>主要差距</h4>
+      <ul><li>大轮廓可读，但冠幅、主干比例、枝层分布不稳。</li><li>指标：宽高比低 -41%，Meshova 偏窄/偏高。</li><li>指标：遮罩面积多 +33%，冠层过满。</li><li>针叶类用普通叶云代理，缺枝轮、针束、下垂枝片。</li></ul>
+      <h4>指标诊断</h4>
+      <div class="diag-grid"><div class="diag bad"><b>宽高比</b><span>0.625 → 0.367</span><em>-41%</em></div><div class="diag warn"><b>遮罩面积</b><span>0.066 → 0.088</span><em>+33%</em></div><div class="diag ok"><b>质量高度</b><span>0.533 → 0.560</span><em>+0.027</em></div><div class="diag warn"><b>顶部宽度</b><span>0.359 → 0.186</span><em>-0.173</em></div><div class="diag warn"><b>中段宽度</b><span>0.535 → 0.709</span><em>+0.174</em></div><div class="diag warn"><b>底部宽度</b><span>0.727 → 0.434</span><em>-0.293</em></div><div class="diag bad"><b>边缘复杂度</b><span>17.784 → 35.776</span><em>+101%</em></div><div class="diag ok"><b>颜色距离</b><span>0.000 → 0.069</span><em>0.069</em></div></div><p class="note">几何：高 6.032，宽/高 0.344，深/高 0.343，叶片顶点占比 100%，parts 2。</p>
+      <h4>动作</h4>
+      <ul><li>把 canopy envelope 变成可拟合曲线/体素场；目标先对齐 silhouette IoU。</li><li>扩大 <code>crownScale</code> 或降低 <code>height</code>；优先加横向一级枝。</li><li>降低 <code>leafDensity</code>；按高度曲线稀疏底部和内部叶片。</li><li>新增 conifer whorl skeleton：主干节段 + 层状枝轮 + needle/frond card cluster。</li><li>搜索显示 leafSize- 有收益：改小叶片，靠数量补密度。</li></ul>
+      <h4>SPM 映射</h4><ul><li>一级分支数≈3.3 → branchCount×0.37</li><li>一级枝长比≈0.20 → crownScale 0.61</li><li>叶实例=749 → leafDensity×2.02</li><li>SPM 叶尺寸=7 → leafSize×1.17</li><li>SPM 起始角=0.4 → ~44° → branchAngle -8</li></ul>
+      <p class="note">最佳候选：refine-r3-leafSize- / front。参数：height=4.981, trunk=0.840, crown=1.243, leaf=1.006.</p>
+    </div>
+  </div>
+</section>
+<section class="row">
+  <div class="col ref">
+    <div class="title"><h2>Douglas Fir</h2><div class="score bad">0.290</div></div>
+    <div class="metric">
+      <span>Conifers / Douglas_Fir</span>
+      <span>IoU 0.295</span>
+      <span>颜色 0.276</span>
+      <span>宽高 0.350 → 0.699</span><span>面积 0.116 → 0.074</span>
+    </div>
+    <div class="media"><figure><img src="../out/speedtree-fit/refs/speedtree-library-conifers-douglas-fir-douglasfir-high.png" alt="Douglas Fir SpeedTree"><figcaption>SpeedTree 官方预览 / renders\Conifers\Douglas Fir.JPG</figcaption></figure></div>
+  </div>
+  <div class="col">
+    <h3>Meshova 多角度截图</h3>
+    <div class="media angle-grid"><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-conifers-douglas-fir-douglasfir-high-front.png" alt="Douglas Fir 正面"><figcaption>正面</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-conifers-douglas-fir-douglasfir-high-orbitm25_10.png" alt="Douglas Fir 左前 25°"><figcaption>左前 25°</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-conifers-douglas-fir-douglasfir-high-orbit25_10.png" alt="Douglas Fir 右前 25°"><figcaption>右前 25°</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-conifers-douglas-fir-douglasfir-high-side.png" alt="Douglas Fir 侧面"><figcaption>侧面</figcaption></figure></div>
+  </div>
+  <div class="col">
+    <h3>优化建议</h3>
+    <div class="advice">
+      <h4>主要差距</h4>
+      <ul><li>轮廓严重偏离，调单参数收益低。</li><li>指标：宽高比高 +99%，Meshova 偏宽/偏矮。</li><li>指标：遮罩面积少 -36%，视觉质量不足。</li><li>指标：质量中心偏下，底部太重。</li><li>针叶类用普通叶云代理，缺枝轮、针束、下垂枝片。</li></ul>
+      <h4>指标诊断</h4>
+      <div class="diag-grid"><div class="diag bad"><b>宽高比</b><span>0.350 → 0.699</span><em>+99%</em></div><div class="diag bad"><b>遮罩面积</b><span>0.116 → 0.074</span><em>-36%</em></div><div class="diag bad"><b>质量高度</b><span>0.396 → 0.613</span><em>+0.217</em></div><div class="diag bad"><b>顶部宽度</b><span>0.435 → 0.052</span><em>-0.383</em></div><div class="diag warn"><b>中段宽度</b><span>0.463 → 0.281</span><em>-0.181</em></div><div class="diag warn"><b>底部宽度</b><span>0.172 → 0.390</span><em>+0.219</em></div><div class="diag bad"><b>边缘复杂度</b><span>17.767 → 44.234</span><em>+149%</em></div><div class="diag ok"><b>颜色距离</b><span>0.000 → 0.064</span><em>0.064</em></div></div><p class="note">几何：高 6.520，宽/高 0.821，深/高 0.821，叶片顶点占比 93%，parts 2。</p>
+      <h4>动作</h4>
+      <ul><li>先换树型生成器：按物种建专用骨架/冠层包络，再跑参数拟合。</li><li>收窄 <code>crownScale</code> 或提高裸干高度；底层枝别铺满。</li><li>提高 <code>leafDensity</code>/<code>branchCount</code>；用叶簇体素填冠层空洞。</li><li>提高 crown base；压低底部叶密度和灌木化倾向。</li><li>新增 conifer whorl skeleton：主干节段 + 层状枝轮 + needle/frond card cluster。</li><li>搜索显示 lean 有收益：加入风向/重力姿态作为可拟合维度。</li></ul>
+      <h4>SPM 映射</h4><ul><li>一级分支数≈64.0 → branchCount×2.2</li><li>一级枝长比≈0.21 → crownScale 0.62</li><li>SPM 叶尺寸=1.2 → leafSize×0.4</li><li>SPM 起始角=0.66 → ~60° → branchAngle +8</li></ul>
+      <p class="note">最佳候选：refine-r3-lean+ / front。参数：height=6.523, trunk=1.561, crown=0.720, leaf=0.432.</p>
+    </div>
+  </div>
+</section>
+<section class="row">
+  <div class="col ref">
+    <div class="title"><h2>Eastern White Pine</h2><div class="score bad">0.306</div></div>
+    <div class="metric">
+      <span>Conifers / Eastern_White_Pine</span>
+      <span>IoU 0.338</span>
+      <span>颜色 0.224</span>
+      <span>宽高 0.955 → 0.220</span><span>面积 0.079 → 0.009</span>
+    </div>
+    <div class="media"><figure><img src="../out/speedtree-fit/refs/speedtree-library-conifers-eastern-white-pine-easternwhitepine-med.png" alt="Eastern White Pine SpeedTree"><figcaption>SpeedTree 官方预览 / renders\Conifers\Eastern White Pine.JPG</figcaption></figure></div>
+  </div>
+  <div class="col">
+    <h3>Meshova 多角度截图</h3>
+    <div class="media angle-grid"><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-conifers-eastern-white-pine-easternwhitepine-med-front.png" alt="Eastern White Pine 正面"><figcaption>正面</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-conifers-eastern-white-pine-easternwhitepine-med-orbitm25_10.png" alt="Eastern White Pine 左前 25°"><figcaption>左前 25°</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-conifers-eastern-white-pine-easternwhitepine-med-orbit25_10.png" alt="Eastern White Pine 右前 25°"><figcaption>右前 25°</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-conifers-eastern-white-pine-easternwhitepine-med-side.png" alt="Eastern White Pine 侧面"><figcaption>侧面</figcaption></figure></div>
+  </div>
+  <div class="col">
+    <h3>优化建议</h3>
+    <div class="advice">
+      <h4>主要差距</h4>
+      <ul><li>轮廓严重偏离，调单参数收益低。</li><li>指标：宽高比低 -77%，Meshova 偏窄/偏高。</li><li>指标：遮罩面积少 -89%，视觉质量不足。</li><li>指标：前景均色距离 0.194，颜色不贴参考。</li><li>针叶类用普通叶云代理，缺枝轮、针束、下垂枝片。</li></ul>
+      <h4>指标诊断</h4>
+      <div class="diag-grid"><div class="diag bad"><b>宽高比</b><span>0.955 → 0.220</span><em>-77%</em></div><div class="diag bad"><b>遮罩面积</b><span>0.079 → 0.009</span><em>-89%</em></div><div class="diag ok"><b>质量高度</b><span>0.460 → 0.490</span><em>+0.030</em></div><div class="diag ok"><b>顶部宽度</b><span>0.453 → 0.308</span><em>-0.146</em></div><div class="diag bad"><b>中段宽度</b><span>0.797 → 0.392</span><em>-0.405</em></div><div class="diag ok"><b>底部宽度</b><span>0.280 → 0.318</span><em>+0.038</em></div><div class="diag warn"><b>边缘复杂度</b><span>13.757 → 18.708</span><em>+36%</em></div><div class="diag warn"><b>颜色距离</b><span>0.000 → 0.194</span><em>0.194</em></div></div><p class="note">几何：高 5.070，宽/高 0.927，深/高 0.723，叶片顶点占比 98%，parts 2。</p>
+      <h4>动作</h4>
+      <ul><li>先换树型生成器：按物种建专用骨架/冠层包络，再跑参数拟合。</li><li>扩大 <code>crownScale</code> 或降低 <code>height</code>；优先加横向一级枝。</li><li>提高 <code>leafDensity</code>/<code>branchCount</code>；用叶簇体素填冠层空洞。</li><li>拆 foliage/bark/dry/flower 多材质采样；给落叶/花色独立通道。</li><li>新增 conifer whorl skeleton：主干节段 + 层状枝轮 + needle/frond card cluster。</li><li>搜索显示 lean 有收益：加入风向/重力姿态作为可拟合维度。</li></ul>
+      <h4>SPM 映射</h4><ul><li>一级分支数≈2.1 → branchCount×0.35</li><li>一级枝长比≈0.05 → crownScale 0.57</li><li>叶实例=400 → leafDensity×1.9</li><li>SPM 叶尺寸=1.2 → leafSize×0.4</li><li>SPM 起始角=0.25 → ~35° → branchAngle -17</li></ul>
+      <p class="note">最佳候选：refine-r3-lean- / front。参数：height=5.071, trunk=0.840, crown=1.161, leaf=0.400.</p>
+    </div>
+  </div>
+</section>
+<section class="row">
+  <div class="col ref">
+    <div class="title"><h2>Italian Cypress</h2><div class="score ok">0.623</div></div>
+    <div class="metric">
+      <span>Conifers / Italian_Cypress</span>
+      <span>IoU 0.738</span>
+      <span>颜色 0.328</span>
+      <span>宽高 0.185 → 0.178</span><span>面积 0.095 → 0.057</span>
+    </div>
+    <div class="media"><figure><img src="../out/speedtree-fit/refs/speedtree-library-conifers-italian-cypress-italiancypress-med.png" alt="Italian Cypress SpeedTree"><figcaption>SpeedTree 官方预览 / renders\Conifers\Italian Cypress.JPG</figcaption></figure></div>
+  </div>
+  <div class="col">
+    <h3>Meshova 多角度截图</h3>
+    <div class="media angle-grid"><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-conifers-italian-cypress-italiancypress-med-front.png" alt="Italian Cypress 正面"><figcaption>正面</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-conifers-italian-cypress-italiancypress-med-orbitm25_10.png" alt="Italian Cypress 左前 25°"><figcaption>左前 25°</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-conifers-italian-cypress-italiancypress-med-orbit25_10.png" alt="Italian Cypress 右前 25°"><figcaption>右前 25°</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-conifers-italian-cypress-italiancypress-med-side.png" alt="Italian Cypress 侧面"><figcaption>侧面</figcaption></figure></div>
+  </div>
+  <div class="col">
+    <h3>优化建议</h3>
+    <div class="advice">
+      <h4>主要差距</h4>
+      <ul><li>轮廓已接近，可作为同类模板正例。</li><li>指标：遮罩面积少 -40%，视觉质量不足。</li><li>针叶类用普通叶云代理，缺枝轮、针束、下垂枝片。</li></ul>
+      <h4>指标诊断</h4>
+      <div class="diag-grid"><div class="diag ok"><b>宽高比</b><span>0.185 → 0.178</span><em>-4%</em></div><div class="diag bad"><b>遮罩面积</b><span>0.095 → 0.057</span><em>-40%</em></div><div class="diag ok"><b>质量高度</b><span>0.518 → 0.485</span><em>-0.033</em></div><div class="diag ok"><b>顶部宽度</b><span>0.319 → 0.446</span><em>+0.128</em></div><div class="diag ok"><b>中段宽度</b><span>0.742 → 0.599</span><em>-0.143</em></div><div class="diag ok"><b>底部宽度</b><span>0.395 → 0.430</span><em>+0.035</em></div><div class="diag bad"><b>边缘复杂度</b><span>10.745 → 23.296</span><em>+117%</em></div><div class="diag ok"><b>颜色距离</b><span>0.000 → 0.085</span><em>0.085</em></div></div><p class="note">几何：高 7.226，宽/高 0.223，深/高 0.179，叶片顶点占比 74%，parts 2。</p>
+      <h4>动作</h4>
+      <ul><li>固化该类默认参数；再补 bark/leaf 材质细节、LOD、风权重。</li><li>提高 <code>leafDensity</code>/<code>branchCount</code>；用叶簇体素填冠层空洞。</li><li>新增 conifer whorl skeleton：主干节段 + 层状枝轮 + needle/frond card cluster。</li><li>搜索显示 crownScale+ 有收益：冠幅偏窄，扩大水平包络。</li></ul>
+      <h4>SPM 映射</h4><ul><li>一级分支数≈71.0 → branchCount×2.2</li><li>一级枝长比≈0.17 → crownScale 0.6</li><li>SPM 起始角=0.2 → ~32° → branchAngle -20</li></ul>
+      <p class="note">最佳候选：refine-r3-crownScale+ / front。参数：height=5.364, trunk=0.835, crown=0.672, leaf=1.300.</p>
+    </div>
+  </div>
+</section>
+<section class="row">
+  <div class="col ref">
+    <div class="title"><h2>Jeffrey Pine</h2><div class="score bad">0.281</div></div>
+    <div class="metric">
+      <span>Conifers / Jeffrey_Pine</span>
+      <span>IoU 0.330</span>
+      <span>颜色 0.153</span>
+      <span>宽高 1.368 → 0.456</span><span>面积 0.245 → 0.019</span>
+    </div>
+    <div class="media"><figure><img src="../out/speedtree-fit/refs/speedtree-library-conifers-jeffrey-pine-jeffreypine-handdraw-med.png" alt="Jeffrey Pine SpeedTree"><figcaption>SpeedTree 官方预览 / renders\Conifers\Jeffrey Pine.JPG</figcaption></figure></div>
+  </div>
+  <div class="col">
+    <h3>Meshova 多角度截图</h3>
+    <div class="media angle-grid"><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-conifers-jeffrey-pine-jeffreypine-handdraw-med-front.png" alt="Jeffrey Pine 正面"><figcaption>正面</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-conifers-jeffrey-pine-jeffreypine-handdraw-med-orbitm25_10.png" alt="Jeffrey Pine 左前 25°"><figcaption>左前 25°</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-conifers-jeffrey-pine-jeffreypine-handdraw-med-orbit25_10.png" alt="Jeffrey Pine 右前 25°"><figcaption>右前 25°</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-conifers-jeffrey-pine-jeffreypine-handdraw-med-side.png" alt="Jeffrey Pine 侧面"><figcaption>侧面</figcaption></figure></div>
+  </div>
+  <div class="col">
+    <h3>优化建议</h3>
+    <div class="advice">
+      <h4>主要差距</h4>
+      <ul><li>轮廓严重偏离，调单参数收益低。</li><li>颜色相似度低，冠/干/枯叶被平均色抹平。</li><li>指标：宽高比低 -67%，Meshova 偏窄/偏高。</li><li>指标：遮罩面积少 -92%，视觉质量不足。</li><li>指标：质量中心偏下，底部太重。</li></ul>
+      <h4>指标诊断</h4>
+      <div class="diag-grid"><div class="diag bad"><b>宽高比</b><span>1.368 → 0.456</span><em>-67%</em></div><div class="diag bad"><b>遮罩面积</b><span>0.245 → 0.019</span><em>-92%</em></div><div class="diag bad"><b>质量高度</b><span>0.426 → 0.594</span><em>+0.167</em></div><div class="diag bad"><b>顶部宽度</b><span>0.532 → 0.091</span><em>-0.441</em></div><div class="diag bad"><b>中段宽度</b><span>0.661 → 0.259</span><em>-0.403</em></div><div class="diag ok"><b>底部宽度</b><span>0.288 → 0.418</span><em>+0.130</em></div><div class="diag ok"><b>边缘复杂度</b><span>26.460 → 25.984</span><em>-2%</em></div><div class="diag ok"><b>颜色距离</b><span>0.000 → 0.017</span><em>0.017</em></div></div><p class="note">几何：高 6.550，宽/高 1.040，深/高 0.712，叶片顶点占比 95%，parts 2。</p>
+      <h4>动作</h4>
+      <ul><li>先换树型生成器：按物种建专用骨架/冠层包络，再跑参数拟合。</li><li>参考图分区采样 foliage/bark/dry/flower；材质不要只吃单个 tint。</li><li>扩大 <code>crownScale</code> 或降低 <code>height</code>；优先加横向一级枝。</li><li>提高 <code>leafDensity</code>/<code>branchCount</code>；用叶簇体素填冠层空洞。</li><li>提高 crown base；压低底部叶密度和灌木化倾向。</li><li>新增 conifer whorl skeleton：主干节段 + 层状枝轮 + needle/frond card cluster。</li></ul>
+      <h4>SPM 映射</h4><ul><li>一级分支数≈8.0 → branchCount×0.89</li><li>一级枝长比≈1.48 → crownScale 1.02</li><li>叶实例=568 → leafDensity×1.97</li><li>SPM 叶尺寸=3 → leafSize×0.5</li><li>SPM 起始角=0.8 → ~68° → branchAngle +16</li></ul>
+      <p class="note">最佳候选：refine-r3-crownDepth- / front。参数：height=6.545, trunk=1.322, crown=1.279, leaf=0.500.</p>
+    </div>
+  </div>
+</section>
+<section class="row">
+  <div class="col ref">
+    <div class="title"><h2>Loblolly Pine</h2><div class="score bad">0.216</div></div>
+    <div class="metric">
+      <span>Conifers / Loblolly_Pine</span>
+      <span>IoU 0.206</span>
+      <span>颜色 0.241</span>
+      <span>宽高 0.529 → 0.791</span><span>面积 0.115 → 0.060</span>
+    </div>
+    <div class="media"><figure><img src="../out/speedtree-fit/refs/speedtree-library-conifers-loblolly-pine-loblollypine-rt.png" alt="Loblolly Pine SpeedTree"><figcaption>SpeedTree 官方预览 / renders\Conifers\Loblolly Pine.JPG</figcaption></figure></div>
+  </div>
+  <div class="col">
+    <h3>Meshova 多角度截图</h3>
+    <div class="media angle-grid"><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-conifers-loblolly-pine-loblollypine-rt-front.png" alt="Loblolly Pine 正面"><figcaption>正面</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-conifers-loblolly-pine-loblollypine-rt-orbitm25_10.png" alt="Loblolly Pine 左前 25°"><figcaption>左前 25°</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-conifers-loblolly-pine-loblollypine-rt-orbit25_10.png" alt="Loblolly Pine 右前 25°"><figcaption>右前 25°</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-conifers-loblolly-pine-loblollypine-rt-side.png" alt="Loblolly Pine 侧面"><figcaption>侧面</figcaption></figure></div>
+  </div>
+  <div class="col">
+    <h3>优化建议</h3>
+    <div class="advice">
+      <h4>主要差距</h4>
+      <ul><li>轮廓严重偏离，调单参数收益低。</li><li>指标：宽高比高 +49%，Meshova 偏宽/偏矮。</li><li>指标：遮罩面积少 -48%，视觉质量不足。</li><li>指标：质量中心偏下，底部太重。</li><li>针叶类用普通叶云代理，缺枝轮、针束、下垂枝片。</li></ul>
+      <h4>指标诊断</h4>
+      <div class="diag-grid"><div class="diag bad"><b>宽高比</b><span>0.529 → 0.791</span><em>+49%</em></div><div class="diag bad"><b>遮罩面积</b><span>0.115 → 0.060</span><em>-48%</em></div><div class="diag bad"><b>质量高度</b><span>0.323 → 0.504</span><em>+0.181</em></div><div class="diag bad"><b>顶部宽度</b><span>0.519 → 0.168</span><em>-0.351</em></div><div class="diag ok"><b>中段宽度</b><span>0.288 → 0.356</span><em>+0.068</em></div><div class="diag warn"><b>底部宽度</b><span>0.081 → 0.264</span><em>+0.183</em></div><div class="diag bad"><b>边缘复杂度</b><span>22.976 → 46.027</span><em>+100%</em></div><div class="diag ok"><b>颜色距离</b><span>0.000 → 0.086</span><em>0.086</em></div></div><p class="note">几何：高 5.910，宽/高 0.826，深/高 0.826，叶片顶点占比 91%，parts 2。</p>
+      <h4>动作</h4>
+      <ul><li>先换树型生成器：按物种建专用骨架/冠层包络，再跑参数拟合。</li><li>收窄 <code>crownScale</code> 或提高裸干高度；底层枝别铺满。</li><li>提高 <code>leafDensity</code>/<code>branchCount</code>；用叶簇体素填冠层空洞。</li><li>提高 crown base；压低底部叶密度和灌木化倾向。</li><li>新增 conifer whorl skeleton：主干节段 + 层状枝轮 + needle/frond card cluster。</li><li>搜索显示 trunkScale+ 有收益：主干偏细，提升 trunk profile。</li></ul>
+      <h4>SPM 映射</h4><ul><li>一级分支数≈14.0 → branchCount×1.56</li><li>一级枝长比≈0.40 → crownScale 0.68</li><li>叶实例=500 → leafDensity×1.94</li><li>SPM 叶尺寸=5.501 → leafSize×0.92</li><li>SPM 起始角=0.451 → ~47° → branchAngle -5</li></ul>
+      <p class="note">最佳候选：refine-r3-trunkScale+ / front。参数：height=5.913, trunk=1.779, crown=0.853, leaf=0.920.</p>
+    </div>
+  </div>
+</section>
+<section class="row">
+  <div class="col ref">
+    <div class="title"><h2>Norway Spruce</h2><div class="score warn">0.485</div></div>
+    <div class="metric">
+      <span>Conifers / Norway_Spruce</span>
+      <span>IoU 0.594</span>
+      <span>颜色 0.203</span>
+      <span>宽高 0.582 → 0.782</span><span>面积 0.194 → 0.253</span>
+    </div>
+    <div class="media"><figure><img src="../out/speedtree-fit/refs/speedtree-library-conifers-norway-spruce-norwayspruce-rt.png" alt="Norway Spruce SpeedTree"><figcaption>SpeedTree 官方预览 / renders\Conifers\Norway Spruce.JPG</figcaption></figure></div>
+  </div>
+  <div class="col">
+    <h3>Meshova 多角度截图</h3>
+    <div class="media angle-grid"><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-conifers-norway-spruce-norwayspruce-rt-front.png" alt="Norway Spruce 正面"><figcaption>正面</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-conifers-norway-spruce-norwayspruce-rt-orbitm25_10.png" alt="Norway Spruce 左前 25°"><figcaption>左前 25°</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-conifers-norway-spruce-norwayspruce-rt-orbit25_10.png" alt="Norway Spruce 右前 25°"><figcaption>右前 25°</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-conifers-norway-spruce-norwayspruce-rt-side.png" alt="Norway Spruce 侧面"><figcaption>侧面</figcaption></figure></div>
+  </div>
+  <div class="col">
+    <h3>优化建议</h3>
+    <div class="advice">
+      <h4>主要差距</h4>
+      <ul><li>轮廓尚可，细节与颜色拖分。</li><li>颜色相似度低，冠/干/枯叶被平均色抹平。</li><li>指标：宽高比高 +34%，Meshova 偏宽/偏矮。</li><li>指标：遮罩面积多 +30%，冠层过满。</li><li>针叶类用普通叶云代理，缺枝轮、针束、下垂枝片。</li></ul>
+      <h4>指标诊断</h4>
+      <div class="diag-grid"><div class="diag bad"><b>宽高比</b><span>0.582 → 0.782</span><em>+34%</em></div><div class="diag warn"><b>遮罩面积</b><span>0.194 → 0.253</span><em>+30%</em></div><div class="diag ok"><b>质量高度</b><span>0.626 → 0.560</span><em>-0.066</em></div><div class="diag ok"><b>顶部宽度</b><span>0.152 → 0.232</span><em>+0.080</em></div><div class="diag ok"><b>中段宽度</b><span>0.584 → 0.586</span><em>+0.002</em></div><div class="diag warn"><b>底部宽度</b><span>0.831 → 0.526</span><em>-0.305</em></div><div class="diag bad"><b>边缘复杂度</b><span>19.567 → 51.520</span><em>+163%</em></div><div class="diag ok"><b>颜色距离</b><span>0.000 → 0.035</span><em>0.035</em></div></div><p class="note">几何：高 6.750，宽/高 0.879，深/高 0.797，叶片顶点占比 98%，parts 2。</p>
+      <h4>动作</h4>
+      <ul><li>保留当前骨架；追加叶片形状、枝条层级、材质分区。</li><li>参考图分区采样 foliage/bark/dry/flower；材质不要只吃单个 tint。</li><li>收窄 <code>crownScale</code> 或提高裸干高度；底层枝别铺满。</li><li>降低 <code>leafDensity</code>；按高度曲线稀疏底部和内部叶片。</li><li>新增 conifer whorl skeleton：主干节段 + 层状枝轮 + needle/frond card cluster。</li><li>搜索显示 lean 有收益：加入风向/重力姿态作为可拟合维度。</li></ul>
+      <h4>SPM 映射</h4><ul><li>一级分支数≈63.0 → branchCount×2.2</li><li>一级枝长比≈0.27 → crownScale 0.64</li><li>叶实例=987 → leafDensity×2.08</li><li>SPM 叶尺寸=8 → leafSize×1.33</li><li>SPM 起始角=0.45 → ~47° → branchAngle -5</li></ul>
+      <p class="note">最佳候选：refine-r3-lean- / front。参数：height=6.560, trunk=1.561, crown=0.743, leaf=1.436.</p>
+    </div>
+  </div>
+</section>
+<section class="row">
+  <div class="col ref">
+    <div class="title"><h2>Scots Pine</h2><div class="score bad">0.269</div></div>
+    <div class="metric">
+      <span>Conifers / Scots_Pine</span>
+      <span>IoU 0.192</span>
+      <span>颜色 0.465</span>
+      <span>宽高 0.218 → 0.714</span><span>面积 0.026 → 0.083</span>
+    </div>
+    <div class="media"><figure><img src="../out/speedtree-fit/refs/speedtree-library-conifers-scots-pine-scotspine-high.png" alt="Scots Pine SpeedTree"><figcaption>SpeedTree 官方预览 / renders\Conifers\Scots Pine.JPG</figcaption></figure></div>
+  </div>
+  <div class="col">
+    <h3>Meshova 多角度截图</h3>
+    <div class="media angle-grid"><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-conifers-scots-pine-scotspine-high-front.png" alt="Scots Pine 正面"><figcaption>正面</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-conifers-scots-pine-scotspine-high-orbitm25_10.png" alt="Scots Pine 左前 25°"><figcaption>左前 25°</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-conifers-scots-pine-scotspine-high-orbit25_10.png" alt="Scots Pine 右前 25°"><figcaption>右前 25°</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-conifers-scots-pine-scotspine-high-side.png" alt="Scots Pine 侧面"><figcaption>侧面</figcaption></figure></div>
+  </div>
+  <div class="col">
+    <h3>优化建议</h3>
+    <div class="advice">
+      <h4>主要差距</h4>
+      <ul><li>轮廓严重偏离，调单参数收益低。</li><li>指标：宽高比高 +228%，Meshova 偏宽/偏矮。</li><li>指标：遮罩面积多 +212%，冠层过满。</li><li>指标：质量中心偏下，底部太重。</li><li>针叶类用普通叶云代理，缺枝轮、针束、下垂枝片。</li></ul>
+      <h4>指标诊断</h4>
+      <div class="diag-grid"><div class="diag bad"><b>宽高比</b><span>0.218 → 0.714</span><em>+228%</em></div><div class="diag bad"><b>遮罩面积</b><span>0.026 → 0.083</span><em>+212%</em></div><div class="diag bad"><b>质量高度</b><span>0.336 → 0.619</span><em>+0.283</em></div><div class="diag bad"><b>顶部宽度</b><span>0.603 → 0.049</span><em>-0.553</em></div><div class="diag ok"><b>中段宽度</b><span>0.304 → 0.214</span><em>-0.090</em></div><div class="diag warn"><b>底部宽度</b><span>0.121 → 0.370</span><em>+0.249</em></div><div class="diag bad"><b>边缘复杂度</b><span>24.118 → 35.054</span><em>+45%</em></div><div class="diag ok"><b>颜色距离</b><span>0.000 → 0.039</span><em>0.039</em></div></div><p class="note">几何：高 6.040，宽/高 0.696，深/高 0.716，叶片顶点占比 91%，parts 2。</p>
+      <h4>动作</h4>
+      <ul><li>先换树型生成器：按物种建专用骨架/冠层包络，再跑参数拟合。</li><li>收窄 <code>crownScale</code> 或提高裸干高度；底层枝别铺满。</li><li>降低 <code>leafDensity</code>；按高度曲线稀疏底部和内部叶片。</li><li>提高 crown base；压低底部叶密度和灌木化倾向。</li><li>新增 conifer whorl skeleton：主干节段 + 层状枝轮 + needle/frond card cluster。</li><li>搜索显示 lean 有收益：加入风向/重力姿态作为可拟合维度。</li></ul>
+      <h4>SPM 映射</h4><ul><li>一级分支数≈11.5 → branchCount×1.28</li><li>一级枝长比≈0.06 → crownScale 0.57</li><li>SPM 叶尺寸=4.5 → leafSize×0.75</li><li>SPM 起始角=0.362 → ~42° → branchAngle -10</li></ul>
+      <p class="note">最佳候选：refine-r3-lean+ / front。参数：height=6.039, trunk=1.991, crown=0.441, leaf=0.750.</p>
+    </div>
+  </div>
+</section>
+<section class="row">
+  <div class="col ref">
+    <div class="title"><h2>AloeVera</h2><div class="score bad">0.285</div></div>
+    <div class="metric">
+      <span>Palms_&amp;_Cacti / Aloe_Vera</span>
+      <span>IoU 0.248</span>
+      <span>颜色 0.383</span>
+      <span>宽高 0.694 → 0.541</span><span>面积 0.049 → 0.068</span>
+    </div>
+    <div class="media"><figure><img src="../out/speedtree-fit/refs/speedtree-library-palms-cacti-aloe-vera-aloevera-med.png" alt="AloeVera SpeedTree"><figcaption>SpeedTree 官方预览 / renders\Palm &amp; Catti\52_AloeVera_RT_Full.jpg</figcaption></figure></div>
+  </div>
+  <div class="col">
+    <h3>Meshova 多角度截图</h3>
+    <div class="media angle-grid"><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-palms-cacti-aloe-vera-aloevera-med-front.png" alt="AloeVera 正面"><figcaption>正面</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-palms-cacti-aloe-vera-aloevera-med-orbitm25_10.png" alt="AloeVera 左前 25°"><figcaption>左前 25°</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-palms-cacti-aloe-vera-aloevera-med-orbit25_10.png" alt="AloeVera 右前 25°"><figcaption>右前 25°</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-palms-cacti-aloe-vera-aloevera-med-side.png" alt="AloeVera 侧面"><figcaption>侧面</figcaption></figure></div>
+  </div>
+  <div class="col">
+    <h3>优化建议</h3>
+    <div class="advice">
+      <h4>主要差距</h4>
+      <ul><li>轮廓严重偏离，调单参数收益低。</li><li>指标：宽高比低 -22%，Meshova 偏窄/偏高。</li><li>指标：遮罩面积多 +39%，冠层过满。</li><li>棕榈/芭蕉类需要器官级大叶，不是冠层云。</li></ul>
+      <h4>指标诊断</h4>
+      <div class="diag-grid"><div class="diag warn"><b>宽高比</b><span>0.694 → 0.541</span><em>-22%</em></div><div class="diag bad"><b>遮罩面积</b><span>0.049 → 0.068</span><em>+39%</em></div><div class="diag ok"><b>质量高度</b><span>0.639 → 0.621</span><em>-0.018</em></div><div class="diag warn"><b>顶部宽度</b><span>0.085 → 0.351</span><em>+0.266</em></div><div class="diag ok"><b>中段宽度</b><span>0.340 → 0.214</span><em>-0.126</em></div><div class="diag ok"><b>底部宽度</b><span>0.588 → 0.478</span><em>-0.110</em></div><div class="diag ok"><b>边缘复杂度</b><span>26.208 → 29.922</span><em>+14%</em></div><div class="diag ok"><b>颜色距离</b><span>0.000 → 0.066</span><em>0.066</em></div></div><p class="note">几何：高 3.968，宽/高 0.518，深/高 0.512，叶片顶点占比 99%，parts 4。</p>
+      <h4>动作</h4>
+      <ul><li>先换树型生成器：按物种建专用骨架/冠层包络，再跑参数拟合。</li><li>扩大 <code>crownScale</code> 或降低 <code>height</code>；优先加横向一级枝。</li><li>降低 <code>leafDensity</code>；按高度曲线稀疏底部和内部叶片。</li><li>加 frond/large-leaf generator：叶柄、折叠中脉、叶片撕裂、放射/下垂角。</li><li>搜索显示 trunkScale+ 有收益：主干偏细，提升 trunk profile。</li></ul>
+      <h4>SPM 映射</h4><ul><li>一级分支数≈22.0 → branchCount×2.2</li><li>一级枝长比≈0.83 → crownScale 0.82</li><li>叶实例=6 → leafDensity×1.34</li><li>SPM 叶尺寸=0.5 → leafSize×0.4</li><li>SPM 起始角=0.35 → ~41° → branchAngle -11</li></ul>
+      <p class="note">最佳候选：refine-r3-trunkScale+ / front。参数：height=4.214, trunk=2.310, crown=0.635, leaf=0.456.</p>
+    </div>
+  </div>
+</section>
+<section class="row">
+  <div class="col ref">
+    <div class="title"><h2>BananaPlant</h2><div class="score bad">0.283</div></div>
+    <div class="metric">
+      <span>Palms_&amp;_Cacti / Banana_Plant</span>
+      <span>IoU 0.206</span>
+      <span>颜色 0.482</span>
+      <span>宽高 1.057 → 0.913</span><span>面积 0.146 → 0.256</span>
+    </div>
+    <div class="media"><figure><img src="../out/speedtree-fit/refs/speedtree-library-palms-cacti-banana-plant-bananaplant-rt.png" alt="BananaPlant SpeedTree"><figcaption>SpeedTree 官方预览 / renders\Palm &amp; Catti\53_BananaPlant_RT_Full.jpg</figcaption></figure></div>
+  </div>
+  <div class="col">
+    <h3>Meshova 多角度截图</h3>
+    <div class="media angle-grid"><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-palms-cacti-banana-plant-bananaplant-rt-front.png" alt="BananaPlant 正面"><figcaption>正面</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-palms-cacti-banana-plant-bananaplant-rt-orbitm25_10.png" alt="BananaPlant 左前 25°"><figcaption>左前 25°</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-palms-cacti-banana-plant-bananaplant-rt-orbit25_10.png" alt="BananaPlant 右前 25°"><figcaption>右前 25°</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-palms-cacti-banana-plant-bananaplant-rt-side.png" alt="BananaPlant 侧面"><figcaption>侧面</figcaption></figure></div>
+  </div>
+  <div class="col">
+    <h3>优化建议</h3>
+    <div class="advice">
+      <h4>主要差距</h4>
+      <ul><li>轮廓严重偏离，调单参数收益低。</li><li>指标：遮罩面积多 +76%，冠层过满。</li><li>指标：边缘复杂度低 -57%，剪影太光滑。</li><li>棕榈/芭蕉类需要器官级大叶，不是冠层云。</li></ul>
+      <h4>指标诊断</h4>
+      <div class="diag-grid"><div class="diag ok"><b>宽高比</b><span>1.057 → 0.913</span><em>-14%</em></div><div class="diag bad"><b>遮罩面积</b><span>0.146 → 0.256</span><em>+76%</em></div><div class="diag ok"><b>质量高度</b><span>0.459 → 0.426</span><em>-0.033</em></div><div class="diag ok"><b>顶部宽度</b><span>0.194 → 0.345</span><em>+0.151</em></div><div class="diag ok"><b>中段宽度</b><span>0.570 → 0.683</span><em>+0.113</em></div><div class="diag ok"><b>底部宽度</b><span>0.168 → 0.080</span><em>-0.088</em></div><div class="diag bad"><b>边缘复杂度</b><span>25.903 → 11.170</span><em>-57%</em></div><div class="diag warn"><b>颜色距离</b><span>0.000 → 0.138</span><em>0.138</em></div></div><p class="note">几何：高 4.982，宽/高 0.811，深/高 0.818，叶片顶点占比 50%，parts 2。</p>
+      <h4>动作</h4>
+      <ul><li>先换树型生成器：按物种建专用骨架/冠层包络，再跑参数拟合。</li><li>降低 <code>leafDensity</code>；按高度曲线稀疏底部和内部叶片。</li><li>增加小枝/叶簇尺度层级；叶片大小做随机分布，不只调总密度。</li><li>加 frond/large-leaf generator：叶柄、折叠中脉、叶片撕裂、放射/下垂角。</li><li>搜索显示 trunkScale+ 有收益：主干偏细，提升 trunk profile。</li></ul>
+      <h4>SPM 映射</h4><ul><li>一级分支数≈9.0 → branchCount×1</li><li>一级枝长比≈2.44 → crownScale 1.33</li><li>叶实例=2 → leafDensity×1.34</li><li>SPM 叶尺寸=5 → leafSize×0.83</li><li>SPM 起始角=0.1 → ~26° → branchAngle -26</li></ul>
+      <p class="note">最佳候选：refine-r3-trunkScale+ / front。参数：height=3.536, trunk=1.561, crown=1.330, leaf=0.553.</p>
+    </div>
+  </div>
+</section>
+<section class="row">
+  <div class="col ref">
+    <div class="title"><h2>DatePalm</h2><div class="score bad">0.292</div></div>
+    <div class="metric">
+      <span>Palms_&amp;_Cacti / Date_Palm</span>
+      <span>IoU 0.348</span>
+      <span>颜色 0.149</span>
+      <span>宽高 0.656 → 0.096</span><span>面积 0.115 → 0.025</span>
+    </div>
+    <div class="media"><figure><img src="../out/speedtree-fit/refs/speedtree-library-palms-cacti-date-palm-datepalm-rt-cluster.png" alt="DatePalm SpeedTree"><figcaption>SpeedTree 官方预览 / renders\Palm &amp; Catti\57_DatePalm_RT_Full.jpg</figcaption></figure></div>
+  </div>
+  <div class="col">
+    <h3>Meshova 多角度截图</h3>
+    <div class="media angle-grid"><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-palms-cacti-date-palm-datepalm-rt-cluster-front.png" alt="DatePalm 正面"><figcaption>正面</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-palms-cacti-date-palm-datepalm-rt-cluster-orbitm25_10.png" alt="DatePalm 左前 25°"><figcaption>左前 25°</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-palms-cacti-date-palm-datepalm-rt-cluster-orbit25_10.png" alt="DatePalm 右前 25°"><figcaption>右前 25°</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-palms-cacti-date-palm-datepalm-rt-cluster-side.png" alt="DatePalm 侧面"><figcaption>侧面</figcaption></figure></div>
+  </div>
+  <div class="col">
+    <h3>优化建议</h3>
+    <div class="advice">
+      <h4>主要差距</h4>
+      <ul><li>轮廓严重偏离，调单参数收益低。</li><li>颜色相似度低，冠/干/枯叶被平均色抹平。</li><li>指标：宽高比低 -85%，Meshova 偏窄/偏高。</li><li>指标：遮罩面积少 -79%，视觉质量不足。</li><li>指标：质量中心偏下，底部太重。</li></ul>
+      <h4>指标诊断</h4>
+      <div class="diag-grid"><div class="diag bad"><b>宽高比</b><span>0.656 → 0.096</span><em>-85%</em></div><div class="diag bad"><b>遮罩面积</b><span>0.115 → 0.025</span><em>-79%</em></div><div class="diag bad"><b>质量高度</b><span>0.332 → 0.520</span><em>+0.188</em></div><div class="diag ok"><b>顶部宽度</b><span>0.568 → 0.442</span><em>-0.125</em></div><div class="diag ok"><b>中段宽度</b><span>0.440 → 0.505</span><em>+0.066</em></div><div class="diag bad"><b>底部宽度</b><span>0.046 → 0.545</span><em>+0.499</em></div><div class="diag bad"><b>边缘复杂度</b><span>36.474 → 10.996</span><em>-70%</em></div><div class="diag warn"><b>颜色距离</b><span>0.000 → 0.190</span><em>0.190</em></div></div><p class="note">几何：高 5.294，宽/高 0.833，深/高 0.779，叶片顶点占比 92%，parts 2。</p>
+      <h4>动作</h4>
+      <ul><li>先换树型生成器：按物种建专用骨架/冠层包络，再跑参数拟合。</li><li>参考图分区采样 foliage/bark/dry/flower；材质不要只吃单个 tint。</li><li>扩大 <code>crownScale</code> 或降低 <code>height</code>；优先加横向一级枝。</li><li>提高 <code>leafDensity</code>/<code>branchCount</code>；用叶簇体素填冠层空洞。</li><li>提高 crown base；压低底部叶密度和灌木化倾向。</li><li>增加小枝/叶簇尺度层级；叶片大小做随机分布，不只调总密度。</li><li>拆 foliage/bark/dry/flower 多材质采样；给落叶/花色独立通道。</li></ul>
+      <h4>SPM 映射</h4><ul><li>一级分支数≈1.4 → branchCount×0.35</li><li>一级枝长比≈0.76 → crownScale 0.79</li><li>叶实例=30 → leafDensity×1.39</li><li>SPM 叶尺寸=3.5 → leafSize×0.58</li></ul>
+      <p class="note">最佳候选：refine-r3-lean- / front。参数：height=4.431, trunk=2.310, crown=0.779, leaf=0.569.</p>
+    </div>
+  </div>
+</section>
+<section class="row">
+  <div class="col ref">
+    <div class="title"><h2>QueenPalm</h2><div class="score bad">0.209</div></div>
+    <div class="metric">
+      <span>Palms_&amp;_Cacti / Queen_Palm</span>
+      <span>IoU 0.137</span>
+      <span>颜色 0.393</span>
+      <span>宽高 0.890 → 0.801</span><span>面积 0.099 → 0.104</span>
+    </div>
+    <div class="media"><figure><img src="../out/speedtree-fit/refs/speedtree-library-palms-cacti-queen-palm-queenpalm-med.png" alt="QueenPalm SpeedTree"><figcaption>SpeedTree 官方预览 / renders\Palm &amp; Catti\60_QueenPalm_RT_Full.jpg</figcaption></figure></div>
+  </div>
+  <div class="col">
+    <h3>Meshova 多角度截图</h3>
+    <div class="media angle-grid"><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-palms-cacti-queen-palm-queenpalm-med-front.png" alt="QueenPalm 正面"><figcaption>正面</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-palms-cacti-queen-palm-queenpalm-med-orbitm25_10.png" alt="QueenPalm 左前 25°"><figcaption>左前 25°</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-palms-cacti-queen-palm-queenpalm-med-orbit25_10.png" alt="QueenPalm 右前 25°"><figcaption>右前 25°</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-palms-cacti-queen-palm-queenpalm-med-side.png" alt="QueenPalm 侧面"><figcaption>侧面</figcaption></figure></div>
+  </div>
+  <div class="col">
+    <h3>优化建议</h3>
+    <div class="advice">
+      <h4>主要差距</h4>
+      <ul><li>轮廓严重偏离，调单参数收益低。</li><li>指标：质量中心偏上，顶部太重。</li><li>指标：前景均色距离 0.179，颜色不贴参考。</li><li>棕榈/芭蕉类需要器官级大叶，不是冠层云。</li></ul>
+      <h4>指标诊断</h4>
+      <div class="diag-grid"><div class="diag ok"><b>宽高比</b><span>0.890 → 0.801</span><em>-10%</em></div><div class="diag ok"><b>遮罩面积</b><span>0.099 → 0.104</span><em>+5%</em></div><div class="diag bad"><b>质量高度</b><span>0.565 → 0.256</span><em>-0.309</em></div><div class="diag bad"><b>顶部宽度</b><span>0.148 → 0.701</span><em>+0.553</em></div><div class="diag bad"><b>中段宽度</b><span>0.781 → 0.053</span><em>-0.729</em></div><div class="diag bad"><b>底部宽度</b><span>0.557 → 0.060</span><em>-0.496</em></div><div class="diag ok"><b>边缘复杂度</b><span>29.612 → 31.354</span><em>+6%</em></div><div class="diag warn"><b>颜色距离</b><span>0.000 → 0.179</span><em>0.179</em></div></div><p class="note">几何：高 5.689，宽/高 0.841，深/高 0.785，叶片顶点占比 93%，parts 2。</p>
+      <h4>动作</h4>
+      <ul><li>先换树型生成器：按物种建专用骨架/冠层包络，再跑参数拟合。</li><li>下移 crown base 或增加中下层枝；减少顶部叶簇集中。</li><li>拆 foliage/bark/dry/flower 多材质采样；给落叶/花色独立通道。</li><li>加 frond/large-leaf generator：叶柄、折叠中脉、叶片撕裂、放射/下垂角。</li><li>搜索显示 trunkScale+ 有收益：主干偏细，提升 trunk profile。</li></ul>
+      <h4>SPM 映射</h4><ul><li>一级分支数≈18.0 → branchCount×2</li><li>一级枝长比≈0.71 → crownScale 0.78</li><li>叶实例=20 → leafDensity×1.34</li><li>SPM 叶尺寸=3.5 → leafSize×0.58</li><li>SPM 起始角=0.261 → ~36° → branchAngle -16</li></ul>
+      <p class="note">最佳候选：refine-r3-trunkScale+ / front。参数：height=4.763, trunk=2.310, crown=0.780, leaf=0.580.</p>
+    </div>
+  </div>
+</section>
+<section class="row">
+  <div class="col ref">
+    <div class="title"><h2>SaguaroCactus</h2><div class="score warn">0.504</div></div>
+    <div class="metric">
+      <span>Palms_&amp;_Cacti / Saguaro_Cactus</span>
+      <span>IoU 0.530</span>
+      <span>颜色 0.439</span>
+      <span>宽高 0.388 → 0.348</span><span>面积 0.125 → 0.106</span>
+    </div>
+    <div class="media"><figure><img src="../out/speedtree-fit/refs/speedtree-library-palms-cacti-saguaro-cactus-saguarocactus-rt.png" alt="SaguaroCactus SpeedTree"><figcaption>SpeedTree 官方预览 / renders\Palm &amp; Catti\61_SaguaroCactus_Full.jpg</figcaption></figure></div>
+  </div>
+  <div class="col">
+    <h3>Meshova 多角度截图</h3>
+    <div class="media angle-grid"><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-palms-cacti-saguaro-cactus-saguarocactus-rt-front.png" alt="SaguaroCactus 正面"><figcaption>正面</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-palms-cacti-saguaro-cactus-saguarocactus-rt-orbitm25_10.png" alt="SaguaroCactus 左前 25°"><figcaption>左前 25°</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-palms-cacti-saguaro-cactus-saguarocactus-rt-orbit25_10.png" alt="SaguaroCactus 右前 25°"><figcaption>右前 25°</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-palms-cacti-saguaro-cactus-saguarocactus-rt-side.png" alt="SaguaroCactus 侧面"><figcaption>侧面</figcaption></figure></div>
+  </div>
+  <div class="col">
+    <h3>优化建议</h3>
+    <div class="advice">
+      <h4>主要差距</h4>
+      <ul><li>轮廓尚可，细节与颜色拖分。</li><li>指标：边缘复杂度低 -45%，剪影太光滑。</li><li>棕榈/芭蕉类需要器官级大叶，不是冠层云。</li><li>仙人掌轮廓依赖肋条、分叉臂、刺点节律。</li></ul>
+      <h4>指标诊断</h4>
+      <div class="diag-grid"><div class="diag ok"><b>宽高比</b><span>0.388 → 0.348</span><em>-10%</em></div><div class="diag ok"><b>遮罩面积</b><span>0.125 → 0.106</span><em>-15%</em></div><div class="diag ok"><b>质量高度</b><span>0.540 → 0.487</span><em>-0.053</em></div><div class="diag ok"><b>顶部宽度</b><span>0.273 → 0.386</span><em>+0.113</em></div><div class="diag ok"><b>中段宽度</b><span>0.588 → 0.670</span><em>+0.083</em></div><div class="diag ok"><b>底部宽度</b><span>0.332 → 0.328</span><em>-0.004</em></div><div class="diag bad"><b>边缘复杂度</b><span>22.313 → 12.256</span><em>-45%</em></div><div class="diag ok"><b>颜色距离</b><span>0.000 → 0.040</span><em>0.040</em></div></div><p class="note">几何：高 4.614，宽/高 0.305，深/高 0.263，叶片顶点占比 48%，parts 2。</p>
+      <h4>动作</h4>
+      <ul><li>保留当前骨架；追加叶片形状、枝条层级、材质分区。</li><li>增加小枝/叶簇尺度层级；叶片大小做随机分布，不只调总密度。</li><li>加 frond/large-leaf generator：叶柄、折叠中脉、叶片撕裂、放射/下垂角。</li><li>加 cactus ribs + areole dots + arm attachment rule；叶密度参数应禁用。</li><li>搜索显示 trunkScale- 有收益：主干偏粗，细化枝干衰减。</li></ul>
+      <h4>SPM 映射</h4><ul><li>一级分支数≈7.0 → branchCount×0.78</li><li>一级枝长比≈1.00 → crownScale 0.87</li><li>叶实例=21 → leafDensity×1.34</li><li>SPM 叶尺寸=3.5 → leafSize×0.58</li><li>SPM 起始角=0.225 → ~34° → branchAngle -18</li></ul>
+      <p class="note">最佳候选：refine-r3-trunkScale- / front。参数：height=4.584, trunk=1.514, crown=0.593, leaf=0.580.</p>
+    </div>
+  </div>
+</section>
+<section class="row">
+  <div class="col ref">
+    <div class="title"><h2>AmericanBoxwood</h2><div class="score warn">0.475</div></div>
+    <div class="metric">
+      <span>Shrubs_&amp;_Flowers / American_Boxwood</span>
+      <span>IoU 0.616</span>
+      <span>颜色 0.112</span>
+      <span>宽高 1.043 → 1.081</span><span>面积 0.230 → 0.252</span>
+    </div>
+    <div class="media"><figure><img src="../out/speedtree-fit/refs/speedtree-library-shrubs-flowers-american-boxwood-americanboxwood-rt.png" alt="AmericanBoxwood SpeedTree"><figcaption>SpeedTree 官方预览 / renders\Shrubs &amp; Flowers\63_AmericanBoxwood_Full.jpg</figcaption></figure></div>
+  </div>
+  <div class="col">
+    <h3>Meshova 多角度截图</h3>
+    <div class="media angle-grid"><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-shrubs-flowers-american-boxwood-americanboxwood-rt-front.png" alt="AmericanBoxwood 正面"><figcaption>正面</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-shrubs-flowers-american-boxwood-americanboxwood-rt-orbitm25_10.png" alt="AmericanBoxwood 左前 25°"><figcaption>左前 25°</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-shrubs-flowers-american-boxwood-americanboxwood-rt-orbit25_10.png" alt="AmericanBoxwood 右前 25°"><figcaption>右前 25°</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-shrubs-flowers-american-boxwood-americanboxwood-rt-side.png" alt="AmericanBoxwood 侧面"><figcaption>侧面</figcaption></figure></div>
+  </div>
+  <div class="col">
+    <h3>优化建议</h3>
+    <div class="advice">
+      <h4>主要差距</h4>
+      <ul><li>轮廓尚可，细节与颜色拖分。</li><li>颜色相似度低，冠/干/枯叶被平均色抹平。</li><li>灌木目标更像修剪体块，枝干不该抢轮廓。</li></ul>
+      <h4>指标诊断</h4>
+      <div class="diag-grid"><div class="diag ok"><b>宽高比</b><span>1.043 → 1.081</span><em>+4%</em></div><div class="diag ok"><b>遮罩面积</b><span>0.230 → 0.252</span><em>+10%</em></div><div class="diag ok"><b>质量高度</b><span>0.552 → 0.503</span><em>-0.049</em></div><div class="diag ok"><b>顶部宽度</b><span>0.367 → 0.262</span><em>-0.105</em></div><div class="diag warn"><b>中段宽度</b><span>0.875 → 0.659</span><em>-0.215</em></div><div class="diag bad"><b>底部宽度</b><span>0.651 → 0.168</span><em>-0.483</em></div><div class="diag bad"><b>边缘复杂度</b><span>9.951 → 25.825</span><em>+160%</em></div><div class="diag ok"><b>颜色距离</b><span>0.000 → 0.064</span><em>0.064</em></div></div><p class="note">几何：高 1.580，宽/高 1.096，深/高 0.857，叶片顶点占比 85%，parts 2。</p>
+      <h4>动作</h4>
+      <ul><li>保留当前骨架；追加叶片形状、枝条层级、材质分区。</li><li>参考图分区采样 foliage/bark/dry/flower；材质不要只吃单个 tint。</li><li>加 shrub volume fill：球/盒状体积叶片，枝干内部弱显示。</li><li>搜索显示 trunkScale+ 有收益：主干偏细，提升 trunk profile。</li></ul>
+      <h4>SPM 映射</h4><ul><li>一级分支数≈100.0 → branchCount×2.2</li><li>一级枝长比≈0.80 → crownScale 0.81</li><li>叶实例=2163 → leafDensity×2.23</li><li>SPM 叶尺寸=4 → leafSize×0.67</li></ul>
+      <p class="note">最佳候选：refine-r3-trunkScale+ / front。参数：height=0.748, trunk=2.310, crown=0.907, leaf=0.670.</p>
+    </div>
+  </div>
+</section>
+<section class="row">
+  <div class="col ref">
+    <div class="title"><h2>Bamboo</h2><div class="score bad">0.410</div></div>
+    <div class="metric">
+      <span>Shrubs_&amp;_Flowers / Bamboo</span>
+      <span>IoU 0.396</span>
+      <span>颜色 0.445</span>
+      <span>宽高 0.303 → 0.273</span><span>面积 0.065 → 0.049</span>
+    </div>
+    <div class="media"><figure><img src="../out/speedtree-fit/refs/speedtree-library-shrubs-flowers-bamboo-bamboo-rt-cluster.png" alt="Bamboo SpeedTree"><figcaption>SpeedTree 官方预览 / renders\Shrubs &amp; Flowers\65_Bamboo_RT_Full.jpg</figcaption></figure></div>
+  </div>
+  <div class="col">
+    <h3>Meshova 多角度截图</h3>
+    <div class="media angle-grid"><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-shrubs-flowers-bamboo-bamboo-rt-cluster-front.png" alt="Bamboo 正面"><figcaption>正面</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-shrubs-flowers-bamboo-bamboo-rt-cluster-orbitm25_10.png" alt="Bamboo 左前 25°"><figcaption>左前 25°</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-shrubs-flowers-bamboo-bamboo-rt-cluster-orbit25_10.png" alt="Bamboo 右前 25°"><figcaption>右前 25°</figcaption></figure><figure class="shot"><img src="../out/speedtree-compare/angles/speedtree-library-shrubs-flowers-bamboo-bamboo-rt-cluster-side.png" alt="Bamboo 侧面"><figcaption>侧面</figcaption></figure></div>
+  </div>
+  <div class="col">
+    <h3>优化建议</h3>
+    <div class="advice">
+      <h4>主要差距</h4>
+      <ul><li>大轮廓可读，但冠幅、主干比例、枝层分布不稳。</li><li>指标：遮罩面积少 -25%，视觉质量不足。</li><li>指标：边缘复杂度低 -47%，剪影太光滑。</li><li>指标：前景均色距离 0.205，颜色不贴参考。</li><li>竹子需要多根竿、节环、顶端叶簇。</li></ul>
+      <h4>指标诊断</h4>
+      <div class="diag-grid"><div class="diag ok"><b>宽高比</b><span>0.303 → 0.273</span><em>-10%</em></div><div class="diag warn"><b>遮罩面积</b><span>0.065 → 0.049</span><em>-25%</em></div><div class="diag warn"><b>质量高度</b><span>0.409 → 0.489</span><em>+0.080</em></div><div class="diag ok"><b>顶部宽度</b><span>0.527 → 0.552</span><em>+0.026</em></div><div class="diag ok"><b>中段宽度</b><span>0.751 → 0.780</span><em>+0.029</em></div><div class="diag bad"><b>底部宽度</b><span>0.094 → 0.670</span><em>+0.576</em></div><div class="diag bad"><b>边缘复杂度</b><span>20.102 → 10.561</span><em>-47%</em></div><div class="diag warn"><b>颜色距离</b><span>0.000 → 0.205</span><em>0.205</em></div></div><p class="note">几何：高 1.239，宽/高 1.393，深/高 1.572，叶片顶点占比 39%，parts 2。</p>
+      <h4>动作</h4>
+      <ul><li>把 canopy envelope 变成可拟合曲线/体素场；目标先对齐 silhouette IoU。</li><li>提高 <code>leafDensity</code>/<code>branchCount</code>；用叶簇体素填冠层空洞。</li><li>增加小枝/叶簇尺度层级；叶片大小做随机分布，不只调总密度。</li><li>拆 foliage/bark/dry/flower 多材质采样；给落叶/花色独立通道。</li><li>改为 culm cluster：随机竿高、节点环、侧枝叶簇，不走树冠模板。</li><li>搜索显示 trunkScale+ 有收益：主干偏细，提升 trunk profile。</li></ul>
+      <h4>SPM 映射</h4><ul><li>一级分支数≈23.6 → branchCount×2.2</li><li>一级枝长比≈0.19 → crownScale 0.61</li><li>叶实例=1663 → leafDensity×2.18</li><li>SPM 叶尺寸=3.5 → leafSize×0.58</li><li>SPM 起始角=0.25 → ~35° → branchAngle -17</li></ul>
+      <p class="note">最佳候选：refine-r3-trunkScale+ / front。参数：height=1.157, trunk=1.561, crown=0.324, leaf=0.754.</p>
+    </div>
+  </div>
+</section>
+</main>
+</body>
+</html>

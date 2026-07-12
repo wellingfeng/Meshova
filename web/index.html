@@ -5,61 +5,133 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Meshova · 查看器</title>
 <style>
-  :root{--bg:#0d1117;--panel:#161b22;--line:#30363d;--txt:#e6edf3;--mut:#9aa7b4;--acc:#58a6ff;--acc2:#7ee787;}
+  :root{--bg:#edf0f2;--panel:#fff;--panel-sub:#f8f9fa;--soft:#f1f3f4;--line:#dfe3e6;
+    --txt:#303438;--mut:#747c84;--faint:#a0a6ac;--acc:#1caad9;--acc2:#168db3;--acc-soft:#e7f6fb;--ok:#39a96b;--r:3px;}
   *{box-sizing:border-box;margin:0;padding:0;}
   html,body{height:100%;background:var(--bg);color:var(--txt);
-    font:14px/1.6 -apple-system,"Segoe UI","Microsoft YaHei",sans-serif;overflow:hidden;}
+    font:13px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif;
+    overflow:hidden;-webkit-font-smoothing:antialiased;}
   #app{display:flex;flex-direction:column;height:100vh;}
-  /* top toolbar */
-  #bar{display:flex;align-items:center;gap:18px;flex-wrap:wrap;
-    background:var(--panel);border-bottom:1px solid var(--line);padding:8px 14px;}
-  #bar .brand{font-size:15px;font-weight:600;letter-spacing:.5px;margin-right:6px;}
-  #bar .back{color:var(--mut);font-size:13px;text-decoration:none;padding:4px 10px;
-    border:1px solid var(--line);border-radius:6px;}
-  #bar .back:hover{border-color:var(--acc);color:var(--acc);}
-  #bar .seg{display:flex;align-items:center;gap:6px;}
-  #bar .seg > .label{color:var(--mut);font-size:11px;}
+  #bar{height:52px;flex:0 0 52px;display:flex;align-items:stretch;background:var(--panel);
+    border-bottom:1px solid var(--line);box-shadow:0 1px 2px #0000000a;z-index:10;}
+  .bar-home{height:100%;display:flex;align-items:center;gap:10px;flex:0 0 auto;padding:0 18px;
+    border-right:1px solid var(--line);}
+  #bar .brand{font-size:17px;font-weight:700;letter-spacing:-.2px;color:var(--txt);white-space:nowrap;}
+  #bar .brand span{color:var(--acc);}
+  #bar .back{display:inline-flex;align-items:center;height:28px;color:var(--mut);font-size:12px;
+    text-decoration:none;padding:0 8px;border:0;border-radius:var(--r);}
+  #bar .back:hover{color:var(--acc);background:var(--soft);}
+  .bar-tools{min-width:0;display:flex;align-items:stretch;flex:1;overflow-x:auto;overflow-y:hidden;
+    scrollbar-width:thin;scrollbar-color:#cfd4d7 transparent;}
+  .bar-tools::-webkit-scrollbar{height:3px;}
+  .bar-tools::-webkit-scrollbar-thumb{background:#cfd4d7;border-radius:2px;}
+  .bar-tools::-webkit-scrollbar-track{background:transparent;}
+  #bar .seg{height:100%;display:flex;align-items:center;gap:5px;flex:0 0 auto;padding:0 10px;
+    border-right:1px solid #edf0f2;}
+  #bar .seg:last-child{border-right:0;padding-right:18px;}
+  #bar .seg > .label{color:var(--faint);font-size:10px;font-weight:600;letter-spacing:.35px;white-space:nowrap;}
   #main{flex:1;display:flex;min-height:0;}
-  #side{width:210px;flex:0 0 210px;background:var(--panel);border-right:1px solid var(--line);
-    padding:14px;display:flex;flex-direction:column;gap:10px;overflow:auto;}
+  #side{width:224px;flex:0 0 224px;background:var(--panel-sub);border-right:1px solid var(--line);
+    padding:16px 12px 12px;display:flex;flex-direction:column;gap:10px;overflow:auto;}
   #stage{flex:1;position:relative;min-width:0;}
-  #right{width:250px;flex:0 0 250px;background:var(--panel);border-left:1px solid var(--line);
-    padding:14px;display:flex;flex-direction:column;gap:12px;overflow:auto;}
-  canvas{display:block;width:100%;height:100%;}
-  .label{color:var(--mut);font-size:11px;text-transform:uppercase;letter-spacing:.5px;}
-  select,button{background:#1c2330;color:var(--txt);border:1px solid var(--line);
-    border-radius:6px;padding:6px 9px;font:inherit;cursor:pointer;}
-  button:hover,select:hover{border-color:var(--acc);}
-  button.on{border-color:var(--acc2);color:var(--acc2);}
-  button.mini{padding:4px 8px;font-size:12px;}
+  #right{width:280px;flex:0 0 280px;background:var(--panel-sub);border-left:1px solid var(--line);
+    padding:16px;display:flex;flex-direction:column;gap:12px;overflow:auto;}
+  canvas{display:block;width:100%;height:100%;transition:filter .18s ease,transform .18s ease;}
+  .label{color:var(--mut);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.55px;}
+  select,button{height:30px;background:var(--panel);color:var(--txt);border:1px solid var(--line);
+    border-radius:var(--r);padding:0 9px;font:inherit;cursor:pointer;transition:background .12s,color .12s,border-color .12s;}
+  button:hover,select:hover{border-color:#c8cdd1;background:var(--soft);}
+  button:focus-visible,select:focus-visible,a:focus-visible{outline:2px solid #1caad966;outline-offset:1px;}
+  button.on{border-color:#b9e4f1;color:var(--acc2);background:var(--acc-soft);}
+  button.mini,select.mini{height:28px;padding:0 8px;font-size:12px;}
+  #bar button{border-color:transparent;background:transparent;}
+  #bar button:hover{background:var(--soft);border-color:transparent;}
+  #bar button.on{color:var(--acc2);background:var(--acc-soft);border-color:transparent;}
+  #bar select{height:28px;background:#fafafa;border-color:#e3e6e8;padding-left:8px;}
+  #bar input[type=range]{width:88px;}
   #parts{display:flex;flex-direction:column;gap:3px;overflow:auto;}
   .part{display:flex;align-items:center;gap:7px;font-size:12px;cursor:pointer;
-    padding:4px 6px;border-radius:5px;border:1px solid transparent;}
-  .part:hover{background:#1c2330;}
-  .part.sel{border-color:var(--acc2);background:#1c2a22;color:var(--acc2);}
-  .sw{width:11px;height:11px;border-radius:3px;border:1px solid #0008;flex:0 0 auto;}
-  .pgroup{display:flex;flex-direction:column;gap:5px;}
-  .pgroup .row{display:flex;justify-content:space-between;font-size:12px;}
+    min-height:28px;padding:4px 8px;border-radius:2px;border:0;}
+  .part:hover{background:#eceff1;}
+  .part.sel{background:var(--acc-soft);color:var(--acc2);box-shadow:inset 3px 0 var(--acc);}
+  .sw{width:10px;height:10px;border-radius:2px;border:1px solid #0002;flex:0 0 auto;}
+  .pgroup{display:flex;flex-direction:column;gap:6px;padding-bottom:4px;}
+  .pgroup .row{display:flex;justify-content:space-between;align-items:center;font-size:12px;}
   .pgroup .row .val{color:var(--acc2);font-variant-numeric:tabular-nums;}
-  .pgroup-title{color:var(--acc);font-size:11px;text-transform:uppercase;letter-spacing:.5px;
-    border-top:1px solid var(--line);padding-top:10px;margin-top:6px;}
+  .pgroup.toggle-group .row{align-items:center;gap:12px;}
+  .param-toggle{position:relative;width:40px;height:20px;padding:0;border-radius:10px;
+    background:#d8dde0;border-color:#cdd2d5;}
+  .param-toggle::before{content:"";position:absolute;left:2px;top:2px;width:14px;height:14px;
+    border-radius:50%;background:#fff;box-shadow:0 1px 2px #0003;transition:transform .16s ease;}
+  .param-toggle::after{content:"关";position:absolute;right:5px;top:50%;transform:translateY(-50%);
+    color:#6f767c;font-size:9px;line-height:1;}
+  .param-toggle.on{background:var(--acc);border-color:var(--acc);}
+  .param-toggle.on::before{transform:translateX(20px);}
+  .param-toggle.on::after{content:"开";left:5px;right:auto;color:#fff;}
+  .param-toggle:focus-visible{outline:2px solid var(--acc);outline-offset:2px;}
+  .pgroup-title{color:var(--txt);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.45px;
+    border-top:1px solid var(--line);padding-top:12px;margin-top:5px;}
+  .workflow-summary{padding:9px 10px;border:1px solid #b9e4f1;border-radius:var(--r);
+    background:var(--acc-soft);color:var(--acc2);font-size:11px;line-height:1.5;}
   #matparams{display:flex;flex-direction:column;gap:10px;}
-  input[type=color]{width:42px;height:20px;border:1px solid var(--line);border-radius:4px;background:none;cursor:pointer;padding:0;}
+  .image-param-actions{display:flex;gap:6px;}
+  .image-param-actions button{flex:1;}
+  .image-param-name{color:var(--mut);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  #opt-panel{border-top:1px solid var(--line);padding-top:10px;display:flex;flex-direction:column;gap:8px;}
+  .opt-head{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+  #opt-stats{color:var(--mut);font-size:12px;}
+  #opt-candidates{display:flex;flex-direction:column;gap:5px;}
+  .opt-row{display:flex;flex-direction:column;align-items:stretch;gap:2px;text-align:left;font-size:12px;
+    height:auto;padding:7px 8px;border-radius:var(--r);border:1px solid var(--line);background:#fff;color:var(--txt);}
+  .opt-row:hover{border-color:var(--acc);}
+  .opt-row.sel{border-color:var(--acc);background:var(--acc-soft);color:var(--acc2);}
+  .opt-row.bad{border-color:#e6b8b8;background:#fff5f5;color:#9a2d2d;}
+  .opt-row .sub{color:var(--mut);font-size:11px;font-variant-numeric:tabular-nums;}
+  input[type=color]{width:30px;height:22px;border:1px solid var(--line);border-radius:2px;background:none;cursor:pointer;padding:1px;}
   input[type=range]{width:100%;accent-color:var(--acc);}
   #meta{color:var(--mut);font-size:12px;border-top:1px solid var(--line);padding-top:8px;margin-top:auto;}
   #meta b{color:var(--txt);}
-  #hud{position:absolute;left:12px;bottom:12px;color:var(--mut);font-size:12px;
-    background:#0d1117cc;border:1px solid var(--line);border-radius:6px;padding:5px 9px;pointer-events:none;}
+  #hud{position:absolute;left:12px;bottom:12px;color:#4a4f54;font-size:11px;
+    background:#ffffffeb;border:1px solid var(--line);border-radius:var(--r);padding:5px 8px;pointer-events:none;
+    box-shadow:0 1px 3px #00000014;}
+  #draw-status{position:absolute;left:50%;top:12px;z-index:4;display:none;transform:translateX(-50%);
+    color:#075d78;font-size:12px;background:#e7f6fbf2;border:1px solid #8bd7eb;border-radius:3px;
+    padding:7px 11px;box-shadow:0 2px 9px #0002;pointer-events:none;white-space:nowrap;}
+  #draw-status.show{display:block;}
+  canvas.drawing{cursor:crosshair;}
+  canvas.binding-edit{cursor:default;}
+  canvas.binding-drag{cursor:grabbing;}
+  #bar button:disabled{cursor:not-allowed;opacity:.38;background:transparent;color:var(--mut);}
   #err{position:absolute;inset:0;display:none;align-items:center;justify-content:center;
-    color:#ff7b72;font-size:13px;padding:20px;text-align:center;}
+    color:#e5484d;font-size:13px;padding:20px;text-align:center;}
+  #stage.loading canvas{filter:blur(14px) brightness(.48) saturate(.85);transform:scale(1.015);}
+  #loading{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;
+    opacity:0;visibility:hidden;pointer-events:auto;color:#fff;text-align:center;
+    background:rgba(10,13,16,.46);backdrop-filter:blur(18px) brightness(.66);
+    -webkit-backdrop-filter:blur(16px) brightness(.75);transition:opacity .18s ease,visibility .18s ease;}
+  #loading.show{opacity:1;visibility:visible;}
+  .loading-copy{width:min(360px,72vw);padding:18px 20px 20px;border-radius:4px;
+    background:#10161fcc;border:1px solid #ffffff24;box-shadow:0 18px 52px #0008,0 0 0 1px #0004;
+    text-shadow:0 1px 14px #000c;}
+  .loading-title{font-size:16px;font-weight:700;letter-spacing:0;}
+  .loading-detail{min-height:18px;margin-top:3px;color:#d9f4ff;font-size:12px;}
+  .loading-track{height:7px;margin-top:16px;border-radius:999px;overflow:hidden;background:#24313dcc;
+    box-shadow:0 0 0 1px #ffffff26 inset,0 8px 24px #0008;}
+  .loading-fill{height:100%;width:58%;border-radius:inherit;
+    background:linear-gradient(90deg,#1caad900,#5ad9ff,#ffffff,#5ad9ff,#1caad900);
+    box-shadow:0 0 18px #67ddffaa;animation:loading-slide 1.05s ease-in-out infinite;}
+  .loading-fill.determinate{width:var(--loading-progress,0%);min-width:3px;transform:none;
+    animation:none;background:linear-gradient(90deg,#1caad9,#79e4ff);transition:width .16s ease;}
+  @keyframes loading-slide{0%{transform:translateX(-115%);}100%{transform:translateX(235%);}}
+  @media (prefers-reduced-motion:reduce){.loading-fill{animation:none;width:68%;background:#ffffffd9;}}
   #script-panel{position:absolute;top:12px;right:12px;bottom:12px;width:min(720px,calc(100% - 24px));
-    display:none;flex-direction:column;background:#0d1117f2;border:1px solid var(--line);
-    border-radius:8px;box-shadow:0 18px 60px #0009;overflow:hidden;z-index:5;}
+    display:none;flex-direction:column;background:#ffffffF2;border:1px solid var(--line);
+    border-radius:4px;box-shadow:0 16px 44px #0003;overflow:hidden;z-index:5;}
   #script-panel.open{display:flex;}
   .script-head{display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--line);
-    background:#161b22;padding:8px 10px;}
+    background:#f7f7f7;padding:8px 10px;}
   .script-title{font-size:13px;font-weight:600;margin-right:auto;}
-  #script-panel pre{flex:1;overflow:auto;padding:12px;background:#0b0f16;color:#dbe8ff;
+  #script-panel pre{flex:1;overflow:auto;padding:12px;background:#1e2530;color:#dbe8ff;
     font:12px/1.55 "Cascadia Code","Consolas","SFMono-Regular",monospace;white-space:pre;}
   #script-panel code{font:inherit;}
 </style>
@@ -67,14 +139,17 @@
 <body>
 <div id="app">
   <header id="bar">
-    <a class="back" href="/web/gallery.html" title="返回模型库">← 模型库</a>
-    <span class="brand">Meshova</span>
-    <div class="seg">
+    <div class="bar-home">
+      <a class="back" href="/web/gallery.html" title="返回模型库">← 模型库</a>
+      <span class="brand">Mesh<span>ova</span></span>
+    </div>
+    <div class="bar-tools">
+      <div class="seg">
       <span class="label">环境</span>
       <select id="env"></select>
       <input id="envrot" type="range" min="0" max="360" step="5" value="0" title="环境旋转" />
     </div>
-    <div class="seg">
+      <div class="seg">
       <span class="label">背景</span>
       <select id="bgmode">
         <option value="env">环境天空</option>
@@ -82,28 +157,38 @@
         <option value="gradient">渐变</option>
         <option value="transparent">透明</option>
       </select>
-      <input id="bgcolor" type="color" value="#10141c" title="背景色 / 渐变上" />
-      <input id="bgcolor2" type="color" value="#05070b" title="渐变下" />
+      <input id="bgcolor" type="color" value="#f2f2f2" title="背景色 / 渐变上" />
+      <input id="bgcolor2" type="color" value="#d4d4d4" title="渐变下" />
     </div>
-    <div class="seg">
+      <div class="seg">
       <span class="label">视角</span>
       <button data-view="persp" class="mini on">透视</button>
       <button data-view="front" class="mini">正视</button>
       <button data-view="side" class="mini">侧视</button>
       <button data-view="top" class="mini">俯视</button>
     </div>
-    <div class="seg">
+      <div class="seg" id="draw-tools" style="display:none">
+      <span class="label">工作流</span>
+      <button id="edit-binding" class="mini">编辑路径</button>
+      <button id="draw-binding" class="mini">重绘路径</button>
+      <button id="draw-undo" class="mini" title="撤销绑定编辑（Ctrl+Z）">撤销</button>
+      <button id="draw-redo" class="mini" title="重做绑定编辑（Ctrl+Y）">重做</button>
+      <button id="draw-reset" class="mini">重置绘制</button>
+    </div>
+      <div class="seg">
       <span class="label">显示</span>
       <button id="wire" class="mini">线框</button>
       <button id="autorot" class="mini">自转</button>
       <button id="grid" class="mini on">网格</button>
       <button id="script-toggle" class="mini" title="查看当前程序化模型与材质脚本">脚本</button>
+      <button id="share" class="mini" title="复制可复现当前参数/材质/视角的分享链接">分享</button>
       <button id="reset" class="mini">复位</button>
     </div>
-    <div class="seg">
+      <div class="seg">
       <span class="label">调试视图</span>
       <select id="debug">
         <option value="off">关闭（PBR）</option>
+        <option value="lowpoly">Low Poly 面光照</option>
         <option value="toon">卡通 / 二次元</option>
         <option value="normal">法线</option>
         <option value="matcap">Matcap 泥膜</option>
@@ -111,20 +196,21 @@
         <option value="ao">环境光遮蔽</option>
       </select>
     </div>
-    <div class="seg" id="toon-ctl" style="display:none">
+      <div class="seg" id="toon-ctl" style="display:none">
       <span class="label">卡通</span>
       <label class="mini" title="色阶分段数">段<input id="toon-steps" type="range" min="2" max="6" step="1" value="4" style="width:60px;vertical-align:middle"></label>
       <label class="mini" title="描边粗细">边<input id="toon-outline" type="range" min="0" max="0.04" step="0.002" value="0.012" style="width:60px;vertical-align:middle"></label>
       <input id="toon-color" type="color" value="#12141a" title="描边颜色" style="width:28px;height:22px;vertical-align:middle;padding:0;border:none;background:none">
     </div>
-    <div class="seg">
+      <div class="seg">
       <span class="label">质感增强</span>
       <button id="edgewear" class="mini" title="曲率边缘磨损：凸边露金属">边缘磨损</button>
       <button id="pom" class="mini" title="视差遮蔽：高度图自遮挡深度">视差POM</button>
       <button id="rim" class="mini" title="菲涅尔边缘光：分离主体与背景">边缘光</button>
       <button id="fog" class="mini" title="体积雾 + 太阳光束(god rays)">体积雾</button>
+      <button id="cloudvol" class="mini on" title="体积云：云部件光线步进渲染为柔软水汽，替代硬网格外壳">体积云</button>
     </div>
-    <div class="seg">
+      <div class="seg">
       <span class="label">地面</span>
       <select id="floor">
         <option value="shadow">仅阴影</option>
@@ -133,10 +219,11 @@
       </select>
       <button id="dof" class="mini">景深</button>
     </div>
-    <div class="seg">
+      <div class="seg">
       <span class="label">OpPlan</span>
       <button id="plan-load" class="mini" title="从剪贴板/输入加载 OpPlan JSON">加载计划</button>
       <button id="plan-full" class="mini" title="渲染完整计划">完整</button>
+      </div>
     </div>
   </header>
   <div id="main">
@@ -152,7 +239,15 @@
     </aside>
     <main id="stage">
       <div id="hud"></div>
+      <div id="draw-status"></div>
       <div id="err"></div>
+      <div id="loading" aria-live="polite" aria-hidden="true">
+        <div class="loading-copy">
+          <div id="loading-title" class="loading-title">生成 3D 模型</div>
+          <div id="loading-detail" class="loading-detail">后台执行程序化建模脚本，页面保持响应</div>
+          <div class="loading-track"><div class="loading-fill"></div></div>
+        </div>
+      </div>
       <div id="script-panel" aria-hidden="true">
         <div class="script-head">
           <span class="script-title">当前程序化脚本</span>
@@ -165,16 +260,72 @@
     <aside id="right">
       <span class="label">程序化参数</span>
       <div id="params"></div>
+      <div id="opt-panel">
+        <div class="opt-head">
+          <span class="label">候选搜索</span>
+          <select id="opt-mode" class="mini" title="候选选择策略">
+            <option value="best">综合最佳</option>
+            <option value="pareto-knee">Pareto 膝点</option>
+            <option value="per-objective">目标最佳</option>
+            <option value="cluster-representatives">聚类代表</option>
+            <option value="diverse">差异最大</option>
+          </select>
+          <button id="opt-run" class="mini">采样</button>
+        </div>
+        <div id="opt-stats">暂无候选</div>
+        <div id="opt-candidates"></div>
+      </div>
       <div id="matparams"></div>
     </aside>
   </div>
 </div>
+<script>
+(() => {
+  let bootActive = true;
+  const setLoading = (on, detail = "加载查看器模块") => {
+    const stage = document.getElementById("stage");
+    const loading = document.getElementById("loading");
+    const loadingDetail = document.getElementById("loading-detail");
+    if (loadingDetail) loadingDetail.textContent = detail;
+    if (stage) stage.classList.toggle("loading", on);
+    if (loading) {
+      loading.classList.toggle("show", on);
+      loading.setAttribute("aria-hidden", on ? "false" : "true");
+    }
+  };
+  const failBoot = (msg) => {
+    setLoading(false);
+    const err = document.getElementById("err");
+    if (!err) return;
+    err.style.display = "flex";
+    err.textContent = msg;
+  };
+  const onError = (ev) => {
+    if (!bootActive) return;
+    failBoot(`加载查看器出错: ${ev.message || "未知错误"}`);
+  };
+  const onRejection = (ev) => {
+    if (!bootActive) return;
+    const reason = ev.reason;
+    failBoot(`加载查看器出错: ${reason?.message || reason || "未知错误"}`);
+  };
+  window.__meshovaBootDone = () => {
+    bootActive = false;
+    window.removeEventListener("error", onError);
+    window.removeEventListener("unhandledrejection", onRejection);
+    setLoading(false);
+  };
+  setLoading(true);
+  window.addEventListener("error", onError);
+  window.addEventListener("unhandledrejection", onRejection);
+})();
+</script>
 <script type="importmap">
 { "imports": {
   "three": "/web/vendor/three.module.js",
   "three/addons/": "/web/vendor/addons/"
 } }
 </script>
-<script type="module" src="/web/viewer.js"></script>
+<script type="module" src="/web/viewer.js?v=water7"></script>
 </body>
 </html>

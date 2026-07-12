@@ -6,17 +6,20 @@
 <title>Meshova 材质实验室</title>
 <style>
   :root{
-    --bg:#0e1116; --panel:#161b22; --line:#2b333d; --text:#e6edf3;
-    --muted:#8b98a5; --accent:#4da3ff;
+    --bg:#f2f4f7; --panel:#ffffff; --line:#d9dee7; --text:#1f2937;
+    --muted:#6b7280; --accent:#2499e8;
   }
   *{box-sizing:border-box;}
   html,body{margin:0;height:100%;background:var(--bg);color:var(--text);
     font-family:"Segoe UI",system-ui,sans-serif;overflow:hidden;}
   #app{display:flex;height:100%;}
-  #stage{flex:1;position:relative;min-width:0;}
-  #canvas{width:100%;height:100%;display:block;}
+  /* 浅色展台：贴近主查看器，避免材质预览沉进黑底。 */
+  #stage{flex:1;position:relative;min-width:0;
+    background:linear-gradient(180deg,#b9c4cf 0%,#aab5c1 100%);}
+  #canvas{width:100%;height:100%;display:block;background:transparent;}
   #hud{position:absolute;top:12px;left:12px;font-size:12px;color:var(--muted);
-    background:rgba(0,0,0,.4);padding:6px 10px;border-radius:6px;pointer-events:none;}
+    background:rgba(255,255,255,.72);border:1px solid var(--line);
+    padding:6px 10px;border-radius:6px;pointer-events:none;}
   #side{width:280px;background:var(--panel);border-left:1px solid var(--line);
     padding:16px;overflow-y:auto;display:flex;flex-direction:column;gap:18px;}
   h1{font-size:15px;margin:0 0 4px;font-weight:600;}
@@ -25,11 +28,11 @@
   .glabel{font-size:11px;text-transform:uppercase;letter-spacing:.05em;
     color:var(--muted);margin-bottom:2px;}
   .row{display:flex;flex-wrap:wrap;gap:6px;}
-  button.chip{background:#1e2530;border:1px solid var(--line);color:var(--text);
+  button.chip{background:#f5f7fb;border:1px solid var(--line);color:var(--text);
     padding:6px 10px;border-radius:6px;font-size:12px;cursor:pointer;}
   button.chip:hover{border-color:var(--accent);}
-  button.chip.active{background:var(--accent);border-color:var(--accent);color:#04121f;font-weight:600;}
-  select{width:100%;background:#1e2530;border:1px solid var(--line);color:var(--text);
+  button.chip.active{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600;}
+  select{width:100%;background:#f5f7fb;border:1px solid var(--line);color:var(--text);
     padding:7px 8px;border-radius:6px;font-size:13px;}
   label.field{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);}
   label.field input{accent-color:var(--accent);}
@@ -71,7 +74,6 @@
   "three/addons/": "/web/vendor/addons/"
 } }
 </script>
-<script type="module" src="/web/matlab.js"></script>
+<script type="module" src="/web/matlab.js?v=matlab-params2"></script>
 </body>
 </html>
-

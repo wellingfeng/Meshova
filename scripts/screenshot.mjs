@@ -11,6 +11,7 @@
  *   pnpm shot teddy persp,front "" pbr,normal,depth,matcap
  *   pnpm shot teddy tt8                 # 8-frame turntable regression set
  *   pnpm shot teddy orbit:45@20,front   # one 45deg orbit at 20deg elevation
+ *   pnpm shot scene current             # keep model-defined camera
  *
  * View tokens: named views (persp/front/side/top) plus turntable tokens —
  * "tt<N>" expands to N evenly spaced orbit frames, "orbit:<deg>[@<elev>]" poses
@@ -19,7 +20,7 @@
  *
  * channels (5th arg, comma-separated) drives multi-channel capture for the VLM
  * loop — one PNG per view per channel. Recognized: pbr (real PBR render),
- * normal, depth, matcap, ao. Defaults to "pbr". The non-pbr channels map onto
+ * lowpoly, toon, normal, depth, matcap, ao. Defaults to "pbr". The non-pbr channels map onto
  * __meshova.setDebugView() so a single pose yields aligned multi-channel images.
  */
 import { chromium } from "playwright";
@@ -85,7 +86,7 @@ function startServer() {
 }
 
 const { server, port } = await startServer();
-const base = `http://localhost:${port}`;
+const base = `http://127.0.0.1:${port}`;
 const outDir = join(ROOT, "out", "shots");
 await mkdir(outDir, { recursive: true });
 
@@ -109,7 +110,8 @@ page.on("pageerror", (e) => errors.push(String(e)));
 page.on("console", (m) => { if (m.type() === "error") errors.push(m.text()); });
 
 await page.goto(base + "/", { waitUntil: "networkidle" });
-await page.waitForFunction(() => !!window.__meshova, null, { timeout: 10000 });
+await page.addStyleTag({ content: "#critiqueBadge{display:none!important}" });
+await page.waitForFunction(() => !!window.__meshova, null, { timeout: 90000 });
 
 function findModelFile(modelArg) {
   const candidates = [
@@ -132,7 +134,14 @@ if (modelFile) {
 } else {
   await page.evaluate((id) => window.__meshova.loadModelById(id), modelId);
 }
+await page.evaluate(() => window.__meshova.setFxTime?.(1.25));
 await page.waitForTimeout(300);
+// Optional param overrides for procedural models via env: PARAMS='{"leafDensity":5}'.
+if (process.env.PARAMS) {
+  const overrides = JSON.parse(process.env.PARAMS);
+  await page.evaluate((o) => window.__meshova.setParams(o), overrides);
+  await page.waitForTimeout(300);
+}
 if (MATERIAL) {
   await page.evaluate((m) => window.__meshova.setMaterial(m), MATERIAL);
   await page.waitForTimeout(250);
@@ -180,7 +189,7 @@ function expandViews(tokens) {
 for (const view of expandViews(VIEWS)) {
   if (view.orbit !== undefined) {
     await page.evaluate(({ az, el }) => window.__meshova.setOrbit(az, el), { az: view.orbit, el: view.elev });
-  } else {
+  } else if (view.name !== "current") {
     await page.evaluate((v) => window.__meshova.setView(v), view.name);
   }
   for (const ch of CHANNELS) {
@@ -200,6 +209,11 @@ for (const view of expandViews(VIEWS)) {
   }
   // Restore real PBR after the pose's channels are done.
   await page.evaluate(() => window.__meshova.setDebugView("off"));
+}
+
+if (process.env.STATS === "1") {
+  const stats = await page.evaluate(() => window.__meshova.getRenderStats());
+  console.log("render stats: " + JSON.stringify(stats));
 }
 
 await browser.close();

@@ -23,6 +23,8 @@ export const HIDDEN_GALLERY_MODEL_IDS = new Set([
   "csg",
   "fterrain",
   "wineglass",
+  "blender-howtos",
+  "houdini-howtos",
 ]);
 
 export function isGalleryModelVisible(id) {

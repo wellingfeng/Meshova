@@ -159,7 +159,7 @@ export function buildWfcRooftopParts(params: Partial<WfcRooftopParams> = {}): Na
       if ((open.px || open.nx) && (open.pz || open.nz)) {
         const px = open.px ? x + cs / 2 - pt / 2 : x - cs / 2 + pt / 2;
         const pz = open.pz ? z + cs / 2 - pt / 2 : z - cs / 2 + pt / 2;
-        posts.push(transform(box(pt * 1.6, ph + 0.15, pt * 1.6), { translate: vec3(px, (ph + 0.15) / 2, pz) }));
+        posts.push(transform(box(pt * 1.6, ph + 0.15, pt * 1.6), { translate: vec3(px, (ph + 0.15) / 2 - 0.05, pz) }));
       }
     }
   }

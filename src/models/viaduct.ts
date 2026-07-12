@@ -172,7 +172,7 @@ export function buildViaductParts(params: Partial<ViaductParams> = {}): NamedPar
       spacing: p.pierSpacing,
       radius: p.pierRadius,
       groundY: 0,
-      deckThickness: p.deckThickness,
+      deckThickness: p.deckThickness + 0.81,
       shape: p.pierShape,
       taper: p.pierTaper,
     }),
@@ -202,7 +202,7 @@ export function buildViaductParts(params: Partial<ViaductParams> = {}): NamedPar
     const aw = p.halfWidth * 2 + 1.2;
     const ad = 2.2;
     const ah = 1.4;
-    for (const z of [-half + ad / 2, half - ad / 2]) {
+    for (const z of [-half - ad / 2, half + ad / 2]) {
       parts.push({
         name: z < 0 ? "abutment_s" : "abutment_n",
         label: z < 0 ? "南桥台" : "北桥台",
@@ -221,4 +221,3 @@ export function buildViaductParts(params: Partial<ViaductParams> = {}): NamedPar
 
   return parts;
 }
-

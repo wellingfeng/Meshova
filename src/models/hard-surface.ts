@@ -215,7 +215,7 @@ export function buildHardSurfaceKitParts(
   const bolts: Mesh[] = [];
   for (let i = 0; i < boltCount; i++) {
     const t = boltCount <= 1 ? 0 : i / boltCount;
-    const pos = frontPerimeterPoint(t, width * 0.82, height * 0.78, height * 0.5, hd + 0.095);
+    const pos = frontPerimeterPoint(t, width * 0.82, height * 0.78, height * 0.5, hd + 0.02);
     bolts.push(transform(cylinder(0.055, 0.045, 12, true), {
       rotate: vec3(Math.PI / 2, 0, 0),
       translate: pos,

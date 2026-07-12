@@ -49,12 +49,12 @@ describe("procedural interior room", () => {
     expect(a.positions).not.toEqual(b.positions);
   });
 
-  it("width and depth control floor extents", () => {
+  it("width and depth control the floor inside the wall shell", () => {
     const room = buildInteriorRoomParts({ width: 8, depth: 4 });
     const floor = room.find((p) => p.name === "wood_floor")!.mesh;
     const bb = bounds(floor);
-    expect(bb.max.x - bb.min.x).toBeCloseTo(8);
-    expect(bb.max.z - bb.min.z).toBeCloseTo(4);
+    expect(bb.max.x - bb.min.x).toBeCloseTo(8 - 0.12 * 2);
+    expect(bb.max.z - bb.min.z).toBeCloseTo(4 - 0.12 * 2);
   });
 
   it("doorOpen drives hinge geometry and joint value", () => {

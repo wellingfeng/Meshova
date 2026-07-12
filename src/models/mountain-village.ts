@@ -16,7 +16,6 @@ import {
   polyline,
   smoothCurve,
   resampleCurve,
-  roadRibbon,
   cloneField2D,
   box,
   cone,
@@ -24,12 +23,15 @@ import {
   translateMesh,
   rotateMesh,
   merge,
+  makeMesh,
   makeNoise,
   makeRng,
+  recomputeNormals,
   type NamedPart,
   type Curve,
   type Mesh,
 } from "../index.js";
+import { vec2 } from "../math/vec2.js";
 import { vec3 } from "../math/vec3.js";
 import type { Field2D } from "../field/buffer.js";
 
@@ -184,7 +186,7 @@ function drape(g: Grounder, curve: Curve, lift: number): Curve {
   };
 }
 
-const ROAD_COLOR: [number, number, number] = [0.34, 0.28, 0.22]; // packed dirt track
+const ROAD_COLOR: [number, number, number] = [0.5, 0.42, 0.31]; // compacted dirt track
 const SAND_A: [number, number, number] = [0.83, 0.76, 0.58];
 const SAND_B: [number, number, number] = [0.74, 0.66, 0.47];
 
@@ -201,8 +203,106 @@ const BUILDING_COLORS: [number, number, number][] = [
 // Roofs share one tone so the rooflines read as a unified settlement.
 const ROOF_COLOR: [number, number, number] = [0.46, 0.31, 0.27];
 
+const WINDOW_COLOR: [number, number, number] = [0.1, 0.15, 0.18];
+const DOOR_COLOR: [number, number, number] = [0.28, 0.16, 0.09];
+const STEP_COLOR: [number, number, number] = [0.54, 0.49, 0.41];
+const CHIMNEY_COLOR: [number, number, number] = [0.38, 0.24, 0.2];
 const TRUNK_COLOR: [number, number, number] = [0.32, 0.22, 0.14];
 const CONIFER_COLOR: [number, number, number] = [0.12, 0.34, 0.16];
+
+interface HouseSpec {
+  width: number;
+  depth: number;
+  bodyHeight: number;
+  roofHeight: number;
+  detailSeed: number;
+}
+
+interface Footprint {
+  minX: number;
+  maxX: number;
+  minZ: number;
+  maxZ: number;
+}
+
+function sampleHouseSpec(rng: ReturnType<typeof makeRng>): HouseSpec {
+  return {
+    width: rng.range(0.42, 0.72),
+    depth: rng.range(0.48, 0.82),
+    bodyHeight: rng.range(0.5, 1.1),
+    roofHeight: rng.range(0.18, 0.36),
+    detailSeed: rng.int(0, 10_000),
+  };
+}
+
+function rotatedFootprint(wx: number, wz: number, yaw: number, width: number, depth: number, pad = 0): Footprint {
+  const c = Math.cos(yaw);
+  const s = Math.sin(yaw);
+  const hx = width * 0.5;
+  const hz = depth * 0.5;
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minZ = Infinity;
+  let maxZ = -Infinity;
+  for (const lx of [-hx, hx]) {
+    for (const lz of [-hz, hz]) {
+      const x = wx + c * lx + s * lz;
+      const z = wz - s * lx + c * lz;
+      minX = Math.min(minX, x);
+      maxX = Math.max(maxX, x);
+      minZ = Math.min(minZ, z);
+      maxZ = Math.max(maxZ, z);
+    }
+  }
+  return { minX: minX - pad, maxX: maxX + pad, minZ: minZ - pad, maxZ: maxZ + pad };
+}
+
+function footprintGap(a: Footprint, b: Footprint): number {
+  const dx = a.maxX < b.minX ? b.minX - a.maxX : b.maxX < a.minX ? a.minX - b.maxX : 0;
+  const dz = a.maxZ < b.minZ ? b.minZ - a.maxZ : b.maxZ < a.minZ ? a.minZ - b.maxZ : 0;
+  return Math.hypot(dx, dz);
+}
+
+function footprintHasPoint(fp: Footprint, p: ReturnType<typeof vec3>, pad: number): boolean {
+  return p.x >= fp.minX - pad && p.x <= fp.maxX + pad && p.z >= fp.minZ - pad && p.z <= fp.maxZ + pad;
+}
+
+function footprintClear(fp: Footprint, occupied: Footprint[], minGap: number): boolean {
+  return occupied.every((other) => footprintGap(fp, other) >= minGap);
+}
+
+function localToWorld(
+  wx: number,
+  wz: number,
+  groundY: number,
+  yaw: number,
+  lx: number,
+  ly: number,
+  lz: number,
+): ReturnType<typeof vec3> {
+  const c = Math.cos(yaw);
+  const s = Math.sin(yaw);
+  return vec3(wx + c * lx + s * lz, groundY + ly, wz - s * lx + c * lz);
+}
+
+function localBox(
+  wx: number,
+  wz: number,
+  groundY: number,
+  yaw: number,
+  lx: number,
+  ly: number,
+  lz: number,
+  width: number,
+  height: number,
+  depth: number,
+): Mesh {
+  return translateMesh(
+    rotateMesh(box(width, height, depth), vec3(0, yaw, 0)),
+    localToWorld(wx, wz, groundY, yaw, lx, ly, lz),
+  );
+}
+
 /** Recolor terrain vertices as sand, darkening slightly with elevation. */
 function sandColors(field: Field2D): number[] {
   let min = Infinity;
@@ -225,6 +325,77 @@ function sandColors(field: Field2D): number[] {
   return out;
 }
 
+function roadMaskMesh(
+  g: Grounder,
+  centers: ReturnType<typeof vec3>[],
+  radius: number,
+  lift: number,
+): Mesh {
+  if (centers.length === 0) return makeMesh({ positions: [], normals: [], uvs: [], indices: [] });
+  const cell = g.size / (g.W - 1);
+  const testRadius = radius + cell * 0.15;
+  const testRadiusSq = testRadius * testRadius;
+  const positions: ReturnType<typeof vec3>[] = [];
+  const normals: ReturnType<typeof vec3>[] = [];
+  const uvs: ReturnType<typeof vec2>[] = [];
+  const indices: number[] = [];
+  const vertexMap = new Map<number, number>();
+
+  const nearRoad = (wx: number, wz: number, extra = 0): boolean => {
+    const rr = testRadiusSq + extra * extra + 2 * testRadius * extra;
+    for (const p of centers) {
+      const dx = wx - p.x;
+      const dz = wz - p.z;
+      if (dx * dx + dz * dz <= rr) return true;
+    }
+    return false;
+  };
+
+  const addVertex = (x: number, y: number): number => {
+    const key = y * g.W + x;
+    const existing = vertexMap.get(key);
+    if (existing !== undefined) return existing;
+    const tx = x / (g.W - 1);
+    const ty = y / (g.H - 1);
+    const wx = -g.half + tx * g.size;
+    const wz = -g.half + ty * g.size;
+    const out = positions.length;
+    vertexMap.set(key, out);
+    positions.push(vec3(wx, g.heightAt(wx, wz) + lift, wz));
+    normals.push(vec3(0, 1, 0));
+    uvs.push(vec2(wx * 0.22, wz * 0.22));
+    return out;
+  };
+
+  for (let y = 0; y < g.H - 1; y++) {
+    const z0 = -g.half + (y / (g.H - 1)) * g.size;
+    const z1 = -g.half + ((y + 1) / (g.H - 1)) * g.size;
+    for (let x = 0; x < g.W - 1; x++) {
+      const x0 = -g.half + (x / (g.W - 1)) * g.size;
+      const x1 = -g.half + ((x + 1) / (g.W - 1)) * g.size;
+      const cx = (x0 + x1) * 0.5;
+      const cz = (z0 + z1) * 0.5;
+      if (
+        !nearRoad(cx, cz, cell * 0.25) &&
+        !nearRoad(x0, z0) &&
+        !nearRoad(x1, z0) &&
+        !nearRoad(x0, z1) &&
+        !nearRoad(x1, z1)
+      ) {
+        continue;
+      }
+      const a = addVertex(x, y);
+      const b = addVertex(x, y + 1);
+      const c = addVertex(x + 1, y);
+      const d = addVertex(x + 1, y + 1);
+      indices.push(a, b, c, c, b, d);
+    }
+  }
+
+  if (indices.length === 0) return makeMesh({ positions: [], normals: [], uvs: [], indices: [] });
+  return recomputeNormals(makeMesh({ positions, normals, uvs, indices }));
+}
+
 /**
  * One low-poly building: a colored box body + a shared-tone pyramid roof,
  * rotated to face `yaw` (radians, around +Y) so it aligns with its road.
@@ -236,12 +407,12 @@ function buildingMeshes(
   wz: number,
   groundY: number,
   yaw: number,
-  rng: ReturnType<typeof makeRng>,
-): { body: Mesh; roof: Mesh } {
-  const w = rng.range(0.34, 0.5);
-  const d = rng.range(0.4, 0.62);
-  const bodyH = rng.range(0.45, 0.95);
-  const roofH = rng.range(0.16, 0.3);
+  spec: HouseSpec,
+): { body: Mesh; roof: Mesh; windows: Mesh[]; doors: Mesh[]; steps: Mesh[]; chimneys: Mesh[] } {
+  const w = spec.width;
+  const d = spec.depth;
+  const bodyH = spec.bodyHeight;
+  const roofH = spec.roofHeight;
   const body = translateMesh(
     rotateMesh(box(w, bodyH, d), vec3(0, yaw, 0)),
     vec3(wx, groundY + bodyH * 0.5, wz),
@@ -250,7 +421,38 @@ function buildingMeshes(
     rotateMesh(cone(Math.max(w, d) * 0.7, roofH, 4, true), vec3(0, yaw + Math.PI / 4, 0)),
     vec3(wx, groundY + bodyH + roofH * 0.5, wz),
   );
-  return { body, roof };
+  const windows: Mesh[] = [];
+  const doors: Mesh[] = [];
+  const steps: Mesh[] = [];
+  const chimneys: Mesh[] = [];
+
+  const winW = Math.max(0.075, Math.min(0.13, w * 0.22));
+  const winH = Math.max(0.085, Math.min(0.17, bodyH * 0.22));
+  const winY = Math.min(bodyH - winH * 0.8, bodyH * 0.68);
+  const windowXs = w > 0.54 ? [-w * 0.23, w * 0.23] : [0];
+  for (const x of windowXs) {
+    windows.push(localBox(wx, wz, groundY, yaw, x, winY, d * 0.5 + 0.018, winW, winH, 0.028));
+    if (spec.detailSeed % 3 !== 0) {
+      windows.push(localBox(wx, wz, groundY, yaw, x, winY, -d * 0.5 - 0.018, winW, winH, 0.028));
+    }
+  }
+  if (bodyH > 0.78) {
+    const upperX = spec.detailSeed % 2 === 0 ? 0 : w * 0.18;
+    windows.push(localBox(wx, wz, groundY, yaw, upperX, bodyH * 0.84, d * 0.5 + 0.018, winW * 0.85, winH * 0.85, 0.028));
+  }
+
+  const doorW = Math.max(0.12, Math.min(0.2, w * 0.34));
+  const doorH = Math.max(0.26, Math.min(0.44, bodyH * 0.58));
+  doors.push(localBox(wx, wz, groundY, yaw, 0, doorH * 0.5 + 0.015, d * 0.5 + 0.02, doorW, doorH, 0.035));
+  steps.push(localBox(wx, wz, groundY, yaw, 0, 0.025, d * 0.5 + 0.13, doorW * 1.5, 0.05, 0.2));
+
+  if (spec.detailSeed % 4 !== 1) {
+    const chimneyH = Math.max(0.12, roofH * 0.85);
+    const chimneyX = ((spec.detailSeed % 3) - 1) * w * 0.16;
+    chimneys.push(localBox(wx, wz, groundY, yaw, chimneyX, bodyH + roofH * 0.55 + chimneyH * 0.5, -d * 0.12, 0.075, chimneyH, 0.075));
+  }
+
+  return { body, roof, windows, doors, steps, chimneys };
 }
 
 /** One conifer: brown trunk cylinder + green cone canopy. */
@@ -326,7 +528,7 @@ export function buildMountainVillageParts(options: MountainVillageOptions = {}):
   //    web with intersections. Each is draped, then its corridor is carved flat
   //    into the heightfield (road bed) BEFORE meshing so roads sit cut-in.
   const roadLift = size * 0.004;
-  const roadHalf = size * 0.03; // wider -> actually visible tracks
+  const roadHalf = size * 0.022; // visible but leaves usable roadside parcels
   const roadShoulder = roadHalf * 1.8;
   const roadCurves: Curve[] = [];
   for (let i = 0; i < roadCount; i++) {
@@ -343,48 +545,69 @@ export function buildMountainVillageParts(options: MountainVillageOptions = {}):
   const terrainMesh = heightfieldToTerrainMesh(field, { size });
   parts.push({ name: "terrain", label: "沙地地形", mesh: terrainMesh, colors: sandColors(field) });
 
-  // 4. Road ribbons on the re-draped (now flattened) centerlines.
-  const roadMeshes: Mesh[] = [];
+  // 4. Road surface: build one terrain-following mask mesh instead of stacking
+  //    separate ribbons. Crossings become one surface, so no z-fighting stripes.
+  const roadPoints: ReturnType<typeof vec3>[] = [];
   for (const curve of roadCurves) {
     const draped = drape(g, curve, roadLift);
-    const ribbon = roadRibbon(draped, {
-      halfWidth: roadHalf,
-      sampleDistance: size * 0.018,
-      widthSubdivisions: 3,
-      adaptiveCurvature: true,
-      curvatureThresholdDeg: 8,
-      verticalOffset: 0,
-    });
-    if (ribbon.positions.length > 0) roadMeshes.push(ribbon);
+    const dense = resampleCurve(draped, { segmentLength: roadHalf * 0.45 });
+    roadPoints.push(...dense.points);
   }
-  if (roadMeshes.length > 0) {
+  const roadMesh = roadMaskMesh(g, roadPoints, roadHalf, size * 0.0006);
+  if (roadMesh.positions.length > 0) {
     parts.push({
       name: "roads",
       label: "道路",
-      mesh: roadMeshes.length === 1 ? roadMeshes[0]! : merge(...roadMeshes),
-      surface: { type: "stone", params: { color: ROAD_COLOR, roughness: 0.96, scale: 3 } },
+      mesh: roadMesh,
+      surface: { type: "dirtRoad", params: { color: ROAD_COLOR, rutStrength: 0.03, normalStrength: 0.35, seed: seed + 141 } },
       color: ROAD_COLOR,
     });
   }
+  const roadAvoidPoints = roadMesh.positions.length > 0 ? roadMesh.positions : roadPoints;
 
   // 5. Buildings line the roads: walk each centerline, offset plots left/right,
-  //    orient each to face the road. An occupancy grid enforces min spacing so
-  //    nothing overlaps. Denser near center, sparser toward the rim.
+  //    orient each facade toward the road. Footprint checks use the full road
+  //    network plus existing parcels, so houses leave readable alleys and never
+  //    sit on top of a crossing road.
   const brng = makeRng(seed * 17 + 3);
   const bodyBuckets: Mesh[][] = BUILDING_COLORS.map(() => []);
   const roofMeshes: Mesh[] = [];
+  const windowMeshes: Mesh[] = [];
+  const doorMeshes: Mesh[] = [];
+  const stepMeshes: Mesh[] = [];
+  const chimneyMeshes: Mesh[] = [];
+  const placedFootprints: Footprint[] = [];
   const occupancy = new Set<string>();
-  const cellW = Math.max(0.45, roadHalf * 1.6);
+  const cellW = Math.max(0.48, roadHalf * 1.5);
   const claim = (wx: number, wz: number): boolean => {
     const key = `${Math.round(wx / cellW)},${Math.round(wz / cellW)}`;
     if (occupancy.has(key)) return false;
     occupancy.add(key);
     return true;
   };
-  const setback = roadHalf + cellW * 0.55;
+  const plotSpacing = Math.max(size * 0.055, roadHalf * 1.8);
   let placed = 0;
+  const placeHouse = (wx: number, wz: number, yaw: number, spec: HouseSpec, minGap: number): boolean => {
+    const roadGap = Math.max(0.12, Math.min(0.18, minGap + 0.01));
+    const fp = rotatedFootprint(wx, wz, yaw, spec.width, spec.depth, 0.012);
+    if (fp.minX < -g.half * 0.96 || fp.maxX > g.half * 0.96 || fp.minZ < -g.half * 0.96 || fp.maxZ > g.half * 0.96) return false;
+    if (roadAvoidPoints.some((p) => footprintHasPoint(fp, p, roadGap))) return false;
+    if (!footprintClear(fp, placedFootprints, minGap)) return false;
+    if (!claim(wx, wz)) return false;
+    const groundY = g.heightAt(wx, wz);
+    const { body, roof, windows, doors, steps, chimneys } = buildingMeshes(wx, wz, groundY, yaw, spec);
+    const ci = brng.int(0, BUILDING_COLORS.length - 1);
+    bodyBuckets[ci]!.push(body);
+    roofMeshes.push(roof);
+    windowMeshes.push(...windows);
+    doorMeshes.push(...doors);
+    stepMeshes.push(...steps);
+    chimneyMeshes.push(...chimneys);
+    placedFootprints.push(fp);
+    return true;
+  };
   outer: for (const curve of roadCurves) {
-    const dense = resampleCurve(curve, { segmentLength: cellW * 0.9 });
+    const dense = resampleCurve(curve, { segmentLength: plotSpacing });
     const pts = dense.points;
     for (let i = 1; i < pts.length - 1; i++) {
       if (placed >= buildingCount) break outer;
@@ -395,24 +618,36 @@ export function buildMountainVillageParts(options: MountainVillageOptions = {}):
       const tlen = Math.hypot(tx, tz) || 1;
       const nx = -tz / tlen; // road normal
       const nz = tx / tlen;
-      const yaw = Math.atan2(tx, tz);
       for (const side of [-1, 1] as const) {
         if (placed >= buildingCount) break outer;
         const centerDist = Math.hypot(pts[i]!.x, pts[i]!.z) / g.half;
-        if (brng.next() > 1 - centerDist * 0.55) continue;
-        const jitter = brng.range(0, cellW * 0.5);
+        if (brng.next() > 0.94 - centerDist * 0.12) continue;
+        const spec = sampleHouseSpec(brng);
+        const minGap = Math.max(0.14, Math.max(spec.width, spec.depth) * 0.2);
+        const yaw = Math.atan2(-nx * side, -nz * side);
+        const setback = roadHalf + spec.depth * 0.5 + minGap;
+        const jitter = brng.range(0, plotSpacing * 0.32);
         const wx = pts[i]!.x + nx * side * (setback + jitter);
         const wz = pts[i]!.z + nz * side * (setback + jitter);
-        if (Math.abs(wx) > g.half * 0.95 || Math.abs(wz) > g.half * 0.95) continue;
-        if (!claim(wx, wz)) continue;
-        const groundY = g.heightAt(wx, wz);
-        const { body, roof } = buildingMeshes(wx, wz, groundY, yaw, brng);
-        const ci = brng.int(0, BUILDING_COLORS.length - 1);
-        bodyBuckets[ci]!.push(body);
-        roofMeshes.push(roof);
-        placed++;
+        if (placeHouse(wx, wz, yaw, spec, minGap)) placed++;
       }
     }
+  }
+
+  // Roadside placement can be sparse when many roads criss-cross the center.
+  // Fill remaining open parcels inside the village envelope, still rejecting
+  // any footprint that touches a road or another house.
+  const targetBuildings = Math.min(buildingCount, Math.max(18, Math.round(size * size * 0.34)));
+  const fillerAttempts = Math.max(220, targetBuildings * 80);
+  for (let attempt = 0; placed < targetBuildings && attempt < fillerAttempts; attempt++) {
+    const r = Math.sqrt(brng.next()) * g.half * 0.92;
+    const a = brng.next() * Math.PI * 2;
+    const wx = Math.cos(a) * r;
+    const wz = Math.sin(a) * r;
+    const spec = sampleHouseSpec(brng);
+    const minGap = Math.max(0.14, Math.max(spec.width, spec.depth) * 0.2);
+    const yaw = Math.atan2(-wx, -wz) + brng.range(-0.35, 0.35);
+    if (placeHouse(wx, wz, yaw, spec, minGap)) placed++;
   }
   bodyBuckets.forEach((meshes, ci) => {
     if (meshes.length === 0) return;
@@ -431,6 +666,42 @@ export function buildMountainVillageParts(options: MountainVillageOptions = {}):
       color: ROOF_COLOR,
     });
   }
+  if (windowMeshes.length > 0) {
+    parts.push({
+      name: "windows",
+      label: "窗户",
+      mesh: windowMeshes.length === 1 ? windowMeshes[0]! : merge(...windowMeshes),
+      surface: { type: "glass", params: { tint: WINDOW_COLOR, roughness: 0.32 } },
+      color: WINDOW_COLOR,
+    });
+  }
+  if (doorMeshes.length > 0) {
+    parts.push({
+      name: "doors",
+      label: "木门",
+      mesh: doorMeshes.length === 1 ? doorMeshes[0]! : merge(...doorMeshes),
+      surface: { type: "wood", params: { color: DOOR_COLOR, roughness: 0.88 } },
+      color: DOOR_COLOR,
+    });
+  }
+  if (stepMeshes.length > 0) {
+    parts.push({
+      name: "door_steps",
+      label: "门阶",
+      mesh: stepMeshes.length === 1 ? stepMeshes[0]! : merge(...stepMeshes),
+      surface: { type: "stone", params: { color: STEP_COLOR, roughness: 0.95 } },
+      color: STEP_COLOR,
+    });
+  }
+  if (chimneyMeshes.length > 0) {
+    parts.push({
+      name: "chimneys",
+      label: "烟囱",
+      mesh: chimneyMeshes.length === 1 ? chimneyMeshes[0]! : merge(...chimneyMeshes),
+      surface: { type: "stone", params: { color: CHIMNEY_COLOR, roughness: 0.9 } },
+      color: CHIMNEY_COLOR,
+    });
+  }
 
   // 6. Conifers around the rim: dense outside, sparse in the built-up core, and
   //    kept off roads/buildings via the shared occupancy grid.
@@ -444,6 +715,9 @@ export function buildMountainVillageParts(options: MountainVillageOptions = {}):
     const a = trng.next() * Math.PI * 2;
     const wx = Math.cos(a) * r;
     const wz = Math.sin(a) * r;
+    const treeFp = { minX: wx, maxX: wx, minZ: wz, maxZ: wz };
+    if (roadAvoidPoints.some((p) => footprintHasPoint(treeFp, p, roadHalf * 0.9))) continue;
+    if (!footprintClear(treeFp, placedFootprints, 0.28)) continue;
     if (!claim(wx, wz)) continue;
     const t = coniferMeshes(g, wx, wz, trng);
     trunks.push(t.trunk);

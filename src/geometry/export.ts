@@ -46,6 +46,19 @@ export interface PartTextureRef {
   shaded?: string;
 }
 
+/** One GPU instance transform. Arrays keep the data JSON-safe for the viewer. */
+export interface PartInstanceTransform {
+  position: [number, number, number];
+  rotation?: [number, number, number];
+  scale?: [number, number, number];
+}
+
+/** Optional render-only representation; `mesh` remains the realized CPU fallback. */
+export interface PartRenderInstances {
+  mesh: Mesh;
+  transforms: PartInstanceTransform[];
+}
+
 /** A named, optionally colored part for multi-material scene export. */
 export interface NamedPart {
   name: string;
@@ -60,6 +73,8 @@ export interface NamedPart {
   surface?: PartSurfaceRef;
   /** Optional imported PBR texture atlas refs. */
   textures?: PartTextureRef;
+  /** Render both triangle sides for thin shells/leaves. */
+  doubleSided?: boolean;
   /** Optional provenance/semantic metadata kept through viewer export. */
   metadata?: Record<string, unknown>;
   /**
@@ -67,6 +82,8 @@ export interface NamedPart {
    * wind shader: 0 = anchored (root/trunk base), 1 = max sway (leaf tips).
    */
   windWeight?: number[];
+  /** Reuse one base mesh through GPU instancing without changing CPU export/analysis. */
+  renderInstances?: PartRenderInstances;
 }
 
 /** Serialize a single mesh to OBJ text. */
@@ -157,10 +174,20 @@ export interface ViewerPart {
   surface?: PartSurfaceRef;
   /** Optional imported PBR texture atlas refs. */
   textures?: PartTextureRef;
+  /** Render both triangle sides for thin shells/leaves. */
+  doubleSided?: boolean;
   /** Optional provenance/semantic metadata. */
   metadata?: Record<string, unknown>;
   /** Optional per-vertex wind weight (0..1) for the viewer's wind shader. */
   windWeight?: number[];
+  /** Flattened render-only base mesh plus per-instance transforms. */
+  renderInstances?: {
+    positions: number[];
+    normals: number[];
+    uvs: number[];
+    indices: number[];
+    transforms: PartInstanceTransform[];
+  };
 }
 
 export interface ViewerModel {
@@ -205,8 +232,25 @@ export function toViewerModel(parts: NamedPart[], name = "model"): ViewerModel {
     if (part.textures) {
       vpart.textures = { ...part.textures };
     }
+    if (part.doubleSided) {
+      vpart.doubleSided = true;
+    }
     if (part.metadata) {
       vpart.metadata = { ...part.metadata };
+    }
+    if (part.renderInstances && part.renderInstances.transforms.length > 1) {
+      const base = part.renderInstances.mesh;
+      vpart.renderInstances = {
+        positions: base.positions.flatMap((p) => [p.x, p.y, p.z]),
+        normals: base.normals.flatMap((n) => [n.x, n.y, n.z]),
+        uvs: base.uvs.flatMap((uv) => [uv.x, uv.y]),
+        indices: base.indices.slice(),
+        transforms: part.renderInstances.transforms.map((instance) => ({
+          position: [...instance.position],
+          ...(instance.rotation ? { rotation: [...instance.rotation] as [number, number, number] } : {}),
+          ...(instance.scale ? { scale: [...instance.scale] as [number, number, number] } : {}),
+        })),
+      };
     }
     return vpart;
   });

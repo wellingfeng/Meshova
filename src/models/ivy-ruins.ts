@@ -14,12 +14,12 @@
  */
 import { vec3, type Vec3 } from "../math/vec3.js";
 import { makeRng } from "../random/prng.js";
-import { cylinder, box } from "../geometry/index.js";
+import { box, column, ruinify } from "../geometry/index.js";
 import { merge, type Mesh } from "../geometry/mesh.js";
 import { transform } from "../geometry/transform.js";
 import { subdivide, displaceByNoise } from "../geometry/ops.js";
 import {
-  cylinderSurface,
+  meshSurface,
   wallSurface,
   buildClimbingVineParts,
   type ClimbSurface,
@@ -45,20 +45,31 @@ const STONE: [number, number, number] = [0.72, 0.7, 0.64];
 const LEAF: [number, number, number] = [0.26, 0.5, 0.2];
 const WOOD: [number, number, number] = [0.3, 0.24, 0.14];
 
-/** A weathered stone column: fluted-ish shaft + wider cap/base drums, roughened. */
-function makeColumn(seed: number, radius: number, height: number): Mesh {
-  // shaft
-  let shaft = cylinder(radius, height, 20, true);
-  shaft = transform(shaft, { translate: vec3(0, height / 2, 0) });
-  // base drum + capital
-  let base = cylinder(radius * 1.28, radius * 0.6, 20, true);
-  base = transform(base, { translate: vec3(0, radius * 0.3, 0) });
-  let cap = cylinder(radius * 1.28, radius * 0.6, 20, true);
-  cap = transform(cap, { translate: vec3(0, height - radius * 0.3, 0) });
-  let col = merge(shaft, base, cap);
-  // weather the stone a touch so it doesn't read as clean CAD
-  col = displaceByNoise(subdivide(col, 1), { amount: radius * 0.05, scale: 3.5, seed });
-  return col;
+/**
+ * A weathered stone column. Upgraded to the real parametric `column()` (fluted,
+ * tapered shaft + proper base/capital) run through `ruinify` so tall columns
+ * read as broken/eroded ruins instead of clean cylinders. `broken` drives how
+ * much of the crown is bitten away.
+ */
+function makeColumn(seed: number, radius: number, height: number, broken: number): Mesh {
+  const col = column({
+    height,
+    radius,
+    segments: 20,
+    flutes: 16,
+    fluteDepth: 0.07,
+    taper: 0.14,
+    base: true,
+    capital: broken < 0.45, // heavily broken columns have lost their capital
+  });
+  return ruinify(col, {
+    seed,
+    crumble: broken,
+    erosion: 0.45,
+    chunks: 5,
+    chunkSize: 0.06,
+    cusp: 26,
+  });
 }
 
 /** Build the ruin scene as named parts (stone + ivy stem + ivy leaves merged). */
@@ -124,16 +135,15 @@ export function buildIvyRuinsParts(options: IvyRuinsOptions = {}): NamedPart[] {
     const x = (i - (nCols - 1) / 2) * 2.4;
     const h = heights[i]!;
     const colSeed = seed + 100 + i * 7;
-    let col = makeColumn(colSeed, cr, h);
+    // shorter columns are the "broken" ones: crumble their crown harder.
+    const broken = h < 2.6 ? 0.5 : 0.2;
+    let col = makeColumn(colSeed, cr, h, broken);
     col = transform(col, { translate: vec3(x, wallH, 0) });
     stoneMeshes.push(col);
 
-    // ivy climbs this column: a cylinder surface at the column center
-    const surf = cylinderSurface({
-      center: vec3(x, wallH, 0),
-      radius: cr * 1.05,
-      height: h,
-    });
+    // ivy adheres to the ACTUAL ruined column mesh (not a cylinder approx), so
+    // it hugs the flutes, broken crown and chunk bites via meshSurface.
+    const surf = meshSurface(col);
     pushIvy(
       buildClimbingVineParts(surf, {
         seed: colSeed + 3,
@@ -156,6 +166,10 @@ export function buildIvyRuinsParts(options: IvyRuinsOptions = {}): NamedPart[] {
       mesh: merge(...stoneMeshes),
       color: STONE,
       surface: { type: "stone", params: { color: STONE, roughness: 0.95, scale: 2.5 } },
+      // Columns are run through `ruinify` (crumble/erosion/chunks) on purpose:
+      // the open cross-sections and bitten crowns are the ruin aesthetic, not a
+      // broken-mesh defect. Declare it so the critic's hole check backs off.
+      metadata: { weathered: true },
     },
   ];
   if (ivyStems.length > 0) {

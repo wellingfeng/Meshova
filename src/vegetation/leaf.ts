@@ -1,8 +1,8 @@
 /**
  * Leaf cards — SpeedTree's final layer, ported.
  *
- * A leaf is a quad (optionally a cross of two perpendicular quads so it reads
- * from any angle). `scatterLeaves` distributes cards along the terminal
+ * A leaf is a shaped blade by default. Explicit quad/crossed-card modes remain
+ * for alpha-textured foliage and distant impostors. `scatterLeaves` distributes leaves along the terminal
  * branches, orienting them outward + upward with random yaw, scaled and jittered
  * deterministically. Cards carry UVs (0..1) so an alpha leaf texture maps on.
  *
@@ -20,7 +20,7 @@ import { curve1D, type Curve1DInput } from "./curve-param.js";
 import type { BranchPlacementMode } from "./branch.js";
 
 /**
- * A single leaf quad centered at `center`, facing `normal`, with `up` defining
+ * A single leaf quad rooted at `center`, facing `normal`, with `up` defining
  * the long axis. Width/height in world units. UVs span 0..1.
  */
 export function leafCard(center: Vec3, normal: Vec3, up: Vec3, width: number, height: number): Mesh {
@@ -69,7 +69,7 @@ export interface LeafMeshOptions {
 }
 
 /**
- * A real leaf blade mesh: shaped outline + UVs + optional curl/fold. Use this
+ * A real leaf blade mesh rooted at `center`: shaped outline + UVs + curl/fold. Use this
  * when silhouette matters more than a rectangular alpha card.
  */
 export function leafMesh(
@@ -101,23 +101,26 @@ export function leafMesh(
     const hw = (width * 0.5) * leafWidthProfile(shape, t);
     const curlOffset = curl * height * 0.18 * t * t;
     const foldOffset = fold * width * 0.22 * Math.sin(Math.PI * t);
-    for (const side of [-1, 1] as const) {
+    for (const side of [-1, 0, 1] as const) {
       const pos = add(
         add(center, scale(u, height * t)),
-        add(scale(right, hw * side), scale(n, curlOffset + foldOffset)),
+        add(scale(right, hw * side), scale(n, curlOffset + foldOffset * Math.abs(side))),
       );
       positions.push(pos);
       normals.push(roundedNormals ? normalize(add(n, add(scale(right, side * 0.35), scale(u, (t - 0.45) * 0.35)))) : n);
-      uvs.push(vec2(side < 0 ? 0 : 1, t));
+      uvs.push(vec2((side + 1) * 0.5, t));
     }
   }
 
   for (let i = 0; i < segments; i++) {
-    const a = i * 2;
-    const b = a + 1;
-    const c = a + 2;
-    const d = a + 3;
-    indices.push(a, b, c, b, d, c);
+    const left = i * 3;
+    const mid = left + 1;
+    const rightIndex = left + 2;
+    const nextLeft = left + 3;
+    const nextMid = left + 4;
+    const nextRight = left + 5;
+    indices.push(left, mid, nextLeft, mid, nextMid, nextLeft);
+    indices.push(mid, rightIndex, nextMid, rightIndex, nextRight, nextMid);
   }
 
   return makeMesh({ positions, normals, uvs, indices });
@@ -147,6 +150,8 @@ export interface ScatterLeavesOptions {
   aspect?: number;
   /** Random scale variation (0..1). */
   sizeJitter?: number;
+  /** Leaf scale multiplier sampled over normalized position along each terminal branch. */
+  scaleProfile?: Curve1DInput;
   /** Blend of card facing toward world-up vs branch-outward (0..1). */
   upBias?: number;
   /** Use crossed quads instead of single cards. */
@@ -155,6 +160,12 @@ export interface ScatterLeavesOptions {
   startPct?: number;
   /** Quad card or shaped procedural blade. */
   shape?: LeafShape;
+  /** Deterministically choose among several procedural leaf resources. */
+  shapeVariants?: LeafShape[];
+  /** Leaf long-axis angle relative to its default twig orientation, in degrees. */
+  angle?: number;
+  /** Symmetric random angle variation, in degrees. */
+  angleJitter?: number;
   /** Shape sample count for non-quad leaves. */
   leafSegments?: number;
   /** Tip curl for non-quad leaves. */
@@ -179,9 +190,12 @@ export function scatterLeaves(branches: BranchSegment[], opts: ScatterLeavesOpti
   const aspect = opts.aspect ?? 1.4;
   const sizeJitter = opts.sizeJitter ?? 0.3;
   const upBias = opts.upBias ?? 0.5;
-  const useCross = opts.cross ?? true;
+  const shape = opts.shape ?? "oval";
+  const shapeVariants = opts.shapeVariants?.length ? opts.shapeVariants : undefined;
+  const scaleProfile = curve1D(opts.scaleProfile, 1);
+  const angle = opts.angle ?? 0;
+  const angleJitter = Math.max(0, opts.angleJitter ?? 0);
   const startPct = opts.startPct ?? 0.4;
-  const shape = opts.shape ?? "quad";
   const densityProfile = curve1D(opts.densityProfile, 1);
   const placement = opts.placement ?? "golden";
   const rng = makeRng(opts.seed ?? 99);
@@ -200,9 +214,19 @@ export function scatterLeaves(branches: BranchSegment[], opts: ScatterLeavesOpti
       // Random yaw around the branch tangent so leaves fan around the twig.
       const yaw = rng.next() * Math.PI * 2;
       const rolledNormal = rotateAround(facing, frame.tangent, yaw);
-      const up = normalize(lerpVec3(frame.tangent, UP, 0.5));
-      const s = size * (1 - sizeJitter + rng.next() * sizeJitter * 2);
-      const instanceOpts: LeafInstanceOptions = { shape, cross: useCross };
+      const baseUp = normalize(lerpVec3(frame.tangent, UP, 0.5));
+      const leafAngle = (angle + (rng.next() * 2 - 1) * angleJitter) * Math.PI / 180;
+      const up = rotateAround(baseUp, rolledNormal, leafAngle);
+      const leafIndex = bi * 1000003 + i;
+      const profileScale = Math.max(0, scaleProfile(t, leafIndex));
+      const s = size * profileScale * (1 - sizeJitter + rng.next() * sizeJitter * 2);
+      const selectedShape = shapeVariants
+        ? shapeVariants[Math.min(shapeVariants.length - 1, Math.floor(rng.next() * shapeVariants.length))]!
+        : shape;
+      const instanceOpts: LeafInstanceOptions = {
+        shape: selectedShape,
+        cross: opts.cross ?? selectedShape === "quad",
+      };
       if (opts.leafSegments !== undefined) instanceOpts.leafSegments = opts.leafSegments;
       if (opts.curl !== undefined) instanceOpts.curl = opts.curl;
       if (opts.fold !== undefined) instanceOpts.fold = opts.fold;

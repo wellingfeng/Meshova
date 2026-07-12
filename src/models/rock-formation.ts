@@ -27,7 +27,7 @@ import { makeRng } from "../random/prng.js";
 import { fuseSpheres } from "../geometry/metaball.js";
 import { displaceByNoise } from "../geometry/ops.js";
 import { planeCut } from "../geometry/cut.js";
-import { recomputeNormals, type Mesh } from "../geometry/mesh.js";
+import { recomputeNormals, computeNormals, type Mesh } from "../geometry/mesh.js";
 import type { NamedPart } from "../geometry/export.js";
 
 export type RockMode = "boulder" | "shelf" | "cliff";
@@ -53,6 +53,17 @@ export interface RockOptions {
   strata?: number;
   /** Base color (linear RGB). Default warm sandstone grey. */
   color?: [number, number, number];
+  /**
+   * High-frequency chip detail on top of the coarse crag, as a fraction of
+   * radius. This is what turns a smooth blob into a chipped stone. Default 0.06.
+   */
+  chip?: number;
+  /**
+   * Facet the normals for a hard, angular stone read instead of the old smooth
+   * shading. This is the biggest visual upgrade — set 180 for fully smooth,
+   * ~22 for sharp facets. Default 24.
+   */
+  faceCusp?: number;
 }
 
 interface RockModeDefaults {
@@ -90,6 +101,8 @@ function resolveRock(options: RockOptions): RockResolved {
     cragFrequency: options.cragFrequency ?? 1.6,
     strata: options.strata ?? md.strata,
     color: options.color ?? [0.46, 0.42, 0.36],
+    chip: options.chip ?? 0.06,
+    faceCusp: options.faceCusp ?? 24,
   };
 }
 
@@ -117,12 +130,21 @@ export function buildRockFormationMesh(options: RockOptions = {}): Mesh {
   }
   let mesh = fuseSpheres(spheres, { resolution: opts.resolution });
 
-  // 2. craggy surface — push vertices along normals by fBm noise
+  // 2. craggy surface — push vertices along normals by fBm noise (coarse form),
+  //    then a second high-frequency pass for chipped stone detail. Two octave
+  //    bands read far more like real rock than one smooth blob.
   mesh = displaceByNoise(mesh, {
     amount: opts.radius * opts.crag,
     scale: opts.cragFrequency,
     seed: opts.seed + 101,
   });
+  if (opts.chip > 0) {
+    mesh = displaceByNoise(mesh, {
+      amount: opts.radius * opts.chip,
+      scale: opts.cragFrequency * 4.5,
+      seed: opts.seed + 202,
+    });
+  }
 
   // 3. strata cuts — slice flat horizontal ledges (rock shelf read). Each cut
   //    keeps the material below the plane and caps it, giving a flat shelf face.
@@ -141,7 +163,9 @@ export function buildRockFormationMesh(options: RockOptions = {}): Mesh {
       );
     }
   }
-  return recomputeNormals(mesh);
+  // 4. facet the normals so the stone reads hard/angular, not a smooth blob.
+  //    faceCusp>=180 falls back to fully smooth shading.
+  return opts.faceCusp >= 180 ? recomputeNormals(mesh) : computeNormals(mesh, opts.faceCusp);
 }
 
 /**

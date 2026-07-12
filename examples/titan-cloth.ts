@@ -38,4 +38,30 @@ function emit(id: string, name: string, parts: NamedPart[]) {
 
 emit("titan-cloth", "泰坦布料", buildTitanClothParts({ pinMode: 'corners', sag: 1.6 }));
 
+// Real XPBD cloth solve: flat grid pinned at the corners, settled under gravity.
+emit(
+  "titan-cloth-sim",
+  "泰坦布料·物理",
+  buildTitanClothParts({ physics: true, pinMode: "corners", simSteps: 80, stiffness: 0.9 }),
+);
+
+// Classic tablecloth-over-a-ball: no pins, cloth free-falls onto a sphere and
+// drapes down into pointed corner folds (matches the reference image).
+emit(
+  "titan-cloth-drape",
+  "泰坦布料·垂盖球",
+  buildTitanClothParts({
+    physics: true,
+    pinMode: "none",
+    simSteps: 120,
+    stiffness: 0.85,
+    colliderRadius: 1.2,
+    groundY: 0,
+    restHeight: 2.7,
+    width: 5,
+    depth: 5,
+    resolution: 48,
+  }),
+);
+
 fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));

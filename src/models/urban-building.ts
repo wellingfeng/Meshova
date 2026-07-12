@@ -34,6 +34,7 @@ import {
   taperMesh,
   type Mesh,
   type NamedPart,
+  type PartInstanceTransform,
   type PartSurfaceRef,
 } from "../geometry/index.js";
 
@@ -365,15 +366,25 @@ function finalizeBuilding(a: FinalizeArgs): NamedPart[] {
   const frameMeshes: Mesh[] = [];
   const glassDarkMeshes: Mesh[] = [];
   const glassLitMeshes: Mesh[] = [];
+  const frameInstances: PartInstanceTransform[] = [];
+  const glassDarkInstances: PartInstanceTransform[] = [];
+  const glassLitInstances: PartInstanceTransform[] = [];
   for (let i = 0; i < slots.length; i++) {
     const s = slots[i]!;
     const win = ribbon
       ? ribbonWindow(s.bayW, s.storeyH, p.windowRatio)
       : punchedWindow(s.bayW, s.storeyH, p.windowRatio);
+    const layout = ribbon
+      ? ribbonWindowBoxes(s.bayW, s.storeyH, p.windowRatio)
+      : punchedWindowBoxes(s.bayW, s.storeyH, p.windowRatio);
     const place = (m: Mesh) => translateMesh(transform(m, { rotate: vec3(0, s.yaw, 0) }), s.pos);
     frameMeshes.push(place(win.frame));
+    frameInstances.push(...placedWindowBoxes(layout.frame, s));
     const g = place(win.glass);
-    (slotLit[i] ? glassLitMeshes : glassDarkMeshes).push(g);
+    const glassMeshes = slotLit[i] ? glassLitMeshes : glassDarkMeshes;
+    const glassInstances = slotLit[i] ? glassLitInstances : glassDarkInstances;
+    glassMeshes.push(g);
+    glassInstances.push(...placedWindowBoxes(layout.glass, s));
   }
 
   // --- CROWN + roof plant + entrance ---
@@ -384,11 +395,29 @@ function finalizeBuilding(a: FinalizeArgs): NamedPart[] {
   const parts: NamedPart[] = [
     { name: "walls", mesh: merge(...walls), color: pal.wall, surface: pal.wallSurface },
     { name: "slabs", mesh: merge(...slabs), color: pal.trim, surface: pal.trimSurface },
-    { name: "window_frames", mesh: merge(...frameMeshes), color: pal.frame, surface: { type: "metal", params: { color: pal.frame, roughness: 0.4 } } },
-    { name: "windows", mesh: merge(...glassDarkMeshes), color: pal.glass, surface: { type: "glass", params: { tint: pal.glass, roughness: 0.05 } } },
+    {
+      name: "window_frames",
+      mesh: merge(...frameMeshes),
+      color: pal.frame,
+      surface: { type: "metal", params: { color: pal.frame, roughness: 0.4 } },
+      renderInstances: { mesh: box(1, 1, 1), transforms: frameInstances },
+    },
+    {
+      name: "windows",
+      mesh: merge(...glassDarkMeshes),
+      color: pal.glass,
+      surface: { type: "glass", params: { tint: pal.glass, roughness: 0.05 } },
+      renderInstances: { mesh: box(1, 1, 1), transforms: glassDarkInstances },
+    },
   ];
   if (glassLitMeshes.length > 0) {
-    parts.push({ name: "windows_lit", mesh: merge(...glassLitMeshes), color: pal.glassLit, surface: { type: "plastic", params: { color: pal.glassLit, roughness: 0.25 } } });
+    parts.push({
+      name: "windows_lit",
+      mesh: merge(...glassLitMeshes),
+      color: pal.glassLit,
+      surface: { type: "plastic", params: { color: pal.glassLit, roughness: 0.25 } },
+      renderInstances: { mesh: box(1, 1, 1), transforms: glassLitInstances },
+    });
   }
   if (piers.length > 0) {
     parts.push({ name: "piers", mesh: merge(...piers), color: pal.accent, surface: pal.trimSurface });
@@ -424,7 +453,7 @@ function collectFacadeSlots(
   rng: { next(): number },
   o: FacadeOpts,
 ): void {
-  const proud = 0.04;
+  const proud = 0.14;
   const bayWx = (o.hw * 2) / o.baysX;
   const bayWz = (o.hd * 2) / o.baysZ;
   // front (+Z) / back (-Z): bays along X
@@ -461,7 +490,7 @@ function collectPodiumGlazing(
   baysX: number,
   baysZ: number,
 ): void {
-  const proud = 0.05;
+  const proud = 0.14;
   const cy = y0 + podH * 0.55;
   const storeyH = podH * 0.72;
   const bayWx = (hw * 2) / baysX;
@@ -496,6 +525,80 @@ interface WindowModule {
   glass: Mesh;
 }
 
+interface WindowBox {
+  position: [number, number, number];
+  scale: [number, number, number];
+}
+
+interface WindowBoxLayout {
+  frame: WindowBox[];
+  glass: WindowBox[];
+}
+
+function placedWindowBoxes(boxes: WindowBox[], slot: Slot): PartInstanceTransform[] {
+  const c = Math.cos(slot.yaw);
+  const s = Math.sin(slot.yaw);
+  return boxes.map((item) => {
+    const [x, y, z] = item.position;
+    return {
+      position: [slot.pos.x + c * x + s * z, slot.pos.y + y, slot.pos.z - s * x + c * z],
+      rotation: [0, slot.yaw, 0],
+      scale: item.scale,
+    };
+  });
+}
+
+function punchedWindowBoxes(bayW: number, storeyH: number, ratio: number): WindowBoxLayout {
+  const r = Math.min(0.95, Math.max(0.2, ratio));
+  const w = bayW * r;
+  const h = storeyH * 0.72;
+  const t = Math.min(0.06, w * 0.12);
+  const dz = 0.03;
+  const paneW = Math.max(0.01, (w - t * 3) * 0.5);
+  const paneH = Math.max(0.01, h - t * 2.4);
+  const paneX = paneW * 0.5 + t * 0.65;
+  const glassZ = dz + 0.045;
+  return {
+    frame: [
+      { position: [0, h / 2, dz], scale: [w + t, t, 0.06] },
+      { position: [0, -h / 2, dz], scale: [w + t, t, 0.06] },
+      { position: [-w / 2, 0, dz], scale: [t, h + t, 0.06] },
+      { position: [w / 2, 0, dz], scale: [t, h + t, 0.06] },
+      { position: [0, 0, dz], scale: [t * 0.6, h, 0.05] },
+      { position: [0, -h / 2 - t * 0.6, dz + 0.04], scale: [w + t * 2, 0.05, 0.12] },
+    ],
+    glass: [
+      { position: [-paneX, 0, glassZ], scale: [paneW, paneH, 0.018] },
+      { position: [paneX, 0, glassZ], scale: [paneW, paneH, 0.018] },
+    ],
+  };
+}
+
+function ribbonWindowBoxes(bayW: number, storeyH: number, ratio: number): WindowBoxLayout {
+  const r = Math.min(0.95, Math.max(0.4, ratio));
+  const w = bayW * 0.98;
+  const h = storeyH * r;
+  const t = 0.04;
+  const dz = 0.025;
+  const paneW = Math.max(0.01, (w - t * 3.4) * 0.5);
+  const paneH = Math.max(0.01, h - t * 2.4);
+  const paneX = paneW * 0.5 + t * 0.55;
+  const glassZ = dz + 0.045;
+  return {
+    frame: [
+      { position: [0, h / 2, dz], scale: [w, t, 0.05] },
+      { position: [0, -h / 2, dz], scale: [w, t, 0.05] },
+      { position: [-w / 2 + t / 2, 0, dz], scale: [t, h, 0.05] },
+      { position: [w / 2 - t / 2, 0, dz], scale: [t, h, 0.05] },
+      { position: [0, 0, dz], scale: [t * 0.7, h, 0.045] },
+    ],
+    glass: [
+      { position: [-paneX, 0, glassZ], scale: [paneW, paneH, 0.018] },
+      { position: [paneX, 0, glassZ], scale: [paneW, paneH, 0.018] },
+    ],
+  };
+}
+
 /** Punched window: a discrete opening with a 4-sided frame + centre mullion. */
 function punchedWindow(bayW: number, storeyH: number, ratio: number): WindowModule {
   const r = Math.min(0.95, Math.max(0.2, ratio));
@@ -511,7 +614,14 @@ function punchedWindow(bayW: number, storeyH: number, ratio: number): WindowModu
     translateMesh(box(t * 0.6, h, 0.05), vec3(0, 0, dz)), // centre mullion
     translateMesh(box(w + t * 2, 0.05, 0.12), vec3(0, -h / 2 - t * 0.6, dz + 0.04)), // sill
   );
-  const glass = translateMesh(box(w, h, 0.02), vec3(0, 0, 0.01));
+  const paneW = Math.max(0.01, (w - t * 3) * 0.5);
+  const paneH = Math.max(0.01, h - t * 2.4);
+  const paneX = paneW * 0.5 + t * 0.65;
+  const glassZ = dz + 0.045;
+  const glass = merge(
+    translateMesh(box(paneW, paneH, 0.018), vec3(-paneX, 0, glassZ)),
+    translateMesh(box(paneW, paneH, 0.018), vec3(paneX, 0, glassZ)),
+  );
   return { frame, glass };
 }
 
@@ -531,7 +641,14 @@ function ribbonWindow(bayW: number, storeyH: number, ratio: number): WindowModul
     translateMesh(box(t, h, 0.05), vec3(w / 2 - t / 2, 0, dz)),
     translateMesh(box(t * 0.7, h, 0.045), vec3(0, 0, dz)),
   );
-  const glass = translateMesh(box(w - t, h - t, 0.02), vec3(0, 0, 0.01));
+  const paneW = Math.max(0.01, (w - t * 3.4) * 0.5);
+  const paneH = Math.max(0.01, h - t * 2.4);
+  const paneX = paneW * 0.5 + t * 0.55;
+  const glassZ = dz + 0.045;
+  const glass = merge(
+    translateMesh(box(paneW, paneH, 0.018), vec3(-paneX, 0, glassZ)),
+    translateMesh(box(paneW, paneH, 0.018), vec3(paneX, 0, glassZ)),
+  );
   return { frame, glass };
 }
 
@@ -618,8 +735,8 @@ function buildCrown(
     }
     case "flat":
     default: {
-      const slab = translateMesh(box(hw * 2 + 0.08, 0.1, hd * 2 + 0.08), vec3(0, topY + 0.05, 0));
-      const parapet = parapetRing(hw, hd, topY, ch * 0.5);
+      const slab = translateMesh(box(Math.max(0.2, hw * 2 - 0.16), 0.1, Math.max(0.2, hd * 2 - 0.16)), vec3(0, topY + 0.05, 0));
+      const parapet = parapetRing(hw, hd, topY + 0.1, ch * 0.5);
       return [
         { name: "roof", mesh: slab, color: pal.trim, surface: pal.trimSurface },
         { name: "parapet", mesh: parapet, color: pal.trim, surface: pal.trimSurface },

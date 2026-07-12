@@ -574,7 +574,7 @@ export function buildStylizedHumanoidParts(params: Partial<StylizedHumanoidParam
     addPart(parts, `iris_${side}`, transform(sphere(0.032, 12, 8), {
       scale: vec3(1, 1, 0.18),
       translate: vec3(eye.x, eye.y, eye.z + 0.092),
-    }), IRIS, "glass", { tint: IRIS, roughness: 0.04 });
+    }), IRIS, "glossPaint", { color: IRIS });
   }
 
   const nose = marks.noseTip ?? vec3(0, 3.68, 0.43);

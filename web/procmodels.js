@@ -29,11 +29,14 @@ import {
   bezier,
   polyline,
   smoothCurve,
+  curveLength,
   sweep,
   poissonScatter,
   union,
   subtract,
   intersect,
+  voxelRemesh,
+  boxUV,
   cleanMesh,
   withAttributes,
   displaceField,
@@ -58,6 +61,8 @@ import {
   ruleDensityNoise,
   ruleDensityPrune,
   ruleSelfPruning,
+  ruleSlopeFilter,
+  ruleVariantByHeight,
   ruleScaleJitter,
   ruleYawJitter,
   ruleClipToCurveBand,
@@ -81,27 +86,112 @@ import {
   buildBuildingParts,
   buildUrbanBuildingParts,
   urbanDefaults,
+  buildJapaneseStreetBuildingParts,
+  buildHongKongCyberHouseParts,
+  buildKowloonCyberCourtyardParts,
   buildChineseHallParts,
   buildMountainVillageParts,
+  buildXianxiaMountainsParts,
+  buildHouseGardenParts,
+  HOUSE_GARDEN_VARIANTS,
   buildMidnightHorseParts,
   buildReferenceDogParts,
   buildCityBlockParts,
+  buildCityDistrictParts,
+  buildRomanTownParts,
+  CITYGEN_DEFAULTS,
+  buildCitygenParts,
+  WATABOU_CITY_DEFAULTS,
+  buildWatabouCityParts,
+  TOWNSCAPER_DEFAULTS,
+  buildTownscaperParts,
+  CHINESE_TOWNSCAPER_DEFAULTS,
+  buildChineseTownscaperParts,
+  cityBlocks,
+  ringToPlate,
+  parcelOBB,
+  polygonCentroidXZ,
   buildStreetsceneParts,
   buildInteriorRoomParts,
+  buildProceduralBuildingParts,
   buildHardSurfaceKitParts,
   buildTerrainIslandParts,
+  buildLunarCraterSurfaceParts,
+  buildProceduralPlanetParts,
+  buildCropoutIslandPresetParts,
+  buildStylizedOceanEnvironmentParts,
   buildCloudParts,
   buildCloudSkyParts,
+  buildLowPolyVillageParts,
+  buildLowPolyCloudValleyParts,
+  buildLowPolyTropicalIslandParts,
+  buildLowPolyTreeKitParts,
+  buildMessengerPlanetParts,
+  buildWaterfallParts,
+  buildProceduralRiverParts,
+  buildRiverLakeParts,
+  buildPcgBiomeRiverParts,
   buildVineParts,
   buildVineStemMesh,
   buildIvyRuinsParts,
+  buildVineCoveredRockParts,
+  buildLowPolyIvyParts,
+  buildLowPolyIvyKitParts,
+  buildCrazyIvyWallParts,
   buildRootsParts,
   buildRootMesh,
   buildRockFormationParts,
   buildRockFormationMesh,
+  buildRockBorderSceneParts,
+  buildStylizedRockIslandParts,
+  buildPcgRockClusterParts,
+  buildPcgSnowSceneParts,
+  buildEasyCliffRockParts,
+  buildRealisticSplinePathParts,
+  buildHoudiniCaveParts,
+  buildUe5PcgCaveParts,
+  buildAttractorGridParts,
+  buildBraidRopeParts,
+  buildSpiralScalesParts,
+  buildDnaHelixParts,
+  buildGradientBoxParts,
+  buildRainingGardenParts,
+  buildBlenderHowtosShowcaseParts,
+  buildRockTileParts,
+  buildVoronoiPipeParts,
+  buildWafflePatternParts,
+  buildReactionDiffusionPlateParts,
+  buildGrasshopperHowtosShowcaseParts,
+  buildPackedCircleParts,
+  buildLandscapeContourParts,
+  buildRibbonLoopParts,
+  buildVoxelBunnyParts,
+  buildImageFieldReliefParts,
+  buildMeshReactionShellParts,
+  buildSuperformulaTowerParts,
+  buildOrigamiPavilionParts,
+  buildReactionDiffusionReliefParts,
+  buildField3DBlobParts,
+  buildPipeNetworkParts,
+  buildWovenPotParts,
+  buildSciFiPanelParts,
+  buildGrowthUrchinParts,
+  buildBspDungeonParts,
+  buildVoronoiVaseParts,
+  buildHoudiniHowtosShowcaseParts,
+  buildFabcafeWavySurfaceParts,
+  buildFabcafeTwistTowerParts,
+  buildFabcafeHoudiniShowcaseParts,
+  buildRoofGeneratorParts,
+  buildImageRemeshParts,
   ruleVariantBySlope,
   buildPolygonIslandParts,
   buildTerrainField,
+  buildPcgForestParts,
+  buildVegetationAssemblyPreset,
+  buildEcosystemArtToolParts,
+  buildEcosystemFeatureParts,
+  buildPcgPathfindingParts,
   classifyBiomes,
   overworldBiomeTable,
   scatterPointsOnField,
@@ -114,11 +204,13 @@ import {
   solveCloth,
   getFabric,
   tree,
+  scatterLeaves,
   growingTree,
   shrub,
   grass,
   conifer,
   palm,
+  fern,
   buildTreeFromGuide,
   buildSpeciesPlant,
   treeGuideFromSilhouette,
@@ -140,9 +232,19 @@ import {
   roadRibbon,
   roadCurbs,
   roadCenterLine,
+  roadLaneLines,
+  roadEdgeLines,
+  roadGuardrail,
+  roadsidePlacements,
   buildFreewayParts,
+  buildMultilevelInterchangeParts,
+  buildResidentialCommunityParts,
   buildRailwayParts,
   buildViaductParts,
+  buildSuspensionBridgeParts,
+  buildPcgBrickWallParts,
+  buildPcgPalisadeWallParts,
+  buildSplineStoneWallParts,
   buildTitanRailParts,
   buildTitanFenceParts,
   buildTitanCableParts,
@@ -172,18 +274,51 @@ import {
   buildTrafficSignalParts,
   buildUmbrellaTableParts,
   buildStreetTreeParts,
+  buildStreetLampParts,
+  buildFireHydrantParts,
+  buildParkBenchParts,
+  buildTrashcanParts,
+  buildTrafficConeParts,
   buildFreewaySignParts,
   buildMaterialStackParts,
   buildWaterTowerParts,
+  buildSidefxModularHouseParts,
+  buildSolarisMarketParts,
+  buildProceduralCactusParts,
+  buildProceduralSiloParts,
+  buildProceduralGameMapParts,
+  buildDualGridFarmParts,
+  buildDualGridForestCampParts,
+  buildDualGridRiverMillParts,
+  buildDualGridHillShrineParts,
+  buildDualGridMarshRuinsParts,
+  buildPcgCellMapParts,
+  buildPcgRiverValleyParts,
+  buildSurfaceSketchVineParts,
+  buildCliffPanelStudyParts,
+  buildRaycastRoofGardenParts,
+  buildRaycastAsteroidGardenParts,
+  buildRaycastCliffLightsParts,
+  buildRiceFieldParts,
   buildWfcRooftopParts,
   buildIntersectionParts,
+  buildRoundaboutTrafficParts,
   makeTerrainPrimitiveField,
   heightfieldToTerrainMesh,
   sampleField2DBilinear,
   makeMesh,
   recomputeNormals,
-} from "/dist/index.js";
-import { SPEEDTREE_TUTORIAL_MODELS } from "/web/speedtree-tutorial-procmodels.js";
+  computeNormals,
+  lathe,
+  makeRng,
+  buildDrawableFenceParts,
+  buildRegionGroveParts,
+  buildPathLightsParts,
+  DRAWABLE_FENCE_WORKFLOW,
+  REGION_GROVE_WORKFLOW,
+  PATH_LIGHTS_WORKFLOW,
+} from "/dist/index.js?v=lowpoly1";
+import { SPEEDTREE_TUTORIAL_MODELS } from "/web/speedtree-tutorial-procmodels.js?v=cloth2";
 
 /** @typedef {{ key:string, label:string, min:number, max:number, step:number, default:number }} ParamSpec */
 
@@ -249,12 +384,14 @@ function triplanarUV(m, density = 1) {
 function windSurfPart(name, mesh, type, params, mode = "tree") {
   const sp = surfPart(name, mesh, type, params);
   sp.windWeight = mode === "foliage" ? foliageWindWeights(mesh, 0.55, 0.45) : windWeights(mesh, {});
+  if (mode === "foliage") sp.doubleSided = true;
   return sp;
 }
 
 function speedTreePart(name, mesh, type, params, windKind, seed) {
   const sp = surfPart(name, mesh, type, params);
   sp.windWeight = windChannels(mesh, { kind: windKind, seed }).combined;
+  if (windKind === "foliage" || windKind === "grass" || windKind === "frond") sp.doubleSided = true;
   return sp;
 }
 
@@ -269,19 +406,20 @@ function normalizedSpeedTreeLibraryEntry(input) {
   };
 }
 
-function speedTreeLibrarySchema(entry, defaults) {
+function speedTreeLibrarySchema(entry, defaults, recipe) {
   const hMax = Math.max(2, defaults.height * 2.2);
+  const cactus = recipe?.kind === "cactus";
   return [
     { key: "seed", label: "随机种子", min: 0, max: 999999, step: 1, default: defaults.seed },
     { key: "height", label: "整体高度", min: 0.2, max: hMax, step: 0.05, default: defaults.height },
-    { key: "trunkScale", label: "枝干粗细", min: 0.25, max: 3, step: 0.01, default: defaults.trunkScale },
-    { key: "crownScale", label: "冠幅/扩散", min: 0.2, max: 3, step: 0.01, default: defaults.crownScale },
-    { key: "crownDepth", label: "冠层深度", min: 0.2, max: 3, step: 0.01, default: defaults.crownDepth },
-    { key: "branchAngle", label: "分枝角度偏移", min: -45, max: 45, step: 1, default: defaults.branchAngle },
-    { key: "branchCount", label: "枝/茎数量", min: 0.1, max: 3, step: 0.05, default: defaults.branchCount },
-    { key: "leafDensity", label: "叶/花密度", min: 0, max: 3, step: 0.05, default: defaults.leafDensity },
-    { key: "leafSize", label: "叶/花尺寸", min: 0.2, max: 3, step: 0.01, default: defaults.leafSize },
-    { key: "gnarl", label: "枝干扭曲", min: 0, max: 3, step: 0.01, default: defaults.gnarl },
+    { key: "trunkScale", label: cactus ? "肉质茎粗细" : "枝干粗细", min: 0.25, max: 3, step: 0.01, default: defaults.trunkScale },
+    { key: "crownScale", label: cactus ? "横向扩展" : "冠幅/扩散", min: 0.2, max: 3, step: 0.01, default: defaults.crownScale },
+    { key: "crownDepth", label: cactus ? "前后厚度" : "冠层深度", min: 0.2, max: 3, step: 0.01, default: defaults.crownDepth },
+    { key: "branchAngle", label: cactus ? "分枝角度" : "分枝角度偏移", min: -45, max: 45, step: 1, default: defaults.branchAngle },
+    { key: "branchCount", label: cactus ? "肉质茎数量" : "枝/茎数量", min: 0.1, max: 3, step: 0.05, default: defaults.branchCount },
+    { key: "leafDensity", label: cactus ? "刺座密度" : "叶/花密度", min: 0, max: 3, step: 0.05, default: defaults.leafDensity },
+    { key: "leafSize", label: cactus ? "肉质茎/刺尺寸" : "叶/花尺寸", min: 0.2, max: 3, step: 0.01, default: defaults.leafSize },
+    { key: "gnarl", label: cactus ? "茎体弯曲" : "枝干扭曲", min: 0, max: 3, step: 0.01, default: defaults.gnarl },
     { key: "lean", label: "整体倾斜", min: -2, max: 2, step: 0.01, default: defaults.lean },
   ];
 }
@@ -298,7 +436,8 @@ export function makeSpeedTreeLibraryModel(procedural = {}, fallbackName = "Mesho
   return {
     id,
     name: procedural.name || fallbackName || recipe.label,
-    schema: speedTreeLibrarySchema(entry, defaults),
+    critiqueGoal: `${recipe.label} ${recipe.kind} plant`,
+    schema: speedTreeLibrarySchema(entry, defaults, recipe),
     defaultParams: () => ({ ...defaults }),
     build(params) {
       return buildSpeedTreeLibraryPlant(entry, { quality, params });
@@ -442,10 +581,218 @@ const rockPile = {
   },
 };
 
-// ---- PCG vegetated terrain: the UE Electric Dreams scatter pipeline ----
-// Terrain mesh -> surface sample -> slope density (陡坡不长草) -> noise density
-// (疏密团簇) -> self-pruning (不穿模) -> clear a road band (Difference) ->
-// copy tree/rock assemblies to the surviving points. All deterministic (seed).
+const stylizedRockIslandModel = {
+  id: "stylized-rock-island",
+  name: "风格化浮岛岩",
+  category: "自然",
+  assetMeta: {
+    description: "复刻 Houdini 风格化岩石：分块竖崖、内收底部、阶梯顶台与黄绿草盖。",
+    tags: ["岩石", "浮岛", "风格化", "Houdini", "程序化复刻"],
+    capabilities: ["分块崖壁", "锥化底部", "阶梯台地", "草地顶盖", "种子变体"],
+    materialClasses: ["冷灰岩石", "深色岩缝", "草地"],
+  },
+  schema: [
+    { key: "size", label: "浮岛尺寸", min: 2.5, max: 14, step: 0.1, default: 6.4 },
+    { key: "cliffHeight", label: "崖壁高度", min: 1.5, max: 9, step: 0.1, default: 3.8 },
+    { key: "chunksPerSide", label: "每侧岩块", min: 3, max: 16, step: 1, default: 8 },
+    { key: "terraces", label: "顶部阶数", min: 0, max: 4, step: 1, default: 2 },
+    { key: "jaggedness", label: "岩面破碎度", min: 0, max: 0.8, step: 0.01, default: 0.34 },
+    { key: "grassInset", label: "草地边距", min: 0.02, max: 0.35, step: 0.01, default: 0.12 },
+    { key: "seed", label: "随机种子", min: 0, max: 999, step: 1, default: 18 },
+  ],
+  build(p) {
+    return buildStylizedRockIslandParts({
+      ...p,
+      seed: Math.round(p.seed),
+      chunksPerSide: Math.round(p.chunksPerSide),
+      terraces: Math.round(p.terraces),
+    });
+  },
+};
+
+const pcgRockCluster = {
+  id: "pcg-rock-cluster",
+  name: "PCG 岩石群落（教程复刻）",
+  category: "程序工作流",
+  assetMeta: {
+    description: "主石作为群落核心，伴生石与碎石按距离环聚，尺寸向外衰减，随机旋转缩放。",
+    tags: ["PCG", "岩石", "群落", "距离衰减", "确定性散布"],
+    capabilities: ["群落中心采样", "分层资产选择", "环形散布", "尺寸衰减", "种子复现"],
+    materialClasses: ["岩石", "土壤"],
+  },
+  schema: [
+    { key: "clusterCount", label: "群落数量", min: 1, max: 10, step: 1, default: 5 },
+    { key: "rocksPerCluster", label: "每群石块数", min: 6, max: 50, step: 1, default: 22 },
+    { key: "areaSize", label: "场地尺寸", min: 6, max: 28, step: 0.5, default: 14 },
+    { key: "clusterRadius", label: "群落半径", min: 0.7, max: 3.5, step: 0.05, default: 2 },
+    { key: "heroScale", label: "主石尺寸", min: 0.4, max: 2.5, step: 0.05, default: 1 },
+    { key: "falloff", label: "向外尺寸衰减", min: 0.2, max: 3, step: 0.05, default: 1.35 },
+    { key: "roughness", label: "岩面破碎度", min: 0, max: 0.35, step: 0.01, default: 0.16 },
+    { key: "includeGround", label: "显示土壤地面", min: 0, max: 1, step: 1, default: 1 },
+    { key: "seed", label: "随机种子", min: 0, max: 999, step: 1, default: 17 },
+  ],
+  build(params) {
+    return buildPcgRockClusterParts({
+      clusterCount: Math.round(params.clusterCount),
+      rocksPerCluster: Math.round(params.rocksPerCluster),
+      areaSize: params.areaSize,
+      clusterRadius: params.clusterRadius,
+      heroScale: params.heroScale,
+      falloff: params.falloff,
+      roughness: params.roughness,
+      includeGround: Math.round(params.includeGround) === 1,
+      seed: Math.round(params.seed),
+    });
+  },
+};
+
+const pcgSnowScene = {
+  id: "pcg-snow-scene",
+  name: "PCG 自定义积雪场景",
+  schema: [
+    { key: "size", label: "场景尺寸", min: 5, max: 14, step: 0.5, default: 8 },
+    { key: "coverage", label: "积雪覆盖率", min: 0, max: 1, step: 0.02, default: 0.78 },
+    { key: "snowDepth", label: "积雪厚度", min: 0.03, max: 0.3, step: 0.01, default: 0.11 },
+    { key: "treeHeight", label: "枯树高度", min: 2.5, max: 6, step: 0.1, default: 4.2 },
+    { key: "seed", label: "随机种子", min: 0, max: 100, step: 1, default: 23 },
+  ],
+  build(params) {
+    return buildPcgSnowSceneParts(params);
+  },
+};
+
+// ---- PCG forest: terrain masks -> path difference -> layered vegetation ----
+const pcgForest = {
+  id: "pcg-forest",
+  name: "程序化混交森林",
+  schema: [
+    { key: "size", label: "林地尺寸", min: 20, max: 100, step: 2, default: 56 },
+    { key: "resolution", label: "地形精度", min: 32, max: 128, step: 8, default: 72 },
+    { key: "relief", label: "地形起伏", min: 1, max: 16, step: 0.5, default: 5.5 },
+    { key: "candidates", label: "乔木候选点", min: 100, max: 1600, step: 50, default: 720 },
+    { key: "slopeMax", label: "最大生长坡度°", min: 20, max: 60, step: 1, default: 40 },
+    { key: "clumping", label: "林斑空隙", min: 0, max: 0.9, step: 0.02, default: 0.34 },
+    { key: "spacing", label: "乔木间距", min: 1.5, max: 6, step: 0.1, default: 3.1 },
+    { key: "coniferLine", label: "针叶海拔线", min: 0.2, max: 0.9, step: 0.02, default: 0.64 },
+    { key: "pathWidth", label: "林间小径宽", min: 0.8, max: 6, step: 0.1, default: 2.4 },
+    { key: "shrubs", label: "林下灌木", min: 0, max: 1, step: 0.05, default: 0.7 },
+    { key: "rocks", label: "苔石密度", min: 0, max: 1, step: 0.05, default: 0.38 },
+    { key: "deadwood", label: "倒木密度", min: 0, max: 1, step: 0.05, default: 0.3 },
+    { key: "canopy", label: "树冠丰满度", min: 0.5, max: 1.5, step: 0.05, default: 1 },
+    { key: "seed", label: "随机种子", min: 0, max: 100, step: 1, default: 11 },
+  ],
+  build(p) {
+    return buildPcgForestParts(p);
+  },
+};
+
+const ecosystemArtTool = {
+  id: "ecosystem-art-tool",
+  name: "生态艺术工具（视频复刻）",
+  category: "程序生态",
+  assetMeta: {
+    description: "生态层表驱动；组合地形掩码、笔刷排除、确定性散布、空间分块与 GPU 实例缓冲。",
+    tags: ["PCG", "生态", "ScatterTable", "MaskField", "HISM", "视频复刻"],
+    capabilities: ["分层生态", "道路避让", "笔刷清除", "坡度过滤", "分块烘焙", "种子复现"],
+    materialClasses: ["植被", "木材", "岩石", "土壤"],
+  },
+  schema: [
+    { key: "size", label: "生态范围", min: 20, max: 100, step: 2, default: 54 },
+    { key: "resolution", label: "地形精度", min: 24, max: 128, step: 8, default: 64 },
+    { key: "relief", label: "地形起伏", min: 0.5, max: 16, step: 0.5, default: 5.2 },
+    { key: "density", label: "总体密度", min: 0.05, max: 1, step: 0.05, default: 0.72 },
+    { key: "slopeMax", label: "最大生长坡度°", min: 12, max: 70, step: 1, default: 42 },
+    { key: "treeSpacing", label: "乔木间距", min: 1.4, max: 8, step: 0.1, default: 3.2 },
+    { key: "pathWidth", label: "道路宽度", min: 0.5, max: 8, step: 0.1, default: 2.2 },
+    { key: "clusterScale", label: "生态聚类尺度", min: 0, max: 1, step: 0.02, default: 0.42 },
+    { key: "paintGap", label: "笔刷清除半径", min: 0, max: 12, step: 0.2, default: 3.8 },
+    { key: "chunkSize", label: "烘焙分块尺寸", min: 4, max: 40, step: 1, default: 14 },
+    { key: "season", label: "季节", min: 0, max: 1, step: 0.02, default: 0.16 },
+    { key: "seed", label: "随机种子", min: 0, max: 100, step: 1, default: 27 },
+  ],
+  build(p) {
+    return buildEcosystemArtToolParts(p);
+  },
+};
+
+function ecosystemFeatureModel(id, name, feature, description, capabilities) {
+  return {
+    id,
+    name,
+    category: "程序生态",
+    assetMeta: {
+      description,
+      tags: ["PCG", "生态", "Field", "确定性", "生产工具"],
+      capabilities,
+      materialClasses: ["植被", "木材", "岩石", "土壤", "水体"],
+    },
+    schema: [
+      { key: "density", label: "生态密度", min: 0.1, max: 1, step: 0.05, default: 0.72 },
+      { key: "season", label: "季节状态", min: 0, max: 1, step: 0.02, default: 0.2 },
+      { key: "seed", label: "随机种子", min: 0, max: 100, step: 1, default: 31 },
+    ],
+    build(p) {
+      return buildEcosystemFeatureParts(feature, p);
+    },
+  };
+}
+
+const ecosystemBrushEditor = ecosystemFeatureModel(
+  "ecosystem-brush-editor",
+  "生态笔刷编辑器",
+  "brush-editor",
+  "补种、擦除、密度涂抹、物种替换与实时笔刷范围预览。",
+  ["补种", "擦除", "密度涂抹", "物种替换", "笔刷预览"],
+);
+
+const biomeBlendWorld = ecosystemFeatureModel(
+  "biome-blend-world",
+  "多 Biome 混合世界",
+  "biome-blend",
+  "森林、草地、湿地按高度、坡度、湿度与流域连续混合。",
+  ["Biome 权重", "高度过滤", "坡度过滤", "湿度场", "流域过渡"],
+);
+
+const ecosystemBakePipeline = ecosystemFeatureModel(
+  "ecosystem-bake-pipeline",
+  "生态 Bake 生产管线",
+  "bake-contract",
+  "预览到实例、碰撞、LOD、分块、导出的显式可验证契约。",
+  ["实例缓冲", "碰撞代理", "LOD 契约", "空间分块", "导出阶段"],
+);
+
+const ecologicalAssociation = ecosystemFeatureModel(
+  "ecological-association",
+  "生态关联规则",
+  "association-rules",
+  "树荫、岩石、道路等邻域条件驱动伴生与排除规则。",
+  ["邻域偏好", "邻域排除", "道路退让", "岩石伴生", "确定性筛选"],
+);
+
+const ecosystemLodStreaming = ecosystemFeatureModel(
+  "ecosystem-lod-streaming",
+  "生态分块流送与 LOD",
+  "lod-streaming",
+  "近景网格、中景简模、远景 Impostor、超远裁剪。",
+  ["空间流送", "近景网格", "中景简模", "远景 Impostor", "距离裁剪"],
+);
+
+const terrainEcologyFeedback = ecosystemFeatureModel(
+  "terrain-ecology-feedback",
+  "地形—生态反馈",
+  "terrain-feedback",
+  "侵蚀、水流与沉积生成湿度、肥力场，再反向驱动植被。",
+  ["侵蚀场", "水流场", "沉积场", "湿度", "肥力"],
+);
+
+const ecosystemSuccession = ecosystemFeatureModel(
+  "ecosystem-succession",
+  "季节与生态演替",
+  "succession",
+  "裸地、先锋草本、灌木、幼林、成熟林及火烧恢复序列。",
+  ["生长阶段", "季节变色", "火烧扰动", "采伐扰动", "恢复演替"],
+);
+
 const pcgVegetation = {
   id: "pcg-vegetation",
   name: "PCG 植被地形",
@@ -479,6 +826,58 @@ const pcgVegetation = {
     return buildPcgVegetationParts(p, terrain, size);
   },
 };
+
+function vegetationAssemblyModel(id, name, preset, description) {
+  return {
+    id,
+    name,
+    assetMeta: {
+      description,
+      tags: ["Assembly Collection", "位置种子", "语义替换", "植被构图"],
+      capabilities: ["同类资产变体", "相对布局保持", "确定性生成", "实时调参"],
+      source: "BV1LZftBWELc 技术复刻",
+    },
+    schema: [
+      { key: "seed", label: "随机种子", min: 0, max: 100, step: 1, default: 7 },
+      { key: "locationX", label: "位置种子 X", min: -20, max: 20, step: 1, default: 0 },
+      { key: "locationZ", label: "位置种子 Z", min: -20, max: 20, step: 1, default: 0 },
+      { key: "spread", label: "构图展开", min: 0.72, max: 1.35, step: 0.01, default: 1 },
+      { key: "treeScale", label: "主树比例", min: 0.65, max: 1.35, step: 0.01, default: 1 },
+      { key: "density", label: "地被密度", min: 0.2, max: 1, step: 0.05, default: 1 },
+    ],
+    build(p) {
+      return buildVegetationAssemblyPreset(preset, {
+        seed: p.seed,
+        locationX: p.locationX,
+        locationZ: p.locationZ,
+        spread: p.spread,
+        treeScale: p.treeScale,
+        density: p.density,
+      });
+    },
+  };
+}
+
+const assemblyFlowerIsland = vegetationAssemblyModel(
+  "assembly-flower-island",
+  "Assembly 花境岛",
+  "flower-island",
+  "主树、灌木、花簇、地被与景石保持相对构图，同类资产按位置种子替换。",
+);
+
+const assemblyWoodlandEdge = vegetationAssemblyModel(
+  "assembly-woodland-edge",
+  "Assembly 林缘组合",
+  "woodland-edge",
+  "深浅绿林缘层次；移动位置种子获得稳定的新植被变体。",
+);
+
+const assemblyDryRockery = vegetationAssemblyModel(
+  "assembly-dry-rockery",
+  "Assembly 旱溪岩组",
+  "dry-rockery",
+  "针叶主景、暖色花草与层叠岩石组成的干旱景观模块。",
+);
 
 function buildPcgVegetationParts(p, terrain, size) {
   // 2) surface scatter, then the density/pruning pipeline.
@@ -552,6 +951,37 @@ function buildPcgVegetationParts(p, terrain, size) {
 // point by how steep the ground is: flat = ground creeper, mid = climbing ivy,
 // cliff = woody liana. Each species is a small pre-grown vine stem instanced by
 // copyToPoints. This is "陡坡长藤本、平地长匍匐藤" as a two-line rule chain.
+const pcgPathfindingModel = {
+  id: "pcg-pathfinding",
+  name: "PCG 地表寻路",
+  schema: [
+    { key: "size", label: "地形尺寸", min: 60, max: 180, step: 5, default: 120 },
+    { key: "resolution", label: "地形精度", min: 33, max: 97, step: 8, default: 65 },
+    { key: "terrainRelief", label: "地形起伏", min: 2, max: 30, step: 1, default: 18 },
+    { key: "mountainHeight", label: "中央山高度", min: 0, max: 40, step: 1, default: 22 },
+    { key: "slopePreferenceDeg", label: "坡度惩罚起点°", min: 0, max: 35, step: 1, default: 12 },
+    { key: "slopeLimitDeg", label: "最大可行坡度°", min: 20, max: 70, step: 1, default: 38 },
+    { key: "pathSmoothness", label: "路径平滑度", min: 1, max: 8, step: 1, default: 3 },
+    { key: "pathLift", label: "路径离地高度", min: 0.05, max: 2, step: 0.05, default: 0.55 },
+    { key: "pathRadius", label: "路径粗细", min: 0.15, max: 1.5, step: 0.05, default: 0.55 },
+    { key: "seed", label: "地形种子", min: 0, max: 100, step: 1, default: 19 },
+  ],
+  build(p) {
+    return buildPcgPathfindingParts({
+      size: p.size,
+      resolution: Math.round(p.resolution),
+      terrainRelief: p.terrainRelief,
+      mountainHeight: p.mountainHeight,
+      slopePreferenceDeg: p.slopePreferenceDeg,
+      slopeLimitDeg: p.slopeLimitDeg,
+      pathSmoothness: Math.round(p.pathSmoothness),
+      pathLift: p.pathLift,
+      pathRadius: p.pathRadius,
+      seed: Math.round(p.seed),
+    });
+  },
+};
+
 const vineSlopeModel = {
   id: "vine-slope",
   name: "PCG 坡度选藤",
@@ -695,6 +1125,968 @@ const rockFormationModel = {
   },
 };
 
+const easyCliffRockModel = {
+  id: "easy-cliff-rock",
+  name: "悬崖岩山群",
+  critiqueGoal: "tall eroded cliff pillars with readable strata and ledge vegetation",
+  schema: [
+    { key: "count", label: "岩柱数量", min: 1, max: 16, step: 1, default: 5 },
+    { key: "height", label: "主峰高度", min: 2, max: 16, step: 0.2, default: 8.5 },
+    { key: "radius", label: "岩柱半径", min: 0.5, max: 3, step: 0.05, default: 1.3 },
+    { key: "spread", label: "群落范围", min: 3.5, max: 20, step: 0.2, default: 6.5 },
+    { key: "blobs", label: "轮廓团块", min: 3, max: 11, step: 1, default: 7 },
+    { key: "crag", label: "侵蚀崎岖度", min: 0.04, max: 0.42, step: 0.01, default: 0.22 },
+    { key: "strata", label: "水平岩层", min: 0, max: 7, step: 1, default: 4 },
+    { key: "resolution", label: "网格精度", min: 20, max: 48, step: 4, default: 32 },
+    { key: "foliageDensity", label: "崖面植被", min: 0, max: 1, step: 0.05, default: 0.5 },
+    { key: "seed", label: "地貌种子", min: 0, max: 200, step: 1, default: 19 },
+  ],
+  build(p) {
+    return buildEasyCliffRockParts({
+      count: p.count,
+      height: p.height,
+      radius: p.radius,
+      spread: p.spread,
+      blobs: p.blobs,
+      crag: p.crag,
+      strata: p.strata,
+      resolution: p.resolution,
+      foliageDensity: p.foliageDensity,
+      seed: p.seed,
+    });
+  },
+};
+
+const realisticSplinePathModel = {
+  id: "realistic-spline-path",
+  name: "写实岩石样条路径",
+  critiqueGoal: "continuous walkable sandstone pads with irregular edges, landmark spires, and sparse desert vegetation",
+  schema: [
+    { key: "length", label: "路径长度", min: 10, max: 80, step: 1, default: 34 },
+    { key: "width", label: "岩盘宽度", min: 1.4, max: 9, step: 0.1, default: 4.2 },
+    { key: "meander", label: "样条蜿蜒", min: 0, max: 14, step: 0.2, default: 4.8 },
+    { key: "elevation", label: "高差", min: 0, max: 8, step: 0.1, default: 2.2 },
+    { key: "padSpacing", label: "岩盘间距", min: 0.9, max: 4, step: 0.05, default: 2.35 },
+    { key: "padThickness", label: "岩盘厚度", min: 0.25, max: 2.2, step: 0.05, default: 0.9 },
+    { key: "edgeDensity", label: "边缘碎石", min: 0, max: 1, step: 0.05, default: 0.82 },
+    { key: "spireDensity", label: "标志岩柱", min: 0, max: 1, step: 0.05, default: 0.18 },
+    { key: "vegetationDensity", label: "荒漠植被", min: 0, max: 1, step: 0.05, default: 0.42 },
+    { key: "seed", label: "随机种子", min: 0, max: 999, step: 1, default: 42 },
+  ],
+  build(p) {
+    return buildRealisticSplinePathParts({
+      ...p,
+      seed: Math.round(p.seed),
+    });
+  },
+};
+
+const houdiniCaveModel = {
+  id: "houdini-cave",
+  name: "Houdini 程序化山洞",
+  schema: [
+    { key: "width", label: "洞体宽度", min: 7, max: 18, step: 0.5, default: 12 },
+    { key: "height", label: "洞体高度", min: 2.5, max: 8, step: 0.25, default: 4 },
+    { key: "depth", label: "洞体深度", min: 5, max: 14, step: 0.5, default: 8 },
+    { key: "wallThickness", label: "岩壁厚度", min: 0.16, max: 0.8, step: 0.02, default: 0.34 },
+    { key: "entranceWidth", label: "洞口宽度", min: 1.4, max: 5, step: 0.1, default: 2.78 },
+    { key: "entranceHeight", label: "洞口高度", min: 1.6, max: 6, step: 0.1, default: 3.32 },
+    { key: "entranceOffsetZ", label: "洞口侧向位置", min: -3, max: 3, step: 0.1, default: 1 },
+    { key: "roughness", label: "大形崎岖度", min: 0, max: 1.2, step: 0.02, default: 0.58 },
+    { key: "surfaceDetail", label: "表面碎岩度", min: 0, max: 0.4, step: 0.01, default: 0.16 },
+    { key: "resolution", label: "体素精度", min: 28, max: 72, step: 4, default: 56 },
+    { key: "entranceRocks", label: "入口岩石数", min: 0, max: 3, step: 1, default: 3 },
+    { key: "seed", label: "随机种子", min: 0, max: 100, step: 1, default: 19 },
+  ],
+  build(p) {
+    return buildHoudiniCaveParts({
+      width: p.width,
+      height: p.height,
+      depth: p.depth,
+      wallThickness: p.wallThickness,
+      entranceWidth: p.entranceWidth,
+      entranceHeight: p.entranceHeight,
+      entranceOffsetZ: p.entranceOffsetZ,
+      roughness: p.roughness,
+      surfaceDetail: p.surfaceDetail,
+      resolution: Math.round(p.resolution),
+      entranceRocks: Math.round(p.entranceRocks),
+      seed: Math.round(p.seed),
+    });
+  },
+};
+
+const ue5PcgCaveModel = {
+  id: "ue5-pcg-cave",
+  name: "UE5 PCG 程序化山洞",
+  schema: [
+    { key: "length", label: "洞网长度", min: 16, max: 42, step: 1, default: 28 },
+    { key: "width", label: "洞网宽度", min: 10, max: 30, step: 1, default: 20 },
+    { key: "tunnelRadius", label: "通道半径", min: 1.2, max: 4, step: 0.1, default: 2.35 },
+    { key: "verticalStretch", label: "通道纵向拉伸", min: 0.7, max: 1.8, step: 0.05, default: 1.22 },
+    { key: "branchCount", label: "支路数量", min: 0, max: 2, step: 1, default: 2 },
+    { key: "irregularity", label: "大形崎岖度", min: 0, max: 0.9, step: 0.02, default: 0.42 },
+    { key: "surfaceDetail", label: "表面碎岩度", min: 0, max: 0.35, step: 0.01, default: 0.12 },
+    { key: "wallThickness", label: "岩壁厚度", min: 0.1, max: 0.9, step: 0.02, default: 0.34 },
+    { key: "resolution", label: "体素精度", min: 24, max: 72, step: 4, default: 52 },
+    { key: "floorRocks", label: "洞底碎岩数", min: 0, max: 80, step: 2, default: 28 },
+    { key: "wallRocks", label: "洞壁岩块数", min: 0, max: 120, step: 2, default: 52 },
+    { key: "ceilingRocks", label: "顶部垂岩数", min: 0, max: 50, step: 1, default: 16 },
+    { key: "seed", label: "随机种子", min: 0, max: 100, step: 1, default: 25 },
+  ],
+  build(p) {
+    return buildUe5PcgCaveParts({
+      length: p.length,
+      width: p.width,
+      tunnelRadius: p.tunnelRadius,
+      verticalStretch: p.verticalStretch,
+      branchCount: Math.round(p.branchCount),
+      irregularity: p.irregularity,
+      surfaceDetail: p.surfaceDetail,
+      wallThickness: p.wallThickness,
+      resolution: Math.round(p.resolution),
+      floorRocks: Math.round(p.floorRocks),
+      wallRocks: Math.round(p.wallRocks),
+      ceilingRocks: Math.round(p.ceilingRocks),
+      seed: Math.round(p.seed),
+    });
+  },
+};
+
+// ---- Attractor grid: distance field -> ramp -> height/color/twist ----------
+// First Algorithmic Design Workbook-style clone: one attractor field drives a
+// grid of modules. It exercises falloff + ramp without needing heavy topology.
+const attractorGridModel = {
+  id: "attractor-grid",
+  name: "吸引子柱阵",
+  schema: [
+    { key: "cells", label: "网格数量", min: 5, max: 31, step: 2, default: 17 },
+    { key: "spacing", label: "网格间距", min: 0.2, max: 0.8, step: 0.02, default: 0.42 },
+    { key: "cellSize", label: "柱体宽度", min: 0.08, max: 0.5, step: 0.01, default: 0.28 },
+    { key: "minHeight", label: "最低高度", min: 0.02, max: 0.5, step: 0.01, default: 0.08 },
+    { key: "maxHeight", label: "最高高度", min: 0.3, max: 5, step: 0.05, default: 2.2 },
+    { key: "radius", label: "影响半径", min: 0.4, max: 8, step: 0.05, default: 3.2 },
+    { key: "attractorX", label: "吸引子X", min: -4, max: 4, step: 0.05, default: 0 },
+    { key: "attractorZ", label: "吸引子Z", min: -4, max: 4, step: 0.05, default: 0 },
+    { key: "mode", label: "模式(0吸引/1排斥)", min: 0, max: 1, step: 1, default: 0 },
+    { key: "curve", label: "曲线(0线性/1平滑/2更滑/3二次/4三次)", min: 0, max: 4, step: 1, default: 1 },
+    { key: "jitter", label: "位置扰动", min: 0, max: 0.35, step: 0.01, default: 0.06 },
+    { key: "twist", label: "旋转强度", min: -1.5, max: 1.5, step: 0.05, default: 0.35 },
+    { key: "seed", label: "随机种子", min: 0, max: 100, step: 1, default: 11 },
+    { key: "markers", label: "显示吸引子(0/1)", min: 0, max: 1, step: 1, default: 1 },
+  ],
+  build(p) {
+    const curves = ["linear", "smooth", "smoother", "quadratic", "cubic"];
+    return buildAttractorGridParts({
+      cells: Math.round(p.cells),
+      spacing: p.spacing,
+      cellSize: p.cellSize,
+      minHeight: p.minHeight,
+      maxHeight: p.maxHeight,
+      radius: p.radius,
+      mode: Math.round(p.mode) === 1 ? "repel" : "attract",
+      curve: curves[Math.round(p.curve)] || "smooth",
+      jitter: p.jitter,
+      twist: p.twist,
+      seed: Math.round(p.seed),
+      markers: Math.round(p.markers) === 1,
+      attractors: [{ position: vec3(p.attractorX, 0, p.attractorZ), radius: p.radius, strength: 1 }],
+    });
+  },
+};
+
+// ---- BlenderHowtos clean-room cookbook ------------------------------------
+const blenderSpiralScales = {
+  id: "blender-spiral-scales",
+  name: "BlenderHowtos 螺旋鳞片",
+  schema: [
+    { key: "count", label: "鳞片数量", min: 8, max: 180, step: 1, default: 84 },
+    { key: "radius", label: "螺旋半径", min: 0.25, max: 1.6, step: 0.01, default: 0.78 },
+    { key: "height", label: "整体高度", min: 0.8, max: 6, step: 0.05, default: 3.1 },
+    { key: "turns", label: "圈数", min: 0.5, max: 9, step: 0.1, default: 5.2 },
+    { key: "scaleWidth", label: "鳞片宽度", min: 0.04, max: 0.45, step: 0.005, default: 0.18 },
+    { key: "scaleHeight", label: "鳞片长度", min: 0.06, max: 0.7, step: 0.005, default: 0.34 },
+    { key: "scaleThickness", label: "鳞片厚度", min: 0.008, max: 0.08, step: 0.002, default: 0.035 },
+    { key: "phase", label: "相位", min: -6.28, max: 6.28, step: 0.02, default: 0 },
+    { key: "stemRadius", label: "中心茎粗细", min: 0.006, max: 0.12, step: 0.002, default: 0.035 },
+  ],
+  build(p) {
+    return buildSpiralScalesParts({
+      count: Math.round(p.count),
+      radius: p.radius,
+      height: p.height,
+      turns: p.turns,
+      scaleWidth: p.scaleWidth,
+      scaleHeight: p.scaleHeight,
+      scaleThickness: p.scaleThickness,
+      phase: p.phase,
+      stemRadius: p.stemRadius,
+    });
+  },
+};
+
+const blenderDnaHelix = {
+  id: "blender-dna-helix",
+  name: "BlenderHowtos DNA 双螺旋",
+  schema: [
+    { key: "pairs", label: "横档数量", min: 4, max: 80, step: 1, default: 34 },
+    { key: "radius", label: "螺旋半径", min: 0.2, max: 1.5, step: 0.01, default: 0.62 },
+    { key: "height", label: "整体高度", min: 0.8, max: 6, step: 0.05, default: 3.2 },
+    { key: "turns", label: "圈数", min: 0.5, max: 8, step: 0.1, default: 3.2 },
+    { key: "strandRadius", label: "链条粗细", min: 0.006, max: 0.1, step: 0.002, default: 0.035 },
+    { key: "rungRadius", label: "横档粗细", min: 0.004, max: 0.08, step: 0.002, default: 0.018 },
+    { key: "beadRadius", label: "节点半径", min: 0.02, max: 0.16, step: 0.005, default: 0.07 },
+    { key: "phase", label: "相位", min: -6.28, max: 6.28, step: 0.02, default: 0 },
+  ],
+  build(p) {
+    return buildDnaHelixParts({
+      pairs: Math.round(p.pairs),
+      radius: p.radius,
+      height: p.height,
+      turns: p.turns,
+      strandRadius: p.strandRadius,
+      rungRadius: p.rungRadius,
+      beadRadius: p.beadRadius,
+      phase: p.phase,
+    });
+  },
+};
+
+const blenderGradientBox = {
+  id: "blender-gradient-box",
+  name: "BlenderHowtos 渐变盒阵",
+  schema: [
+    { key: "cols", label: "列数", min: 1, max: 24, step: 1, default: 10 },
+    { key: "rows", label: "行数", min: 1, max: 24, step: 1, default: 8 },
+    { key: "spacing", label: "间距", min: 0.12, max: 0.7, step: 0.01, default: 0.36 },
+    { key: "minHeight", label: "最低高度", min: 0.02, max: 0.8, step: 0.01, default: 0.12 },
+    { key: "maxHeight", label: "最高高度", min: 0.2, max: 3, step: 0.02, default: 1.35 },
+    { key: "rampBias", label: "渐变偏置", min: 0.2, max: 3, step: 0.02, default: 1.15 },
+    { key: "ripple", label: "波纹扰动", min: 0, max: 0.45, step: 0.01, default: 0.16 },
+  ],
+  build(p) {
+    return buildGradientBoxParts({
+      cols: Math.round(p.cols),
+      rows: Math.round(p.rows),
+      spacing: p.spacing,
+      minHeight: p.minHeight,
+      maxHeight: p.maxHeight,
+      rampBias: p.rampBias,
+      ripple: p.ripple,
+    });
+  },
+};
+
+const blenderRainingGarden = {
+  id: "blender-raining-garden",
+  name: "BlenderHowtos 雨中花园",
+  schema: [
+    { key: "radius", label: "花园半径", min: 0.8, max: 4, step: 0.05, default: 2.15 },
+    { key: "grassCount", label: "草叶数量", min: 0, max: 500, step: 5, default: 180 },
+    { key: "flowerCount", label: "花朵数量", min: 0, max: 120, step: 1, default: 36 },
+    { key: "rainCount", label: "雨线数量", min: 0, max: 240, step: 2, default: 90 },
+    { key: "rainHeight", label: "雨层高度", min: 0.8, max: 5, step: 0.05, default: 2.7 },
+    { key: "rainSlant", label: "雨线倾斜", min: -1, max: 1, step: 0.02, default: 0.32 },
+    { key: "seed", label: "随机种子", min: 0, max: 999, step: 1, default: 19 },
+  ],
+  build(p) {
+    return buildRainingGardenParts({
+      radius: p.radius,
+      grassCount: Math.round(p.grassCount),
+      flowerCount: Math.round(p.flowerCount),
+      rainCount: Math.round(p.rainCount),
+      rainHeight: p.rainHeight,
+      rainSlant: p.rainSlant,
+      seed: Math.round(p.seed),
+    });
+  },
+};
+
+const blenderHowtos = {
+  id: "blender-howtos",
+  name: "BlenderHowtos 四类总览",
+  schema: [
+    { key: "seed", label: "随机种子", min: 0, max: 999, step: 1, default: 80 },
+    { key: "scale", label: "整体缩放", min: 0.4, max: 1.6, step: 0.05, default: 1 },
+  ],
+  build(p) {
+    return buildBlenderHowtosShowcaseParts({
+      seed: Math.round(p.seed),
+      scale: p.scale,
+    });
+  },
+};
+
+// ---- GrasshopperHowtos clean-room recipes ---------------------------------
+const grasshopperRockTile = {
+  id: "grasshopper-rock-tile",
+  name: "Grasshopper 岩石瓦片",
+  schema: [
+    { key: "resolution", label: "场分辨率", min: 8, max: 96, step: 4, default: 40 },
+    { key: "size", label: "尺寸", min: 1, max: 6, step: 0.1, default: 3.2 },
+    { key: "height", label: "浮雕高度", min: 0.02, max: 0.8, step: 0.01, default: 0.28 },
+    { key: "cells", label: "瓦片数量", min: 1, max: 10, step: 1, default: 5 },
+    { key: "gap", label: "缝隙宽度", min: 0.01, max: 0.28, step: 0.01, default: 0.08 },
+    { key: "roughness", label: "石面粗糙", min: 0, max: 1, step: 0.01, default: 0.42 },
+    { key: "seed", label: "随机种子", min: 0, max: 999, step: 1, default: 11 },
+  ],
+  build(p) {
+    return buildRockTileParts({
+      resolution: Math.round(p.resolution),
+      size: p.size,
+      height: p.height,
+      cells: Math.round(p.cells),
+      gap: p.gap,
+      roughness: p.roughness,
+      seed: Math.round(p.seed),
+    });
+  },
+};
+
+const grasshopperVoronoiPipe = {
+  id: "grasshopper-voronoi-pipe",
+  name: "Grasshopper Voronoi 管网",
+  schema: [
+    { key: "cells", label: "Voronoi 密度", min: 2, max: 9, step: 1, default: 5 },
+    { key: "size", label: "尺寸", min: 1, max: 6, step: 0.1, default: 3.2 },
+    { key: "radius", label: "管半径", min: 0.005, max: 0.12, step: 0.005, default: 0.035 },
+    { key: "height", label: "离地高度", min: 0.05, max: 0.8, step: 0.01, default: 0.18 },
+    { key: "jitter", label: "细胞抖动", min: 0, max: 1.5, step: 0.01, default: 0.92 },
+    { key: "edgeWidth", label: "边界宽度", min: 0.02, max: 0.18, step: 0.005, default: 0.07 },
+    { key: "seed", label: "随机种子", min: 0, max: 999, step: 1, default: 23 },
+  ],
+  build(p) {
+    return buildVoronoiPipeParts({
+      cells: Math.round(p.cells),
+      size: p.size,
+      radius: p.radius,
+      height: p.height,
+      jitter: p.jitter,
+      edgeWidth: p.edgeWidth,
+      seed: Math.round(p.seed),
+    });
+  },
+};
+
+const grasshopperWafflePattern = {
+  id: "grasshopper-waffle-pattern",
+  name: "Grasshopper Waffle 切片",
+  schema: [
+    { key: "width", label: "宽度", min: 1, max: 6, step: 0.1, default: 3.4 },
+    { key: "depth", label: "深度", min: 1, max: 6, step: 0.1, default: 2.6 },
+    { key: "slicesX", label: "纵向片数", min: 1, max: 18, step: 1, default: 8 },
+    { key: "slicesZ", label: "横向片数", min: 1, max: 18, step: 1, default: 7 },
+    { key: "height", label: "高度", min: 0.2, max: 3, step: 0.05, default: 1.25 },
+    { key: "thickness", label: "板厚", min: 0.02, max: 0.2, step: 0.005, default: 0.055 },
+    { key: "wave", label: "轮廓波动", min: 0, max: 1, step: 0.01, default: 0.32 },
+    { key: "seed", label: "随机种子", min: 0, max: 999, step: 1, default: 31 },
+  ],
+  build(p) {
+    return buildWafflePatternParts({
+      width: p.width,
+      depth: p.depth,
+      slicesX: Math.round(p.slicesX),
+      slicesZ: Math.round(p.slicesZ),
+      height: p.height,
+      thickness: p.thickness,
+      wave: p.wave,
+      seed: Math.round(p.seed),
+    });
+  },
+};
+
+const grasshopperReactionDiffusion = {
+  id: "grasshopper-reaction-diffusion",
+  name: "Grasshopper 反应扩散板",
+  schema: [
+    { key: "resolution", label: "场分辨率", min: 12, max: 96, step: 4, default: 48 },
+    { key: "size", label: "尺寸", min: 1, max: 6, step: 0.1, default: 3 },
+    { key: "height", label: "浮雕高度", min: 0.02, max: 0.8, step: 0.01, default: 0.32 },
+    { key: "iterations", label: "迭代次数", min: 1, max: 120, step: 1, default: 52 },
+    { key: "feed", label: "Feed", min: 0.005, max: 0.09, step: 0.001, default: 0.035 },
+    { key: "kill", label: "Kill", min: 0.03, max: 0.09, step: 0.001, default: 0.061 },
+    { key: "seed", label: "随机种子", min: 0, max: 999, step: 1, default: 43 },
+  ],
+  build(p) {
+    return buildReactionDiffusionPlateParts({
+      resolution: Math.round(p.resolution),
+      size: p.size,
+      height: p.height,
+      iterations: Math.round(p.iterations),
+      feed: p.feed,
+      kill: p.kill,
+      seed: Math.round(p.seed),
+    });
+  },
+};
+
+const grasshopperPackedCircle = {
+  id: "grasshopper-packed-circle",
+  name: "Grasshopper Packed Circle",
+  schema: [
+    { key: "count", label: "圆数量", min: 4, max: 180, step: 1, default: 64 },
+    { key: "width", label: "宽度", min: 1, max: 6, step: 0.1, default: 3.4 },
+    { key: "depth", label: "深度", min: 1, max: 6, step: 0.1, default: 2.6 },
+    { key: "minRadius", label: "最小半径", min: 0.02, max: 0.25, step: 0.005, default: 0.055 },
+    { key: "maxRadius", label: "最大半径", min: 0.03, max: 0.4, step: 0.005, default: 0.18 },
+    { key: "padding", label: "间隙", min: 0, max: 0.08, step: 0.002, default: 0.012 },
+    { key: "relax", label: "松弛迭代", min: 0, max: 180, step: 1, default: 90 },
+    { key: "height", label: "高度", min: 0.03, max: 0.5, step: 0.01, default: 0.16 },
+    { key: "seed", label: "随机种子", min: 0, max: 999, step: 1, default: 53 },
+  ],
+  build(p) {
+    return buildPackedCircleParts({
+      count: Math.round(p.count),
+      width: p.width,
+      depth: p.depth,
+      minRadius: p.minRadius,
+      maxRadius: p.maxRadius,
+      padding: p.padding,
+      relax: Math.round(p.relax),
+      height: p.height,
+      seed: Math.round(p.seed),
+    });
+  },
+};
+
+const grasshopperLandscapeContour = {
+  id: "grasshopper-landscape-contour",
+  name: "Grasshopper 等高线地形",
+  schema: [
+    { key: "resolution", label: "场分辨率", min: 12, max: 96, step: 4, default: 52 },
+    { key: "size", label: "尺寸", min: 1, max: 6, step: 0.1, default: 3.4 },
+    { key: "height", label: "地形高度", min: 0.05, max: 1.4, step: 0.01, default: 0.62 },
+    { key: "levels", label: "等高线层数", min: 1, max: 18, step: 1, default: 9 },
+    { key: "lineRadius", label: "线半径", min: 0.004, max: 0.05, step: 0.002, default: 0.012 },
+    { key: "noiseScale", label: "地貌频率", min: 0.5, max: 8, step: 0.1, default: 3.1 },
+    { key: "seed", label: "随机种子", min: 0, max: 999, step: 1, default: 61 },
+  ],
+  build(p) {
+    return buildLandscapeContourParts({
+      resolution: Math.round(p.resolution),
+      size: p.size,
+      height: p.height,
+      levels: Math.round(p.levels),
+      lineRadius: p.lineRadius,
+      noiseScale: p.noiseScale,
+      seed: Math.round(p.seed),
+    });
+  },
+};
+
+const grasshopperRibbonLoop = {
+  id: "grasshopper-ribbon-loop",
+  name: "Grasshopper Ribbon Loop",
+  schema: [
+    { key: "radius", label: "环半径", min: 0.3, max: 2.5, step: 0.05, default: 1.25 },
+    { key: "width", label: "带宽", min: 0.03, max: 0.6, step: 0.01, default: 0.22 },
+    { key: "waves", label: "波峰数", min: 0, max: 9, step: 1, default: 3 },
+    { key: "twist", label: "扭转强度", min: -3.14, max: 3.14, step: 0.05, default: 1.1 },
+    { key: "height", label: "起伏高度", min: 0, max: 1.2, step: 0.02, default: 0.42 },
+    { key: "segments", label: "曲线分段", min: 12, max: 160, step: 4, default: 72 },
+    { key: "seed", label: "随机种子", min: 0, max: 999, step: 1, default: 73 },
+  ],
+  build(p) {
+    return buildRibbonLoopParts({
+      radius: p.radius,
+      width: p.width,
+      waves: Math.round(p.waves),
+      twist: p.twist,
+      height: p.height,
+      segments: Math.round(p.segments),
+      seed: Math.round(p.seed),
+    });
+  },
+};
+
+const grasshopperVoxelBunny = {
+  id: "grasshopper-voxel-bunny",
+  name: "Grasshopper Voxel Bunny",
+  schema: [
+    { key: "resolution", label: "体素分辨率", min: 16, max: 64, step: 2, default: 34 },
+    { key: "size", label: "整体尺寸", min: 0.4, max: 2, step: 0.05, default: 1.1 },
+    { key: "earLength", label: "耳朵长度", min: 0.3, max: 1.4, step: 0.02, default: 0.86 },
+    { key: "smoothness", label: "融合圆滑度", min: 0.01, max: 0.4, step: 0.01, default: 0.14 },
+    { key: "seed", label: "姿态种子", min: 0, max: 999, step: 1, default: 83 },
+  ],
+  build(p) {
+    return buildVoxelBunnyParts({
+      resolution: Math.round(p.resolution),
+      size: p.size,
+      earLength: p.earLength,
+      smoothness: p.smoothness,
+      seed: Math.round(p.seed),
+    });
+  },
+};
+
+const grasshopperImageField = {
+  id: "grasshopper-image-field",
+  name: "Grasshopper 图像场浮雕",
+  schema: [
+    { key: "samples", label: "针阵采样", min: 6, max: 32, step: 1, default: 18 },
+    { key: "size", label: "整体尺寸", min: 1, max: 5, step: 0.1, default: 2.8 },
+    { key: "reliefHeight", label: "浮雕高度", min: 0.08, max: 1, step: 0.02, default: 0.52 },
+    { key: "threshold", label: "轮廓阈值", min: 0.1, max: 0.9, step: 0.01, default: 0.42 },
+    { key: "gamma", label: "图像场曲线", min: 0.2, max: 2.5, step: 0.05, default: 0.9 },
+    { key: "volumeResolution", label: "体积分辨率", min: 16, max: 64, step: 2, default: 34 },
+    { key: "seed", label: "输入种子", min: 0, max: 999, step: 1, default: 89 },
+  ],
+  build(p) {
+    return buildImageFieldReliefParts({
+      samples: Math.round(p.samples),
+      size: p.size,
+      reliefHeight: p.reliefHeight,
+      threshold: p.threshold,
+      gamma: p.gamma,
+      volumeResolution: Math.round(p.volumeResolution),
+      seed: Math.round(p.seed),
+    });
+  },
+};
+
+const grasshopperMeshReactionShell = {
+  id: "grasshopper-mesh-reaction-shell",
+  name: "Grasshopper 曲面反应扩散壳",
+  schema: [
+    { key: "radius", label: "壳体半径", min: 0.5, max: 2.5, step: 0.05, default: 1.25 },
+    { key: "subdivisions", label: "网格细分", min: 1, max: 4, step: 1, default: 4 },
+    { key: "iterations", label: "扩散迭代", min: 4, max: 360, step: 1, default: 220 },
+    { key: "amplitude", label: "位移强度", min: 0, max: 0.6, step: 0.01, default: 0.12 },
+    { key: "feed", label: "Feed", min: 0.01, max: 0.08, step: 0.001, default: 0.035 },
+    { key: "kill", label: "Kill", min: 0.03, max: 0.08, step: 0.001, default: 0.061 },
+    { key: "spots", label: "初始斑点", min: 1, max: 32, step: 1, default: 14 },
+    { key: "seed", label: "随机种子", min: 0, max: 999, step: 1, default: 211 },
+  ],
+  build(p) {
+    return buildMeshReactionShellParts({ ...p, subdivisions: Math.round(p.subdivisions), iterations: Math.round(p.iterations), spots: Math.round(p.spots), seed: Math.round(p.seed) });
+  },
+};
+
+const grasshopperSuperformulaTower = {
+  id: "grasshopper-superformula-tower",
+  name: "Grasshopper Superformula 塔",
+  schema: [
+    { key: "height", label: "塔高", min: 1, max: 8, step: 0.1, default: 4.2 },
+    { key: "radius", label: "底部半径", min: 0.3, max: 2.5, step: 0.05, default: 1.15 },
+    { key: "taper", label: "顶部锥化", min: 0.1, max: 1.5, step: 0.01, default: 0.58 },
+    { key: "m", label: "截面瓣数", min: 2, max: 16, step: 1, default: 7 },
+    { key: "n1", label: "形状指数 N1", min: 0.1, max: 4, step: 0.02, default: 0.34 },
+    { key: "n2", label: "形状指数 N2", min: 0.1, max: 4, step: 0.02, default: 1.15 },
+    { key: "n3", label: "形状指数 N3", min: 0.1, max: 4, step: 0.02, default: 1.15 },
+    { key: "twist", label: "总扭转", min: -3.14, max: 3.14, step: 0.02, default: 1.05 },
+    { key: "bulge", label: "中段鼓度", min: -0.6, max: 0.8, step: 0.01, default: 0.12 },
+    { key: "segments", label: "环向分段", min: 12, max: 128, step: 4, default: 72 },
+  ],
+  build(p) {
+    return buildSuperformulaTowerParts({ ...p, m: Math.round(p.m), segments: Math.round(p.segments) });
+  },
+};
+
+const grasshopperOrigamiPavilion = {
+  id: "grasshopper-origami-pavilion",
+  name: "Grasshopper XPBD 折纸展亭",
+  schema: [
+    { key: "width", label: "屋面宽度", min: 1.5, max: 6, step: 0.1, default: 3.8 },
+    { key: "depth", label: "屋面进深", min: 1.5, max: 6, step: 0.1, default: 3 },
+    { key: "resolution", label: "折纸网格", min: 4, max: 24, step: 2, default: 12 },
+    { key: "foldAngle", label: "目标折角", min: -130, max: 130, step: 1, default: 78 },
+    { key: "stiffness", label: "折痕刚度", min: 0.1, max: 1, step: 0.01, default: 0.94 },
+    { key: "iterations", label: "求解迭代", min: 2, max: 60, step: 1, default: 22 },
+  ],
+  build(p) {
+    return buildOrigamiPavilionParts({ ...p, resolution: Math.round(p.resolution), iterations: Math.round(p.iterations) });
+  },
+};
+
+const grasshopperHowtos = {
+  id: "grasshopper-howtos",
+  name: "GrasshopperHowtos 九类总览",
+  schema: [
+    { key: "seed", label: "随机种子", min: 0, max: 999, step: 1, default: 70 },
+    { key: "scale", label: "整体缩放", min: 0.4, max: 1.6, step: 0.05, default: 1 },
+  ],
+  build(p) {
+    return buildGrasshopperHowtosShowcaseParts({
+      seed: Math.round(p.seed),
+      scale: p.scale,
+    });
+  },
+};
+
+// ---- HoudiniHowtos clean-room cookbook ------------------------------------
+const houdiniHowtosField = {
+  id: "houdini-howtos-field",
+  name: "HoudiniHowtos 场与等值面",
+  schema: [
+    { key: "resolution", label: "浮雕分辨率", min: 12, max: 80, step: 2, default: 48 },
+    { key: "size", label: "浮雕尺寸", min: 1.2, max: 5, step: 0.05, default: 3 },
+    { key: "height", label: "浮雕高度", min: 0.02, max: 0.8, step: 0.01, default: 0.34 },
+    { key: "iterations", label: "扩散迭代", min: 1, max: 120, step: 1, default: 48 },
+    { key: "showBlob", label: "等值面(0/1)", min: 0, max: 1, step: 1, default: 1 },
+    { key: "seed", label: "随机种子", min: 0, max: 999, step: 1, default: 12 },
+  ],
+  build(p) {
+    const parts = buildReactionDiffusionReliefParts({
+      resolution: Math.round(p.resolution),
+      size: p.size,
+      height: p.height,
+      iterations: Math.round(p.iterations),
+      seed: Math.round(p.seed),
+    });
+    if (Math.round(p.showBlob) === 1) parts.push(...buildField3DBlobParts(Math.round(p.seed) + 1));
+    return parts;
+  },
+};
+
+const houdiniHowtosCurveGraph = {
+  id: "houdini-howtos-curve-graph",
+  name: "HoudiniHowtos 曲线图管网",
+  schema: [
+    { key: "cols", label: "列数", min: 2, max: 8, step: 1, default: 4 },
+    { key: "rows", label: "行数", min: 2, max: 7, step: 1, default: 3 },
+    { key: "spacing", label: "节点间距", min: 0.5, max: 2.4, step: 0.05, default: 1.25 },
+    { key: "radius", label: "管线半径", min: 0.015, max: 0.16, step: 0.005, default: 0.055 },
+    { key: "jitter", label: "节点扰动", min: 0, max: 0.5, step: 0.01, default: 0.18 },
+    { key: "seed", label: "随机种子", min: 0, max: 999, step: 1, default: 21 },
+  ],
+  build(p) {
+    return buildPipeNetworkParts({
+      cols: Math.round(p.cols),
+      rows: Math.round(p.rows),
+      spacing: p.spacing,
+      radius: p.radius,
+      jitter: p.jitter,
+      seed: Math.round(p.seed),
+    });
+  },
+};
+
+const houdiniHowtosWeavePot = {
+  id: "houdini-howtos-weave-pot",
+  name: "HoudiniHowtos 编织罐",
+  schema: [
+    { key: "segments", label: "环向分段", min: 16, max: 96, step: 2, default: 56 },
+    { key: "rows", label: "纵向分段", min: 8, max: 64, step: 2, default: 32 },
+    { key: "height", label: "罐身高度", min: 0.8, max: 4, step: 0.05, default: 2.4 },
+    { key: "radiusBottom", label: "底部半径", min: 0.25, max: 1.4, step: 0.02, default: 0.62 },
+    { key: "radiusTop", label: "口部半径", min: 0.25, max: 1.6, step: 0.02, default: 0.92 },
+    { key: "bulge", label: "腹部外鼓", min: 0, max: 0.5, step: 0.01, default: 0.18 },
+    { key: "relief", label: "编织浮雕", min: 0, max: 0.16, step: 0.005, default: 0.045 },
+    { key: "weaveColumns", label: "编织列", min: 2, max: 40, step: 1, default: 18 },
+    { key: "weaveRows", label: "编织行", min: 2, max: 24, step: 1, default: 10 },
+    { key: "seed", label: "随机种子", min: 0, max: 999, step: 1, default: 33 },
+  ],
+  build(p) {
+    return buildWovenPotParts({
+      segments: Math.round(p.segments),
+      rows: Math.round(p.rows),
+      height: p.height,
+      radiusBottom: p.radiusBottom,
+      radiusTop: p.radiusTop,
+      bulge: p.bulge,
+      relief: p.relief,
+      weaveColumns: Math.round(p.weaveColumns),
+      weaveRows: Math.round(p.weaveRows),
+      seed: Math.round(p.seed),
+    });
+  },
+};
+
+const houdiniHowtosSciFiPanel = {
+  id: "houdini-howtos-sci-fi-panel",
+  name: "HoudiniHowtos Sci-Fi 面板",
+  schema: [
+    { key: "width", label: "面板宽度", min: 1, max: 6, step: 0.05, default: 3.4 },
+    { key: "depth", label: "面板深度", min: 0.8, max: 4, step: 0.05, default: 2.2 },
+    { key: "thickness", label: "底板厚度", min: 0.04, max: 0.4, step: 0.01, default: 0.16 },
+    { key: "cols", label: "横向分格", min: 1, max: 10, step: 1, default: 5 },
+    { key: "rows", label: "纵向分格", min: 1, max: 8, step: 1, default: 4 },
+    { key: "greebles", label: "小件数量", min: 0, max: 80, step: 1, default: 18 },
+    { key: "seed", label: "随机种子", min: 0, max: 999, step: 1, default: 44 },
+  ],
+  build(p) {
+    return buildSciFiPanelParts({
+      width: p.width,
+      depth: p.depth,
+      thickness: p.thickness,
+      cols: Math.round(p.cols),
+      rows: Math.round(p.rows),
+      greebles: Math.round(p.greebles),
+      seed: Math.round(p.seed),
+    });
+  },
+};
+
+const houdiniHowtosGrowthUrchin = {
+  id: "houdini-howtos-growth-urchin",
+  name: "HoudiniHowtos 放射生长体",
+  schema: [
+    { key: "spines", label: "生长刺数量", min: 6, max: 180, step: 1, default: 72 },
+    { key: "coreRadius", label: "核心半径", min: 0.12, max: 1.2, step: 0.02, default: 0.48 },
+    { key: "spineLength", label: "生长刺长度", min: 0.2, max: 2.6, step: 0.02, default: 1.28 },
+    { key: "spineRadius", label: "生长刺粗细", min: 0.006, max: 0.08, step: 0.002, default: 0.026 },
+    { key: "segments", label: "曲线分段", min: 3, max: 18, step: 1, default: 9 },
+    { key: "seed", label: "随机种子", min: 0, max: 999, step: 1, default: 55 },
+  ],
+  build(p) {
+    return buildGrowthUrchinParts({
+      spines: Math.round(p.spines),
+      coreRadius: p.coreRadius,
+      spineLength: p.spineLength,
+      spineRadius: p.spineRadius,
+      segments: Math.round(p.segments),
+      seed: Math.round(p.seed),
+    });
+  },
+};
+
+const houdiniHowtosBspDungeon = {
+  id: "houdini-howtos-bsp-dungeon",
+  name: "HoudiniHowtos BSP 地牢",
+  schema: [
+    { key: "width", label: "地图宽度", min: 4, max: 22, step: 0.25, default: 13.5 },
+    { key: "depth", label: "地图深度", min: 4, max: 18, step: 0.25, default: 9.5 },
+    { key: "iterations", label: "划分层数", min: 1, max: 7, step: 1, default: 4 },
+    { key: "roomFill", label: "房间填充", min: 0.35, max: 0.94, step: 0.01, default: 0.7 },
+    { key: "corridorWidth", label: "走廊宽度", min: 0.18, max: 1.6, step: 0.02, default: 0.78 },
+    { key: "wallHeight", label: "墙体高度", min: 0.12, max: 2.2, step: 0.02, default: 0.72 },
+    { key: "floorThickness", label: "地面厚度", min: 0.02, max: 0.24, step: 0.01, default: 0.08 },
+    { key: "seed", label: "随机种子", min: 0, max: 999, step: 1, default: 64 },
+  ],
+  build(p) {
+    return buildBspDungeonParts({
+      width: p.width,
+      depth: p.depth,
+      iterations: Math.round(p.iterations),
+      roomFill: p.roomFill,
+      corridorWidth: p.corridorWidth,
+      wallHeight: p.wallHeight,
+      floorThickness: p.floorThickness,
+      seed: Math.round(p.seed),
+    });
+  },
+};
+
+const houdiniHowtosVoronoiVase = {
+  id: "houdini-howtos-voronoi-vase",
+  name: "HoudiniHowtos Voronoi 花瓶",
+  schema: [
+    { key: "segments", label: "环向分段", min: 12, max: 128, step: 2, default: 72 },
+    { key: "rows", label: "纵向分段", min: 8, max: 80, step: 2, default: 44 },
+    { key: "height", label: "高度", min: 0.8, max: 4.5, step: 0.05, default: 2.7 },
+    { key: "radius", label: "主体半径", min: 0.25, max: 1.6, step: 0.02, default: 0.82 },
+    { key: "neck", label: "颈部收束", min: 0.22, max: 1.15, step: 0.01, default: 0.56 },
+    { key: "bulge", label: "腹部外鼓", min: 0, max: 0.75, step: 0.01, default: 0.3 },
+    { key: "twist", label: "扭转", min: -1, max: 1, step: 0.01, default: 0.16 },
+    { key: "cells", label: "Voronoi 单元", min: 3, max: 96, step: 1, default: 34 },
+    { key: "edgeWidth", label: "边界宽度", min: 0.008, max: 0.18, step: 0.002, default: 0.045 },
+    { key: "relief", label: "浮雕高度", min: 0, max: 0.18, step: 0.005, default: 0.055 },
+    { key: "cellInset", label: "单元内凹", min: 0, max: 1, step: 0.01, default: 0.38 },
+    { key: "seed", label: "随机种子", min: 0, max: 999, step: 1, default: 72 },
+  ],
+  build(p) {
+    return buildVoronoiVaseParts({
+      segments: Math.round(p.segments),
+      rows: Math.round(p.rows),
+      height: p.height,
+      radius: p.radius,
+      neck: p.neck,
+      bulge: p.bulge,
+      twist: p.twist,
+      cells: Math.round(p.cells),
+      edgeWidth: p.edgeWidth,
+      relief: p.relief,
+      cellInset: p.cellInset,
+      seed: Math.round(p.seed),
+    });
+  },
+};
+
+const houdiniHowtos = {
+  id: "houdini-howtos",
+  name: "HoudiniHowtos 七类总览",
+  schema: [
+    { key: "seed", label: "随机种子", min: 0, max: 999, step: 1, default: 100 },
+    { key: "scale", label: "整体缩放", min: 0.4, max: 1.6, step: 0.05, default: 1 },
+  ],
+  build(p) {
+    return buildHoudiniHowtosShowcaseParts({
+      seed: Math.round(p.seed),
+      scale: p.scale,
+    });
+  },
+};
+
+// ---- Fabcafe Houdini Lectures clean-room reproductions ---------------------
+const fabcafeWavySurface = {
+  id: "fabcafe-wavy-surface",
+  name: "Fabcafe 波浪实例面",
+  schema: [
+    { key: "cols", label: "网格列数", min: 6, max: 56, step: 1, default: 28 },
+    { key: "rows", label: "网格行数", min: 6, max: 56, step: 1, default: 28 },
+    { key: "size", label: "整体尺寸", min: 2, max: 12, step: 0.1, default: 7 },
+    { key: "waveScale", label: "噪声频率", min: 0.4, max: 6, step: 0.05, default: 2.1 },
+    { key: "surfaceAmp", label: "波面起伏", min: 0, max: 1.2, step: 0.02, default: 0.32 },
+    { key: "threshold", label: "删除阈值", min: 0, max: 0.9, step: 0.01, default: 0.34 },
+    { key: "blockHeight", label: "方柱高度", min: 0.08, max: 1.4, step: 0.02, default: 0.42 },
+    { key: "fill", label: "方柱填充", min: 0.2, max: 1, step: 0.01, default: 0.72 },
+    { key: "seed", label: "随机种子", min: 0, max: 999, step: 1, default: 17 },
+  ],
+  build(p) {
+    return buildFabcafeWavySurfaceParts({
+      cols: Math.round(p.cols),
+      rows: Math.round(p.rows),
+      size: p.size,
+      waveScale: p.waveScale,
+      surfaceAmp: p.surfaceAmp,
+      threshold: p.threshold,
+      blockHeight: p.blockHeight,
+      fill: p.fill,
+      seed: Math.round(p.seed),
+    });
+  },
+};
+
+const fabcafeTwistTower = {
+  id: "fabcafe-twist-tower",
+  name: "Fabcafe 扭转塔",
+  schema: [
+    { key: "height", label: "塔高", min: 2, max: 14, step: 0.1, default: 7.5 },
+    { key: "radius", label: "半径", min: 0.25, max: 2.4, step: 0.02, default: 1.15 },
+    { key: "turns", label: "旋转圈数", min: 0.25, max: 5, step: 0.05, default: 2.35 },
+    { key: "twist", label: "扭曲强度", min: -3, max: 3, step: 0.05, default: 1.2 },
+    { key: "samples", label: "粒子点数", min: 12, max: 90, step: 1, default: 44 },
+    { key: "copies", label: "反馈复制数", min: 1, max: 10, step: 1, default: 6 },
+    { key: "tubeRadius", label: "体素半径", min: 0.04, max: 0.36, step: 0.01, default: 0.18 },
+    { key: "floors", label: "楼层环数", min: 0, max: 20, step: 1, default: 9 },
+    { key: "resolution", label: "体素分辨率", min: 16, max: 52, step: 1, default: 34 },
+    { key: "seed", label: "随机种子", min: 0, max: 999, step: 1, default: 29 },
+  ],
+  build(p) {
+    return buildFabcafeTwistTowerParts({
+      height: p.height,
+      radius: p.radius,
+      turns: p.turns,
+      twist: p.twist,
+      samples: Math.round(p.samples),
+      copies: Math.round(p.copies),
+      tubeRadius: p.tubeRadius,
+      floors: Math.round(p.floors),
+      resolution: Math.round(p.resolution),
+      seed: Math.round(p.seed),
+    });
+  },
+};
+
+const fabcafeHoudini = {
+  id: "fabcafe-houdini",
+  name: "Fabcafe Houdini 两例总览",
+  schema: [
+    { key: "seed", label: "随机种子", min: 0, max: 999, step: 1, default: 40 },
+    { key: "scale", label: "整体缩放", min: 0.4, max: 1.5, step: 0.05, default: 1 },
+  ],
+  build(p) {
+    return buildFabcafeHoudiniShowcaseParts({
+      seed: Math.round(p.seed),
+      scale: p.scale,
+    });
+  },
+};
+
+// ---- Braid rope: phase-shifted curves -> resample -> tube sweep ------------
+const braidRopeModel = {
+  id: "braid-rope",
+  name: "编织绳",
+  schema: [
+    { key: "strands", label: "绳股数", min: 2, max: 5, step: 1, default: 3 },
+    { key: "length", label: "长度", min: 1.5, max: 10, step: 0.1, default: 5.2 },
+    { key: "braidRadius", label: "编织半径", min: 0.08, max: 0.8, step: 0.01, default: 0.24 },
+    { key: "strandRadius", label: "绳股粗细", min: 0.02, max: 0.2, step: 0.005, default: 0.075 },
+    { key: "turns", label: "编织圈数", min: 1, max: 12, step: 0.5, default: 5 },
+    { key: "segments", label: "曲线分段", min: 24, max: 220, step: 4, default: 140 },
+    { key: "sides", label: "截面边数", min: 4, max: 18, step: 1, default: 9 },
+    { key: "irregularity", label: "手工不规则", min: 0, max: 0.25, step: 0.005, default: 0.025 },
+    { key: "endBands", label: "端部金属箍(0/1)", min: 0, max: 1, step: 1, default: 1 },
+    { key: "seed", label: "随机种子", min: 0, max: 100, step: 1, default: 17 },
+  ],
+  build(p) {
+    return buildBraidRopeParts({
+      strands: Math.round(p.strands),
+      length: p.length,
+      braidRadius: p.braidRadius,
+      strandRadius: p.strandRadius,
+      turns: p.turns,
+      segments: Math.round(p.segments),
+      sides: Math.round(p.sides),
+      irregularity: p.irregularity,
+      endBands: Math.round(p.endBands) === 1,
+      seed: Math.round(p.seed),
+    });
+  },
+};
+
+// ---- Roof generator: footprint -> roof style -> trim/details --------------
+const roofGeneratorModel = {
+  id: "roof-generator",
+  name: "屋顶生成器",
+  schema: [
+    { key: "style", label: "样式(0双坡/1四坡/2十字/3折线/4单坡/5蝶形)", min: 0, max: 5, step: 1, default: 2 },
+    { key: "width", label: "面宽", min: 1.5, max: 10, step: 0.1, default: 5.2 },
+    { key: "depth", label: "进深", min: 1.2, max: 8, step: 0.1, default: 3.6 },
+    { key: "wallHeight", label: "墙体高度", min: 0.4, max: 4, step: 0.05, default: 1.6 },
+    { key: "roofHeight", label: "屋顶高度", min: 0.15, max: 3, step: 0.05, default: 1.15 },
+    { key: "overhang", label: "屋檐外挑", min: 0, max: 1, step: 0.02, default: 0.34 },
+    { key: "dormers", label: "老虎窗数量", min: 0, max: 6, step: 1, default: 2 },
+    { key: "chimney", label: "烟囱(0/1)", min: 0, max: 1, step: 1, default: 1 },
+    { key: "rafters", label: "外露椽子(0/1)", min: 0, max: 1, step: 1, default: 1 },
+    { key: "seed", label: "随机种子", min: 0, max: 100, step: 1, default: 31 },
+  ],
+  build(p) {
+    const styles = ["gable", "hip", "crossGable", "mansard", "shed", "butterfly"];
+    return buildRoofGeneratorParts({
+      style: styles[Math.round(p.style)] || "crossGable",
+      width: p.width,
+      depth: p.depth,
+      wallHeight: p.wallHeight,
+      roofHeight: p.roofHeight,
+      overhang: p.overhang,
+      dormers: Math.round(p.dormers),
+      chimney: Math.round(p.chimney) === 1,
+      rafters: Math.round(p.rafters) === 1,
+      seed: Math.round(p.seed),
+    });
+  },
+};
+
+// ---- Image remeshing: source image field -> cells/dots/triangles/relief ----
+const imageRemeshModel = {
+  id: "image-remesh",
+  name: "图像重网格",
+  schema: [
+    { key: "mode", label: "模式(0套件/1Voronoi/2点阵/3三角/4浮雕)", min: 0, max: 4, step: 1, default: 0 },
+    { key: "source", label: "图像(0肖像/1水果/2波浪)", min: 0, max: 2, step: 1, default: 0 },
+    { key: "size", label: "面板尺寸", min: 1.2, max: 4.2, step: 0.05, default: 2.25 },
+    { key: "resolution", label: "网格精度", min: 6, max: 34, step: 1, default: 18 },
+    { key: "samples", label: "采样点数", min: 16, max: 180, step: 4, default: 80 },
+    { key: "reliefHeight", label: "浮雕高度", min: 0.05, max: 1.2, step: 0.02, default: 0.55 },
+    { key: "seed", label: "随机种子", min: 0, max: 100, step: 1, default: 47 },
+  ],
+  build(p) {
+    const modes = ["suite", "voronoi", "dots", "triangles", "relief"];
+    const sources = ["portrait", "fruit", "waves"];
+    return buildImageRemeshParts({
+      mode: modes[Math.round(p.mode)] || "suite",
+      source: sources[Math.round(p.source)] || "portrait",
+      size: p.size,
+      resolution: Math.round(p.resolution),
+      samples: Math.round(p.samples),
+      reliefHeight: p.reliefHeight,
+      seed: Math.round(p.seed),
+    });
+  },
+};
+
 // ---- PCG colonnade: scatter along a spline, cadence + look-at orientation ----
 // A boulevard built with scatterAlongCurve -> ruleCadence (every Nth slot is a
 // lamp) -> ruleLookAt (props face the central axis) -> copyToPoints. Shows the
@@ -742,15 +2134,15 @@ const pcgColonnade = {
       translateMesh(cylinder(0.04, 1.3, 6), vec3(0, 0.65, 0)),
       translateMesh(icosphere(0.13, 1), vec3(0, 1.4, 0)),
     );
-    const trees = copyToPoints(cloud0(laid, 0), [treeMesh], {
+    const trees = translateMesh(copyToPoints(cloud0(laid, 0), [treeMesh], {
       scale: pointAttribute("scale", 1),
       yaw: pointAttribute("yaw", 0),
       alignToNormal: false,
-    });
-    const lamps = copyToPoints(cloud0(laid, 1), [lampMesh], {
+    }), vec3(0, 0.01, 0));
+    const lamps = translateMesh(copyToPoints(cloud0(laid, 1), [lampMesh], {
       yaw: pointAttribute("yaw", 0),
       alignToNormal: false,
-    });
+    }), vec3(0, 0.01, 0));
     // the road ribbon itself.
     const ribbon = roadRibbon(path, { halfWidth: p.width / 2 + 0.4, sampleDistance: 0.5 });
     return [
@@ -1214,6 +2606,40 @@ function addWallPoints(points, yaw, variant, scaleAttr, w, y, count, doorSide, t
   }
 }
 
+// ---- procedural fern: Vercidium vertex-shader vegetation, CPU-side ----
+// pitch/yaw -> direction, rachis bends as bentPitch = pitch + distance*bend,
+// leaflets step out perpendicular, fronds fan around the center by golden angle.
+const fernModel = {
+  id: "fern",
+  name: "程序化蕨类",
+  schema: [
+    { key: "fronds", label: "叶片数", min: 1, max: 18, step: 1, default: 9 },
+    { key: "pitch", label: "基部倾角", min: 0.0, max: 1.2, step: 0.02, default: 0.42 },
+    { key: "bend", label: "弯曲强度", min: 0.0, max: 3.0, step: 0.05, default: 1.3 },
+    { key: "length", label: "叶长", min: 0.5, max: 2.0, step: 0.05, default: 1.15 },
+    { key: "segments", label: "小叶段数", min: 4, max: 24, step: 1, default: 16 },
+    { key: "leafletLen", label: "小叶长", min: 0.08, max: 0.4, step: 0.01, default: 0.24 },
+    { key: "leafletAngle", label: "小叶后掠", min: 0.2, max: 1.4, step: 0.02, default: 0.72 },
+    { key: "wind", label: "风摆幅度", min: 0.0, max: 1.2, step: 0.02, default: 0.0 },
+    { key: "windPhase", label: "风相位", min: 0.0, max: 1.0, step: 0.01, default: 0.0 },
+  ],
+  build(p) {
+    const mesh = fern({
+      fronds: Math.round(p.fronds),
+      pitch: p.pitch,
+      bendStrength: p.bend,
+      length: p.length,
+      segments: Math.round(p.segments),
+      leafletLength: p.leafletLen,
+      leafletWidth: p.leafletLen * 0.23,
+      leafletAngle: p.leafletAngle,
+      windStrength: p.wind,
+      windPhase: p.windPhase,
+    });
+    return [windSurfPart("fronds", mesh, "fabric", { color: [0.18, 0.42, 0.15], roughness: 0.7 }, "foliage")];
+  },
+};
+
 // ---- procedural mushroom: cone/sphere cap + cylinder stem + spots ----
 const mushroom = {
   id: "mushroom",
@@ -1310,25 +2736,33 @@ const road = {
   id: "road",
   name: "程序化道路",
   schema: [
+    { key: "seed", label: "随机种子", min: 0, max: 999, step: 1, default: 27 },
     { key: "halfWidth", label: "路面半宽", min: 1, max: 6, step: 0.25, default: 3 },
+    { key: "lanes", label: "车道数量", min: 2, max: 6, step: 2, default: 2 },
     { key: "curve", label: "弯曲程度", min: 0, max: 12, step: 0.5, default: 6 },
-    { key: "length", label: "道路长度", min: 10, max: 40, step: 2, default: 24 },
+    { key: "length", label: "道路长度", min: 16, max: 80, step: 2, default: 42 },
     { key: "sample", label: "采样间距", min: 0.5, max: 4, step: 0.25, default: 1.5 },
     { key: "widthSub", label: "路宽细分", min: 1, max: 8, step: 1, default: 4 },
+    { key: "shoulder", label: "路肩宽度", min: 0, max: 3, step: 0.1, default: 0.8 },
     { key: "curbH", label: "路缘高", min: 0, max: 0.5, step: 0.05, default: 0.2 },
-    { key: "showLine", label: "中线(0/1)", min: 0, max: 1, step: 1, default: 1 },
+    { key: "showLines", label: "道路标线", min: 0, max: 1, step: 1, default: 1 },
+    { key: "guardrails", label: "双侧护栏", min: 0, max: 1, step: 1, default: 0 },
+    { key: "vegetation", label: "路边植被", min: 0, max: 1, step: 1, default: 1 },
+    { key: "roadsideWidth", label: "植被带宽", min: 1, max: 10, step: 0.25, default: 5 },
+    { key: "vegSpacing", label: "植被间距", min: 2, max: 10, step: 0.25, default: 2.75 },
+    { key: "vegDensity", label: "植被密度", min: 0, max: 1, step: 0.05, default: 0.95 },
+    { key: "vegScale", label: "植被尺寸", min: 0.5, max: 2, step: 0.05, default: 1 },
+    { key: "keepAway", label: "中部排除半径", min: 0, max: 12, step: 0.5, default: 3 },
   ],
   build(p) {
     const parts = [];
     const half = p.length / 2;
-    const bend = p.curve;
-    // S-shaped centerline via a cubic bezier on the XZ ground plane.
     const centerline = bezier(
-      vec3(-bend, 0, -half),
-      vec3(bend, 0, -half / 3),
-      vec3(-bend, 0, half / 3),
-      vec3(bend, 0, half),
-      48,
+      vec3(0, 0, -half),
+      vec3(p.curve, 0, -half / 3),
+      vec3(-p.curve, 0, half / 3),
+      vec3(0, 0, half),
+      64,
     );
     const opts = {
       halfWidth: p.halfWidth,
@@ -1336,21 +2770,208 @@ const road = {
       widthSubdivisions: Math.round(p.widthSub),
       adaptiveCurvature: true,
       curvatureThresholdDeg: 6,
-      verticalOffset: 0.02,
+      verticalOffset: 0.035,
     };
-    // Asphalt surface (uniform dark ceramic reads as tarmac against the ground).
+    if (p.shoulder > 0.001) {
+      parts.push(surfPart("road_shoulders", roadRibbon(centerline, {
+        ...opts,
+        halfWidth: p.halfWidth + p.shoulder,
+        verticalOffset: 0.018,
+      }), "dirtRoad", { color: [0.31, 0.29, 0.24], roughness: 0.98 }));
+    }
     parts.push(surfPart("road_surface", roadRibbon(centerline, opts), "ceramic", { color: [0.09, 0.09, 0.1], roughness: 0.92 }));
-    // Raised curbs on both edges (light concrete via stone).
     if (p.curbH > 0.001) {
       parts.push(surfPart("curbs", roadCurbs(centerline, { ...opts, curbHeight: p.curbH, curbWidth: 0.3 }), "stone", { color: [0.62, 0.62, 0.64], roughness: 0.7 }));
     }
-    // Painted centerline (glossy ceramic yellow).
-    if (p.showLine > 0.5) {
+    if (p.showLines > 0.5) {
       parts.push(surfPart("center_line", roadCenterLine(centerline, { ...opts, lineWidth: 0.2 }), "ceramic", { color: [0.95, 0.82, 0.15] }));
+      if (Math.round(p.lanes) > 2) {
+        parts.push(surfPart("lane_lines", roadLaneLines(centerline, {
+          ...opts,
+          lanes: Math.round(p.lanes),
+          skipCenter: true,
+          dashLength: 2.5,
+          gapLength: 3.5,
+        }), "ceramic", { color: [0.92, 0.92, 0.9], roughness: 0.55 }));
+      }
+      parts.push(surfPart("edge_lines", roadEdgeLines(centerline, { ...opts, edgeInset: 0.22 }), "ceramic", { color: [0.94, 0.94, 0.9], roughness: 0.55 }));
     }
-    // Ground plane under the road for context.
-    parts.push(surfPart("ground", transform(plane(p.length * 1.6, p.length * 1.6, 1, 1), { translate: vec3(0, 0, 0) }), "stone", { color: [0.2, 0.28, 0.16], roughness: 1 }));
+    if (p.guardrails > 0.5) {
+      const lateral = p.halfWidth + p.shoulder + 0.15;
+      parts.push(surfPart("guardrails", merge(
+        roadGuardrail(centerline, { ...opts, side: -1, lateral }),
+        roadGuardrail(centerline, { ...opts, side: 1, lateral }),
+      ), "brushedMetal", { color: [0.58, 0.6, 0.62], roughness: 0.42 }));
+    }
+    if (p.vegetation > 0.5 && p.vegDensity > 0.001) {
+      const seed = Math.round(p.seed);
+      const placements = roadsidePlacements(centerline, {
+        spacing: p.vegSpacing,
+        offsetMin: p.halfWidth + p.shoulder + 0.8,
+        offsetMax: p.halfWidth + p.shoulder + 0.8 + p.roadsideWidth,
+        density: p.vegDensity,
+        distanceJitter: p.vegSpacing * 0.32,
+        scaleMin: p.vegScale * 0.7,
+        scaleMax: p.vegScale * 1.25,
+        seed,
+        exclusionZones: p.keepAway > 0 ? [{ distance: curveLength(centerline) * 0.5, radius: p.keepAway }] : [],
+      });
+      const tree = conifer({ seed, height: 3.8, trunkRadius: 0.13, whorls: 7, perWhorl: 5, needleDensity: 3 });
+      const bush = shrub({ seed: seed + 1, height: 1.15, stems: 4, spread: 0.28, leafDensity: 6, leafSize: 0.11 });
+      const choose = mulberry32(seed ^ 0x9e3779b9);
+      const woods = [];
+      const leaves = [];
+      for (const placement of placements) {
+        const useTree = choose() < 0.42;
+        const plant = useTree ? tree : bush;
+        const plantScale = placement.scale * (useTree ? 1 : 0.9);
+        const transformOptions = {
+          translate: placement.position,
+          rotate: vec3(0, placement.yaw, 0),
+          scale: plantScale,
+        };
+        woods.push(transform(plant.wood, transformOptions));
+        leaves.push(transform(plant.leaves, transformOptions));
+      }
+      parts.push(surfPart("roadside_wood", merge(...woods), "wood", { color: [0.28, 0.19, 0.11], roughness: 0.94 }));
+      parts.push(windSurfPart("roadside_foliage", merge(...leaves), "fabric", { color: [0.18, 0.42, 0.13], roughness: 0.76 }, "foliage"));
+    }
+    const groundSize = Math.max(p.length * 1.3, (p.halfWidth + p.shoulder + p.roadsideWidth + 3) * 2);
+    parts.push(surfPart("ground", transform(plane(groundSize, groundSize, 1, 1), { translate: vec3(0, -0.015, 0) }), "stone", { color: [0.2, 0.28, 0.16], roughness: 1 }));
     return parts;
+  },
+};
+
+// ---- UE5 PCG-style brick wall: spline-resampled running bond with real bricks ----
+const pcgBrickWall = {
+  id: "pcg-brick-wall",
+  name: "PCG 程序化砖墙",
+  schema: [
+    { key: "length", label: "墙体长度", min: 2, max: 12, step: 0.1, default: 6.4 },
+    { key: "height", label: "墙体高度", min: 1, max: 6, step: 0.1, default: 3.3 },
+    { key: "depth", label: "墙体厚度", min: 0.12, max: 0.8, step: 0.02, default: 0.36 },
+    { key: "columns", label: "横向砖列", min: 4, max: 32, step: 1, default: 15 },
+    { key: "rows", label: "竖向砖行", min: 4, max: 30, step: 1, default: 17 },
+    { key: "curveDepth", label: "曲线偏移", min: -3, max: 3, step: 0.05, default: 0.48 },
+    { key: "brickScale", label: "砖块占格", min: 0.5, max: 0.98, step: 0.01, default: 0.94 },
+    { key: "mortar", label: "砂浆缝宽", min: 0, max: 0.08, step: 0.002, default: 0.01 },
+    { key: "stagger", label: "错缝强度", min: 0, max: 1.2, step: 0.05, default: 1 },
+    { key: "jitter", label: "砖块扰动", min: 0, max: 0.12, step: 0.005, default: 0.02 },
+    { key: "seed", label: "随机种子", min: 0, max: 999, step: 1, default: 21 },
+  ],
+  build(p) {
+    return buildPcgBrickWallParts({
+      length: p.length,
+      height: p.height,
+      depth: p.depth,
+      columns: Math.round(p.columns),
+      rows: Math.round(p.rows),
+      curveDepth: p.curveDepth,
+      brickScale: p.brickScale,
+      mortar: p.mortar,
+      stagger: p.stagger,
+      jitter: p.jitter,
+      seed: Math.round(p.seed),
+    });
+  },
+};
+
+const pcgPalisadeWall = {
+  id: "pcg-palisade-wall",
+  name: "PCG 木栅城墙",
+  schema: [
+    { key: "length", label: "路径总长", min: 12, max: 64, step: 1, default: 30 },
+    { key: "bend", label: "轮廓弯曲", min: -10, max: 10, step: 0.5, default: 4.5 },
+    { key: "height", label: "木墙高度", min: 1.5, max: 6, step: 0.1, default: 3.2 },
+    { key: "thickness", label: "木桩粗细", min: 0.25, max: 0.9, step: 0.02, default: 0.48 },
+    { key: "segmentLength", label: "木桩间距", min: 0.3, max: 1.2, step: 0.02, default: 0.48 },
+    { key: "enclosure", label: "闭合围墙(0/1)", min: 0, max: 1, step: 1, default: 1 },
+    { key: "gateWidth", label: "城门宽度", min: 0, max: 8, step: 0.2, default: 3.2 },
+    { key: "terrain", label: "地形起伏", min: 0, max: 2, step: 0.05, default: 0.35 },
+    { key: "banners", label: "战旗数量", min: 0, max: 12, step: 1, default: 6 },
+    { key: "seed", label: "随机种子", min: 0, max: 999, step: 1, default: 27 },
+  ],
+  build(p) {
+    return buildPcgPalisadeWallParts({
+      length: p.length,
+      bend: p.bend,
+      height: p.height,
+      thickness: p.thickness,
+      segmentLength: p.segmentLength,
+      enclosure: Math.round(p.enclosure) === 1,
+      gateWidth: p.gateWidth,
+      terrain: p.terrain,
+      banners: Math.round(p.banners),
+      seed: Math.round(p.seed),
+    });
+  },
+};
+
+const splineStoneWall = {
+  id: "spline-stone-wall",
+  name: "样条石砌围墙",
+  schema: [
+    { key: "length", label: "路径总长", min: 6, max: 48, step: 1, default: 18 },
+    { key: "bend", label: "样条弯曲", min: -10, max: 10, step: 0.5, default: 3.2 },
+    { key: "height", label: "墙体高度", min: 1, max: 5, step: 0.1, default: 2.4 },
+    { key: "thickness", label: "墙体厚度", min: 0.35, max: 1.5, step: 0.05, default: 0.72 },
+    { key: "segmentLength", label: "样条段长", min: 0.35, max: 2, step: 0.05, default: 0.72 },
+    { key: "enclosure", label: "闭合围墙(0/1)", min: 0, max: 1, step: 1, default: 0 },
+    { key: "gateWidth", label: "缺口宽度", min: 0, max: 8, step: 0.2, default: 0 },
+    { key: "terrain", label: "地形起伏", min: 0, max: 3, step: 0.05, default: 0.8 },
+    { key: "detail", label: "砌石层数", min: 2, max: 9, step: 1, default: 5 },
+    { key: "seed", label: "随机种子", min: 0, max: 999, step: 1, default: 41 },
+  ],
+  build(p) {
+    return buildSplineStoneWallParts({
+      length: p.length,
+      bend: p.bend,
+      height: p.height,
+      thickness: p.thickness,
+      segmentLength: p.segmentLength,
+      enclosure: Math.round(p.enclosure) === 1,
+      gateWidth: p.gateWidth,
+      terrain: p.terrain,
+      detail: Math.round(p.detail),
+      seed: Math.round(p.seed),
+    });
+  },
+};
+
+// ---- complete residential community assembly grammar ----
+const residentialCommunity = {
+  id: "residential-community",
+  name: "程序化完整小区",
+  category: "城市与建筑",
+  assetMeta: {
+    description: "总装Grammar统一生成入口、围墙、环路、住宅楼、会所、停车、游乐、绿化与北侧高架高速。",
+    tags: ["PCG", "小区", "总装Grammar", "住宅", "高速", "确定性"],
+    capabilities: ["语义布局", "模块化围墙", "住宅楼阵列", "公共设施", "高架高速", "参数化重建"],
+    materialClasses: ["混凝土", "玻璃", "金属", "植被", "沥青"],
+  },
+  schema: [
+    { key: "siteWidth", label: "小区宽度", min: 84, max: 160, step: 2, default: 112 },
+    { key: "siteDepth", label: "小区进深", min: 68, max: 124, step: 2, default: 84 },
+    { key: "towerRows", label: "住宅排数", min: 1, max: 2, step: 1, default: 2 },
+    { key: "towersPerRow", label: "每排楼栋数", min: 2, max: 5, step: 1, default: 4 },
+    { key: "towerFloors", label: "住宅基准层数", min: 7, max: 28, step: 1, default: 15 },
+    { key: "floorVariation", label: "楼层高度变化", min: 0, max: 8, step: 1, default: 3 },
+    { key: "wallHeight", label: "围墙高度", min: 1.2, max: 3.5, step: 0.1, default: 2.1 },
+    { key: "treeDensity", label: "绿化密度", min: 0, max: 1, step: 0.05, default: 0.72 },
+    { key: "includeFreeway", label: "生成北侧高速(0/1)", min: 0, max: 1, step: 1, default: 1 },
+    { key: "freewayElevation", label: "高速高架高度", min: 4.5, max: 14, step: 0.5, default: 8 },
+    { key: "seed", label: "随机种子", min: 0, max: 100, step: 1, default: 37 },
+  ],
+  build(p) {
+    return buildResidentialCommunityParts({
+      ...p,
+      seed: Math.round(p.seed),
+      towerRows: Math.round(p.towerRows),
+      towersPerRow: Math.round(p.towersPerRow),
+      towerFloors: Math.round(p.towerFloors),
+      floorVariation: Math.round(p.floorVariation),
+      includeFreeway: Math.round(p.includeFreeway) === 1,
+    });
   },
 };
 
@@ -1371,6 +2992,10 @@ const freeway = {
     { key: "deckThickness", label: "桥面厚度", min: 0.3, max: 1.5, step: 0.1, default: 0.6 },
     { key: "signGantry", label: "标志架(0/1)", min: 0, max: 1, step: 1, default: 1 },
     { key: "signSpacing", label: "标志架间距", min: 12, max: 80, step: 2, default: 36 },
+    { key: "lightPoles", label: "路灯(0/1)", min: 0, max: 1, step: 1, default: 1 },
+    { key: "lightSpacing", label: "路灯间距", min: 8, max: 48, step: 2, default: 18 },
+    { key: "noiseBarrier", label: "隔音屏(0/1)", min: 0, max: 1, step: 1, default: 1 },
+    { key: "barrierHeight", label: "隔音屏高度", min: 1.5, max: 4, step: 0.1, default: 2.6 },
     { key: "sample", label: "采样间距", min: 0.6, max: 3, step: 0.2, default: 1.2 },
   ],
   build(p) {
@@ -1387,7 +3012,42 @@ const freeway = {
       deckThickness: p.deckThickness,
       signGantry: Math.round(p.signGantry) === 1,
       signSpacing: p.signSpacing,
+      lightPoles: Math.round(p.lightPoles) === 1,
+      lightSpacing: p.lightSpacing,
+      noiseBarrier: Math.round(p.noiseBarrier) === 1,
+      barrierHeight: p.barrierHeight,
       sample: p.sample,
+    });
+  },
+};
+
+// ---- reference-inspired three-level urban interchange ----
+const multilevelInterchange = {
+  id: "multilevel-interchange",
+  name: "参考视频复刻·多层立体交通",
+  critiqueGoal: "three-level urban interchange with signalized crossroads, cloverleaf loops, directional ramps, lane markings, bridge piers, and traffic lights",
+  schema: [
+    { key: "span", label: "枢纽总跨度", min: 120, max: 260, step: 5, default: 190 },
+    { key: "mainElevation", label: "顶层主线高度", min: 8, max: 18, step: 0.5, default: 11 },
+    { key: "crossElevation", label: "中层跨线桥高度", min: 4, max: 10, step: 0.5, default: 6 },
+    { key: "lanesPerSide", label: "主线单向车道数", min: 2, max: 5, step: 1, default: 4 },
+    { key: "rampWidth", label: "匝道宽度", min: 3.2, max: 6, step: 0.1, default: 4.2 },
+    { key: "loopRadius", label: "环形匝道半径", min: 20, max: 46, step: 1, default: 28 },
+    { key: "trafficSignals", label: "红绿灯(0关/1开)", min: 0, max: 1, step: 1, default: 1 },
+    { key: "streetLights", label: "道路照明(0关/1开)", min: 0, max: 1, step: 1, default: 1 },
+    { key: "landscaping", label: "中央绿化带(0关/1开)", min: 0, max: 1, step: 1, default: 1 },
+  ],
+  build(p) {
+    return buildMultilevelInterchangeParts({
+      span: p.span,
+      mainElevation: p.mainElevation,
+      crossElevation: p.crossElevation,
+      lanesPerSide: Math.round(p.lanesPerSide),
+      rampWidth: p.rampWidth,
+      loopRadius: p.loopRadius,
+      trafficSignals: Math.round(p.trafficSignals) === 1,
+      streetLights: Math.round(p.streetLights) === 1,
+      landscaping: Math.round(p.landscaping) === 1,
     });
   },
 };
@@ -1448,6 +3108,33 @@ const viaduct = {
       barriers: Math.round(p.barriers) === 1,
       abutments: Math.round(p.abutments) === 1,
       sample: p.sample,
+    });
+  },
+};
+
+const suspensionBridge = {
+  id: "suspension-bridge",
+  name: "程序化悬索桥",
+  critiqueGoal: "long wooden suspension bridge with repeated roofed towers, sagging deck, main cables and vertical hangers",
+  schema: [
+    { key: "seed", label: "随机种子", min: 0, max: 999, step: 1, default: 83 },
+    { key: "spanLength", label: "桥梁总长", min: 24, max: 160, step: 2, default: 90 },
+    { key: "towerCount", label: "桥塔数量", min: 2, max: 12, step: 1, default: 6 },
+    { key: "bridgeWidth", label: "桥面宽度", min: 1.4, max: 8, step: 0.2, default: 3.8 },
+    { key: "towerHeight", label: "桥塔高度", min: 2.4, max: 12, step: 0.2, default: 5.2 },
+    { key: "valleyDepth", label: "整体下垂", min: 0, max: 18, step: 0.5, default: 5.5 },
+    { key: "pathBend", label: "水平弯曲", min: 0, max: 24, step: 0.5, default: 3.2 },
+    { key: "towerJitter", label: "桥塔高差", min: 0, max: 2.5, step: 0.05, default: 0.35 },
+    { key: "deckSag", label: "分跨桥面下垂", min: 0, max: 0.09, step: 0.002, default: 0.024 },
+    { key: "cableSag", label: "主索下垂", min: 0.02, max: 0.28, step: 0.005, default: 0.11 },
+    { key: "plankSpacing", label: "木板间距", min: 0.28, max: 1.4, step: 0.02, default: 0.58 },
+    { key: "hangerSpacing", label: "吊索间距", min: 0.8, max: 5, step: 0.1, default: 2.1 },
+  ],
+  build(params) {
+    return buildSuspensionBridgeParts({
+      ...params,
+      seed: Math.round(params.seed),
+      towerCount: Math.round(params.towerCount),
     });
   },
 };
@@ -1683,6 +3370,7 @@ const billboard = {
     { key: "singleMast", label: "单立柱(0/1)", min: 0, max: 1, step: 1, default: 1 },
     { key: "truss", label: "桁架(0/1)", min: 0, max: 1, step: 1, default: 1 },
     { key: "lights", label: "投光灯(0/1)", min: 0, max: 1, step: 1, default: 1 },
+    { key: "adTexture", label: "广告贴图", type: "image", accept: "image/png,image/jpeg,image/webp,image/avif", part: "ad_face", channel: "baseColor", default: "" },
   ],
   build(p) {
     return buildBillboardParts({
@@ -1692,6 +3380,7 @@ const billboard = {
       singleMast: Math.round(p.singleMast) === 1,
       truss: Math.round(p.truss) === 1,
       lights: Math.round(p.lights) === 1,
+      adTexture: p.adTexture,
     });
   },
 };
@@ -1851,8 +3540,8 @@ const streetTree = {
   schema: [
     { key: "trunkHeight", label: "树干高", min: 1.4, max: 3.5, step: 0.1, default: 2.2 },
     { key: "canopyRadius", label: "树冠半径", min: 1.2, max: 3.2, step: 0.1, default: 2.0 },
-    { key: "clusters", label: "树冠团数", min: 3, max: 12, step: 1, default: 7 },
-    { key: "pit", label: "树池护栏(0/1)", min: 0, max: 1, step: 1, default: 1 },
+    { key: "clusters", label: "树冠密度", min: 3, max: 12, step: 1, default: 8 },
+    { key: "pit", label: "树池格栅(0/1)", min: 0, max: 1, step: 1, default: 1 },
     { key: "seed", label: "随机种子", min: 1, max: 64, step: 1, default: 7 },
   ],
   build(p) {
@@ -1862,6 +3551,102 @@ const streetTree = {
       clusters: Math.round(p.clusters),
       pit: Math.round(p.pit) === 1,
       seed: Math.round(p.seed),
+    });
+  },
+};
+
+// ---- CitySample Kit_StreetLamp: cobra / ornamental street lamp ----
+const streetLamp = {
+  id: "street-lamp",
+  name: "街灯",
+  schema: [
+    { key: "height", label: "灯杆高", min: 4, max: 9, step: 0.1, default: 6.5 },
+    { key: "style", label: "样式", type: "select", options: ["cobra", "ornamental", "double"], default: "cobra" },
+    { key: "armReach", label: "悬臂长", min: 1, max: 3.5, step: 0.1, default: 2.2 },
+    { key: "base", label: "灯座(0/1)", min: 0, max: 1, step: 1, default: 1 },
+  ],
+  build(p) {
+    return buildStreetLampParts({
+      height: p.height,
+      style: p.style,
+      armReach: p.armReach,
+      base: Math.round(p.base) === 1,
+    });
+  },
+};
+
+// ---- CitySample fire hydrant ----
+const fireHydrant = {
+  id: "fire-hydrant",
+  name: "消防栓",
+  schema: [
+    { key: "height", label: "本体高", min: 0.5, max: 1.1, step: 0.05, default: 0.75 },
+    { key: "radius", label: "本体半径", min: 0.08, max: 0.16, step: 0.01, default: 0.11 },
+    { key: "outlets", label: "出水口数", min: 0, max: 2, step: 1, default: 2 },
+  ],
+  build(p) {
+    return buildFireHydrantParts({
+      height: p.height,
+      radius: p.radius,
+      outlets: Math.round(p.outlets),
+    });
+  },
+};
+
+// ---- CitySample Kit_bench_RR: slatted park bench ----
+const parkBench = {
+  id: "park-bench",
+  name: "长椅",
+  schema: [
+    { key: "length", label: "椅长", min: 1.2, max: 3, step: 0.1, default: 1.8 },
+    { key: "slats", label: "板条数", min: 3, max: 8, step: 1, default: 5 },
+    { key: "backrest", label: "靠背(0/1)", min: 0, max: 1, step: 1, default: 1 },
+    { key: "armrests", label: "扶手(0/1)", min: 0, max: 1, step: 1, default: 1 },
+  ],
+  build(p) {
+    return buildParkBenchParts({
+      length: p.length,
+      slats: Math.round(p.slats),
+      backrest: Math.round(p.backrest) === 1,
+      armrests: Math.round(p.armrests) === 1,
+    });
+  },
+};
+
+// ---- CitySample Kit_Trashcan_A: perforated litter bin ----
+const trashcan = {
+  id: "trashcan",
+  name: "垃圾桶",
+  schema: [
+    { key: "radius", label: "桶半径", min: 0.2, max: 0.4, step: 0.02, default: 0.28 },
+    { key: "height", label: "桶高", min: 0.5, max: 1.1, step: 0.05, default: 0.8 },
+    { key: "lid", label: "顶盖(0/1)", min: 0, max: 1, step: 1, default: 1 },
+    { key: "frame", label: "支架(0/1)", min: 0, max: 1, step: 1, default: 1 },
+  ],
+  build(p) {
+    return buildTrashcanParts({
+      radius: p.radius,
+      height: p.height,
+      lid: Math.round(p.lid) === 1,
+      frame: Math.round(p.frame) === 1,
+    });
+  },
+};
+
+// ---- CitySample Kit_Cone_C_A: traffic cone ----
+const trafficCone = {
+  id: "traffic-cone",
+  name: "交通路锥",
+  schema: [
+    { key: "height", label: "锥高", min: 0.4, max: 1, step: 0.05, default: 0.7 },
+    { key: "baseWidth", label: "底座半宽", min: 0.12, max: 0.28, step: 0.01, default: 0.18 },
+    { key: "collars", label: "反光带数", min: 0, max: 3, step: 1, default: 2 },
+  ],
+  build(p) {
+    return buildTrafficConeParts({
+      height: p.height,
+      baseWidth: p.baseWidth,
+      collars: Math.round(p.collars),
     });
   },
 };
@@ -1877,9 +3662,13 @@ const freewaySign = {
     { key: "signHeight", label: "牌面高", min: 1.4, max: 3, step: 0.1, default: 2.2 },
     { key: "truss", label: "桁架梁(0/1)", min: 0, max: 1, step: 1, default: 1 },
     { key: "lights", label: "照明灯(0/1)", min: 0, max: 1, step: 1, default: 1 },
+    { key: "legend1", label: "牌面1路名", type: "select", options: ["MAIN ST", "5TH AVE", "HARBOR", "CENTRAL", "AIRPORT", "DOWNTOWN", "MARKET ST", "PORT"], default: "MAIN ST" },
+    { key: "legend2", label: "牌面2路名", type: "select", options: ["5TH AVE", "MAIN ST", "HARBOR", "CENTRAL", "AIRPORT", "DOWNTOWN", "MARKET ST", "PORT"], default: "5TH AVE" },
+    { key: "exit", label: "出口编号(0=无)", min: 0, max: 99, step: 1, default: 0 },
     { key: "seed", label: "随机种子", min: 0, max: 64, step: 1, default: 5 },
   ],
   build(p) {
+    const legends = [p.legend1, p.legend2].slice(0, Math.round(p.signCount));
     return buildFreewaySignParts({
       span: p.span,
       postHeight: p.postHeight,
@@ -1887,6 +3676,8 @@ const freewaySign = {
       signHeight: p.signHeight,
       truss: Math.round(p.truss) === 1,
       lights: Math.round(p.lights) === 1,
+      legends,
+      exitNumber: Math.round(p.exit) > 0 ? String(Math.round(p.exit)) : "",
       seed: Math.round(p.seed),
     });
   },
@@ -1944,6 +3735,140 @@ const waterTower = {
   },
 };
 
+// ---- SideFX-style modular house: footprint -> slots -> module kit -> roofs ----
+const sidefxModularHouse = {
+  id: "sidefx-modular-house",
+  name: "SideFX 模块化房屋",
+  critiqueGoal: "Houdini-style procedural modular house with semantic facade slots",
+  schema: [
+    { key: "floors", label: "楼层数", min: 1, max: 4, step: 1, default: 2 },
+    { key: "baysX", label: "横向开间", min: 3, max: 10, step: 1, default: 6 },
+    { key: "baysZ", label: "纵向进深", min: 2, max: 6, step: 1, default: 3 },
+    { key: "bayWidth", label: "开间宽度", min: 0.8, max: 1.8, step: 0.05, default: 1.1 },
+    { key: "floorHeight", label: "层高", min: 0.9, max: 1.8, step: 0.05, default: 1.15 },
+    { key: "layout", label: "平面布局(0矩形/1L形)", min: 0, max: 1, step: 1, default: 1 },
+    { key: "wingBays", label: "侧翼开间", min: 1, max: 6, step: 1, default: 3 },
+    { key: "wingDepthBays", label: "侧翼进深", min: 1, max: 5, step: 1, default: 3 },
+    { key: "roofPitch", label: "屋顶坡度", min: 0.2, max: 1, step: 0.02, default: 0.72 },
+    { key: "roofOverhang", label: "屋檐外挑", min: 0.08, max: 0.6, step: 0.02, default: 0.28 },
+    { key: "balconyDensity", label: "阳台概率", min: 0, max: 1, step: 0.05, default: 0.18 },
+    { key: "shutterDensity", label: "百叶窗概率", min: 0, max: 1, step: 0.05, default: 0.65 },
+    { key: "seed", label: "随机种子", min: 0, max: 999, step: 1, default: 42 },
+  ],
+  build(p) {
+    return buildSidefxModularHouseParts({
+      floors: Math.round(p.floors),
+      baysX: Math.round(p.baysX),
+      baysZ: Math.round(p.baysZ),
+      bayWidth: p.bayWidth,
+      floorHeight: p.floorHeight,
+      layout: Math.round(p.layout) === 0 ? "rectangle" : "lWing",
+      wingBays: Math.round(p.wingBays),
+      wingDepthBays: Math.round(p.wingDepthBays),
+      roofPitch: p.roofPitch,
+      roofOverhang: p.roofOverhang,
+      balconyDensity: p.balconyDensity,
+      shutterDensity: p.shutterDensity,
+      seed: Math.round(p.seed),
+    });
+  },
+};
+
+// ---- SideFX Solaris Market inspired scene: USD-style asset variants + layout ----
+const sidefxSolarisMarket = {
+  id: "sidefx-solaris-market",
+  name: "SideFX Solaris 市集",
+  critiqueGoal: "Solaris-style market scene with stalls, shelves, instanced jars and background context",
+  schema: [
+    { key: "stalls", label: "摊位数量", min: 1, max: 4, step: 1, default: 2 },
+    { key: "shelfRows", label: "货架层数", min: 1, max: 5, step: 1, default: 3 },
+    { key: "jarsPerShelf", label: "每层罐数", min: 2, max: 18, step: 1, default: 10 },
+    { key: "propDensity", label: "道具密度", min: 0, max: 1, step: 0.05, default: 0.82 },
+    { key: "backgroundBuildings", label: "背景建筑", min: 0, max: 5, step: 1, default: 3 },
+    { key: "sandRelief", label: "沙地起伏", min: 0, max: 0.8, step: 0.02, default: 0.28 },
+    { key: "seed", label: "随机种子", min: 0, max: 999, step: 1, default: 205 },
+  ],
+  build(p) {
+    return buildSolarisMarketParts({
+      stalls: Math.round(p.stalls),
+      shelfRows: Math.round(p.shelfRows),
+      jarsPerShelf: Math.round(p.jarsPerShelf),
+      propDensity: p.propDensity,
+      backgroundBuildings: Math.round(p.backgroundBuildings),
+      sandRelief: p.sandRelief,
+      seed: Math.round(p.seed),
+    });
+  },
+};
+
+// ---- SideFX procedural cactus-inspired organic plant ----
+const proceduralCactus = {
+  id: "procedural-cactus",
+  name: "程序化仙人掌",
+  schema: [
+    { key: "height", label: "主干高度", min: 1.5, max: 8, step: 0.1, default: 4.8 },
+    { key: "radius", label: "主干半径", min: 0.18, max: 0.9, step: 0.02, default: 0.42 },
+    { key: "ribs", label: "纵向棱数", min: 5, max: 22, step: 1, default: 12 },
+    { key: "ribDepth", label: "棱槽深度", min: 0, max: 0.45, step: 0.01, default: 0.18 },
+    { key: "armCount", label: "分枝数量", min: 0, max: 10, step: 1, default: 5 },
+    { key: "armLength", label: "分枝外伸", min: 0.3, max: 3, step: 0.05, default: 1.45 },
+    { key: "armLift", label: "分枝上扬", min: 0.3, max: 3, step: 0.05, default: 1.55 },
+    { key: "bend", label: "整体弯曲", min: 0, max: 0.45, step: 0.01, default: 0.18 },
+    { key: "spinesPerRib", label: "刺密度", min: 0, max: 18, step: 1, default: 9 },
+    { key: "flowerCount", label: "花朵数量", min: 0, max: 12, step: 1, default: 5 },
+    { key: "baseRadius", label: "沙地半径", min: 0, max: 3, step: 0.05, default: 1.5 },
+    { key: "seed", label: "随机种子", min: 0, max: 999, step: 1, default: 19 },
+  ],
+  build(p) {
+    return buildProceduralCactusParts({
+      height: p.height,
+      radius: p.radius,
+      ribs: Math.round(p.ribs),
+      ribDepth: p.ribDepth,
+      armCount: Math.round(p.armCount),
+      armLength: p.armLength,
+      armLift: p.armLift,
+      bend: p.bend,
+      spinesPerRib: Math.round(p.spinesPerRib),
+      flowerCount: Math.round(p.flowerCount),
+      baseRadius: p.baseRadius,
+      seed: Math.round(p.seed),
+    });
+  },
+};
+
+// ---- SideFX Procedural SILO-inspired cutaway megashaft ----
+const proceduralSilo = {
+  id: "procedural-silo",
+  name: "程序化筒仓",
+  schema: [
+    { key: "radius", label: "筒仓半径", min: 2.5, max: 9, step: 0.1, default: 5.2 },
+    { key: "height", label: "总高度", min: 10, max: 40, step: 0.5, default: 22 },
+    { key: "levels", label: "楼层数", min: 4, max: 26, step: 1, default: 14 },
+    { key: "modulesPerLevel", label: "每层模块", min: 6, max: 28, step: 1, default: 14 },
+    { key: "balconyDepth", label: "环廊深度", min: 0.5, max: 2.5, step: 0.05, default: 1.15 },
+    { key: "cutawayAngle", label: "剖切开口", min: 0.2, max: 3.6, step: 0.05, default: 1.45 },
+    { key: "stairTurns", label: "楼梯圈数", min: 1, max: 9, step: 0.1, default: 4.2 },
+    { key: "servicePipes", label: "管线数", min: 0, max: 18, step: 1, default: 8 },
+    { key: "moduleDensity", label: "模块密度", min: 0.2, max: 1, step: 0.02, default: 0.78 },
+    { key: "seed", label: "随机种子", min: 0, max: 999, step: 1, default: 41 },
+  ],
+  build(p) {
+    return buildProceduralSiloParts({
+      radius: p.radius,
+      height: p.height,
+      levels: Math.round(p.levels),
+      modulesPerLevel: Math.round(p.modulesPerLevel),
+      balconyDepth: p.balconyDepth,
+      cutawayAngle: p.cutawayAngle,
+      stairTurns: p.stairTurns,
+      servicePipes: Math.round(p.servicePipes),
+      moduleDensity: p.moduleDensity,
+      seed: Math.round(p.seed),
+    });
+  },
+};
+
 // ---- WFC-tiled building rooftop (CitySample WFC_Rooftop) ----
 const wfcRooftop = {
   id: "wfc-rooftop",
@@ -1968,26 +3893,36 @@ const wfcRooftop = {
   },
 };
 
-// ---- four-arm road intersection kit (CitySample Kit_City_Road) ----
+// ---- continuous arbitrary-angle road intersection kit ----
 const intersection = {
   id: "intersection",
-  name: "十字路口",
+  name: "任意角路口",
   schema: [
+    { key: "layout", label: "路口类型(0十字/1斜十字/2Y字/3斜T/4五岔)", min: 0, max: 4, step: 1, default: 1 },
+    { key: "branchAngle", label: "斜交夹角", min: 25, max: 155, step: 1, default: 55 },
     { key: "roadHalfWidth", label: "路面半宽", min: 3, max: 8, step: 0.5, default: 5 },
     { key: "armLength", label: "路臂长", min: 5, max: 18, step: 1, default: 10 },
     { key: "lanes", label: "单向车道", min: 1, max: 4, step: 1, default: 2 },
     { key: "crosswalks", label: "斑马线(0/1)", min: 0, max: 1, step: 1, default: 1 },
     { key: "sidewalks", label: "人行道(0/1)", min: 0, max: 1, step: 1, default: 1 },
-    { key: "west", label: "西臂(0/1)", min: 0, max: 1, step: 1, default: 1 },
   ],
   build(p) {
+    const layout = Math.round(p.layout);
+    const angle = p.branchAngle;
+    const layouts = [
+      [0, 90, 180, 270],
+      [0, angle, 180, 180 + angle],
+      [90, 210, 330],
+      [0, angle, 180],
+      [0, 55, 130, 205, 285],
+    ];
     return buildIntersectionParts({
       roadHalfWidth: p.roadHalfWidth,
       armLength: p.armLength,
       lanes: Math.round(p.lanes),
       crosswalks: Math.round(p.crosswalks) === 1,
       sidewalks: Math.round(p.sidewalks) === 1,
-      arms: { north: true, south: true, east: true, west: Math.round(p.west) === 1 },
+      branches: layouts[layout].map((angleDegrees) => ({ angleDegrees })),
     });
   },
 };
@@ -2474,6 +4409,149 @@ const ivyRuinsModel = {
   },
 };
 
+const vineCoveredRockModel = {
+  id: "vine-covered-rock",
+  name: "藤蔓覆盖裂隙岩柱",
+  category: "自然",
+  assetMeta: {
+    description: "参考 BV12w411a7ne：竖向裂隙岩柱、表面吸附藤蔓、顶冠垂藤、基部环形密叶。",
+    tags: ["岩石", "藤蔓", "常春藤", "PCG", "程序化复刻"],
+    capabilities: ["岩柱数量", "覆盖度", "叶片尺寸", "垂藤长度", "基部扩散", "四级LOD"],
+    materialClasses: ["风化岩石", "木质藤茎", "双面藤叶", "土壤"],
+  },
+  schema: [
+    { key: "rockCount", label: "裂隙岩柱数", min: 3, max: 8, step: 1, default: 5 },
+    { key: "width", label: "岩体宽度", min: 3, max: 9, step: 0.1, default: 5.4 },
+    { key: "height", label: "岩体高度", min: 3, max: 10, step: 0.1, default: 5.8 },
+    { key: "coverage", label: "藤叶覆盖度", min: 0.2, max: 1.8, step: 0.05, default: 1 },
+    { key: "leafSize", label: "藤叶尺寸", min: 0.08, max: 0.4, step: 0.01, default: 0.22 },
+    { key: "hangingLength", label: "顶冠垂藤长度", min: 0, max: 4, step: 0.1, default: 1.7 },
+    { key: "groundSpread", label: "基部藤叶扩散", min: 0, max: 2.5, step: 0.05, default: 1.45 },
+    { key: "lod", label: "细节等级", min: 0, max: 3, step: 1, default: 1 },
+    { key: "seed", label: "随机种子", min: 0, max: 999, step: 1, default: 73 },
+  ],
+  build(params) {
+    return buildVineCoveredRockParts({
+      seed: Math.round(params.seed),
+      rockCount: Math.round(params.rockCount),
+      width: params.width,
+      height: params.height,
+      coverage: params.coverage,
+      leafSize: params.leafSize,
+      hangingLength: params.hangingLength,
+      groundSpread: params.groundSpread,
+      lod: Math.round(params.lod),
+    });
+  },
+};
+
+const crazyIvyWallModel = {
+  id: "crazy-ivy-wall",
+  name: "Crazy Ivy 爬墙藤蔓复刻",
+  category: "植被",
+  assetMeta: {
+    description: "参考 BV1YL411r7Cg：多簇表面蔓延、随机分叉、墙顶悬垂、绿叶/红叶物种切换。",
+    tags: ["常春藤", "墙面覆盖", "悬垂藤", "Crazy Ivy", "程序化复刻"],
+    capabilities: ["覆盖度", "悬垂量", "分叉率", "叶片密度", "秋色变体", "四级LOD"],
+    materialClasses: ["灰泥墙", "木质藤茎", "双面常春藤叶"],
+  },
+  schema: [
+    { key: "width", label: "墙面宽度", min: 3, max: 14, step: 0.25, default: 8 },
+    { key: "height", label: "墙面高度", min: 2, max: 8, step: 0.25, default: 4.2 },
+    { key: "coverage", label: "藤蔓覆盖度", min: 0.1, max: 1.4, step: 0.05, default: 0.82 },
+    { key: "hanging", label: "墙顶悬垂量", min: 0, max: 1, step: 0.05, default: 0.48 },
+    { key: "branching", label: "随机分叉率", min: 0, max: 1, step: 0.05, default: 0.62 },
+    { key: "leafSize", label: "常春藤叶尺寸", min: 0.06, max: 0.32, step: 0.01, default: 0.18 },
+    { key: "leafDensity", label: "叶片密度", min: 1, max: 14, step: 0.5, default: 8.5 },
+    { key: "dryness", label: "枯叶比例", min: 0, max: 1, step: 0.05, default: 0.06 },
+    { key: "autumn", label: "红叶物种混合", min: 0, max: 1, step: 0.05, default: 0 },
+    { key: "lod", label: "LOD等级", min: 0, max: 3, step: 1, default: 1 },
+    { key: "seed", label: "随机种子", min: 0, max: 999, step: 1, default: 45 },
+  ],
+  build(p) {
+    return buildCrazyIvyWallParts({
+      seed: Math.round(p.seed),
+      width: p.width,
+      height: p.height,
+      coverage: p.coverage,
+      hanging: p.hanging,
+      branching: p.branching,
+      leafSize: p.leafSize,
+      leafDensity: p.leafDensity,
+      dryness: p.dryness,
+      autumn: p.autumn,
+      lod: Math.round(p.lod),
+    });
+  },
+};
+
+const lowPolyIvyModel = {
+  id: "ivy-lowpoly-vol23",
+  name: "低模常春藤 VOL23 复刻",
+  category: "植被",
+  assetMeta: {
+    description: "从 UE5 VOL23 资产规律重建：五类剪影、三裂叶、活枯双态、四级 LOD；全部为程序化几何。",
+    tags: ["常春藤", "低模", "藤蔓", "LOD", "程序化复刻"],
+    capabilities: ["五类生长构型", "种子变体", "活枯混合", "风权重", "四级LOD"],
+    materialClasses: ["树皮", "双面叶片"],
+  },
+  schema: [
+    { key: "form", label: "形态(0墙1垂2横3帘4疏)", min: 0, max: 4, step: 1, default: 0 },
+    { key: "width", label: "横向尺寸", min: 0.8, max: 5, step: 0.1, default: 2.2 },
+    { key: "height", label: "纵向尺寸", min: 0.8, max: 6, step: 0.1, default: 2.8 },
+    { key: "strands", label: "主藤数量", min: 1, max: 9, step: 1, default: 4 },
+    { key: "branches", label: "每藤分叉", min: 0, max: 4, step: 1, default: 2 },
+    { key: "leafSize", label: "叶片尺寸", min: 0.06, max: 0.32, step: 0.01, default: 0.16 },
+    { key: "leafDensity", label: "叶片密度", min: 1, max: 14, step: 0.5, default: 7.5 },
+    { key: "lushness", label: "繁茂度", min: 0.25, max: 1.8, step: 0.05, default: 1 },
+    { key: "dryness", label: "枯叶比例", min: 0, max: 1, step: 0.05, default: 0.08 },
+    { key: "lod", label: "LOD等级", min: 0, max: 3, step: 1, default: 0 },
+    { key: "seed", label: "随机种子", min: 0, max: 999, step: 1, default: 23 },
+  ],
+  build(p) {
+    const forms = ["wall", "hanging", "runner", "curtain", "sparse"];
+    return buildLowPolyIvyParts({
+      seed: Math.round(p.seed),
+      form: forms[Math.round(p.form)] ?? "wall",
+      width: p.width,
+      height: p.height,
+      strands: Math.round(p.strands),
+      branches: Math.round(p.branches),
+      leafSize: p.leafSize,
+      leafDensity: p.leafDensity,
+      lushness: p.lushness,
+      dryness: p.dryness,
+      lod: Math.round(p.lod),
+    });
+  },
+};
+
+const lowPolyIvyKitModel = {
+  id: "ivy-lowpoly-vol23-kit",
+  name: "低模常春藤 VOL23 套件",
+  category: "植被",
+  schema: [
+    { key: "variants", label: "变体数量", min: 5, max: 20, step: 1, default: 10 },
+    { key: "columns", label: "每行数量", min: 2, max: 8, step: 1, default: 5 },
+    { key: "scale", label: "整体尺度", min: 0.4, max: 2, step: 0.05, default: 1 },
+    { key: "lushness", label: "繁茂度", min: 0.25, max: 1.6, step: 0.05, default: 1 },
+    { key: "dryness", label: "枯叶基准", min: 0, max: 1, step: 0.05, default: 0.12 },
+    { key: "lod", label: "LOD等级", min: 0, max: 3, step: 1, default: 1 },
+    { key: "seed", label: "随机种子", min: 0, max: 999, step: 1, default: 23 },
+  ],
+  build(p) {
+    return buildLowPolyIvyKitParts({
+      seed: Math.round(p.seed),
+      variants: Math.round(p.variants),
+      columns: Math.round(p.columns),
+      scale: p.scale,
+      lushness: p.lushness,
+      dryness: p.dryness,
+      lod: Math.round(p.lod),
+    });
+  },
+};
+
 const vineModel = {
   id: "vine",
   name: "程序化藤蔓",
@@ -2565,6 +4643,32 @@ const csgModel = {
       result = union(cube, transform(ball, { translate: vec3(p.size / 2, p.size / 2, 0) }));
     }
     return [surfPart("csg", result, "carPaint", { color: [0.7, 0.55, 0.35] })];
+  },
+};
+
+const remeshModel = {
+  id: "remesh",
+  name: "体素重网格",
+  schema: [
+    { key: "res", label: "体素分辨率", min: 12, max: 56, step: 2, default: 30 },
+    { key: "shapeMix", label: "球体嵌入量", min: 0.4, max: 1.1, step: 0.02, default: 0.75 },
+    { key: "raw", label: "显示原始布尔(0否1是)", min: 0, max: 1, step: 1, default: 0 },
+  ],
+  build(p) {
+    // A messy boolean union: box + offset sphere + a drilled hole. The seams,
+    // slivers and uneven density are exactly what voxel remesh cleans up.
+    const cube = box(1.4, 1.4, 1.4);
+    const ball = sphere(p.shapeMix, 20, 14);
+    const drill = cylinder(0.35, 3, 20, true);
+    const messy = subtract(
+      union(cube, transform(ball, { translate: vec3(0.7, 0.7, 0) })),
+      drill,
+    );
+    if (Math.round(p.raw) === 1) {
+      return [surfPart("remesh", boxUV(messy), "metal", { color: [0.75, 0.4, 0.3], roughness: 0.5 })];
+    }
+    const clean = boxUV(voxelRemesh(messy, { resolution: Math.round(p.res) }));
+    return [surfPart("remesh", clean, "metal", { color: [0.5, 0.65, 0.8], roughness: 0.45 })];
   },
 };
 
@@ -2767,6 +4871,106 @@ const urbanModernOffice = makeUrbanModel("urban-office", "都市·现代办公�
 const urbanBrownstone = makeUrbanModel("urban-brownstone", "都市·褐石排屋", "brownstone");
 const urbanCorporate = makeUrbanModel("urban-corporate", "都市·企业总部塔", "corporate");
 
+// ---- semantic module-kit street building: slots -> weighted facade modules ----
+const japaneseStreetBuilding = {
+  id: "japanese-street-building",
+  name: "日式模块化街屋",
+  schema: [
+    { key: "floors", label: "层数", min: 1, max: 9, step: 1, default: 5 },
+    { key: "width", label: "面宽", min: 3, max: 14, step: 0.1, default: 7.2 },
+    { key: "depth", label: "进深", min: 3, max: 10, step: 0.1, default: 5.2 },
+    { key: "floorHeight", label: "层高", min: 0.7, max: 1.6, step: 0.05, default: 1.05 },
+    { key: "bayWidth", label: "模块开间", min: 0.7, max: 2, step: 0.05, default: 1.2 },
+    { key: "signDensity", label: "招牌密度", min: 0, max: 1, step: 0.05, default: 0.95 },
+    { key: "balconyDensity", label: "阳台密度", min: 0, max: 1, step: 0.05, default: 0.75 },
+    { key: "utilityDensity", label: "空调密度", min: 0, max: 1, step: 0.05, default: 0.55 },
+    { key: "roofClutter", label: "屋顶设备", min: 0, max: 1, step: 0.05, default: 1 },
+    { key: "seed", label: "模块种子", min: 0, max: 999, step: 1, default: 23 },
+  ],
+  build(p) {
+    return buildJapaneseStreetBuildingParts({
+      floors: Math.round(p.floors),
+      width: p.width,
+      depth: p.depth,
+      floorHeight: p.floorHeight,
+      bayWidth: p.bayWidth,
+      signDensity: p.signDensity,
+      balconyDensity: p.balconyDensity,
+      utilityDensity: p.utilityDensity,
+      roofClutter: p.roofClutter,
+      seed: Math.round(p.seed),
+    });
+  },
+};
+
+// ---- Hong Kong cyber street house: dense facade + signs + exposed services ----
+const hongKongCyberHouse = {
+  id: "hong-kong-cyber-house",
+  name: "香港赛博街屋",
+  schema: [
+    { key: "floors", label: "楼层数", min: 3, max: 18, step: 1, default: 9 },
+    { key: "width", label: "街面宽度", min: 3.6, max: 14, step: 0.1, default: 8.4 },
+    { key: "depth", label: "建筑进深", min: 3.2, max: 11, step: 0.1, default: 6.2 },
+    { key: "floorHeight", label: "标准层高", min: 0.65, max: 1.5, step: 0.05, default: 0.92 },
+    { key: "bays", label: "立面开间", min: 2, max: 10, step: 1, default: 5 },
+    { key: "signDensity", label: "招牌密度", min: 0, max: 1, step: 0.05, default: 0.88 },
+    { key: "neonAmount", label: "霓虹强度", min: 0, max: 1, step: 0.05, default: 0.9 },
+    { key: "balconyDepth", label: "外挑深度", min: 0.2, max: 1.4, step: 0.05, default: 0.62 },
+    { key: "utilityDensity", label: "机电密度", min: 0, max: 1, step: 0.05, default: 0.78 },
+    { key: "seed", label: "变体种子", min: 0, max: 999, step: 1, default: 71 },
+  ],
+  build(p) {
+    return buildHongKongCyberHouseParts({
+      floors: Math.round(p.floors),
+      width: p.width,
+      depth: p.depth,
+      floorHeight: p.floorHeight,
+      bays: Math.round(p.bays),
+      signDensity: p.signDensity,
+      neonAmount: p.neonAmount,
+      balconyDepth: p.balconyDepth,
+      utilityDensity: p.utilityDensity,
+      seed: Math.round(p.seed),
+    });
+  },
+};
+
+// ---- Kowloon cyber courtyard: inward-facing blocks + wet neon night ----
+const kowloonCyberCourtyard = {
+  id: "kowloon-cyber-courtyard",
+  name: "九龙城·夜雨赛博天井",
+  scenePreset: {
+    environment: "night",
+    background: { mode: "gradient", color: "#01030a", color2: "#09172d" },
+    exposure: 0.72,
+    bloom: { enabled: true, strength: 0.58, radius: 0.5, threshold: 0.8 },
+    fog: { enabled: false, density: 0.012, height: 2.8, shaft: 0 },
+    camera: "courtyard",
+    grid: false,
+  },
+  schema: [
+    { key: "floors", label: "周边楼层", min: 4, max: 18, step: 1, default: 10 },
+    { key: "courtyardWidth", label: "天井宽度", min: 4, max: 15, step: 0.1, default: 8.2 },
+    { key: "courtyardDepth", label: "天井深度", min: 5, max: 18, step: 0.1, default: 10.6 },
+    { key: "buildingDepth", label: "周边楼深", min: 2.8, max: 7, step: 0.1, default: 4.4 },
+    { key: "floorHeight", label: "标准层高", min: 0.65, max: 1.4, step: 0.05, default: 0.9 },
+    { key: "alleyWidth", label: "窄巷宽度", min: 0.75, max: 2.8, step: 0.05, default: 1.35 },
+    { key: "signDensity", label: "广告牌密度", min: 0, max: 1, step: 0.05, default: 0.94 },
+    { key: "neonAmount", label: "霓虹强度", min: 0, max: 1, step: 0.05, default: 1 },
+    { key: "utilityDensity", label: "机电密度", min: 0, max: 1, step: 0.05, default: 0.9 },
+    { key: "wetness", label: "地面湿度", min: 0, max: 1, step: 0.05, default: 0.95 },
+    { key: "rainAmount", label: "雨丝密度", min: 0, max: 1, step: 0.05, default: 0.72 },
+    { key: "seed", label: "街区种子", min: 0, max: 999, step: 1, default: 113 },
+  ],
+  build(p) {
+    return buildKowloonCyberCourtyardParts({
+      ...p,
+      floors: Math.round(p.floors),
+      seed: Math.round(p.seed),
+    });
+  },
+};
+
 // ---- Chinese classical timber hall (殿堂): curved hip roof + dougong ----
 const CHINESE_ROOF_TYPES = ["hip", "hipGable", "gable"];
 const chineseHall = {
@@ -2816,6 +5020,7 @@ const chineseHall = {
 const cityBlock = {
   id: "cityblock",
   name: "程序化街区",
+  critiqueGoal: "city block settlement",
   schema: [
     { key: "cols", label: "沿街栋数", min: 1, max: 8, step: 1, default: 4 },
     { key: "rows", label: "进深排数", min: 1, max: 5, step: 1, default: 2 },
@@ -2828,6 +5033,7 @@ const cityBlock = {
     { key: "roadWidth", label: "车行道宽", min: 1.5, max: 6, step: 0.1, default: 3.0 },
     { key: "sidewalkWidth", label: "人行道宽", min: 0.4, max: 2.5, step: 0.1, default: 1.0 },
     { key: "faceStreet", label: "朝街(0关/1开)", min: 0, max: 1, step: 1, default: 1 },
+    { key: "waterTowers", label: "屋顶水塔比例", min: 0, max: 1, step: 0.05, default: 0.4 },
     { key: "seed", label: "街区种子", min: 0, max: 120, step: 1, default: 11 },
   ],
   build(p) {
@@ -2843,7 +5049,550 @@ const cityBlock = {
       roadWidth: p.roadWidth,
       sidewalkWidth: p.sidewalkWidth,
       faceStreet: Math.round(p.faceStreet) === 1,
+      waterTowers: p.waterTowers,
       seed: p.seed,
+    });
+  },
+};
+
+// ---- large procedural city district: multi-block road network + sidewalk props ----
+const cityDistrict = {
+  id: "city-district",
+  name: "大规模城区",
+  schema: [
+    { key: "blocksX", label: "横向街坊", min: 1, max: 6, step: 1, default: 5 },
+    { key: "blocksZ", label: "纵向街坊", min: 1, max: 5, step: 1, default: 4 },
+    { key: "blockX", label: "街坊宽", min: 18, max: 44, step: 1, default: 34 },
+    { key: "blockZ", label: "街坊深", min: 16, max: 36, step: 1, default: 26 },
+    { key: "streetWidth", label: "街道宽", min: 5, max: 14, step: 0.5, default: 9 },
+    { key: "minFloors", label: "最低层数", min: 1, max: 12, step: 1, default: 3 },
+    { key: "maxFloors", label: "最高层数", min: 2, max: 20, step: 1, default: 10 },
+    { key: "waterTowers", label: "屋顶水塔比例", min: 0, max: 1, step: 0.05, default: 0.35 },
+    { key: "streetTrees", label: "行道树(0关/1开)", min: 0, max: 1, step: 1, default: 1 },
+    { key: "streetFurniture", label: "街具(0关/1开)", min: 0, max: 1, step: 1, default: 1 },
+    { key: "crosswalks", label: "斑马线(0关/1开)", min: 0, max: 1, step: 1, default: 1 },
+    { key: "lotJitter", label: "地块偏移", min: 0, max: 0.8, step: 0.02, default: 0.25 },
+    { key: "seed", label: "城区种子", min: 0, max: 999, step: 1, default: 42 },
+  ],
+  build(p) {
+    return buildCityDistrictParts({
+      blocksX: Math.round(p.blocksX),
+      blocksZ: Math.round(p.blocksZ),
+      blockX: p.blockX,
+      blockZ: p.blockZ,
+      streetWidth: p.streetWidth,
+      minFloors: Math.round(p.minFloors),
+      maxFloors: Math.round(p.maxFloors),
+      waterTowers: p.waterTowers,
+      streetTrees: Math.round(p.streetTrees) === 1,
+      streetFurniture: Math.round(p.streetFurniture) === 1,
+      crosswalks: Math.round(p.crosswalks) === 1,
+      lotJitter: p.lotJitter,
+      seed: Math.round(p.seed),
+    });
+  },
+};
+
+// ---- traditional Roman neighbourhood: courtyard blocks + piazza + narrow stone streets ----
+const romanTown = {
+  id: "roman-town",
+  name: "传统罗马街区",
+  category: "城市与建筑",
+  assetMeta: {
+    description: "暖色风化灰泥街墙、圆拱底商、百叶窗、陶瓦坡屋顶、屋顶露台与玄武岩窄街。",
+    tags: ["罗马", "街区", "围合院落", "陶瓦", "Sampietrini", "程序化城市"],
+    capabilities: ["立面模块槽", "围合街坊", "种子变体", "语义分件", "程序化PBR"],
+    materialClasses: ["风化灰泥", "陶瓦", "玄武岩块石", "木材", "锻铁"],
+  },
+  schema: [
+    { key: "blocksX", label: "横向街坊", min: 1, max: 5, step: 1, default: 3 },
+    { key: "blocksZ", label: "纵向街坊", min: 1, max: 5, step: 1, default: 3 },
+    { key: "blockSize", label: "街坊尺寸", min: 14, max: 30, step: 0.5, default: 21 },
+    { key: "streetWidth", label: "窄街宽度", min: 2.4, max: 7, step: 0.1, default: 4.2 },
+    { key: "minFloors", label: "最低层数", min: 2, max: 7, step: 1, default: 4 },
+    { key: "maxFloors", label: "最高层数", min: 3, max: 9, step: 1, default: 6 },
+    { key: "shopDensity", label: "拱形底商密度", min: 0, max: 1, step: 0.02, default: 0.62 },
+    { key: "shutterDensity", label: "百叶窗密度", min: 0, max: 1, step: 0.02, default: 0.72 },
+    { key: "balconyDensity", label: "阳台密度", min: 0, max: 1, step: 0.02, default: 0.24 },
+    { key: "roofTerraceDensity", label: "屋顶露台比例", min: 0, max: 1, step: 0.02, default: 0.42 },
+    { key: "piazza", label: "中心广场(0关/1开)", min: 0, max: 1, step: 1, default: 1 },
+    { key: "seed", label: "街区种子", min: 0, max: 9999, step: 1, default: 1703 },
+  ],
+  build(p) {
+    return buildRomanTownParts({
+      blocksX: Math.round(p.blocksX),
+      blocksZ: Math.round(p.blocksZ),
+      blockSize: p.blockSize,
+      streetWidth: p.streetWidth,
+      minFloors: Math.round(p.minFloors),
+      maxFloors: Math.round(p.maxFloors),
+      shopDensity: p.shopDensity,
+      shutterDensity: p.shutterDensity,
+      balconyDensity: p.balconyDensity,
+      roofTerraceDensity: p.roofTerraceDensity,
+      piazza: Math.round(p.piazza) === 1,
+      seed: Math.round(p.seed),
+    });
+  },
+};
+
+// ---- road-network district: non-convex parcel slicing + real streets + buildings ----
+function roadnetBoundary(size, shape) {
+  const sx = size * 1.35;
+  const sz = size;
+  const mode = Math.round(shape);
+  if (mode === 2) {
+    return [
+      vec3(-sx, 0, -sz), vec3(sx, 0, -sz), vec3(sx, 0, sz),
+      vec3(sx * 0.45, 0, sz), vec3(sx * 0.45, 0, -sz * 0.18),
+      vec3(-sx * 0.45, 0, -sz * 0.18), vec3(-sx * 0.45, 0, sz),
+      vec3(-sx, 0, sz),
+    ];
+  }
+  if (mode === 1) {
+    return [
+      vec3(-sx, 0, -sz), vec3(sx, 0, -sz), vec3(sx, 0, sz * 0.15),
+      vec3(sx * 0.18, 0, sz * 0.15), vec3(sx * 0.18, 0, sz),
+      vec3(-sx, 0, sz),
+    ];
+  }
+  return [vec3(-sx, 0, -sz), vec3(sx, 0, -sz), vec3(sx, 0, sz), vec3(-sx, 0, sz)];
+}
+
+function roadnetStyleForArea(area, r) {
+  if (area > 1500) return r() < 0.5 ? "glassTower" : "corporate";
+  if (area > 850) return r() < 0.55 ? "modernOffice" : "artDeco";
+  return r() < 0.5 ? "brickWalkup" : "brownstone";
+}
+
+function roadnetFootprintsOverlap(a, b, gap = 0.35) {
+  const axes = [
+    { x: Math.cos(a.yaw), z: -Math.sin(a.yaw) },
+    { x: Math.sin(a.yaw), z: Math.cos(a.yaw) },
+    { x: Math.cos(b.yaw), z: -Math.sin(b.yaw) },
+    { x: Math.sin(b.yaw), z: Math.cos(b.yaw) },
+  ];
+  const radiusOn = (footprint, axis) => {
+    const xAxis = { x: Math.cos(footprint.yaw), z: -Math.sin(footprint.yaw) };
+    const zAxis = { x: Math.sin(footprint.yaw), z: Math.cos(footprint.yaw) };
+    return footprint.halfWidth * Math.abs(axis.x * xAxis.x + axis.z * xAxis.z) +
+      footprint.halfDepth * Math.abs(axis.x * zAxis.x + axis.z * zAxis.z);
+  };
+  const dx = b.x - a.x;
+  const dz = b.z - a.z;
+  return axes.every((axis) =>
+    Math.abs(dx * axis.x + dz * axis.z) < radiusOn(a, axis) + radiusOn(b, axis) + gap,
+  );
+}
+
+const roadNetworkModel = {
+  id: "road-network",
+  name: "参数化路网",
+  critiqueGoal: "standalone procedural road network",
+  schema: [
+    { key: "size", label: "地块尺寸", min: 40, max: 150, step: 2, default: 86 },
+    { key: "shape", label: "边界形状(0矩形/1L形/2U形)", min: 0, max: 2, step: 1, default: 2 },
+    { key: "targetArea", label: "街坊目标面积", min: 420, max: 2600, step: 40, default: 900 },
+    { key: "minAreaRatio", label: "碎块过滤", min: 0.05, max: 0.55, step: 0.01, default: 0.26 },
+    { key: "streetWidth", label: "主路宽", min: 4, max: 16, step: 0.25, default: 8 },
+    { key: "streetTaper", label: "支路递减", min: 0.55, max: 1, step: 0.01, default: 0.84 },
+    { key: "sidewalkWidth", label: "人行道宽", min: 0, max: 5, step: 0.1, default: 1.8 },
+    { key: "lanes", label: "车道数", min: 2, max: 4, step: 1, default: 2 },
+    { key: "jitter", label: "切割偏移", min: 0, max: 0.4, step: 0.01, default: 0.16 },
+    { key: "irregularity", label: "不规则停分", min: 0, max: 0.55, step: 0.01, default: 0.1 },
+    { key: "roadCurve", label: "道路弯曲", min: 0, max: 10, step: 0.25, default: 2 },
+    { key: "roundabouts", label: "环岛(0关/1开)", min: 0, max: 1, step: 1, default: 1 },
+    { key: "showBlocks", label: "显示地块(0关/1开)", min: 0, max: 1, step: 1, default: 1 },
+    { key: "seed", label: "路网种子", min: 0, max: 999, step: 1, default: 42 },
+  ],
+  build(p) {
+    const boundary = roadnetBoundary(p.size, p.shape);
+    const result = cityBlocks(boundary, {
+      targetArea: p.targetArea,
+      minArea: Math.max(80, p.targetArea * p.minAreaRatio),
+      minPerimeter: Math.max(36, Math.sqrt(p.targetArea) * 1.7),
+      streetWidth: p.streetWidth,
+      sidewalkWidth: p.sidewalkWidth,
+      splitJitter: p.jitter,
+      irregularity: p.irregularity,
+      blockLift: 0.055,
+      groundSlab: true,
+      realRoads: true,
+      curbs: true,
+      laneLines: true,
+      edgeLines: true,
+      crosswalks: true,
+      intersectionPads: true,
+      roundabouts: Math.round(p.roundabouts) === 1,
+      roundaboutMinArms: 3,
+      roadCurveAmount: p.roadCurve,
+      streetTaper: p.streetTaper,
+      roadLanes: Math.round(p.lanes),
+      roadSampleDistance: 1.25,
+      seed: Math.round(p.seed),
+    });
+    const roadParts = result.roadParts;
+    const base = Math.round(p.showBlocks) === 1 ? result.baseMesh : ringToPlate(boundary, 0);
+    return [
+      surfPart("land_and_blocks", base, "concrete", { color: [0.32, 0.38, 0.31], roughness: 0.95 }),
+      surfPart("road_asphalt", merge(roadParts.asphaltMesh, roadParts.intersectionMesh, roadParts.roundaboutMesh), "concrete", { color: [0.095, 0.096, 0.105], roughness: 0.94 }),
+      surfPart("road_markings", merge(roadParts.markingMesh, roadParts.crosswalkMesh), "ceramic", { color: [0.93, 0.91, 0.78], roughness: 0.48 }),
+      surfPart("sidewalks", roadParts.sidewalkMesh, "concrete", { color: [0.56, 0.56, 0.54], roughness: 0.86 }),
+      surfPart("curbs", roadParts.curbMesh, "concrete", { color: [0.7, 0.7, 0.67], roughness: 0.78 }),
+      surfPart("roundabout_islands", roadParts.islandMesh, "concrete", { color: [0.23, 0.34, 0.18], roughness: 0.95 }),
+    ];
+  },
+};
+
+const roundaboutTraffic = {
+  id: "roundabout-traffic",
+  name: "参考图复刻·六臂交通环岛",
+  critiqueGoal: "reference-style six-arm urban roundabout with complete traffic dressing and vehicles",
+  schema: [
+    { key: "islandRadius", label: "中央岛半径", min: 8, max: 24, step: 0.5, default: 15 },
+    { key: "roadWidth", label: "道路宽度", min: 8, max: 22, step: 0.5, default: 14 },
+    { key: "armLength", label: "道路延伸", min: 24, max: 80, step: 2, default: 52 },
+    { key: "vehicleCount", label: "载具数量", min: 0, max: 72, step: 1, default: 38 },
+    { key: "treeCount", label: "树木数量", min: 0, max: 80, step: 1, default: 32 },
+    { key: "streetFurniture", label: "街道设施(0关/1开)", min: 0, max: 1, step: 1, default: 1 },
+    { key: "seed", label: "随机种子", min: 0, max: 999, step: 1, default: 178 },
+  ],
+  build(p) {
+    return buildRoundaboutTrafficParts({
+      islandRadius: p.islandRadius,
+      roadWidth: p.roadWidth,
+      armLength: p.armLength,
+      vehicleCount: Math.round(p.vehicleCount),
+      treeCount: Math.round(p.treeCount),
+      streetFurniture: Math.round(p.streetFurniture) === 1,
+      seed: Math.round(p.seed),
+    });
+  },
+};
+
+const dualGridFarm = {
+  id: "dual-grid-farm",
+  name: "双网格农场",
+  critiqueGoal: "stylized farming scene built from editable dual-grid terrain layers",
+  schema: [
+    { key: "cells", label: "地形网格", min: 10, max: 30, step: 1, default: 18 },
+    { key: "tileSize", label: "地块尺寸", min: 0.6, max: 1.8, step: 0.1, default: 1 },
+    { key: "edgeResolution", label: "圆角精度", min: 1, max: 10, step: 1, default: 6 },
+    { key: "grassHeight", label: "草地层高", min: 0.05, max: 0.5, step: 0.01, default: 0.2 },
+    { key: "cropDensity", label: "作物密度", min: 0, max: 1, step: 0.05, default: 0.8 },
+    { key: "treeCount", label: "果树数量", min: 0, max: 10, step: 1, default: 7 },
+    { key: "seed", label: "场景种子", min: 0, max: 999999, step: 1, default: 2024 },
+  ],
+  build(p) {
+    return buildDualGridFarmParts({
+      cells: Math.round(p.cells),
+      tileSize: p.tileSize,
+      edgeResolution: Math.round(p.edgeResolution),
+      grassHeight: p.grassHeight,
+      cropDensity: p.cropDensity,
+      treeCount: Math.round(p.treeCount),
+      seed: Math.round(p.seed),
+    });
+  },
+};
+
+function makeDualGridSceneModel(id, name, critiqueGoal, seed, buildParts) {
+  return {
+    id,
+    name,
+    critiqueGoal,
+    schema: [
+      { key: "cells", label: "地形网格", min: 12, max: 32, step: 1, default: 20 },
+      { key: "tileSize", label: "地块尺寸", min: 0.5, max: 2, step: 0.1, default: 1 },
+      { key: "edgeResolution", label: "圆角精度", min: 1, max: 12, step: 1, default: 6 },
+      { key: "layerHeight", label: "地表层高", min: 0.06, max: 0.6, step: 0.01, default: 0.22 },
+      { key: "propDensity", label: "场景密度", min: 0.2, max: 1, step: 0.05, default: 0.72 },
+      { key: "seed", label: "场景种子", min: 0, max: 999999, step: 1, default: seed },
+    ],
+    build(p) {
+      return buildParts({
+        cells: Math.round(p.cells),
+        tileSize: p.tileSize,
+        edgeResolution: Math.round(p.edgeResolution),
+        layerHeight: p.layerHeight,
+        propDensity: p.propDensity,
+        seed: Math.round(p.seed),
+      });
+    },
+  };
+}
+
+const dualGridForestCamp = makeDualGridSceneModel(
+  "dual-grid-forest-camp",
+  "双网格·林间营地",
+  "rounded dual-grid forest clearing with tents, campfire and conifer ring",
+  4821,
+  buildDualGridForestCampParts,
+);
+
+const dualGridRiverMill = makeDualGridSceneModel(
+  "dual-grid-river-mill",
+  "双网格·河岸水磨",
+  "winding dual-grid river crossed by a timber bridge beside a working watermill",
+  7314,
+  buildDualGridRiverMillParts,
+);
+
+const dualGridHillShrine = makeDualGridSceneModel(
+  "dual-grid-hill-shrine",
+  "双网格·山顶神社",
+  "layered dual-grid hill path framed by torii gates, lanterns and a hilltop shrine",
+  2206,
+  buildDualGridHillShrineParts,
+);
+
+const dualGridMarshRuins = makeDualGridSceneModel(
+  "dual-grid-marsh-ruins",
+  "双网格·沼泽遗迹",
+  "fragmented dual-grid wetlands with boardwalk, reeds and ancient stone ruins",
+  9091,
+  buildDualGridMarshRuinsParts,
+);
+
+const riceField = {
+  id: "rice-field",
+  name: "程序化稻田",
+  critiqueGoal: "tropical procedural rice paddies with irregular terraces, irrigation water, planted rows and palms",
+  schema: [
+    { key: "columns", label: "田块列数", min: 2, max: 9, step: 1, default: 6 },
+    { key: "rows", label: "田块行数", min: 2, max: 9, step: 1, default: 5 },
+    { key: "plotSize", label: "田块尺寸", min: 2, max: 8, step: 0.1, default: 4.2 },
+    { key: "channelWidth", label: "水渠宽度", min: 0.1, max: 1.2, step: 0.02, default: 0.42 },
+    { key: "terraceHeight", label: "梯田层高", min: 0, max: 0.8, step: 0.02, default: 0.18 },
+    { key: "irregularity", label: "边界不规则度", min: 0, max: 0.7, step: 0.01, default: 0.28 },
+    { key: "coverage", label: "田块覆盖率", min: 0.45, max: 1, step: 0.01, default: 0.9 },
+    { key: "riceDensity", label: "插秧密度", min: 2, max: 14, step: 1, default: 9 },
+    { key: "riceHeight", label: "稻株高度", min: 0.25, max: 1.5, step: 0.02, default: 0.72 },
+    { key: "maturity", label: "成熟比例", min: 0, max: 1, step: 0.01, default: 0.38 },
+    { key: "flooded", label: "水田积水", min: 0, max: 1, step: 0.01, default: 0.68 },
+    { key: "palmCount", label: "椰树数量", min: 0, max: 24, step: 1, default: 9 },
+    { key: "seed", label: "场景种子", min: 0, max: 999999, step: 1, default: 2026 },
+  ],
+  build(p) {
+    return buildRiceFieldParts({
+      columns: Math.round(p.columns),
+      rows: Math.round(p.rows),
+      plotSize: p.plotSize,
+      channelWidth: p.channelWidth,
+      terraceHeight: p.terraceHeight,
+      irregularity: p.irregularity,
+      coverage: p.coverage,
+      riceDensity: Math.round(p.riceDensity),
+      riceHeight: p.riceHeight,
+      maturity: p.maturity,
+      flooded: p.flooded,
+      palmCount: Math.round(p.palmCount),
+      seed: Math.round(p.seed),
+    });
+  },
+};
+
+// ---- live procedural game map: roads -> zones -> gameplay dressing ----
+const proceduralGameMap = {
+  id: "procedural-game-map",
+  name: "程序化游戏地图",
+  critiqueGoal: "live procedural gameplay map with roads, zones, spawns and cover",
+  schema: [
+    { key: "size", label: "地图尺寸", min: 90, max: 280, step: 5, default: 180 },
+    { key: "boundarySides", label: "边界分段", min: 8, max: 24, step: 1, default: 14 },
+    { key: "boundaryJitter", label: "边界不规则度", min: 0, max: 0.35, step: 0.01, default: 0.16 },
+    { key: "targetBlockArea", label: "街区目标面积", min: 420, max: 2400, step: 40, default: 950 },
+    { key: "minBlockArea", label: "最小街区面积", min: 80, max: 700, step: 20, default: 280 },
+    { key: "streetWidth", label: "主路宽度", min: 4, max: 16, step: 0.25, default: 8.5 },
+    { key: "streetTaper", label: "支路宽度递减", min: 0.55, max: 1, step: 0.01, default: 0.84 },
+    { key: "roadCurveAmount", label: "道路弯曲", min: 0, max: 8, step: 0.25, default: 2.4 },
+    { key: "maxBuildings", label: "建筑街区上限", min: 0, max: 70, step: 1, default: 34 },
+    { key: "propDensity", label: "玩法道具密度", min: 0, max: 1, step: 0.05, default: 0.8 },
+    { key: "gameplayMarkers", label: "出生点/控制点/掩体(0关/1开)", min: 0, max: 1, step: 1, default: 1 },
+    { key: "streetProps", label: "街道设施(0关/1开)", min: 0, max: 1, step: 1, default: 1 },
+    { key: "seed", label: "地图种子", min: 0, max: 999999, step: 1, default: 91 },
+  ],
+  build(p) {
+    return buildProceduralGameMapParts({
+      size: p.size,
+      boundarySides: Math.round(p.boundarySides),
+      boundaryJitter: p.boundaryJitter,
+      targetBlockArea: p.targetBlockArea,
+      minBlockArea: p.minBlockArea,
+      streetWidth: p.streetWidth,
+      streetTaper: p.streetTaper,
+      roadCurveAmount: p.roadCurveAmount,
+      maxBuildings: Math.round(p.maxBuildings),
+      propDensity: p.propDensity,
+      gameplayMarkers: Math.round(p.gameplayMarkers) === 1,
+      streetProps: Math.round(p.streetProps) === 1,
+      seed: Math.round(p.seed),
+    });
+  },
+};
+
+const cityDistrictRoadnet = {
+  id: "city-district-roadnet",
+  name: "路网城区·非凸街区",
+  critiqueGoal: "procedural road network district",
+  schema: [
+    { key: "size", label: "地块尺寸", min: 50, max: 130, step: 2, default: 86 },
+    { key: "shape", label: "地块形状(0矩形/1L形/2U形)", min: 0, max: 2, step: 1, default: 1 },
+    { key: "targetArea", label: "街坊目标面积", min: 550, max: 2200, step: 50, default: 1150 },
+    { key: "streetWidth", label: "道路宽", min: 5, max: 14, step: 0.5, default: 8.5 },
+    { key: "sidewalkWidth", label: "人行道宽", min: 0, max: 4, step: 0.2, default: 1.8 },
+    { key: "jitter", label: "切割偏移", min: 0, max: 0.35, step: 0.01, default: 0.15 },
+    { key: "irregularity", label: "不规则停分", min: 0, max: 0.45, step: 0.01, default: 0.12 },
+    { key: "roadCurve", label: "道路弯曲", min: 0, max: 8, step: 0.25, default: 1.75 },
+    { key: "roundabouts", label: "环岛(0关/1开)", min: 0, max: 1, step: 1, default: 1 },
+    { key: "buildings", label: "建筑上限", min: 0, max: 60, step: 1, default: 26 },
+    { key: "heightScale", label: "楼高倍率", min: 0.4, max: 1.4, step: 0.05, default: 0.72 },
+    { key: "seed", label: "路网种子", min: 0, max: 999, step: 1, default: 42 },
+  ],
+  build(p) {
+    const boundary = roadnetBoundary(p.size, p.shape);
+    const result = cityBlocks(boundary, {
+      targetArea: p.targetArea,
+      minArea: Math.max(220, p.targetArea * 0.28),
+      minPerimeter: 55,
+      streetWidth: p.streetWidth,
+      sidewalkWidth: p.sidewalkWidth,
+      splitJitter: p.jitter,
+      irregularity: p.irregularity,
+      blockLift: 0.055,
+      realRoads: true,
+      roundabouts: Math.round(p.roundabouts) === 1,
+      roadCurveAmount: p.roadCurve,
+      streetTaper: 0.86,
+      roadLanes: 2,
+      roadSampleDistance: 1.4,
+      seed: Math.round(p.seed),
+    });
+    const { blocks, insetRings, roadParts, baseMesh } = result;
+    const parts = [
+      surfPart("ground_blocks", baseMesh, "concrete", { color: [0.34, 0.39, 0.32], roughness: 0.95 }),
+      surfPart("road_asphalt", merge(roadParts.asphaltMesh, roadParts.intersectionMesh, roadParts.roundaboutMesh), "concrete", { color: [0.1, 0.1, 0.11], roughness: 0.92 }),
+      surfPart("road_markings", merge(roadParts.markingMesh, roadParts.crosswalkMesh), "ceramic", { color: [0.92, 0.9, 0.78], roughness: 0.55 }),
+      surfPart("sidewalks", roadParts.sidewalkMesh, "concrete", { color: [0.54, 0.54, 0.52], roughness: 0.86 }),
+      surfPart("curbs", roadParts.curbMesh, "concrete", { color: [0.68, 0.68, 0.66], roughness: 0.78 }),
+      surfPart("roundabout_islands", roadParts.islandMesh, "concrete", { color: [0.24, 0.34, 0.18], roughness: 0.95 }),
+    ];
+
+    const rng = makeRng((Math.round(p.seed) ^ 0x6d2b79f5) >>> 0);
+    const order = blocks.map((block, i) => ({ block, inset: insetRings[i], i }))
+      .filter((item) => item.inset)
+      .sort((a, b) => b.block.area - a.block.area)
+      .slice(0, Math.round(p.buildings));
+    const placedBuildings = [];
+    for (let rank = 0; rank < order.length; rank++) {
+      const { block, inset, i } = order[rank];
+      const r = rng.fork();
+      const obb = parcelOBB(inset);
+      const style = roadnetStyleForArea(block.area, () => r.next());
+      const tower = block.area > 1500;
+      const mid = block.area > 850;
+      const floors = Math.max(2, Math.round((tower ? r.range(18, 30) : mid ? r.range(8, 15) : r.range(3, 6)) * p.heightScale));
+      const footprint = tower ? r.range(0.46, 0.6) : mid ? r.range(0.58, 0.74) : r.range(0.74, 0.88);
+      const width = Math.max(3.5, obb.extU * footprint);
+      const depth = Math.max(3.5, obb.extV * footprint);
+      const c = polygonCentroidXZ(inset);
+      const placed = { x: c.x, z: c.z, halfWidth: width / 2, halfDepth: depth / 2, yaw: obb.angleY };
+      if (placedBuildings.some((other) => roadnetFootprintsOverlap(placed, other))) continue;
+      placedBuildings.push(placed);
+      const bParts = buildUrbanBuildingParts({
+        style,
+        width,
+        depth,
+        floors,
+        baysX: 2,
+        baysZ: 2,
+        seed: 1000 + i,
+      });
+      for (const bp of bParts) {
+        parts.push({
+          ...bp,
+          name: `roadnet_${rank}_${bp.name}`,
+          mesh: transform(bp.mesh, { rotate: vec3(0, obb.angleY, 0), translate: vec3(c.x, 0, c.z) }),
+        });
+      }
+    }
+    return parts;
+  },
+};
+
+// ---- CityGen-style road growth: heat-map roads + snap constraints + roadside buildings ----
+function citygenSchema(preset, includeBuildings) {
+  const d = CITYGEN_DEFAULTS[preset];
+  const controls = [
+    { key: "radius", label: "城市半径", min: 48, max: 150, step: 2, default: d.radius },
+    { key: "segmentLimit", label: "道路段数", min: 24, max: 260, step: 4, default: d.segmentLimit },
+    { key: "branchProbability", label: "支路概率", min: 0.05, max: 0.8, step: 0.01, default: d.branchProbability },
+    { key: "snapDistance", label: "道路吸附", min: 1, max: 12, step: 0.2, default: d.snapDistance },
+    { key: "populationThreshold", label: "热力阈值", min: 0.04, max: 0.45, step: 0.01, default: d.populationThreshold },
+  ];
+  if (includeBuildings) {
+    controls.push(
+      { key: "buildings", label: "建筑数量", min: 0, max: 120, step: 2, default: d.buildings },
+      { key: "heightScale", label: "楼高倍率", min: 0.35, max: 1.6, step: 0.05, default: d.heightScale },
+      { key: "streetProps", label: "街具(0关/1开)", min: 0, max: 1, step: 1, default: d.streetProps ? 1 : 0 },
+    );
+  }
+  controls.push({ key: "seed", label: "生成种子", min: 0, max: 999, step: 1, default: d.seed });
+  return controls;
+}
+
+function makeCitygenModel(id, name, preset, includeBuildings) {
+  return {
+    id,
+    name,
+    critiqueGoal: includeBuildings ? "procedural city road growth settlement" : "standalone procedural road network",
+    schema: citygenSchema(preset, includeBuildings),
+    build(p) {
+      const d = CITYGEN_DEFAULTS[preset];
+      return buildCitygenParts({
+        preset,
+        radius: p.radius,
+        segmentLimit: Math.round(p.segmentLimit),
+        branchProbability: p.branchProbability,
+        snapDistance: p.snapDistance,
+        populationThreshold: p.populationThreshold,
+        buildings: includeBuildings ? Math.round(p.buildings) : 0,
+        heightScale: includeBuildings ? p.heightScale : d.heightScale,
+        streetProps: includeBuildings ? Math.round(p.streetProps) === 1 : false,
+        seed: Math.round(p.seed),
+      });
+    },
+  };
+}
+
+const citygenRoadGrowth = makeCitygenModel("citygen-road-growth", "CityGen复刻·道路生长", "roadGrowth", false);
+const citygenResidential = makeCitygenModel("citygen-residential", "CityGen复刻·住宅街区", "residential", true);
+const citygenDowntown = makeCitygenModel("citygen-downtown", "CityGen复刻·核心城区", "downtown", true);
+
+const watabouCity = {
+  id: "watabou-city",
+  name: "Watabou复刻·河谷城市数据",
+  critiqueGoal: "Watabou Bridge UE PCG data visualization with S-river, roads, fields, trees and settlement footprints",
+  schema: [
+    { key: "size", label: "地图尺寸", min: 100, max: 320, step: 5, default: WATABOU_CITY_DEFAULTS.size },
+    { key: "riverWidth", label: "河道宽度", min: 8, max: 34, step: 0.5, default: WATABOU_CITY_DEFAULTS.riverWidth },
+    { key: "roadDensity", label: "道路密度", min: 0.2, max: 1.5, step: 0.05, default: WATABOU_CITY_DEFAULTS.roadDensity },
+    { key: "fieldDensity", label: "农田密度", min: 0, max: 1.5, step: 0.05, default: WATABOU_CITY_DEFAULTS.fieldDensity },
+    { key: "treeDensity", label: "树群密度", min: 0, max: 1.5, step: 0.05, default: WATABOU_CITY_DEFAULTS.treeDensity },
+    { key: "rockDensity", label: "河岸岩石", min: 0, max: 1.5, step: 0.05, default: WATABOU_CITY_DEFAULTS.rockDensity },
+    { key: "buildingDensity", label: "聚落密度", min: 0, max: 1.5, step: 0.05, default: WATABOU_CITY_DEFAULTS.buildingDensity },
+    { key: "seed", label: "随机种子", min: 0, max: 999999, step: 1, default: WATABOU_CITY_DEFAULTS.seed },
+  ],
+  build(p) {
+    return buildWatabouCityParts({
+      size: p.size,
+      riverWidth: p.riverWidth,
+      roadDensity: p.roadDensity,
+      fieldDensity: p.fieldDensity,
+      treeDensity: p.treeDensity,
+      rockDensity: p.rockDensity,
+      buildingDensity: p.buildingDensity,
+      seed: Math.round(p.seed),
     });
   },
 };
@@ -2860,6 +5609,10 @@ const streetscene = {
     { key: "jitter", label: "位置抖动", min: 0, max: 0.8, step: 0.05, default: 0.35 },
     { key: "bothSides", label: "双侧(0关/1开)", min: 0, max: 1, step: 1, default: 1 },
     { key: "ground", label: "地面(0关/1开)", min: 0, max: 1, step: 1, default: 1 },
+    { key: "gantries", label: "跨街龙门牌数", min: 0, max: 4, step: 1, default: 1 },
+    { key: "materialStacks", label: "施工料堆数", min: 0, max: 5, step: 1, default: 1 },
+    { key: "coneRun", label: "施工锥线(0关/1开)", min: 0, max: 1, step: 1, default: 1 },
+    { key: "workZones", label: "围挡施工区数", min: 0, max: 3, step: 1, default: 1 },
     { key: "seed", label: "街景种子", min: 0, max: 120, step: 1, default: 21 },
   ],
   build(p) {
@@ -2871,6 +5624,10 @@ const streetscene = {
       jitter: p.jitter,
       bothSides: Math.round(p.bothSides) === 1,
       ground: Math.round(p.ground) === 1,
+      gantries: Math.round(p.gantries),
+      materialStacks: Math.round(p.materialStacks),
+      coneRun: Math.round(p.coneRun) === 1,
+      workZones: Math.round(p.workZones),
       seed: p.seed,
     });
   },
@@ -2904,6 +5661,46 @@ const interiorRoom = {
       doorOpen: p.doorOpen,
       drawerOpen: p.drawerOpen,
       seed: p.seed,
+    });
+  },
+};
+
+// ---- integrated procedural building: one grammar for shell and interiors ----
+const proceduralBuilding = {
+  id: "procedural-building",
+  name: "程序化建筑·室内外一体",
+  critiqueGoal: "integrated procedural building with exterior, rooms, stairs, roof and fitted furniture",
+  schema: [
+    { key: "width", label: "建筑宽度", min: 7, max: 24, step: 0.25, default: 13.5 },
+    { key: "depth", label: "建筑进深", min: 6, max: 18, step: 0.25, default: 9.5 },
+    { key: "footprintShape", label: "轮廓(0矩形/1L形)", min: 0, max: 1, step: 1, default: 0 },
+    { key: "floors", label: "楼层数量", min: 1, max: 8, step: 1, default: 4 },
+    { key: "floorHeight", label: "层高", min: 2.4, max: 4.2, step: 0.05, default: 3 },
+    { key: "facadeModule", label: "立面模数", min: 1.4, max: 4, step: 0.05, default: 2.3 },
+    { key: "roomColumns", label: "每侧房间列数", min: 1, max: 6, step: 1, default: 3 },
+    { key: "corridorWidth", label: "走廊宽度", min: 1.1, max: 2.8, step: 0.05, default: 1.65 },
+    { key: "roofStyle", label: "屋顶(0平/1双坡/2四坡)", min: 0, max: 2, step: 1, default: 1 },
+    { key: "furnitureDensity", label: "家具密度", min: 0, max: 1, step: 0.05, default: 0.88 },
+    { key: "exteriorDetails", label: "外饰", type: "toggle", min: 0, max: 1, step: 1, default: 1 },
+    { key: "revealInterior", label: "剖切室内", type: "toggle", min: 0, max: 1, step: 1, default: 0 },
+    { key: "seed", label: "生成种子", min: 0, max: 999, step: 1, default: 41 },
+  ],
+  build(p) {
+    const roofStyles = ["flat", "gable", "hip"];
+    return buildProceduralBuildingParts({
+      width: p.width,
+      depth: p.depth,
+      footprintShape: Math.round(p.footprintShape) === 1 ? "lShape" : "rectangle",
+      floors: Math.round(p.floors),
+      floorHeight: p.floorHeight,
+      facadeModule: p.facadeModule,
+      roomColumns: Math.round(p.roomColumns),
+      corridorWidth: p.corridorWidth,
+      roofStyle: roofStyles[Math.max(0, Math.min(2, Math.round(p.roofStyle)))],
+      furnitureDensity: p.furnitureDensity,
+      exteriorDetails: Math.round(p.exteriorDetails) === 1,
+      revealInterior: Math.round(p.revealInterior) === 1,
+      seed: Math.round(p.seed),
     });
   },
 };
@@ -2980,6 +5777,218 @@ const terrainIsland = {
   },
 };
 
+const lunarCraterSurface = {
+  id: "lunar-crater-surface",
+  name: "月球陨石坑表面",
+  category: "地形",
+  critiqueGoal: "Moon-like crater field with readable bowls, raised broken rims, ejecta and multi-scale surface detail",
+  assetMeta: {
+    description: "复刻 BV18QZWYBEYr：分层散布大小陨石坑，噪声破坏坑缘，并叠加喷射纹与微地形。",
+    tags: ["月球", "陨石坑", "高度场", "Houdini复刻"],
+    capabilities: ["种子复现", "大小坑分层", "坑缘破碎", "实时参数化"],
+    materialClasses: ["月壤", "岩石"],
+  },
+  schema: [
+    { key: "size", label: "地形尺寸", min: 60, max: 220, step: 5, default: 120 },
+    { key: "resolution", label: "网格分辨率", min: 48, max: 220, step: 8, default: 160 },
+    { key: "largeCraters", label: "大型陨石坑", min: 1, max: 60, step: 1, default: 18 },
+    { key: "smallCraters", label: "次级陨石坑", min: 0, max: 500, step: 10, default: 240 },
+    { key: "relief", label: "坑体起伏", min: 0.25, max: 2.2, step: 0.05, default: 1 },
+    { key: "rimSharpness", label: "坑缘锐度", min: 0, max: 1, step: 0.02, default: 0.72 },
+    { key: "irregularity", label: "坑缘破碎", min: 0, max: 0.65, step: 0.01, default: 0.14 },
+    { key: "roughness", label: "月壤粗糙度", min: 0, max: 1.8, step: 0.05, default: 0.65 },
+    { key: "seed", label: "地形种子", min: 0, max: 9999, step: 1, default: 2025 },
+  ],
+  build(p) {
+    return buildLunarCraterSurfaceParts(p);
+  },
+};
+
+const proceduralPlanet = {
+  id: "procedural-planet",
+  name: "程序化星球",
+  category: "地形",
+  critiqueGoal: "Earth-like procedural planet with readable continents, oceans, mountain ranges, polar snow and atmosphere",
+  assetMeta: {
+    description: "复刻 Sebastian Lague Solar System Episode 02：均匀球面、分形大陆、山脉遮罩、独立海洋与大气层。",
+    tags: ["星球", "大陆", "海洋", "山脉", "Sebastian Lague"],
+    capabilities: ["种子复现", "球面无接缝噪声", "参数化海陆", "纬度生态着色"],
+    materialClasses: ["地表", "海洋", "大气"],
+  },
+  schema: [
+    { key: "radius", label: "星球半径", min: 2, max: 8, step: 0.1, default: 4 },
+    { key: "subdivisions", label: "球面细分", min: 2, max: 5, step: 1, default: 5 },
+    { key: "continentScale", label: "大陆尺度", min: 0.45, max: 4, step: 0.05, default: 1.2 },
+    { key: "continentBias", label: "陆地占比", min: -0.35, max: 0.3, step: 0.01, default: 0.055 },
+    { key: "continentHeight", label: "大陆起伏", min: 0, max: 1.8, step: 0.02, default: 0.45 },
+    { key: "oceanDepth", label: "海洋深度", min: 0, max: 1.5, step: 0.02, default: 0.34 },
+    { key: "oceanFloor", label: "海床下限", min: 0.05, max: 0.7, step: 0.01, default: 0.32 },
+    { key: "mountainScale", label: "山脉密度", min: 1, max: 12, step: 0.1, default: 4.2 },
+    { key: "mountainHeight", label: "山脉高度", min: 0, max: 1.6, step: 0.02, default: 0.28 },
+    { key: "roughness", label: "地表细节", min: 0, max: 0.25, step: 0.005, default: 0.04 },
+    { key: "oceanLevel", label: "海平面", min: -0.35, max: 0.35, step: 0.01, default: 0 },
+    { key: "snowLine", label: "极地雪线", min: 0.35, max: 0.95, step: 0.01, default: 0.72 },
+    { key: "atmosphere", label: "大气厚度", min: 0, max: 0.4, step: 0.01, default: 0.12 },
+    { key: "seed", label: "星球种子", min: 0, max: 9999, step: 1, default: 42 },
+  ],
+  build(params) {
+    return buildProceduralPlanetParts(params);
+  },
+};
+
+const townscaperHarbour = {
+  id: "townscaper-harbour",
+  name: "Townscaper灵感·彩色港湾",
+  category: "建筑与城市",
+  critiqueGoal: "Townscaper-inspired organic quad-grid harbour with adjacency-driven roofs, arches, bridges and animated water",
+  assetMeta: {
+    description: "有机四边网格驱动的彩色港湾。高度、密度、运河改变后，墙体、屋顶、窗、拱券、连廊和临水支柱自动重算。",
+    tags: ["Townscaper", "有机网格", "邻接规则", "彩色港湾", "程序化水体"],
+    capabilities: ["种子复现", "参数化占用", "自动屋顶", "自动拱桥", "动态水体"],
+    materialClasses: ["彩色灰泥", "陶瓦", "玻璃", "木材", "水体"],
+  },
+  schema: [
+    { key: "gridSize", label: "有机网格规模", min: 7, max: 22, step: 1, default: TOWNSCAPER_DEFAULTS.gridSize },
+    { key: "cellSize", label: "街区单元尺寸", min: 1.4, max: 4, step: 0.1, default: TOWNSCAPER_DEFAULTS.cellSize },
+    { key: "density", label: "城镇覆盖密度", min: 0.28, max: 0.96, step: 0.02, default: TOWNSCAPER_DEFAULTS.density },
+    { key: "maxFloors", label: "最高楼层", min: 2, max: 10, step: 1, default: TOWNSCAPER_DEFAULTS.maxFloors },
+    { key: "floorHeight", label: "单层高度", min: 1.1, max: 2.4, step: 0.05, default: TOWNSCAPER_DEFAULTS.floorHeight },
+    { key: "irregularity", label: "网格有机扭曲", min: 0, max: 1, step: 0.02, default: TOWNSCAPER_DEFAULTS.irregularity },
+    { key: "canalWidth", label: "蜿蜒运河宽度", min: 0, max: 1.35, step: 0.05, default: TOWNSCAPER_DEFAULTS.canalWidth },
+    { key: "archDensity", label: "拱券与连廊概率", min: 0, max: 1, step: 0.02, default: TOWNSCAPER_DEFAULTS.archDensity },
+    { key: "roofPitch", label: "陶瓦屋顶坡高", min: 0.1, max: 1.1, step: 0.02, default: TOWNSCAPER_DEFAULTS.roofPitch },
+    { key: "palette", label: "建筑色板(0海港/1北海/2地中海)", min: 0, max: 2, step: 1, default: TOWNSCAPER_DEFAULTS.palette },
+    { key: "waveHeight", label: "港湾波浪高度", min: 0.01, max: 0.2, step: 0.005, default: TOWNSCAPER_DEFAULTS.waveHeight },
+    { key: "seed", label: "生成种子", min: 0, max: 999999, step: 1, default: TOWNSCAPER_DEFAULTS.seed },
+  ],
+  build(p) {
+    return buildTownscaperParts({
+      gridSize: Math.round(p.gridSize),
+      cellSize: p.cellSize,
+      density: p.density,
+      maxFloors: Math.round(p.maxFloors),
+      floorHeight: p.floorHeight,
+      irregularity: p.irregularity,
+      canalWidth: p.canalWidth,
+      archDensity: p.archDensity,
+      roofPitch: p.roofPitch,
+      palette: Math.round(p.palette),
+      waveHeight: p.waveHeight,
+      seed: Math.round(p.seed),
+    });
+  },
+};
+
+const chineseTownscaper = {
+  id: "chinese-townscaper",
+  name: "中式城镇叠叠乐·重檐岛",
+  category: "建筑与城市",
+  critiqueGoal: "Chinese Townscaper island with adjacency-driven timber halls, double eaves, curved roofs and canals",
+  assetMeta: {
+    description: "复刻 BV1nR4y1v715：邻接占用驱动殿堂朝向，中心与交汇单元生成重檐，配套岛岸、水渠、石路和桥。",
+    tags: ["中式古建", "Townscaper", "重檐", "飞檐", "斗拱", "邻接规则"],
+    capabilities: ["种子复现", "邻接模块", "自动重檐", "自动桥路", "动态水体"],
+    materialClasses: ["灰瓦", "木构", "石材", "草土", "水体"],
+  },
+  schema: [
+    { key: "gridSize", label: "城镇网格规模", min: 5, max: 11, step: 1, default: CHINESE_TOWNSCAPER_DEFAULTS.gridSize },
+    { key: "cellSize", label: "建筑间距", min: 5.2, max: 8, step: 0.1, default: CHINESE_TOWNSCAPER_DEFAULTS.cellSize },
+    { key: "density", label: "殿堂密度", min: 0.2, max: 0.78, step: 0.02, default: CHINESE_TOWNSCAPER_DEFAULTS.density },
+    { key: "islandRadius", label: "岛屿覆盖", min: 0.65, max: 1.2, step: 0.02, default: CHINESE_TOWNSCAPER_DEFAULTS.islandRadius },
+    { key: "canalAmount", label: "水渠强度", min: 0, max: 1, step: 0.02, default: CHINESE_TOWNSCAPER_DEFAULTS.canalAmount },
+    { key: "doubleEaveRate", label: "重檐比例", min: 0, max: 1, step: 0.02, default: CHINESE_TOWNSCAPER_DEFAULTS.doubleEaveRate },
+    { key: "roofUpturn", label: "翼角起翘", min: 0.25, max: 1.25, step: 0.02, default: CHINESE_TOWNSCAPER_DEFAULTS.roofUpturn },
+    { key: "waterHeight", label: "水面波高", min: 0.01, max: 0.12, step: 0.005, default: CHINESE_TOWNSCAPER_DEFAULTS.waterHeight },
+    { key: "seed", label: "生成种子", min: 0, max: 999999, step: 1, default: CHINESE_TOWNSCAPER_DEFAULTS.seed },
+  ],
+  build(p) {
+    return buildChineseTownscaperParts({
+      gridSize: Math.round(p.gridSize),
+      cellSize: p.cellSize,
+      density: p.density,
+      islandRadius: p.islandRadius,
+      canalAmount: p.canalAmount,
+      doubleEaveRate: p.doubleEaveRate,
+      roofUpturn: p.roofUpturn,
+      waterHeight: p.waterHeight,
+      seed: Math.round(p.seed),
+    });
+  },
+};
+
+const cropoutIslandDefinitions = [
+  ["cropout-pasture-island", "Cropout 牧场岛", "pasture", 101],
+  ["cropout-longshore-island", "Cropout 长湾岛", "longshore", 211],
+  ["cropout-twin-islands", "Cropout 双生岛", "twin", 307],
+  ["cropout-archipelago", "Cropout 群岛", "archipelago", 419],
+  ["cropout-rocky-islands", "Cropout 岩岸岛", "rocky", 523],
+  ["cropout-lush-islands", "Cropout 密林岛", "lush", 631],
+];
+
+const CROPOUT_ISLAND_MODELS = Object.fromEntries(cropoutIslandDefinitions.map((definition) => {
+  const [id, name, preset, seed] = definition;
+  return [id, {
+    id,
+    name,
+    category: "地形与环境",
+    assetMeta: {
+      description: "复刻 Cropout 教程的圆片融合、三级海岸和顶面散布流程。",
+      tags: ["Cropout", "岛屿", "动态网格", "程序化海岸", "植被散布"],
+      capabilities: ["种子复现", "轮廓融合", "分层材质", "多岛布局"],
+      materialClasses: ["水体", "岩石", "沙地", "草地", "植被"],
+    },
+    schema: [
+      { key: "size", label: "岛屿范围", min: 7, max: 22, step: 0.25, default: 12 },
+      { key: "coastWidth", label: "海岸宽度", min: 0.2, max: 1.5, step: 0.02, default: 0.62 },
+      { key: "terraceHeight", label: "岩层高度", min: 0.45, max: 2.2, step: 0.05, default: 1 },
+      { key: "trees", label: "树木数量", min: 0, max: 180, step: 1, default: preset === "lush" ? 92 : 48 },
+      { key: "rocks", label: "岩石数量", min: 0, max: 120, step: 1, default: preset === "rocky" ? 54 : 20 },
+      { key: "seed", label: "生成种子", min: 0, max: 999, step: 1, default: seed },
+    ],
+    build(params) {
+      return buildCropoutIslandPresetParts(preset, {
+        size: params.size,
+        coastWidth: params.coastWidth,
+        terraceHeight: params.terraceHeight,
+        trees: Math.round(params.trees),
+        rocks: Math.round(params.rocks),
+        seed: Math.round(params.seed),
+      });
+    },
+  }];
+}));
+
+const stylizedOceanEnvironment = {
+  id: "stylized-ocean-environment",
+  name: "风格化广阔海洋环境",
+  category: "地形与环境",
+  assetMeta: {
+    description: "复刻俯视风格化海洋：多岛地形、程序化岸线、水体、棕榈、积云、船与鱼跃。",
+    tags: ["海洋", "风格化", "岛屿", "Gerstner 波", "昼夜循环"],
+    capabilities: ["高细分海面", "动态岸线泡沫", "船尾迹", "鱼跃水花", "昼夜循环"],
+    materialClasses: ["水体", "沙地", "草地", "植被", "云层", "木材"],
+  },
+  schema: [
+    { key: "worldSize", label: "海域范围", min: 56, max: 180, step: 2, default: 140 },
+    { key: "islandScale", label: "岛屿尺度", min: 0.6, max: 1.5, step: 0.05, default: 1 },
+    { key: "islandCount", label: "岛屿数量", min: 1, max: 3, step: 1, default: 3 },
+    { key: "palmCount", label: "棕榈数量", min: 0, max: 24, step: 1, default: 9 },
+    { key: "cloudCount", label: "积云数量", min: 0, max: 6, step: 1, default: 4 },
+    { key: "waveHeight", label: "波浪高度", min: 0.02, max: 0.6, step: 0.01, default: 0.22 },
+    { key: "foamStrength", label: "泡沫强度", min: 0, max: 1, step: 0.02, default: 0.82 },
+    { key: "seed", label: "生成种子", min: 0, max: 9999, step: 1, default: 812 },
+  ],
+  build(params) {
+    return buildStylizedOceanEnvironmentParts({
+      ...params,
+      islandCount: Math.round(params.islandCount),
+      palmCount: Math.round(params.palmCount),
+      cloudCount: Math.round(params.cloudCount),
+      seed: Math.round(params.seed),
+    });
+  },
+};
+
 // ---- procedural cumulus cloud: scatter blobs -> iso-surface -> puff noise ----
 const cloud = {
   id: "cloud",
@@ -3019,6 +6028,161 @@ const cloudSky = {
   ],
   build(p) {
     return buildCloudSkyParts(p.seed);
+  },
+};
+
+// ---- realtime waterfall: path ribbons + flow shader + instanced spray ----
+const waterfall = {
+  id: "waterfall",
+  name: "程序化瀑布",
+  critiqueGoal: "layered realtime waterfall with cliff, plunge pool, spray and mist",
+  schema: [
+    { key: "width", label: "瀑布宽度", min: 2, max: 14, step: 0.2, default: 6.8 },
+    { key: "height", label: "落差高度", min: 3, max: 20, step: 0.25, default: 8.5 },
+    { key: "depth", label: "前冲距离", min: 1, max: 8, step: 0.1, default: 3.4 },
+    { key: "sheetCount", label: "水帘股数", min: 1, max: 8, step: 1, default: 4 },
+    { key: "turbulence", label: "水流扰动", min: 0, max: 1.2, step: 0.02, default: 0.42 },
+    { key: "flowSpeed", label: "流动速度", min: 0.2, max: 3, step: 0.05, default: 1.25 },
+    { key: "rockCount", label: "岩块数量", min: 8, max: 90, step: 1, default: 34 },
+    { key: "particleCount", label: "飞沫数量", min: 0, max: 420, step: 10, default: 180 },
+    { key: "mistCount", label: "水雾数量", min: 0, max: 180, step: 6, default: 72 },
+    { key: "foamCount", label: "漂泡数量", min: 0, max: 240, step: 8, default: 96 },
+    { key: "seed", label: "水流种子", min: 0, max: 160, step: 1, default: 17 },
+  ],
+  build(p) {
+    return buildWaterfallParts({
+      width: p.width,
+      height: p.height,
+      depth: p.depth,
+      sheetCount: Math.round(p.sheetCount),
+      turbulence: p.turbulence,
+      flowSpeed: p.flowSpeed,
+      rockCount: Math.round(p.rockCount),
+      particleCount: Math.round(p.particleCount),
+      mistCount: Math.round(p.mistCount),
+      foamCount: Math.round(p.foamCount),
+      seed: Math.round(p.seed),
+    });
+  },
+};
+
+// ---- spline river: carved terrain + water + riparian PCG scatter ----
+const proceduralRiver = {
+  id: "procedural-river",
+  name: "程序化河流",
+  critiqueGoal: "spline-carved mountain river with gravel banks, boulders, foam and riparian forest",
+  schema: [
+    { key: "size", label: "河谷尺寸", min: 16, max: 52, step: 1, default: 24 },
+    { key: "resolution", label: "地形精度", min: 24, max: 120, step: 8, default: 72 },
+    { key: "riverWidth", label: "河道宽度", min: 0.5, max: 3.2, step: 0.1, default: 1.8 },
+    { key: "riverDepth", label: "河槽深度", min: 0.2, max: 2.2, step: 0.05, default: 0.75 },
+    { key: "meander", label: "蜿蜒强度", min: 0, max: 8, step: 0.2, default: 3.8 },
+    { key: "relief", label: "山谷起伏", min: 1, max: 9, step: 0.2, default: 3.6 },
+    { key: "bankRocks", label: "河岸岩石", min: 0, max: 140, step: 2, default: 78 },
+    { key: "riverBoulders", label: "水中巨石", min: 0, max: 20, step: 1, default: 7 },
+    { key: "trees", label: "河岸树木", min: 0, max: 220, step: 4, default: 108 },
+    { key: "flowStreaks", label: "水面流痕", min: 0, max: 60, step: 2, default: 24 },
+    { key: "seed", label: "随机种子", min: 0, max: 999, step: 1, default: 27 },
+  ],
+  build(p) {
+    return buildProceduralRiverParts({
+      size: p.size,
+      resolution: Math.round(p.resolution),
+      riverWidth: p.riverWidth,
+      riverDepth: p.riverDepth,
+      meander: p.meander,
+      relief: p.relief,
+      bankRocks: Math.round(p.bankRocks),
+      riverBoulders: Math.round(p.riverBoulders),
+      trees: Math.round(p.trees),
+      flowStreaks: Math.round(p.flowStreaks),
+      seed: Math.round(p.seed),
+    });
+  },
+};
+
+// ---- Houdini PCG river-to-lake: fixed lake boundary + upstream backwater ----
+const riverLake = {
+  id: "river-lake",
+  name: "PCG 河流湖泊回水",
+  critiqueGoal: "mountain river entering an irregular lake with a continuous shoreline and monotonic backwater profile",
+  assetMeta: {
+    description: "复刻 Houdini PCG 河流入湖：湖面高程反向约束上游水面，河床保持顺坡，入口连续加宽。",
+    tags: ["Houdini", "PCG", "河流", "湖泊", "回水"],
+    capabilities: ["回水剖面", "顺坡河床", "连续入湖", "确定性种子"],
+    materialClasses: ["水体", "湿岸", "岩石地形"],
+    source: "BV1ndiWBfEXo",
+  },
+  schema: [
+    { key: "size", label: "流域尺寸", min: 22, max: 56, step: 1, default: 36 },
+    { key: "resolution", label: "地形精度", min: 32, max: 144, step: 8, default: 88 },
+    { key: "riverWidth", label: "河道宽度", min: 0.5, max: 3.2, step: 0.05, default: 1.25 },
+    { key: "riverDepth", label: "河槽深度", min: 0.25, max: 2.2, step: 0.05, default: 0.82 },
+    { key: "meander", label: "河道蜿蜒", min: 0, max: 8, step: 0.2, default: 4.2 },
+    { key: "relief", label: "山地起伏", min: 1.5, max: 9, step: 0.2, default: 5.2 },
+    { key: "lakeRadiusX", label: "湖泊横向半径", min: 3, max: 11, step: 0.2, default: 7.4 },
+    { key: "lakeRadiusZ", label: "湖泊纵向半径", min: 2.5, max: 9, step: 0.2, default: 5.4 },
+    { key: "lakeLevel", label: "湖面高程", min: 0.1, max: 2.5, step: 0.05, default: 0.72 },
+    { key: "backwater", label: "回水强度", min: 0, max: 1, step: 0.02, default: 1 },
+    { key: "flowStreaks", label: "水面流痕", min: 0, max: 80, step: 2, default: 24 },
+    { key: "seed", label: "地貌种子", min: 0, max: 999, step: 1, default: 96 },
+  ],
+  build(p) {
+    return buildRiverLakeParts({
+      size: p.size,
+      resolution: Math.round(p.resolution),
+      riverWidth: p.riverWidth,
+      riverDepth: p.riverDepth,
+      meander: p.meander,
+      relief: p.relief,
+      lakeRadiusX: p.lakeRadiusX,
+      lakeRadiusZ: p.lakeRadiusZ,
+      lakeLevel: p.lakeLevel,
+      backwater: p.backwater,
+      flowStreaks: Math.round(p.flowStreaks),
+      seed: Math.round(p.seed),
+    });
+  },
+};
+
+// ---- UE PCG Biome River: wetland spline + density-filtered biome layers ----
+const pcgBiomeRiver = {
+  id: "pcg-biome-river",
+  name: "PCG 湿地河道",
+  critiqueGoal: "calm wetland river with dense reeds, lily pads, broadleaf shrubs, rocks and driftwood",
+  assetMeta: {
+    description: "复刻 UE PCG Biome River 的分层生态散布：水体、岸带、水草、睡莲、灌丛、岩石、枯木。",
+    tags: ["UE5 PCG", "河道", "湿地", "水草", "生态散布"],
+    capabilities: ["Spline 河道", "密度分层", "确定性种子", "实时参数"],
+    materialClasses: ["水体", "土壤", "植被", "岩石", "木材"],
+  },
+  schema: [
+    { key: "size", label: "湿地尺寸", min: 18, max: 48, step: 1, default: 30 },
+    { key: "resolution", label: "地形精度", min: 24, max: 112, step: 8, default: 64 },
+    { key: "riverWidth", label: "水面宽度", min: 1.5, max: 6, step: 0.1, default: 3.4 },
+    { key: "meander", label: "河道蜿蜒", min: 0, max: 7, step: 0.2, default: 3.2 },
+    { key: "reeds", label: "水边芦苇", min: 0, max: 360, step: 10, default: 150 },
+    { key: "dryReeds", label: "枯黄芦苇", min: 0, max: 180, step: 6, default: 54 },
+    { key: "waterLilies", label: "睡莲数量", min: 0, max: 160, step: 4, default: 42 },
+    { key: "shrubs", label: "河岸灌丛", min: 0, max: 120, step: 4, default: 28 },
+    { key: "rocks", label: "岸边岩石", min: 0, max: 100, step: 2, default: 18 },
+    { key: "snags", label: "漂流枯木", min: 0, max: 40, step: 1, default: 7 },
+    { key: "seed", label: "生态种子", min: 0, max: 999, step: 1, default: 53 },
+  ],
+  build(p) {
+    return buildPcgBiomeRiverParts({
+      size: p.size,
+      resolution: Math.round(p.resolution),
+      riverWidth: p.riverWidth,
+      meander: p.meander,
+      reeds: Math.round(p.reeds),
+      dryReeds: Math.round(p.dryReeds),
+      waterLilies: Math.round(p.waterLilies),
+      shrubs: Math.round(p.shrubs),
+      rocks: Math.round(p.rocks),
+      snags: Math.round(p.snags),
+      seed: Math.round(p.seed),
+    });
   },
 };
 
@@ -3129,6 +6293,7 @@ const pcgWorld = {
 const mountainVillage = {
   id: "mountain-village",
   name: "山村聚落",
+  critiqueGoal: "mountain village settlement",
   schema: [
     { key: "size", label: "地块尺寸", min: 8, max: 18, step: 0.5, default: 12 },
     { key: "resolution", label: "网格密度", min: 48, max: 160, step: 8, default: 128 },
@@ -3152,6 +6317,68 @@ const mountainVillage = {
     });
   },
 };
+
+const xianxiaMountains = {
+  id: "xianxia-mountains",
+  name: "仙侠云海峰林",
+  category: "自然",
+  critiqueGoal: "cinematic Chinese xianxia quartz-sandstone pillar mountains rising through layered cloud sea",
+  assetMeta: {
+    description: "按参考图复刻张家界式仙侠柱峰：截顶岩柱、纵向裂隙、峰壁松林、冷色远峰与分层体积云海。",
+    tags: ["仙侠", "张家界", "柱峰", "云海", "松树", "参考图复刻"],
+    capabilities: ["多层景深", "截顶柱峰", "岩壁裂隙", "附岩植被", "体积云", "种子变体"],
+    materialClasses: ["石英砂岩", "苔草", "松木", "松针", "云雾"],
+  },
+  schema: [
+    { key: "peakCount", label: "峰柱数量", min: 3, max: 12, step: 1, default: 10 },
+    { key: "height", label: "主峰高度", min: 8, max: 34, step: 0.5, default: 19 },
+    { key: "spread", label: "峰林范围", min: 18, max: 60, step: 1, default: 28 },
+    { key: "cliffRoughness", label: "岩壁破碎度", min: 0.05, max: 0.75, step: 0.01, default: 0.38 },
+    { key: "treeDensity", label: "附岩松密度", min: 0, max: 1, step: 0.02, default: 0.68 },
+    { key: "cloudCount", label: "云团数量", min: 0, max: 10, step: 1, default: 8 },
+    { key: "seed", label: "随机种子", min: 0, max: 9999, step: 1, default: 71 },
+  ],
+  build(params) {
+    return buildXianxiaMountainsParts({
+      ...params,
+      peakCount: Math.round(params.peakCount),
+      cloudCount: Math.round(params.cloudCount),
+      seed: Math.round(params.seed),
+    });
+  },
+};
+
+// ---- house garden: nine separate square tray lots ----
+function makeHouseGardenModel(variant) {
+  const params = variant.params || {};
+  return {
+    id: variant.id,
+    name: variant.name,
+    critiqueGoal: "stylized procedural house and garden lot",
+    schema: [
+      { key: "lotSize", label: "地块尺寸", min: 3.5, max: 9, step: 0.1, default: params.lotSize ?? 5.4 },
+      { key: "houseScale", label: "房屋尺度", min: 0.6, max: 1.45, step: 0.01, default: params.houseScale ?? 1 },
+      { key: "gardenDensity", label: "花园密度", min: 0, max: 1, step: 0.01, default: params.gardenDensity ?? 0.75 },
+      { key: "treeDensity", label: "树木密度", min: 0, max: 1, step: 0.01, default: params.treeDensity ?? 0.7 },
+      { key: "flowerDensity", label: "花朵密度", min: 0, max: 1, step: 0.01, default: params.flowerDensity ?? 0.85 },
+      { key: "seed", label: "随机种子", min: 0, max: 999, step: 1, default: params.seed ?? 37 },
+    ],
+    build(p) {
+      return buildHouseGardenParts({
+        variants: 1,
+        variantIndex: params.variantIndex ?? 0,
+        lotSize: p.lotSize,
+        houseScale: p.houseScale,
+        gardenDensity: p.gardenDensity,
+        treeDensity: p.treeDensity,
+        flowerDensity: p.flowerDensity,
+        seed: Math.round(p.seed),
+      });
+    },
+  };
+}
+
+const HOUSE_GARDEN_MODELS = Object.fromEntries(HOUSE_GARDEN_VARIANTS.map((variant) => [variant.id, makeHouseGardenModel(variant)]));
 
 // ---- P7 vegetation: SpeedTree-style recursive spline tree ----
 const BARK_COL = [0.32, 0.22, 0.14];
@@ -3340,6 +6567,176 @@ function buildColumnCypressParts(p) {
   });
   return authoredTreeParts("柱形柏树", plant, [0.29, 0.2, 0.13], [0.07, 0.27, 0.15], seed, "column-cypress");
 }
+
+// 盆景 — 复刻 B 站《Houdini 程序化生成盆景树》教程的造型语言：
+// 矮壮弯主干 + 细密递归分枝 + 露根 nebari + 车削浅盆 + scatter 苔点土面。
+// bare 模式(叶密度=0)=落叶枯枝(忠实视频)，否则枝端放压扁 icosphere 云片。
+const bonsaiModel = {
+  id: "bonsai",
+  name: "盆景 (Houdini教程复刻)",
+  schema: [
+    { key: "height", label: "树高(矮)", min: 1.2, max: 3.2, step: 0.05, default: 2.4 },
+    { key: "trunkRadius", label: "主干半径(壮)", min: 0.16, max: 0.4, step: 0.01, default: 0.26 },
+    { key: "sway", label: "主干弯曲", min: 0.1, max: 0.8, step: 0.02, default: 0.34 },
+    { key: "gnarl", label: "扭曲度", min: 0, max: 0.6, step: 0.02, default: 0.4 },
+    { key: "branches", label: "一级枝数", min: 4, max: 12, step: 1, default: 8 },
+    { key: "depth", label: "递归层级", min: 2, max: 5, step: 1, default: 5 },
+    { key: "branchAngle", label: "出枝角", min: 30, max: 65, step: 1, default: 42 },
+    { key: "leafDensity", label: "叶团数量(0=枯枝)", min: 0, max: 8, step: 1, default: 8 },
+    { key: "padSize", label: "云片大小", min: 1.2, max: 3.0, step: 0.1, default: 2.0 },
+    { key: "moss", label: "苔点数量", min: 0, max: 60, step: 2, default: 40 },
+    { key: "seed", label: "种子", min: 0, max: 200, step: 1, default: 421 },
+  ],
+  build(p) {
+    const seed = Math.round(p.seed);
+    const rng = makeRng(seed);
+    const R = p.trunkRadius;
+    const h = p.height;
+    const s = p.sway * h;
+    // 弯曲主干脊线（S 形折线）
+    const spine = polyline([
+      vec3(0, 0, 0),
+      vec3(s * (0.3 + rng.range(-0.1, 0.1)), h * 0.28, s * 0.15),
+      vec3(-s * (0.35 + rng.range(-0.1, 0.1)), h * 0.55, -s * 0.1),
+      vec3(s * (0.25 + rng.range(-0.1, 0.1)), h * 0.78, s * 0.2),
+      vec3(-s * 0.15 + rng.range(-0.05, 0.05), h, rng.range(-0.05, 0.05)),
+    ]);
+    const bare = p.leafDensity <= 0;
+    const depth = Math.round(p.depth);
+    const allLevels = [
+      { count: Math.round(p.branches), children: 4, angle: p.branchAngle, lengthScale: 0.74, radiusScale: 0.6 },
+      { count: 4, children: 4, angle: p.branchAngle + 6, lengthScale: 0.72, radiusScale: 0.56 },
+      { count: 4, children: 3, angle: p.branchAngle + 12, lengthScale: 0.68, radiusScale: 0.52 },
+      { count: 3, children: 3, angle: p.branchAngle + 18, lengthScale: 0.62, radiusScale: 0.48 },
+      { count: 3, children: 0, angle: p.branchAngle + 24, lengthScale: 0.56, radiusScale: 0.44 },
+    ].slice(0, depth);
+    const t = tree({
+      seed,
+      trunkCurve: spine,
+      trunkRadius: R,
+      gnarl: p.gnarl,
+      leaves: false,
+      branchAngle: p.branchAngle,
+      branchPhototropism: bare ? 0.35 : 0.5,
+      branchGravity: 0.06,
+      branchFlare: true,
+      branchFlareScale: 1.6,
+      authoring: { levels: allLevels },
+      branchRadiusProfile: [{ t: 0, value: 0.9 }, { t: 1, value: 0.28 }],
+      canopy: bare
+        ? { shape: "ellipsoid", baseY: h * 0.35, height: h * 0.9, radiusX: h * 0.55, strength: 0.5 }
+        : undefined,
+    });
+    // 露根 nebari
+    const roots = [];
+    const nr = 5;
+    for (let i = 0; i < nr; i++) {
+      const a = (i / nr) * Math.PI * 2 + rng.range(-0.3, 0.3);
+      const len = R * (2.4 + rng.range(-0.4, 0.6));
+      const dir = vec3(Math.cos(a), 0, Math.sin(a));
+      roots.push(sweep(polyline([
+        vec3(0, R * 0.4, 0),
+        vec3(dir.x * len * 0.5, R * 0.15, dir.z * len * 0.5),
+        vec3(dir.x * len, -0.02, dir.z * len),
+      ]), { sides: 5, radius: R * 0.5, radiusAt: (u) => 1 - 0.85 * u, caps: true }));
+    }
+    const wood = merge(t.wood, ...roots);
+    const parts = [windSurfPart("wood", wood, "wood", { color: BARK_COL, roughness: 0.9 }, "tree")];
+    // 云片模式：只在少数上层枝端放分层叶团（真实盆景是几片分离云片，非满树）。
+    // leafDensity 直接 = 云团数量；每团几个小球叠成扁平团，看得见骨架和盆。
+    if (!bare) {
+      const tips = t.branches
+        .filter((x) => x.terminal)
+        .map((branch) => ({ branch, tip: branch.curve.points[branch.curve.points.length - 1] }))
+        .filter(({ tip }) => tip.y > h * 0.45 && Math.hypot(tip.x, tip.z) < h * 0.75)
+        .sort((a, b) => b.tip.y - a.tip.y);
+      const nPads = Math.min(Math.round(p.leafDensity), tips.length);
+      const picked = [];
+      if (nPads > 0) picked.push(tips[0]);
+      while (picked.length < nPads) {
+        let best = null;
+        let bestScore = -Infinity;
+        for (const candidate of tips) {
+          if (picked.includes(candidate)) continue;
+          const nearest = Math.min(...picked.map((other) => {
+            const dx = (candidate.tip.x - other.tip.x) / h;
+            const dy = (candidate.tip.y - other.tip.y) / h;
+            const dz = (candidate.tip.z - other.tip.z) / h;
+            return Math.hypot(dx, dy * 0.7, dz);
+          }));
+          const score = nearest + Math.max(0, candidate.tip.y / h - 0.4) * 0.18;
+          if (score > bestScore) {
+            best = candidate;
+            bestScore = score;
+          }
+        }
+        if (!best) break;
+        picked.push(best);
+      }
+      const leafBranches = [];
+      const seenBranches = new Set();
+      for (const center of picked) {
+        const nearby = tips
+          .map((candidate) => ({
+            branch: candidate.branch,
+            distance: Math.hypot(
+              candidate.tip.x - center.tip.x,
+              (candidate.tip.y - center.tip.y) * 0.65,
+              candidate.tip.z - center.tip.z,
+            ),
+          }))
+          .sort((a, b) => a.distance - b.distance)
+          .slice(0, 10);
+        for (const { branch } of nearby) {
+          if (seenBranches.has(branch)) continue;
+          seenBranches.add(branch);
+          leafBranches.push(branch);
+        }
+      }
+      const foliage = scatterLeaves(leafBranches, {
+        seed: seed + 1,
+        perBranch: 8,
+        size: R * p.padSize * 0.28,
+        aspect: 1.45,
+        sizeJitter: 0.3,
+        upBias: 0.55,
+        startPct: 0.1,
+        shape: "oval",
+        leafSegments: 5,
+        curl: 0.12,
+        fold: 0.1,
+        roundedNormals: true,
+        placement: "stratified-shuffled",
+      });
+      parts.push(windSurfPart("foliage", foliage, "leaf", { color: LEAF_COL }, "foliage"));
+    }
+    // 车削浅盆
+    const potR = R * 4.2;
+    const wall = potR * 0.08;
+    const H = h * 0.16;
+    const footR = potR * 0.75;
+    const pot = computeNormals(lathe([
+      vec2(0, -H), vec2(footR * 0.5, -H), vec2(footR, -H * 0.6),
+      vec2(potR, -H * 0.05), vec2(potR + wall, 0), vec2(potR + wall, wall),
+      vec2(potR - wall, wall), vec2(potR - wall, -H * 0.6),
+      vec2(footR * 0.5, -H * 0.75), vec2(0, -H * 0.75),
+    ], { segments: 48 }), 45);
+    // 苔点土面
+    const soilR = potR - R * 0.5;
+    const soilMeshes = [translateMesh(scaleMesh(icosphere(soilR, 2), vec3(1, 0.12, 1)), vec3(0, -0.02, 0))];
+    const mossN = Math.round(p.moss);
+    for (let i = 0; i < mossN; i++) {
+      const a = rng.range(0, Math.PI * 2);
+      const r = Math.sqrt(rng.next()) * soilR * 0.92;
+      const sz = R * rng.range(0.1, 0.24);
+      soilMeshes.push(translateMesh(scaleMesh(icosphere(sz, 1), vec3(1, rng.range(0.4, 0.7), 1)),
+        vec3(Math.cos(a) * r, soilR * 0.11 + sz * 0.3, Math.sin(a) * r)));
+    }
+    parts.push(surfPart("soil", merge(...soilMeshes), "stone", { color: [0.14, 0.11, 0.08], roughness: 0.95 }));
+    parts.push(surfPart("pot", pot, "ceramic", { color: [0.4, 0.26, 0.2], roughness: 0.5 }));
+    return parts;
+  },
+};
 
 const treeModel = {
   id: "veg-tree",
@@ -4607,11 +8004,11 @@ const townScene = (() => {
             const fx = ox + gridW * 0.5 + rx;
             const fz = oz + gridD * 0.5 + rz;
             const gy = hAt(fx, fz);
-            const jw = cell * (0.85 + rng() * 0.3);
-            const jd = cell * (0.85 + rng() * 0.3);
+            const jw = cell * (0.82 + rng() * 0.22);
+            const jd = cell * (0.82 + rng() * 0.22);
             const ci = placed % FIELD_COLORS.length;
             let m = plane(jw, jd, 1, 1);
-            m = transform(m, { rotate: vec3(0, tilt, 0), translate: vec3(fx, gy + 0.04, fz) });
+            m = transform(m, { rotate: vec3(0, -tilt, 0), translate: vec3(fx, gy + 0.04, fz) });
             fieldByColor[ci].push(m);
             placed++;
           }
@@ -4798,7 +8195,10 @@ const titanStacking = {
     { key: "fractureSeed", label: "断裂种子", min: 0, max: 64, step: 1, default: 5 },
     { key: "stackSeed", label: "堆叠种子", min: 0, max: 64, step: 1, default: 2 },
     { key: "spread", label: "散布半径", min: 0.5, max: 5, step: 0.1, default: 2.2 },
+    { key: "minScale", label: "最小缩放", min: 0.1, max: 1, step: 0.05, default: 0.2 },
+    { key: "maxScale", label: "最大缩放", min: 0.1, max: 1.5, step: 0.05, default: 1 },
     { key: "focusBias", label: "冲击聚集", min: 0, max: 0.9, step: 0.05, default: 0 },
+    { key: "roughen", label: "石面碎化", min: 0, max: 0.2, step: 0.01, default: 0.06 },
   ],
   build(p) {
     return buildTitanStackingParts({
@@ -4806,7 +8206,10 @@ const titanStacking = {
       fractureSeed: Math.round(p.fractureSeed),
       stackSeed: Math.round(p.stackSeed),
       spread: p.spread,
+      minScale: p.minScale,
+      maxScale: p.maxScale,
       focusBias: p.focusBias,
+      roughen: p.roughen,
     });
   },
 };
@@ -4864,13 +8267,18 @@ const titanCloth = {
     { key: "width", label: "宽", min: 2, max: 8, step: 0.5, default: 4 },
     { key: "depth", label: "深", min: 2, max: 8, step: 0.5, default: 4 },
     { key: "resolution", label: "网格分辨率", min: 10, max: 60, step: 2, default: 40 },
-    { key: "pinMode", label: "固定点(0角/1顶/2中/3两角)", min: 0, max: 3, step: 1, default: 0 },
+    { key: "pinMode", label: "固定点(0角/1顶/2中/3两角/4无)", min: 0, max: 4, step: 1, default: 4 },
     { key: "sag", label: "垂坠深度", min: 0, max: 3, step: 0.1, default: 1.6 },
     { key: "wrinkle", label: "褶皱", min: 0, max: 0.4, step: 0.02, default: 0.12 },
     { key: "seed", label: "种子", min: 0, max: 64, step: 1, default: 3 },
+    { key: "physics", label: "物理仿真(0关/1开)", min: 0, max: 1, step: 1, default: 1 },
+    { key: "simSteps", label: "仿真步数", min: 10, max: 120, step: 5, default: 90 },
+    { key: "stiffness", label: "布料刚度", min: 0.3, max: 1, step: 0.05, default: 0.9 },
+    { key: "colliderRadius", label: "球碰撞半径(0无)", min: 0, max: 2, step: 0.1, default: 1.2 },
+    { key: "groundY", label: "地面高度", min: -2, max: 2, step: 0.2, default: 0 },
   ],
   build(p) {
-    const modes = ["corners", "top-edge", "center", "two-corners"];
+    const modes = ["corners", "top-edge", "center", "two-corners", "none"];
     return buildTitanClothParts({
       width: p.width,
       depth: p.depth,
@@ -4879,13 +8287,440 @@ const titanCloth = {
       sag: p.sag,
       wrinkle: p.wrinkle,
       seed: Math.round(p.seed),
+      physics: Math.round(p.physics) === 1,
+      simSteps: Math.round(p.simSteps),
+      stiffness: p.stiffness,
+      colliderRadius: p.colliderRadius,
+      groundY: p.groundY,
     });
   },
 };
 
-export const PROC_MODELS = { "town-scene": townScene, sphere: sphereModel, teddy, rock, "rock-pile": rockPile, "pcg-vegetation": pcgVegetation, "vine-slope": vineSlopeModel, "ivy-ruins": ivyRuinsModel, roots: rootsModel, "rock-formation": rockFormationModel, "pcg-colonnade": pcgColonnade, "pcg-plaza": pcgPlaza, "pcg-boulders": pcgBoulders, "terrain-layered": terrainLayered, "forest-floor": forestFloor, "triplanar-boulder": triplanarBoulder, tower, pagoda, building, "urban-artdeco": urbanArtDeco, "urban-glass": urbanGlassTower, "urban-brick": urbanBrickWalkup, "urban-office": urbanModernOffice, "urban-brownstone": urbanBrownstone, "urban-corporate": urbanCorporate, "chinese-hall": chineseHall, cityblock: cityBlock, streetscene, "interior-room": interiorRoom, "hard-surface-kit": hardSurfaceKit, "terrain-island": terrainIsland, cloud, "cloud-sky": cloudSky, "polygon-island": polygonIsland, "pcg-world": pcgWorld, "mountain-village": mountainVillage, mushroom, gear, road, freeway, railway, viaduct, "titan-rail": titanRail, "titan-fence": titanFence, "titan-cable": titanCable, "titan-adboard": titanAdBoard, "titan-shrub": titanShrub, "titan-platform": titanPlatform, "titan-building": titanBuilding, "titan-stacking": titanStacking, "titan-train": titanTrain, "titan-tree": titanTree, "titan-cloth": titanCloth, pylon, "tower-crane": towerCrane, "wind-turbine": windTurbine, "toll-station": tollStation, "tunnel-portal": tunnelPortal, "rooftop-kit": rooftopKit, scaffolding, "bus-stop": busStop, bicycle, billboard, "container-yard": containerYard, "manhole-cover": manholeCover, "barrier-run": barrierRun, "fire-escape": fireEscape, newsstand, "traffic-signal": trafficSignal, "umbrella-table": umbrellaTable, "street-tree": streetTree, "freeway-sign": freewaySign, "material-stack": materialStack, "water-tower": waterTower, "wfc-rooftop": wfcRooftop, intersection, officechair: officeChair, dragonfly, "sports-car": sportsCar, "gmc-canyon-at4x": gmcCanyonAt4x, "buick-riviera-1965": buickRiviera1965, "midnight-horse": midnightHorse, "reference-dog": referenceDog, "cartoon-mech-pilot": cartoonMechPilot, "stylized-humanoid": stylizedHumanoid, tshirt: tshirtModel, skirt: skirtModel, pants: pantsModel, dress: dressModel, hoodie: hoodieModel, smooth: smoothModel, spring: springModel, vine: vineModel, meadow: meadowModel, csg: csgModel, fterrain: terrainModel, wineglass: wineGlassModel, "veg-tree": treeModel, "veg-growing-tree": growingTreeModel, "veg-stylized-tree": stylizedTreeModel, "veg-authored-broadleaf": authoredBroadleafModel, "veg-trellis-fruit": trellisFruitModel, "veg-column-cypress": columnCypressAuthoringModel, "veg-authoring-lineup": authoringLineupModel, "veg-shrub": shrubModel, "veg-grass": grassModel, "veg-conifer": coniferModel, "veg-palm": palmModel, ...SPEEDTREE_MODELS, ...SPEEDTREE_TUTORIAL_MODELS };
+const pcgCellMap = {
+  id: "pcg-cell-map",
+  name: "PCG 六边格群岛",
+  schema: [
+    { key: "rings", label: "地图环数", min: 2, max: 10, step: 1, default: 6 },
+    { key: "cellSize", label: "单元尺寸", min: 0.4, max: 1.2, step: 0.05, default: 0.72 },
+    { key: "clusters", label: "生态分区数", min: 2, max: 12, step: 1, default: 6 },
+    { key: "jitter", label: "网格不规则度", min: 0, max: 0.3, step: 0.01, default: 0.12 },
+    { key: "relief", label: "地形起伏", min: 0.5, max: 3.5, step: 0.1, default: 1.8 },
+    { key: "seed", label: "随机种子", min: 0, max: 100, step: 1, default: 12 },
+  ],
+  build(p) {
+    return buildPcgCellMapParts({
+      rings: Math.round(p.rings),
+      cellSize: p.cellSize,
+      clusters: Math.round(p.clusters),
+      jitter: p.jitter,
+      relief: p.relief,
+      seed: Math.round(p.seed),
+    });
+  },
+};
+
+const pcgRiverValley = {
+  id: "pcg-river-valley",
+  name: "PCG 蜿蜒侵蚀河谷",
+  schema: [
+    { key: "size", label: "河谷尺寸", min: 16, max: 42, step: 1, default: 26 },
+    { key: "resolution", label: "地形精度", min: 24, max: 96, step: 8, default: 56 },
+    { key: "riverWidth", label: "河道宽度", min: 0.5, max: 3, step: 0.1, default: 1.2 },
+    { key: "riverDepth", label: "河槽深度", min: 0.2, max: 2, step: 0.1, default: 0.8 },
+    { key: "meander", label: "蜿蜒强度", min: 0, max: 7, step: 0.2, default: 3.4 },
+    { key: "relief", label: "谷地起伏", min: 1, max: 8, step: 0.2, default: 3.6 },
+    { key: "seed", label: "随机种子", min: 0, max: 100, step: 1, default: 21 },
+  ],
+  build(p) {
+    return buildPcgRiverValleyParts({
+      size: p.size,
+      resolution: Math.round(p.resolution),
+      riverWidth: p.riverWidth,
+      riverDepth: p.riverDepth,
+      meander: p.meander,
+      relief: p.relief,
+      seed: Math.round(p.seed),
+    });
+  },
+};
+
+const surfaceSketchVine = {
+  id: "surface-sketch-vine",
+  name: "表面绘制藤蔓",
+  schema: [
+    { key: "wallWidth", label: "岩墙宽度", min: 4, max: 10, step: 0.25, default: 6.5 },
+    { key: "wallHeight", label: "岩墙高度", min: 3, max: 9, step: 0.25, default: 5.4 },
+    { key: "strokeOffset", label: "笔划离面距离", min: 0.01, max: 0.12, step: 0.01, default: 0.04 },
+    { key: "strokeWander", label: "笔划蜿蜒", min: 0, max: 1.6, step: 0.05, default: 0.7 },
+    { key: "vineRadius", label: "藤茎粗细", min: 0.02, max: 0.12, step: 0.005, default: 0.045 },
+    { key: "leafSize", label: "叶片尺寸", min: 0.06, max: 0.35, step: 0.01, default: 0.15 },
+    { key: "seed", label: "笔划种子", min: 0, max: 100, step: 1, default: 9 },
+  ],
+  build(p) {
+    return buildSurfaceSketchVineParts({
+      wallWidth: p.wallWidth,
+      wallHeight: p.wallHeight,
+      strokeOffset: p.strokeOffset,
+      strokeWander: p.strokeWander,
+      vineRadius: p.vineRadius,
+      leafSize: p.leafSize,
+      seed: Math.round(p.seed),
+    });
+  },
+};
+
+const cliffPanelStudy = {
+  id: "cliff-panel-study",
+  name: "崖壁方向贴片",
+  schema: [
+    { key: "width", label: "崖体宽度", min: 8, max: 24, step: 1, default: 14 },
+    { key: "depth", label: "崖体深度", min: 8, max: 20, step: 1, default: 12 },
+    { key: "height", label: "崖壁高度", min: 3, max: 12, step: 0.5, default: 6 },
+    { key: "resolution", label: "地形精度", min: 24, max: 96, step: 8, default: 48 },
+    { key: "strata", label: "水平岩层", min: 2, max: 14, step: 1, default: 6 },
+    { key: "erosion", label: "冲沟侵蚀", min: 0, max: 1.4, step: 0.05, default: 0.72 },
+    { key: "talus", label: "坡脚崩积", min: 0, max: 1.4, step: 0.05, default: 0.65 },
+    { key: "directionBins", label: "方向分区数", min: 4, max: 16, step: 1, default: 8 },
+    { key: "panelScale", label: "局部投影尺度", min: 0.5, max: 6, step: 0.25, default: 2.5 },
+    { key: "seed", label: "随机种子", min: 0, max: 100, step: 1, default: 31 },
+  ],
+  build(p) {
+    return buildCliffPanelStudyParts({
+      width: p.width,
+      depth: p.depth,
+      height: p.height,
+      resolution: Math.round(p.resolution),
+      strata: Math.round(p.strata),
+      erosion: p.erosion,
+      talus: p.talus,
+      directionBins: Math.round(p.directionBins),
+      panelScale: p.panelScale,
+      seed: Math.round(p.seed),
+    });
+  },
+};
+
+const raycastRoofGarden = {
+  id: "raycast-roof-garden",
+  name: "射线投射屋顶花园",
+  category: "程序工作流",
+  assetMeta: {
+    description: "候选点向下投射到双坡屋面，花盆与植被自动继承命中法线。",
+    tags: ["PCG", "射线投射", "屋顶", "植被", "法线对齐"],
+    capabilities: ["World Ray Hit Query", "属性保留", "法线对齐", "确定性撒点"],
+    materialClasses: ["瓦片", "陶土", "植被"],
+  },
+  schema: [
+    { key: "width", label: "房屋宽度", min: 5, max: 16, step: 0.5, default: 9 },
+    { key: "depth", label: "房屋进深", min: 4, max: 14, step: 0.5, default: 7 },
+    { key: "wallHeight", label: "墙体高度", min: 2.5, max: 8, step: 0.25, default: 4.2 },
+    { key: "roofPitch", label: "屋顶坡度", min: 4, max: 42, step: 1, default: 22 },
+    { key: "columns", label: "横向候选点", min: 4, max: 24, step: 1, default: 13 },
+    { key: "rows", label: "纵向候选点", min: 3, max: 20, step: 1, default: 10 },
+    { key: "density", label: "种植密度", min: 0.05, max: 1, step: 0.05, default: 0.7 },
+    { key: "plantScale", label: "花盆尺寸", min: 0.25, max: 1.2, step: 0.05, default: 0.62 },
+    { key: "seed", label: "随机种子", min: 0, max: 100, step: 1, default: 14 },
+  ],
+  build(params) {
+    return buildRaycastRoofGardenParts({
+      ...params,
+      columns: Math.round(params.columns),
+      rows: Math.round(params.rows),
+      seed: Math.round(params.seed),
+    });
+  },
+};
+
+const raycastAsteroidGarden = {
+  id: "raycast-asteroid-garden",
+  name: "径向投射晶体小行星",
+  category: "程序工作流",
+  assetMeta: {
+    description: "球壳候选点沿径向投向任意粗糙网格，生成全表面法线对齐晶簇。",
+    tags: ["PCG", "径向射线", "小行星", "晶体", "HSV调试"],
+    capabilities: ["逐点射线方向", "任意旋转网格", "HSV属性可视化", "法线对齐"],
+    materialClasses: ["岩石", "金属", "晶体"],
+  },
+  schema: [
+    { key: "radius", label: "小行星半径", min: 2, max: 8, step: 0.25, default: 4.2 },
+    { key: "roughness", label: "表面起伏", min: 0, max: 1.2, step: 0.05, default: 0.55 },
+    { key: "samples", label: "径向候选点", min: 12, max: 120, step: 4, default: 52 },
+    { key: "crystalScale", label: "晶簇尺寸", min: 0.2, max: 1.2, step: 0.05, default: 0.58 },
+    { key: "debugMarkers", label: "HSV距离点(0关/1开)", min: 0, max: 1, step: 1, default: 1 },
+    { key: "seed", label: "随机种子", min: 0, max: 100, step: 1, default: 33 },
+  ],
+  build(params) {
+    return buildRaycastAsteroidGardenParts({
+      ...params,
+      samples: Math.round(params.samples),
+      debugMarkers: Math.round(params.debugMarkers) === 1,
+      seed: Math.round(params.seed),
+    });
+  },
+};
+
+const raycastCliffLights = {
+  id: "raycast-cliff-lights",
+  name: "横向投射岩壁灯阵",
+  category: "程序工作流",
+  assetMeta: {
+    description: "平面候选点横向命中粗糙岩壁，灯架自动贴合局部表面法线。",
+    tags: ["PCG", "横向射线", "岩壁", "灯阵", "法线对齐"],
+    capabilities: ["World Ray Hit Query", "非地形表面", "实例变体", "确定性撒点"],
+    materialClasses: ["岩石", "金属", "发光体"],
+  },
+  schema: [
+    { key: "width", label: "岩壁宽度", min: 5, max: 18, step: 0.5, default: 10 },
+    { key: "height", label: "岩壁高度", min: 4, max: 14, step: 0.5, default: 7 },
+    { key: "columns", label: "横向候选点", min: 4, max: 24, step: 1, default: 12 },
+    { key: "rows", label: "纵向候选点", min: 3, max: 16, step: 1, default: 8 },
+    { key: "density", label: "灯具密度", min: 0.05, max: 1, step: 0.05, default: 0.62 },
+    { key: "roughness", label: "岩壁起伏", min: 0, max: 0.9, step: 0.05, default: 0.38 },
+    { key: "lampScale", label: "灯具尺寸", min: 0.25, max: 1.4, step: 0.05, default: 0.72 },
+    { key: "seed", label: "随机种子", min: 0, max: 100, step: 1, default: 27 },
+  ],
+  build(params) {
+    return buildRaycastCliffLightsParts({
+      ...params,
+      columns: Math.round(params.columns),
+      rows: Math.round(params.rows),
+      seed: Math.round(params.seed),
+    });
+  },
+};
+
+const drawablePathFence = {
+  id: "drawable-path-fence",
+  name: "可绘制路径围栏",
+  category: "程序工作流",
+  workflowPreset: DRAWABLE_FENCE_WORKFLOW,
+  assetMeta: {
+    description: "在视口绘制曲线，实时生成沿线立柱与双层横杆。",
+    tags: ["Drawable", "曲线", "围栏", "WorkflowPreset", "非破坏"],
+    capabilities: ["视口绘制", "曲线绑定", "实时参数", "确定性输出"],
+    materialClasses: ["木材"],
+  },
+  schema: [
+    { key: "postSpacing", label: "立柱间距", min: 0.3, max: 2, step: 0.05, default: 0.75 },
+    { key: "postHeight", label: "围栏高度", min: 0.5, max: 2.5, step: 0.05, default: 1.25 },
+    { key: "railRadius", label: "横杆粗细", min: 0.02, max: 0.16, step: 0.005, default: 0.055 },
+  ],
+  build(p, context) {
+    return buildDrawableFenceParts(p, context);
+  },
+};
+
+const maskedRegionGrove = {
+  id: "masked-region-grove",
+  name: "可绘制区域林地",
+  category: "程序工作流",
+  workflowPreset: REGION_GROVE_WORKFLOW,
+  assetMeta: {
+    description: "绘制区域后，用 MaskField 裁剪候选点，ScatterTable 混合乔木、灌木、岩石。",
+    tags: ["Drawable", "区域", "MaskField", "ScatterTable", "植被"],
+    capabilities: ["区域绑定", "多物种散布", "密度控制", "种子复现"],
+    materialClasses: ["植被", "土壤", "岩石", "木材"],
+  },
+  schema: [
+    { key: "density", label: "分布密度", min: 0.1, max: 1, step: 0.02, default: 0.62 },
+    { key: "spacing", label: "采样间距", min: 0.4, max: 1.5, step: 0.04, default: 0.72 },
+    { key: "treeScale", label: "植被尺度", min: 0.45, max: 1.8, step: 0.05, default: 1 },
+    { key: "seed", label: "随机种子", min: 0, max: 999, step: 1, default: 17 },
+  ],
+  build(p, context) {
+    return buildRegionGroveParts({ ...p, seed: Math.round(p.seed) }, context);
+  },
+};
+
+const scatterPathLights = {
+  id: "scatter-path-lights",
+  name: "可绘制路径灯带",
+  category: "程序工作流",
+  workflowPreset: PATH_LIGHTS_WORKFLOW,
+  assetMeta: {
+    description: "沿绘制路径生成步道，通过 MaskField 和 ScatterTable 布置路灯、长椅、矮桩。",
+    tags: ["Drawable", "曲线", "MaskField", "ScatterTable", "场景布置"],
+    capabilities: ["路径绑定", "设施混合", "资产槽思路", "种子复现"],
+    materialClasses: ["石材", "金属", "玻璃", "木材"],
+  },
+  schema: [
+    { key: "pathWidth", label: "步道宽度", min: 0.4, max: 2.2, step: 0.05, default: 0.9 },
+    { key: "propSpacing", label: "设施间距", min: 0.7, max: 3, step: 0.05, default: 1.35 },
+    { key: "propOffset", label: "设施外偏", min: 0.35, max: 1.8, step: 0.05, default: 0.8 },
+    { key: "seed", label: "随机种子", min: 0, max: 999, step: 1, default: 29 },
+  ],
+  build(p, context) {
+    return buildPathLightsParts({ ...p, seed: Math.round(p.seed) }, context);
+  },
+};
+
+function makeLowPolyCourseModel(id, name, build, seed) {
+  return {
+    id,
+    name,
+    category: "Low Poly 场景",
+    assetMeta: {
+      description: "基于 Low Poly 系列课程视觉语言重写的程序化场景，使用低面数原语、面法线和确定性面色差。",
+      tags: ["Low Poly", "程序化场景", "面法线", "课程复刻"],
+      capabilities: ["种子复现", "面级色差", "实时参数", "OBJ/Viewer 导出"],
+      materialClasses: ["风格化草地", "风格化岩石", "风格化植被"],
+    },
+    schema: [
+      { key: "seed", label: "随机种子", min: 0, max: 9999, step: 1, default: seed },
+      { key: "colorVariation", label: "面色差", min: 0, max: 0.24, step: 0.01, default: 0.09 },
+    ],
+    build(params) {
+      return build({ seed: Math.round(params.seed), colorVariation: params.colorVariation });
+    },
+  };
+}
+
+const lowPolyVillage = makeLowPolyCourseModel("low-poly-village", "Low Poly 村落", buildLowPolyVillageParts, 1601);
+const lowPolyCloudValley = makeLowPolyCourseModel("low-poly-cloud-valley", "Low Poly 山谷云景", buildLowPolyCloudValleyParts, 803);
+const lowPolyTropicalIsland = makeLowPolyCourseModel("low-poly-tropical-island", "Low Poly 热带岛", buildLowPolyTropicalIslandParts, 911);
+const lowPolyTreeKit = makeLowPolyCourseModel("low-poly-tree-kit", "Low Poly 树木 Kit", buildLowPolyTreeKitParts, 1316);
+
+const messengerToonPlanet = {
+  id: "messenger-toon-planet",
+  name: "卡通信使·球形街区",
+  category: "风格复刻",
+  scenePreset: {
+    environment: "studio",
+    background: { mode: "gradient", color: "#61beb9", color2: "#9fe4d4" },
+    exposure: 1.02,
+    bloom: { enabled: false, strength: 0, radius: 0, threshold: 1 },
+    fog: { enabled: false },
+    camera: "planet",
+    grid: false,
+    renderMode: "toon",
+    toon: { steps: 3, outline: 0.004, color: "#26343a" },
+  },
+  assetMeta: {
+    description: "基于 Messenger Web 游戏视觉语言原创重写的球形街区：低饱和色块、三段卡渲、深灰描边、团块植被与微缩建筑。",
+    tags: ["球形世界", "卡渲", "粗描边", "低多边形", "Web 风格研究"],
+    capabilities: ["径向贴附", "程序化街区", "语义部件", "种子复现"],
+    materialClasses: ["卡通地表", "灰泥建筑", "植被", "街区设施"],
+    sourceStudy: "https://messenger.abeto.co/",
+  },
+  schema: [
+    { key: "radius", label: "星球半径", min: 3.5, max: 8, step: 0.1, default: 5.2 },
+    { key: "buildingCount", label: "建筑数量", min: 4, max: 26, step: 1, default: 14 },
+    { key: "treeCount", label: "树木数量", min: 0, max: 48, step: 1, default: 22 },
+    { key: "propDensity", label: "街区设施密度", min: 0, max: 1, step: 0.05, default: 0.8 },
+    { key: "colorVariation", label: "面级色差", min: 0, max: 0.16, step: 0.005, default: 0.055 },
+    { key: "seed", label: "街区种子", min: 0, max: 9999, step: 1, default: 2607 },
+  ],
+  build(params) {
+    return buildMessengerPlanetParts({
+      ...params,
+      buildingCount: Math.round(params.buildingCount),
+      treeCount: Math.round(params.treeCount),
+      seed: Math.round(params.seed),
+    });
+  },
+};
+
+export const PROC_MODELS = { "town-scene": townScene, "drawable-path-fence": drawablePathFence, "masked-region-grove": maskedRegionGrove, "scatter-path-lights": scatterPathLights, sphere: sphereModel, teddy, rock, "rock-pile": rockPile, "attractor-grid": attractorGridModel, "blender-howtos": blenderHowtos, "blender-spiral-scales": blenderSpiralScales, "blender-dna-helix": blenderDnaHelix, "blender-gradient-box": blenderGradientBox, "blender-raining-garden": blenderRainingGarden, "grasshopper-howtos": grasshopperHowtos, "grasshopper-rock-tile": grasshopperRockTile, "grasshopper-voronoi-pipe": grasshopperVoronoiPipe, "grasshopper-waffle-pattern": grasshopperWafflePattern, "grasshopper-reaction-diffusion": grasshopperReactionDiffusion, "grasshopper-packed-circle": grasshopperPackedCircle, "grasshopper-landscape-contour": grasshopperLandscapeContour, "grasshopper-ribbon-loop": grasshopperRibbonLoop, "houdini-howtos": houdiniHowtos, "houdini-howtos-field": houdiniHowtosField, "houdini-howtos-curve-graph": houdiniHowtosCurveGraph, "houdini-howtos-weave-pot": houdiniHowtosWeavePot, "houdini-howtos-sci-fi-panel": houdiniHowtosSciFiPanel, "houdini-howtos-growth-urchin": houdiniHowtosGrowthUrchin, "houdini-howtos-bsp-dungeon": houdiniHowtosBspDungeon, "houdini-howtos-voronoi-vase": houdiniHowtosVoronoiVase, "braid-rope": braidRopeModel, "roof-generator": roofGeneratorModel, "pcg-vegetation": pcgVegetation, "vine-slope": vineSlopeModel, "ivy-ruins": ivyRuinsModel, "ivy-lowpoly-vol23": lowPolyIvyModel, "ivy-lowpoly-vol23-kit": lowPolyIvyKitModel, roots: rootsModel, "rock-formation": rockFormationModel, "pcg-colonnade": pcgColonnade, "pcg-plaza": pcgPlaza, "pcg-boulders": pcgBoulders, "pcg-forest": pcgForest, "pcg-brick-wall": pcgBrickWall, "terrain-layered": terrainLayered, "forest-floor": forestFloor, "triplanar-boulder": triplanarBoulder, tower, pagoda, building, "urban-artdeco": urbanArtDeco, "urban-glass": urbanGlassTower, "urban-brick": urbanBrickWalkup, "urban-office": urbanModernOffice, "urban-brownstone": urbanBrownstone, "urban-corporate": urbanCorporate, "japanese-street-building": japaneseStreetBuilding, "hong-kong-cyber-house": hongKongCyberHouse, "kowloon-cyber-courtyard": kowloonCyberCourtyard, "chinese-hall": chineseHall, cityblock: cityBlock, "city-district": cityDistrict, "city-district-roadnet": cityDistrictRoadnet, "watabou-city": watabouCity, "citygen-road-growth": citygenRoadGrowth, "citygen-residential": citygenResidential, "citygen-downtown": citygenDowntown, "residential-community": residentialCommunity, "road-network": roadNetworkModel, "procedural-game-map": proceduralGameMap, streetscene, "interior-room": interiorRoom, "hard-surface-kit": hardSurfaceKit, "terrain-island": terrainIsland, "lunar-crater-surface": lunarCraterSurface, ...CROPOUT_ISLAND_MODELS, cloud, "cloud-sky": cloudSky, "polygon-island": polygonIsland, "pcg-world": pcgWorld, "mountain-village": mountainVillage, ...HOUSE_GARDEN_MODELS, fern: fernModel, mushroom, gear, road, freeway, railway, viaduct, "titan-rail": titanRail, "titan-fence": titanFence, "titan-cable": titanCable, "titan-adboard": titanAdBoard, "titan-shrub": titanShrub, "titan-platform": titanPlatform, "titan-building": titanBuilding, "titan-stacking": titanStacking, "titan-train": titanTrain, "titan-tree": titanTree, "titan-cloth": titanCloth, pylon, "tower-crane": towerCrane, "wind-turbine": windTurbine, "toll-station": tollStation, "tunnel-portal": tunnelPortal, "rooftop-kit": rooftopKit, scaffolding, "bus-stop": busStop, bicycle, billboard, "container-yard": containerYard, "manhole-cover": manholeCover, "barrier-run": barrierRun, "fire-escape": fireEscape, newsstand, "traffic-signal": trafficSignal, "umbrella-table": umbrellaTable, "street-tree": streetTree, "street-lamp": streetLamp, "fire-hydrant": fireHydrant, "park-bench": parkBench, trashcan, "traffic-cone": trafficCone, "freeway-sign": freewaySign, "material-stack": materialStack, "water-tower": waterTower, "wfc-rooftop": wfcRooftop, intersection, officechair: officeChair, dragonfly, "sports-car": sportsCar, "gmc-canyon-at4x": gmcCanyonAt4x, "buick-riviera-1965": buickRiviera1965, "midnight-horse": midnightHorse, "reference-dog": referenceDog, "cartoon-mech-pilot": cartoonMechPilot, "stylized-humanoid": stylizedHumanoid, tshirt: tshirtModel, skirt: skirtModel, pants: pantsModel, dress: dressModel, hoodie: hoodieModel, smooth: smoothModel, spring: springModel, vine: vineModel, meadow: meadowModel, csg: csgModel, remesh: remeshModel, fterrain: terrainModel, wineglass: wineGlassModel, bonsai: bonsaiModel, "veg-tree": treeModel, "veg-growing-tree": growingTreeModel, "veg-stylized-tree": stylizedTreeModel, "veg-authored-broadleaf": authoredBroadleafModel, "veg-trellis-fruit": trellisFruitModel, "veg-column-cypress": columnCypressAuthoringModel, "veg-authoring-lineup": authoringLineupModel, "veg-shrub": shrubModel, "veg-grass": grassModel, "veg-conifer": coniferModel, "veg-palm": palmModel, ...SPEEDTREE_MODELS, ...SPEEDTREE_TUTORIAL_MODELS };
+
+PROC_MODELS["townscaper-harbour"] = townscaperHarbour;
+PROC_MODELS["chinese-townscaper"] = chineseTownscaper;
+PROC_MODELS["low-poly-village"] = lowPolyVillage;
+PROC_MODELS["low-poly-cloud-valley"] = lowPolyCloudValley;
+PROC_MODELS["low-poly-tropical-island"] = lowPolyTropicalIsland;
+PROC_MODELS["low-poly-tree-kit"] = lowPolyTreeKit;
+PROC_MODELS["messenger-toon-planet"] = messengerToonPlanet;
+PROC_MODELS["pcg-rock-cluster"] = pcgRockCluster;
+PROC_MODELS["stylized-ocean-environment"] = stylizedOceanEnvironment;
+PROC_MODELS["stylized-rock-island"] = stylizedRockIslandModel;
+PROC_MODELS["xianxia-mountains"] = xianxiaMountains;
+PROC_MODELS["vine-covered-rock"] = vineCoveredRockModel;
+PROC_MODELS["suspension-bridge"] = suspensionBridge;
+PROC_MODELS["pcg-snow-scene"] = pcgSnowScene;
+PROC_MODELS["crazy-ivy-wall"] = crazyIvyWallModel;
+PROC_MODELS.waterfall = waterfall;
+PROC_MODELS["procedural-river"] = proceduralRiver;
+PROC_MODELS["river-lake"] = riverLake;
+PROC_MODELS["pcg-biome-river"] = pcgBiomeRiver;
+PROC_MODELS["houdini-cave"] = houdiniCaveModel;
+PROC_MODELS["ue5-pcg-cave"] = ue5PcgCaveModel;
+PROC_MODELS["fabcafe-houdini"] = fabcafeHoudini;
+PROC_MODELS["grasshopper-voxel-bunny"] = grasshopperVoxelBunny;
+PROC_MODELS["grasshopper-image-field"] = grasshopperImageField;
+PROC_MODELS["grasshopper-mesh-reaction-shell"] = grasshopperMeshReactionShell;
+PROC_MODELS["grasshopper-superformula-tower"] = grasshopperSuperformulaTower;
+PROC_MODELS["grasshopper-origami-pavilion"] = grasshopperOrigamiPavilion;
+PROC_MODELS["fabcafe-wavy-surface"] = fabcafeWavySurface;
+PROC_MODELS["fabcafe-twist-tower"] = fabcafeTwistTower;
+PROC_MODELS["procedural-silo"] = proceduralSilo;
+PROC_MODELS["procedural-cactus"] = proceduralCactus;
+PROC_MODELS["sidefx-modular-house"] = sidefxModularHouse;
+PROC_MODELS["sidefx-solaris-market"] = sidefxSolarisMarket;
+PROC_MODELS["procedural-building"] = proceduralBuilding;
+PROC_MODELS["image-remesh"] = imageRemeshModel;
+PROC_MODELS["roundabout-traffic"] = roundaboutTraffic;
+PROC_MODELS["multilevel-interchange"] = multilevelInterchange;
+PROC_MODELS["dual-grid-farm"] = dualGridFarm;
+PROC_MODELS["dual-grid-forest-camp"] = dualGridForestCamp;
+PROC_MODELS["dual-grid-river-mill"] = dualGridRiverMill;
+PROC_MODELS["dual-grid-hill-shrine"] = dualGridHillShrine;
+PROC_MODELS["dual-grid-marsh-ruins"] = dualGridMarshRuins;
+PROC_MODELS["pcg-cell-map"] = pcgCellMap;
+PROC_MODELS["pcg-river-valley"] = pcgRiverValley;
+PROC_MODELS["pcg-pathfinding"] = pcgPathfindingModel;
+PROC_MODELS["surface-sketch-vine"] = surfaceSketchVine;
+PROC_MODELS["cliff-panel-study"] = cliffPanelStudy;
+PROC_MODELS["raycast-roof-garden"] = raycastRoofGarden;
+PROC_MODELS["raycast-asteroid-garden"] = raycastAsteroidGarden;
+PROC_MODELS["raycast-cliff-lights"] = raycastCliffLights;
+PROC_MODELS["rice-field"] = riceField;
+PROC_MODELS["roman-town"] = romanTown;
+
+PROC_MODELS["easy-cliff-rock"] = easyCliffRockModel;
+for (const [id, name, preset] of [
+  ["rock-border-river-gorge", "河谷岩石包边", "river-gorge"],
+  ["rock-border-crater-lake", "火山湖岩石包边", "crater-lake"],
+  ["rock-border-mesa-rim", "台地悬崖包边", "mesa-rim"],
+]) {
+  PROC_MODELS[id] = {
+    id,
+    name,
+    schema: [
+      { key: "spacing", label: "岩石间距", min: 0.45, max: 1.8, step: 0.05, default: 0.92 },
+      { key: "borderHeight", label: "包边高度", min: 0.6, max: 3.4, step: 0.1, default: 1.65 },
+      { key: "tiers", label: "包边层数", min: 1, max: 5, step: 1, default: 2 },
+      { key: "roughness", label: "岩石破碎度", min: 0, max: 0.5, step: 0.02, default: 0.2 },
+      { key: "seed", label: "随机种子", min: 0, max: 999, step: 1, default: 31 },
+    ],
+    build(params) {
+      return buildRockBorderSceneParts({
+        preset,
+        spacing: params.spacing,
+        borderHeight: params.borderHeight,
+        tiers: Math.round(params.tiers),
+        roughness: params.roughness,
+        seed: Math.round(params.seed),
+      });
+    },
+  };
+}
+PROC_MODELS["realistic-spline-path"] = realisticSplinePathModel;
+PROC_MODELS["ecosystem-art-tool"] = ecosystemArtTool;
+PROC_MODELS["ecosystem-brush-editor"] = ecosystemBrushEditor;
+PROC_MODELS["biome-blend-world"] = biomeBlendWorld;
+PROC_MODELS["ecosystem-bake-pipeline"] = ecosystemBakePipeline;
+PROC_MODELS["ecological-association"] = ecologicalAssociation;
+PROC_MODELS["ecosystem-lod-streaming"] = ecosystemLodStreaming;
+PROC_MODELS["terrain-ecology-feedback"] = terrainEcologyFeedback;
+PROC_MODELS["ecosystem-succession"] = ecosystemSuccession;
+PROC_MODELS["pcg-palisade-wall"] = pcgPalisadeWall;
+PROC_MODELS["spline-stone-wall"] = splineStoneWall;
 
 /** Default param object from a schema. */
+PROC_MODELS["assembly-flower-island"] = assemblyFlowerIsland;
+PROC_MODELS["assembly-woodland-edge"] = assemblyWoodlandEdge;
+PROC_MODELS["assembly-dry-rockery"] = assemblyDryRockery;
+PROC_MODELS["procedural-planet"] = proceduralPlanet;
+
 export function defaultParams(model) {
   const p = {};
   for (const s of model.schema) p[s.key] = s.default;

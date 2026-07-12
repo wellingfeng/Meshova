@@ -3,6 +3,7 @@ import {
   SURFACE_LIBRARY,
   buildSurface,
   resolvePhysical,
+  resolveWaterSurfaceParams,
   defaultPhysical,
   makeSurface,
   runMeshScript,
@@ -42,10 +43,45 @@ describe("surface materials", () => {
     expect(phys.attenuationDistance).toBeLessThan(1);
   });
 
+  it("resolves distinct deterministic river, pond, and ocean profiles", () => {
+    const river = resolveWaterSurfaceParams({ body: "river", seed: 9 });
+    const pond = resolveWaterSurfaceParams({ body: "pond", seed: 9 });
+    const ocean = resolveWaterSurfaceParams({ body: "ocean", seed: 9 });
+    expect(river.flowSpeed).toBeGreaterThan(pond.flowSpeed);
+    expect(ocean.waveAmplitude).toBeGreaterThan(river.waveAmplitude);
+    expect(ocean.waveAmplitude).toBeLessThan(0.08);
+    expect(ocean.rippleScale).toBeGreaterThan(river.rippleScale);
+    expect(ocean.deepOpacity).toBeGreaterThan(ocean.shallowOpacity);
+    expect(ocean.shallowWidth).toBeLessThan(river.shallowWidth);
+    expect(ocean.deepColor[2]).toBeGreaterThan(ocean.deepColor[1]);
+    expect(river.tint[1]).toBeGreaterThan(river.tint[2]);
+    expect(pond.tint[1]).toBeGreaterThan(pond.tint[2]);
+    expect(resolveWaterSurfaceParams({ body: "river", seed: 9 })).toEqual(river);
+  });
+
+  it("builds water with physical IOR, absorption, and profile roughness", () => {
+    const water = buildSurface("water", { body: "ocean", roughness: 0.08 })!;
+    const physical = resolvePhysical(water.physical);
+    expect(physical.ior).toBeCloseTo(1.333, 3);
+    expect(physical.transmission).toBeGreaterThan(0);
+    expect(physical.attenuationDistance).toBeGreaterThan(1);
+    expect(water.fields.roughness!(0.2, 0.7)).toBeCloseTo(0.08, 5);
+  });
+
   it("opaque metal is not transparent", () => {
     const m = buildSurface("metal")!;
     expect(m.transparent).toBe(false);
     expect(resolvePhysical(m.physical).transmission).toBe(0);
+  });
+
+  it("honors ceramic roughness without enabling transparency", () => {
+    const matte = buildSurface("ceramic", { roughness: 0.6 })!;
+    const glossy = buildSurface("ceramic", { roughness: 0.12 })!;
+    expect(matte.fields.roughness!(0.5, 0.5)).toBeGreaterThan(0.5);
+    expect(glossy.fields.roughness!(0.5, 0.5)).toBeLessThan(0.25);
+    expect(resolvePhysical(matte.physical).transmission).toBe(0);
+    expect(resolvePhysical(matte.physical).opacity).toBe(1);
+    expect(resolvePhysical(matte.physical).clearcoatRoughness).toBeGreaterThan(0.4);
   });
 
   it("unknown surface type returns null", () => {
@@ -63,8 +99,8 @@ describe("surface materials", () => {
     expect(resolvePhysical(j.physical).attenuationDistance).toBeLessThan(1);
     // snow: faint forward-scatter translucency
     expect(resolvePhysical(buildSurface("snow")!.physical).transmission).toBeGreaterThan(0);
-    // wetGround / sand / mossyStone: opaque, but build cleanly with valid fields
-    for (const k of ["wetGround", "sand", "mossyStone"]) {
+    // wetGround / sand / dirtRoad / mossyStone: opaque, but build cleanly with valid fields
+    for (const k of ["wetGround", "sand", "dirtRoad", "mossyStone"]) {
       const s = buildSurface(k)!;
       expect(s.fields.baseColor!(0.5, 0.5).length).toBe(3);
       expect(s.fields.roughness!(0.3, 0.7)).toBeGreaterThanOrEqual(0.04);

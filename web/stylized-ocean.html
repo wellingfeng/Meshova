@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Meshova · 风格化广阔海洋</title>
+<link rel="icon" href="data:," />
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{width:100%;height:100%;overflow:hidden;background:#071b2b;color:#f3fbfa;font:13px/1.45 "Segoe UI","Microsoft YaHei",sans-serif}
+  #view{display:block;width:100vw;height:100vh;cursor:grab;outline:0}
+  #view:active{cursor:grabbing}
+  #panel{position:fixed;left:18px;top:18px;width:320px;padding:17px 18px 15px;border:1px solid #b6fff52e;border-radius:12px;background:#071b2bd9;box-shadow:0 18px 58px #00131dbb;backdrop-filter:blur(14px)}
+  h1{font-size:18px;letter-spacing:.02em;margin-bottom:4px}
+  .summary{color:#a9c9cd;font-size:11px;margin-bottom:12px}
+  .badges{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+  .badge{padding:2px 7px;border:1px solid #72e4da47;border-radius:999px;background:#0b5c665c;color:#a8fff4;font-size:10px}
+  .row{margin:10px 0}
+  .row label{display:flex;justify-content:space-between;align-items:center;color:#d5e7e7;font-size:12px;margin-bottom:4px}
+  .row output{color:#73efe1;font-variant-numeric:tabular-nums}
+  input[type=range]{width:100%;accent-color:#2ed8ca}
+  .buttons{display:grid;grid-template-columns:repeat(2,1fr);gap:7px;margin-top:12px}
+  button,a.button{height:31px;display:flex;align-items:center;justify-content:center;border:1px solid #95fff03b;border-radius:7px;background:#0b4854;color:#eafffc;text-decoration:none;font:inherit;cursor:pointer}
+  button:hover,a.button:hover{background:#106271;border-color:#83f5e47a}
+  button.on{background:#0b7b80;border-color:#86fff0;color:#fff}
+  #stats{margin-top:12px;padding-top:10px;border-top:1px solid #d8ffff1d;color:#8ab5ba;font-size:10px}
+  .hint{margin-top:7px;color:#6e969c;font-size:10px}
+  #credit{position:fixed;right:16px;bottom:13px;color:#d8ffff94;font-size:10px;text-shadow:0 1px 6px #001}
+  body.clean #panel,body.clean #credit{display:none}
+  @media(max-width:680px){#panel{left:10px;top:10px;width:calc(100vw - 20px);max-height:58vh;overflow:auto}}
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "/web/vendor/three.module.js",
+  "three/addons/": "/web/vendor/addons/"
+} }
+</script>
+</head>
+<body>
+<canvas id="view"></canvas>
+<section id="panel">
+  <h1>风格化广阔海洋</h1>
+  <div class="summary">程序化群岛 + Gerstner 波 + 岸线/波峰泡沫 + 船尾迹 + 鱼跃水花 + 昼夜循环。</div>
+  <div class="badges"><span class="badge">128 × 96 海面</span><span class="badge">4 组波</span><span class="badge">全程序化</span></div>
+  <div class="row"><label>波浪高度 <output id="waveHeightV"></output></label><input id="waveHeight" type="range" min="0.04" max="0.55" step="0.01" value="0.22" /></div>
+  <div class="row"><label>泡沫强度 <output id="foamStrengthV"></output></label><input id="foamStrength" type="range" min="0" max="1.4" step="0.02" value="0.92" /></div>
+  <div class="row"><label>昼夜时间 <output id="dayHourV"></output></label><input id="dayHour" type="range" min="0" max="24" step="0.1" value="13.2" /></div>
+  <div class="row"><label>船速 <output id="boatSpeedV"></output></label><input id="boatSpeed" type="range" min="0" max="2.5" step="0.05" value="1" /></div>
+  <div class="buttons"><button id="autoDay" class="on" type="button">自动昼夜</button><button id="pause" type="button">暂停动态</button><a class="button" href="/web/index.html?model=stylized-ocean-environment">通用编辑器</a><a class="button" href="/web/gallery.html">模型库</a></div>
+  <div id="stats">构建中…</div>
+  <div class="hint">拖动旋转 · 滚轮缩放。模型、岸线、棕榈、云、船、鱼均由 Meshova 函数生成。</div>
+</section>
+<div id="credit">参考：TechFusion · BV1TqM76nEWf</div>
+<script type="module" src="/web/stylized-ocean.js"></script>
+</body>
+</html>

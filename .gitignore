@@ -1,5 +1,6 @@
 node_modules/
 dist/
+ref/
 *.log
 .DS_Store
 out/
@@ -13,3 +14,8 @@ Meshova_pcg-ref/
 RitualBuildingPCG-ref/
 # 临时截图脚本
 scripts/_gal-shot*.mjs
+scripts/_gal-*.mjs
+.gstack/
+_uref/
+pcg_text/
+Meshovaout_bili.html

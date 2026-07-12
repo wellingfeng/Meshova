@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Meshova · GPU 实例化程序草地</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;overflow:hidden;font:14px/1.5 "Segoe UI","Microsoft YaHei",sans-serif;background:#9fc4dc}
+  #view{display:block;width:100vw;height:100vh}
+  #panel{position:fixed;top:14px;left:14px;width:292px;padding:15px 16px;color:#edf6e8;
+    background:rgba(17,25,16,.84);border:1px solid #ffffff1c;border-radius:10px;backdrop-filter:blur(8px);box-shadow:0 10px 30px #0004}
+  h1{font-size:16px;font-weight:650;margin-bottom:4px}
+  p{font-size:12px;color:#a9bda2;margin-bottom:12px}
+  code{color:#a9df86}
+  .row{margin:10px 0}
+  .row label,.button-row{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:12px;color:#d0dfca;margin-bottom:4px}
+  .row span,.button-row span{color:#9ce174;font-variant-numeric:tabular-nums}
+  input[type=range]{width:100%;accent-color:#85cf61}
+  button{padding:5px 10px;color:#dcebd6;background:#2f4527;border:1px solid #ffffff20;border-radius:5px;cursor:pointer}
+  button:hover{background:#3b5730}
+  #stat{margin-top:12px;padding-top:10px;border-top:1px solid #ffffff1a;color:#9ce174;font-size:11px}
+  #draws{margin-top:3px;color:#b9c9b3;font-size:11px}
+  .hint{margin-top:8px;color:#82917d;font-size:11px;line-height:1.5}
+  a{color:#9ce174}
+  @media(max-width:640px){#panel{width:calc(100vw - 24px);top:12px;left:12px;max-height:56vh;overflow:auto}}
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "/web/vendor/three.module.js",
+  "three/addons/": "/web/vendor/addons/"
+} }
+</script>
+</head>
+<body>
+<canvas id="view"></canvas>
+<div id="panel">
+  <h1>GPU 实例化程序草地</h1>
+  <p>参考 Ben Cloward《Efficient Grass With PCG》。草叶用 <code>THREE.InstancedMesh</code> 批量绘制，位置由确定性 PCG 散布到起伏高度场。</p>
+  <div class="row">
+    <label>草叶数量 <span id="countv"></span></label>
+    <input type="range" id="count" min="5000" max="120000" step="5000" value="50000" />
+  </div>
+  <div class="row">
+    <label>草叶弯曲 <span id="bendv"></span></label>
+    <input type="range" id="bend" min="0" max="1.2" step="0.02" value="0.28" />
+  </div>
+  <div class="row">
+    <label>风力强度 <span id="windv"></span></label>
+    <input type="range" id="wind" min="0" max="1.8" step="0.02" value="0.55" />
+  </div>
+  <div class="row">
+    <label>山体起伏 <span id="hillHeightv"></span></label>
+    <input type="range" id="hillHeight" min="0.5" max="9" step="0.5" value="4.8" />
+  </div>
+  <div class="row">
+    <label>山体尺度 <span id="hillScalev"></span></label>
+    <input type="range" id="hillScale" min="0.025" max="0.16" step="0.005" value="0.075" />
+  </div>
+  <div class="button-row">
+    <button id="seed" type="button">换一个种子</button>
+    <span id="seedv"></span>
+  </div>
+  <div id="stat"></div>
+  <div id="draws"></div>
+  <div class="hint">拖动旋转 · 滚轮缩放。草叶避开陡坡，根部贴合地形；风摆完全在顶点着色器执行。</div>
+</div>
+<script type="module" src="/web/vertex-grass.js"></script>
+</body>
+</html>

@@ -2,7 +2,7 @@
  * High-level plant builders: tree / shrub / grass — SpeedTree's three forms,
  * all expressed through one generator by parameter alone.
  *
- *  - tree:  one tapered trunk + recursive branches + leaf cards
+ *  - tree:  one tapered trunk + recursive branches + shaped leaves
  *  - shrub: several short trunks (clump) + shallow branches + dense leaves
  *  - grass: no branches — many bent blades scattered over an area
  *
@@ -38,7 +38,7 @@ import type { Curve1DInput } from "./curve-param.js";
 export interface PlantResult {
   /** Woody parts (trunk + branches) — assign a bark material. */
   wood: Mesh;
-  /** Leaf cards — assign a thin/translucent leaf material. */
+  /** Leaf blades — assign a thin/translucent leaf material. */
   leaves: Mesh;
   /** Optional bark details such as knots, scars, and burls. */
   features?: Mesh;
@@ -78,7 +78,7 @@ export interface TreeOptions {
   leafSize?: number;
   /** Set false to omit leaves (bare/winter tree). */
   leaves?: boolean;
-  /** Leaf silhouette. "quad" keeps classic crossed cards. */
+  /** Leaf silhouette. Defaults to "oval"; "quad" keeps classic crossed cards. */
   leafShape?: LeafShape;
   /** Tip curl for shaped leaves. */
   leafCurl?: number;
@@ -183,8 +183,8 @@ export function tree(opts: TreeOptions = {}): PlantResult {
       perBranch: leafDensity,
       size: opts.leafSize ?? 0.18,
       upBias: 0.45,
-      cross: true,
-      shape: opts.leafShape ?? "quad",
+      cross: opts.leafShape === "quad",
+      shape: opts.leafShape ?? "oval",
     };
     const leafPlacement = opts.authoring?.leafPlacement ?? opts.placement ?? opts.authoring?.placement;
     const roundedNormals = opts.roundedLeafNormals ?? opts.authoring?.roundedLeafNormals;
@@ -276,8 +276,8 @@ export function shrub(opts: ShrubOptions = {}): PlantResult {
     perBranch: opts.leafDensity ?? 10,
     size: opts.leafSize ?? 0.12,
     upBias: 0.5,
-    cross: true,
-    shape: opts.leafShape ?? "quad",
+    cross: opts.leafShape === "quad",
+    shape: opts.leafShape ?? "oval",
   };
   if (opts.leafCurl !== undefined) leafOpts.curl = opts.leafCurl;
   if (opts.leafFold !== undefined) leafOpts.fold = opts.leafFold;
@@ -414,6 +414,12 @@ export interface PalmOptions {
   fronds?: number;
   /** Frond length. */
   frondLength?: number;
+  leafletPairs?: number;
+  leafletLength?: number;
+  leafletWidth?: number;
+  leafletShape?: LeafShape;
+  leafletFold?: number;
+  leafletCurl?: number;
   /** Lean of the trunk (world units of horizontal offset at the top). */
   lean?: number;
 }
@@ -453,14 +459,23 @@ export function palm(opts: PalmOptions = {}): PlantResult {
     const mid = add(start, scale(normalize(outDir), frondLength * 0.5));
     const tip = add(add(start, scale(normalize(vec3(Math.cos(a), -0.1, Math.sin(a))), frondLength)), vec3(0, -frondLength * 0.25, 0));
     const rachis = bezier(start, add(start, scale(normalize(add(outDir, vec3(0, 0.5, 0))), frondLength * 0.35)), mid, tip, 8);
-    const f = frond(rachis, {
+    const frondOpts = {
       seed: (rng.next() * 1e9) | 0,
-      pairs: 16,
-      leafletLength: 0.5,
-      leafletWidth: 0.05,
+      pairs: opts.leafletPairs ?? 16,
+      leafletLength: opts.leafletLength ?? 0.5,
+      leafletWidth: opts.leafletWidth ?? 0.05,
+      roundedNormals: true,
       angle: 35,
       rachisRadius: 0.025,
-    });
+    };
+    (frondOpts as typeof frondOpts & { leafletShape: LeafShape }).leafletShape = opts.leafletShape ?? "lanceolate";
+    if (opts.leafletFold !== undefined) {
+      (frondOpts as typeof frondOpts & { leafletFold: number }).leafletFold = opts.leafletFold;
+    }
+    if (opts.leafletCurl !== undefined) {
+      (frondOpts as typeof frondOpts & { leafletCurl: number }).leafletCurl = opts.leafletCurl;
+    }
+    const f = frond(rachis, frondOpts);
     frondStems.push(f.stem);
     frondBlades.push(f.blades);
   }

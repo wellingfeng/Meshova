@@ -583,7 +583,7 @@ export function buildPolygonIslandParts(options: PolygonIslandOptions = {}): Nam
     label: "海洋",
     mesh: ocean,
     color: [0.16, 0.34, 0.52],
-    surface: { type: "water", params: { tint: [0.16, 0.34, 0.52], seed: graph.seed + 1 } },
+    surface: { type: "water", params: { body: "ocean", tint: [0.16, 0.38, 0.56], deepColor: [0.012, 0.06, 0.14], seed: graph.seed + 1 } },
   });
 
   const river = makeRiverMesh(graph);
@@ -593,7 +593,7 @@ export function buildPolygonIslandParts(options: PolygonIslandOptions = {}): Nam
       label: "河流",
       mesh: river,
       color: [0.3, 0.52, 0.66],
-      surface: { type: "water", params: { tint: [0.3, 0.52, 0.66], seed: graph.seed + 2 } },
+      surface: { type: "water", params: { body: "river", tint: [0.22, 0.5, 0.6], deepColor: [0.03, 0.16, 0.22], waveAmplitude: 0.01, seed: graph.seed + 2 } },
     });
   }
   return parts;

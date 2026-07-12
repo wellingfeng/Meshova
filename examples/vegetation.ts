@@ -48,16 +48,19 @@ const scenes: Scene[] = [];
   });
 }
 
-// --- LOD tree preview: low mesh + imposter side by side ---
+// --- LOD tree preview: high/mid/low real geometry side by side ---
 {
   const lod = buildTreeLOD({ seed: 17, height: 4.4, branchCount: 8, depth: 3, leafDensity: 9, leafShape: "oval" });
   scenes.push({
     id: "veg-tree-lod",
     name: "程序化树LOD",
     parts: [
-      { name: "low_trunk", mesh: translateMesh(lod.low.wood, vec3(-1.2, 0, 0)), color: BARK },
-      { name: "low_leaves", mesh: translateMesh(lod.low.leaves, vec3(-1.2, 0, 0)), color: LEAF },
-      { name: "imposter", mesh: translateMesh(lod.imposter, vec3(1.6, 0, 0)), color: LEAF_LIGHT },
+      { name: "high_trunk", mesh: translateMesh(lod.high.wood, vec3(-3.0, 0, -1.3)), color: BARK },
+      { name: "high_leaves", mesh: translateMesh(lod.high.leaves, vec3(-3.0, 0, -1.3)), color: LEAF_LIGHT },
+      { name: "mid_trunk", mesh: lod.mid.wood, color: BARK },
+      { name: "mid_leaves", mesh: lod.mid.leaves, color: LEAF },
+      { name: "low_trunk", mesh: translateMesh(lod.low.wood, vec3(3.0, 0, 1.3)), color: BARK },
+      { name: "low_leaves", mesh: translateMesh(lod.low.leaves, vec3(3.0, 0, 1.3)), color: [0.14, 0.34, 0.12] },
     ],
   });
 }

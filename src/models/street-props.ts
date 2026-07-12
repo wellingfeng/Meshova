@@ -36,6 +36,9 @@ import {
   type Mesh,
   type NamedPart,
 } from "../geometry/index.js";
+import { buildFreewaySignParts } from "./freeway-sign.js";
+import { buildMaterialStackParts } from "./material-stack.js";
+import { buildTrafficConeParts, buildBarrierRunParts } from "./city-props.js";
 
 type RGB = [number, number, number];
 
@@ -225,6 +228,18 @@ export interface StreetsceneParams {
   bothSides: boolean;
   /** Draw the road + sidewalk ground slabs. */
   ground: boolean;
+  /** Span a freeway sign gantry across the road (0 = none, else count along run). */
+  gantries: number;
+  /** Drop seeded construction material stacks on the sidewalk. */
+  materialStacks: number;
+  /** Draw a taper line of traffic cones closing off one lane edge. */
+  coneRun: boolean;
+  /**
+   * Cluster the material stacks into fenced construction zones (barrier run
+   * ringing a group of stacks) instead of scattering them along the sidewalk.
+   * 0 = scatter (legacy); 1+ = that many fenced work zones.
+   */
+  workZones: number;
   /** Placement seed. */
   seed: number;
 }
@@ -237,6 +252,10 @@ export const STREETSCENE_DEFAULTS: StreetsceneParams = {
   jitter: 0.35,
   bothSides: true,
   ground: true,
+  gantries: 1,
+  materialStacks: 1,
+  coneRun: true,
+  workZones: 1,
   seed: 21,
 };
 
@@ -310,6 +329,12 @@ function planPlacements(p: StreetsceneParams): Placement[] {
   return out;
 }
 
+/** Road-name legend pool for scattered gantries (procedural glyph text). */
+const GANTRY_LEGENDS = [
+  "MAIN ST", "5TH AVE", "HARBOR", "CENTRAL", "AIRPORT", "DOWNTOWN",
+  "RIVERSIDE", "PARK AVE", "BAY BRIDGE", "MARKET ST", "OAK BLVD", "PORT",
+];
+
 /** Build a dressed street segment: ground + scattered furniture kit. */
 export function buildStreetsceneParts(params: Partial<StreetsceneParams> = {}): NamedPart[] {
   const p: StreetsceneParams = { ...STREETSCENE_DEFAULTS, ...params };
@@ -317,10 +342,11 @@ export function buildStreetsceneParts(params: Partial<StreetsceneParams> = {}): 
 
   // Merge placed props by part name so the scene stays a few material groups.
   const byName = new Map<string, { meshes: Mesh[]; part: NamedPart }>();
+  const propY = p.ground ? 0.08 : 0;
   for (const pl of placements) {
     const builder = STREET_PROP_KIT[pl.prop]!;
     for (const part of builder()) {
-      const placed = transform(part.mesh, { rotate: vec3(0, pl.yaw, 0), translate: pl.pos });
+      const placed = transform(part.mesh, { rotate: vec3(0, pl.yaw, 0), translate: vec3(pl.pos.x, propY, pl.pos.z) });
       const key = part.name;
       const entry = byName.get(key);
       if (entry) entry.meshes.push(placed);
@@ -344,7 +370,12 @@ export function buildStreetsceneParts(params: Partial<StreetsceneParams> = {}): 
     const line = polyline([vec3(0, 0, -halfLen), vec3(0, 0, halfLen)], false);
     const roadOpts = { halfWidth: p.roadHalfWidth, verticalOffset: 0.04, uvLengthScale: 4 } as const;
     const laneLines = roadLaneLines(line, { ...roadOpts, lanes: 4, dashed: true, dashLength: 1.6, gapLength: 2.2, skipCenter: true, lineWidth: 0.12 });
-    const centerDouble = roadLaneLines(line, { ...roadOpts, lanes: 2, dashed: false, lineWidth: 0.1 });
+    // Double yellow center line: two solid strips straddling the centerline.
+    // (roadLaneLines with lanes:2 + skipCenter would drop the only line, so we
+    // build the pair explicitly by offsetting the centerline left/right.)
+    const centerGap = 0.14;
+    const centerLeft = roadEdgeLines(line, { ...roadOpts, lineWidth: 0.1, edgeInset: p.roadHalfWidth - centerGap / 2 });
+    const centerDouble = centerLeft;
     const edges = roadEdgeLines(line, { ...roadOpts, lineWidth: 0.1, edgeInset: 0.18 });
     const WHITE: RGB = [0.9, 0.9, 0.92];
     const YELLOW_LINE: RGB = [0.78, 0.66, 0.12];
@@ -359,6 +390,174 @@ export function buildStreetsceneParts(params: Partial<StreetsceneParams> = {}): 
     if (part.surface !== undefined) merged.surface = part.surface;
     parts.push(merged);
   }
+
+  // --- large landmark props: freeway gantries + sidewalk material stacks ---
+  // These are too big to merge into the per-slot furniture pass, so they keep
+  // their own named parts. Placement is seeded off the master seed so the same
+  // street always dresses identically (determinism invariant).
+  const seed = Math.round(p.seed) >>> 0;
+  const halfLen = p.length / 2;
+
+  const gantryN = Math.max(0, Math.round(p.gantries));
+  if (gantryN > 0) {
+    // Span the full road (uprights land just outside each sidewalk).
+    const span = (p.roadHalfWidth + p.sidewalkWidth) * 2 + 0.6;
+    for (let i = 0; i < gantryN; i++) {
+      // Even spread along the run, inset from the ends.
+      const t = gantryN === 1 ? 0.5 : (i + 0.5) / gantryN;
+      const z = -halfLen + t * p.length;
+      const gRng = makeRng((seed ^ (0x9e37 + i * 0x85eb)) >>> 0);
+      const signCount = gRng.next() < 0.5 ? 2 : 3;
+      // Pick distinct road-name legends per panel from the shared pool.
+      const legends: string[] = [];
+      for (let k = 0; k < signCount; k++) {
+        legends.push(GANTRY_LEGENDS[gRng.int(0, GANTRY_LEGENDS.length - 1)]!);
+      }
+      const gantry = buildFreewaySignParts({
+        span,
+        postHeight: 6.0 + gRng.range(-0.3, 0.6),
+        signCount,
+        truss: true,
+        lights: true,
+        legends,
+        exitNumber: gRng.next() < 0.6 ? String(gRng.int(1, 99)) : "",
+        seed: (seed + i * 17) >>> 0,
+      });
+      for (const part of gantry) {
+        // Freeway sign spans along X by default; the road runs along Z, so the
+        // default orientation already crosses it. Just station it along Z.
+        const placed = translateMesh(part.mesh, vec3(0, p.ground ? 0.04 : 0, z));
+        pushLandmark(parts, `gantry_${part.name}`, placed, part);
+      }
+    }
+  }
+
+  const stackN = Math.max(0, Math.round(p.materialStacks));
+  const zoneN = Math.max(0, Math.round(p.workZones));
+  const edgeX = p.roadHalfWidth + p.sidewalkWidth * 0.55;
+  if (stackN > 0 && zoneN > 0) {
+    // --- clustered work zones: group stacks and ring each cluster with a
+    // barrier run. Stacks are split as evenly as possible across the zones. ---
+    for (let zi = 0; zi < zoneN; zi++) {
+      const zRng = makeRng((seed ^ (0x27d4eb2f + zi * 0x165667b1)) >>> 0);
+      const side = p.bothSides ? (zi % 2 === 0 ? 1 : -1) : 1;
+      const yaw = side > 0 ? Math.PI / 2 : -Math.PI / 2;
+      // Zone centre along the run (evenly spread, seeded jitter).
+      const t = zoneN === 1 ? 0.5 : (zi + 0.5) / zoneN;
+      const zc = -halfLen + t * p.length + zRng.range(-0.6, 0.6);
+      // How many stacks in this zone.
+      const inThis = Math.floor(stackN / zoneN) + (zi < stackN % zoneN ? 1 : 0);
+      const clusterHalf = Math.max(1.4, inThis * 0.9);
+
+      // Stacks lined up inside the zone, parallel to the road.
+      for (let k = 0; k < inThis; k++) {
+        const sRng = makeRng((seed ^ (0x1b873 + (zi * 31 + k) * 0xc2b2)) >>> 0);
+        const localZ = inThis === 1 ? 0 : -clusterHalf * 0.6 + (k / Math.max(1, inThis - 1)) * clusterHalf * 1.2;
+        const sz = zc + localZ;
+        const sx = side * (edgeX + p.sidewalkWidth + 1 + sRng.range(-0.1, 0.1));
+        const stack = buildMaterialStackParts({
+          pallets: sRng.int(2, 4),
+          cargo: "mixed",
+          stack: sRng.range(0.7, 1.2),
+          straps: true,
+          seed: (seed + (zi * 31 + k) * 29 + 3) >>> 0,
+        });
+        for (const part of stack) {
+          const placed = transform(part.mesh, { rotate: vec3(0, yaw, 0), translate: vec3(sx, 0.08, sz) });
+          pushLandmark(parts, `stack_${part.name}`, placed, part);
+        }
+      }
+
+      // Fence the zone: a barrier run on the road-facing side + two short end
+      // returns, so the cluster reads as a cordoned work area.
+      const style: "jersey" | "aframe" | "chainlink" = zRng.next() < 0.5 ? "jersey" : "aframe";
+      const runLen = clusterHalf * 2 + 1.2;
+      const segLen = 2.0;
+      const segs = Math.max(2, Math.round(runLen / segLen));
+      const fenceX = side * (p.roadHalfWidth + 0.15); // road-facing edge
+      // Road-facing run (spans along Z -> rotate 90° from default X run).
+      addBarrier(parts, buildBarrierRunParts({ segments: segs, segLength: segLen, style, height: 1.0 }),
+        { rotate: vec3(0, Math.PI / 2, 0), translate: vec3(fenceX, 0, zc) });
+      // Two end returns (span along X), capping the cluster.
+      const endSegs = Math.max(1, Math.round((p.sidewalkWidth * 0.7) / segLen) + 1);
+      for (const endZ of [zc - runLen / 2, zc + runLen / 2]) {
+        addBarrier(parts, buildBarrierRunParts({ segments: endSegs, segLength: segLen * 0.7, style, height: 1.0 }),
+          { translate: vec3(side * (p.roadHalfWidth + p.sidewalkWidth * 0.35), 0, endZ) });
+      }
+    }
+  } else if (stackN > 0) {
+    // --- legacy scatter: stacks strung along the sidewalk edge ---
+    for (let i = 0; i < stackN; i++) {
+      const sRng = makeRng((seed ^ (0x1b873 + i * 0xc2b2)) >>> 0);
+      const side = p.bothSides ? (i % 2 === 0 ? 1 : -1) : 1;
+      const z = sRng.range(-halfLen * 0.7, halfLen * 0.7);
+      const yaw = side > 0 ? Math.PI / 2 : -Math.PI / 2;
+      const stack = buildMaterialStackParts({
+        pallets: sRng.int(2, 4),
+        cargo: "mixed",
+        stack: sRng.range(0.7, 1.2),
+        straps: true,
+        seed: (seed + i * 29 + 3) >>> 0,
+      });
+      for (const part of stack) {
+        const placed = transform(part.mesh, { rotate: vec3(0, yaw, 0), translate: vec3(side * (edgeX + p.sidewalkWidth + 1), 0.08, z) });
+        pushLandmark(parts, `stack_${part.name}`, placed, part);
+      }
+    }
+  }
+
+  // --- traffic-cone taper: a line of cones angling in from the lane edge to
+  // close a lane, the way CitySample dresses a work zone. Deterministic taper.
+  if (p.coneRun) {
+    const coneRng = makeRng((seed ^ 0x51ed270b) >>> 0);
+    const n = 7;
+    const startZ = -halfLen * 0.5;
+    const step = (p.length * 0.55) / (n - 1);
+    // Taper from the sidewalk edge inward toward the centerline.
+    const xEdge = p.roadHalfWidth - 0.25;
+    const xIn = p.roadHalfWidth - 1.4;
+    for (let i = 0; i < n; i++) {
+      const t = i / (n - 1);
+      const z = startZ + i * step;
+      const x = xEdge + (xIn - xEdge) * t + coneRng.range(-0.05, 0.05);
+      const cone = buildTrafficConeParts({ height: 0.7, baseWidth: 0.17, collars: 2 });
+      for (const part of cone) {
+        const placed = translateMesh(part.mesh, vec3(x, 0.06, z));
+        pushLandmark(parts, `cone_${part.name}`, placed, part);
+      }
+    }
+  }
+
   return parts;
 }
 
+/**
+ * Merge a placed landmark sub-part into the scene part list under a namespaced
+ * name (so multiple gantries/stacks collapse into one material group each).
+ */
+function pushLandmark(parts: NamedPart[], name: string, mesh: Mesh, src: NamedPart): void {
+  const existing = parts.find((q) => q.name === name);
+  if (existing) {
+    existing.mesh = merge(existing.mesh, mesh);
+    return;
+  }
+  const part: NamedPart = { name, mesh };
+  if (src.label !== undefined) part.label = src.label;
+  if (src.color !== undefined) part.color = src.color;
+  if (src.surface !== undefined) part.surface = src.surface;
+  parts.push(part);
+}
+
+/** Place a barrier run (all its parts) under namespaced `fence_*` groups. */
+function addBarrier(
+  parts: NamedPart[],
+  barrier: NamedPart[],
+  xf: { rotate?: Vec3; translate: Vec3 },
+): void {
+  for (const part of barrier) {
+    const placed = xf.rotate
+      ? transform(part.mesh, { rotate: xf.rotate, translate: xf.translate })
+      : translateMesh(part.mesh, xf.translate);
+    pushLandmark(parts, `fence_${part.name}`, placed, part);
+  }
+}

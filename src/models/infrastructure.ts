@@ -155,6 +155,7 @@ export function buildPylonParts(params: Partial<PylonParams> = {}): NamedPart[] 
   const legs: Mesh[] = [];
   const braces: Mesh[] = [];
   const t = p.strut;
+  const braceT = t * 0.72;
 
   // Footprint half-width at a normalized height (linear taper).
   const wAt = (u: number): number => p.baseWidth + (p.topWidth - p.baseWidth) * u;
@@ -187,7 +188,7 @@ export function buildPylonParts(params: Partial<PylonParams> = {}): NamedPart[] 
       const len = Math.hypot((bx - ax) * w1, (bz - az) * w1);
       const horizontal = Math.abs(ax - bx) > Math.abs(az - bz);
       braces.push(
-        transform(box(horizontal ? len : t, t, horizontal ? t : len), {
+        transform(box(horizontal ? len : braceT, braceT, horizontal ? braceT : len), {
           translate: vec3(mx, y1, mz),
         }),
       );
@@ -203,7 +204,7 @@ export function buildPylonParts(params: Partial<PylonParams> = {}): NamedPart[] 
       const cz = ((az + bz) / 2) * ((w0 + w1) / 2);
       const ang = Math.atan2(segH, faceLen);
       braces.push(
-        transform(box(t, diagLen, t), {
+        transform(box(braceT, diagLen, braceT), {
           rotate: horizontal ? vec3(0, 0, Math.PI / 2 - ang) : vec3(Math.PI / 2 - ang, 0, 0),
           translate: vec3(cx, (y0 + y1) / 2, cz),
         }),
@@ -235,7 +236,7 @@ export function buildPylonParts(params: Partial<PylonParams> = {}): NamedPart[] 
 
   // Concrete footings under the 4 legs.
   const footings: Mesh[] = corners.map(([sx, sz]) =>
-    transform(box(0.9, 1.0, 0.9), { translate: vec3(sx * p.baseWidth, 0.5, sz * p.baseWidth) }),
+    transform(box(0.9, 1.0, 0.9), { translate: vec3(sx * p.baseWidth, -0.51, sz * p.baseWidth) }),
   );
   parts.push({ name: "footings", label: "基础", mesh: merge(...footings), color: CONCRETE, surface: { type: "concrete", params: { color: CONCRETE, roughness: 0.9 } } });
 
@@ -273,6 +274,7 @@ export const TOWER_CRANE_DEFAULTS: TowerCraneParams = {
 export function buildTowerCraneParts(params: Partial<TowerCraneParams> = {}): NamedPart[] {
   const p: TowerCraneParams = { ...TOWER_CRANE_DEFAULTS, ...params };
   const t = p.strut;
+  const braceT = t * 0.72;
   const w = p.mastWidth;
   const parts: NamedPart[] = [];
 
@@ -291,7 +293,7 @@ export function buildTowerCraneParts(params: Partial<TowerCraneParams> = {}): Na
       const [bx, bz] = corners[(c + 1) % 4]!;
       const horizontal = Math.abs(ax - bx) > Math.abs(az - bz);
       braces.push(
-        transform(box(horizontal ? w * 2 : t, t, horizontal ? t : w * 2), {
+        transform(box(horizontal ? w * 2 : braceT, braceT, horizontal ? braceT : w * 2), {
           translate: vec3(((ax + bx) / 2) * w, y, ((az + bz) / 2) * w),
         }),
       );
@@ -303,7 +305,7 @@ export function buildTowerCraneParts(params: Partial<TowerCraneParams> = {}): Na
   // Slewing platform + operator cab at the top.
   const topY = p.mastHeight;
   parts.push({ name: "slew", label: "回转平台", mesh: transform(cylinder(w * 1.5, 0.6, 16), { translate: vec3(0, topY + 0.3, 0) }), color: STEEL, surface: { type: "metal", params: { color: STEEL, roughness: 0.5 } } });
-  parts.push({ name: "cab", label: "操作室", mesh: transform(box(1.4, 1.4, 1.6), { translate: vec3(0, topY + 1.3, w + 0.8) }), color: PAINT_YELLOW, surface: { type: "metal", params: { color: PAINT_YELLOW, roughness: 0.45 } } });
+  parts.push({ name: "cab", label: "操作室", mesh: transform(box(1.4, 1.4, 1.6), { translate: vec3(w + 0.8, topY + 1.3, 0) }), color: PAINT_YELLOW, surface: { type: "metal", params: { color: PAINT_YELLOW, roughness: 0.45 } } });
 
   const jibY = topY + 1.6;
   parts.push({ name: "jib", label: "起重臂", mesh: transform(box(t * 3, 0.8, p.jibLength), { translate: vec3(0, jibY, p.jibLength / 2 + w) }), color: PAINT_YELLOW, surface: { type: "metal", params: { color: PAINT_YELLOW, roughness: 0.5 } } });
@@ -318,7 +320,7 @@ export function buildTowerCraneParts(params: Partial<TowerCraneParams> = {}): Na
   parts.push({ name: "hoist_rope", label: "起升绳", mesh: transform(cylinder(0.04, p.hookDrop, 6), { translate: vec3(0, jibY - 0.6 - p.hookDrop / 2, trolleyZ) }), color: STEEL_DK, surface: { type: "metal", params: { color: STEEL_DK, roughness: 0.4 } } });
   parts.push({ name: "hook", label: "吊钩", mesh: transform(box(0.5, 0.6, 0.5), { translate: vec3(0, jibY - 0.6 - p.hookDrop, trolleyZ) }), color: PAINT_RED, surface: { type: "metal", params: { color: PAINT_RED, roughness: 0.45 } } });
 
-  parts.push({ name: "base", label: "基座", mesh: transform(box(w * 4, 1.2, w * 4), { translate: vec3(0, 0.6, 0) }), color: CONCRETE, surface: { type: "concrete", params: { color: CONCRETE, roughness: 0.92 } } });
+  parts.push({ name: "base", label: "基座", mesh: transform(box(w * 4, 1.2, w * 4), { translate: vec3(0, -0.61, 0) }), color: CONCRETE, surface: { type: "concrete", params: { color: CONCRETE, roughness: 0.92 } } });
 
   return parts;
 }
@@ -359,6 +361,7 @@ export const WIND_TURBINE_DEFAULTS: WindTurbineParams = {
 export function buildWindTurbineParts(params: Partial<WindTurbineParams> = {}): NamedPart[] {
   const p: WindTurbineParams = { ...WIND_TURBINE_DEFAULTS, ...params };
   const parts: NamedPart[] = [];
+  const foundationHeight = 0.8;
 
   // Tapered tubular tower (approximated as a slightly tapered cylinder via cone).
   parts.push({
@@ -367,13 +370,13 @@ export function buildWindTurbineParts(params: Partial<WindTurbineParams> = {}): 
     mesh: transform(cone(p.towerRadius, p.towerHeight, 24, true), {
       // cone tapers to a point; use a truncated look by scaling the top via a
       // separate thin cylinder cap. Here keep the cone body but blunt the tip.
-      translate: vec3(0, p.towerHeight / 2, 0),
+      translate: vec3(0, foundationHeight + p.towerHeight / 2, 0),
     }),
     color: WHITE,
     surface: { type: "ceramic", params: { color: WHITE, roughness: 0.4 } },
   });
 
-  const hubY = p.towerHeight;
+  const hubY = foundationHeight + p.towerHeight;
   const hubZ = p.towerRadius * 0.6; // nacelle sits slightly upwind of the tower axis
 
   // Nacelle housing behind the hub (box along +/-Z).
@@ -422,7 +425,7 @@ export function buildWindTurbineParts(params: Partial<WindTurbineParams> = {}): 
   parts.push({
     name: "foundation",
     label: "基础",
-    mesh: transform(cylinder(p.towerRadius * 2.2, 0.8, 20), { translate: vec3(0, 0.4, 0) }),
+    mesh: transform(cylinder(p.towerRadius * 2.2, foundationHeight, 20), { translate: vec3(0, foundationHeight / 2, 0) }),
     color: CONCRETE,
     surface: { type: "concrete", params: { color: CONCRETE, roughness: 0.92 } },
   });
@@ -475,7 +478,7 @@ export function buildTollStationParts(params: Partial<TollStationParams> = {}): 
     const x = -halfW + islandW / 2 + i * (p.laneWidth + islandW);
     islandMeshes.push(transform(box(islandW, 0.4, p.canopyDepth), { translate: vec3(x, 0.4, 0) }));
     if (p.booths) {
-      boothMeshes.push(transform(box(islandW + 0.3, 2.6, 2.2), { translate: vec3(x, 1.5, 0) }));
+      boothMeshes.push(transform(box(islandW + 0.3, 2.6, 2.2), { translate: vec3(x, 1.9, 0) }));
     }
   }
   parts.push({ name: "islands", label: "分隔岛", mesh: merge(...islandMeshes), color: CONCRETE, surface: { type: "concrete", params: { color: CONCRETE, roughness: 0.85 } } });
@@ -495,7 +498,8 @@ export function buildTollStationParts(params: Partial<TollStationParams> = {}): 
   const cols: Mesh[] = [];
   for (const sx of [-1, 1]) {
     for (const sz of [-1, 1]) {
-      cols.push(transform(cylinder(0.35, roofY, 12), { translate: vec3(sx * (halfW - 0.5), roofY / 2, sz * (p.canopyDepth / 2 - 0.5)) }));
+      const columnHeight = roofY - 0.2;
+      cols.push(transform(cylinder(0.35, columnHeight, 12), { translate: vec3(sx * (halfW + 0.7), 0.2 + columnHeight / 2, sz * (p.canopyDepth / 2 - 0.5)) }));
     }
   }
   parts.push({ name: "canopy_columns", label: "顶棚立柱", mesh: merge(...cols), color: STEEL, surface: { type: "metal", params: { color: STEEL, roughness: 0.5 } } });
@@ -557,7 +561,7 @@ export function buildTunnelPortalParts(params: Partial<TunnelPortalParams> = {})
     const cx = Math.cos(a) * (arcR + p.margin / 2) * -1; // sweep left->right
     const cy = springY + Math.sin(a) * (arcR + p.margin / 2);
     const block = box(p.margin, (Math.PI * arcR) / segs + 0.3, fd);
-    voussoirs.push(transform(block, { rotate: vec3(0, 0, a - Math.PI / 2), translate: vec3(cx, cy, 0) }));
+    voussoirs.push(transform(block, { rotate: vec3(0, 0, a - Math.PI / 2), translate: vec3(cx, cy, 0.08) }));
   }
   parts.push({ name: "arch", label: "拱圈", mesh: merge(...voussoirs), color: CONCRETE, surface: { type: "concrete", params: { color: CONCRETE, roughness: 0.85 } } });
 
@@ -567,7 +571,7 @@ export function buildTunnelPortalParts(params: Partial<TunnelPortalParams> = {})
     parts.push({
       name: "spandrel",
       label: "拱上墙",
-      mesh: transform(box(facadeW * 2 + p.margin * 2, facadeTop - crownY, fd), { translate: vec3(0, (facadeTop + crownY) / 2, 0) }),
+      mesh: transform(box(ohw * 2, facadeTop - crownY, fd), { translate: vec3(0, (facadeTop + crownY) / 2, 0) }),
       color: CONCRETE,
       surface: { type: "concrete", params: { color: CONCRETE, roughness: 0.88 } },
     });
@@ -577,7 +581,7 @@ export function buildTunnelPortalParts(params: Partial<TunnelPortalParams> = {})
   // semicircular crown) lofted along -Z, matching the portal opening exactly
   // instead of a full cylinder. Faces are wound so normals point *inward*, and
   // the shell is open at both ends (floor stays open for the road).
-  const boreZ0 = -fd / 2;
+  const boreZ0 = -fd / 2 - 0.02;
   const boreZ1 = boreZ0 - p.boreDepth;
   // D-profile in the (x,y) plane, from the left springline foot up over the
   // crown and down to the right springline foot. Vertical walls first, then arc.
@@ -618,7 +622,7 @@ export function buildTunnelPortalParts(params: Partial<TunnelPortalParams> = {})
   parts.push({
     name: "road",
     label: "路面",
-    mesh: transform(box(ohw * 2, 0.2, p.boreDepth + fd + 6), { translate: vec3(0, 0.1, -(p.boreDepth + fd) / 2 + 3) }),
+    mesh: transform(box(ohw * 2 - 0.2, 0.2, p.boreDepth + fd + 6), { translate: vec3(0, 0.1, -(p.boreDepth + fd) / 2 + 3) }),
     color: [0.09, 0.09, 0.1],
     surface: { type: "concrete", params: { color: [0.09, 0.09, 0.1], roughness: 0.92 } },
   });

@@ -4,9 +4,11 @@ import {
   urbanDefaults,
   bounds,
   triangleCount,
+  toViewerModel,
   type NamedPart,
   type UrbanStyle,
 } from "../src/index.js";
+import { zFightingReport } from "../src/critique/geometry-metrics.js";
 
 const STYLES: UrbanStyle[] = [
   "artDeco",
@@ -88,5 +90,22 @@ describe("urban building generator", () => {
     expect(d.style).toBe("glassTower");
     expect(d.facade).toBe("ribbon");
     expect(d.floors).toBeGreaterThan(0);
+  });
+
+  it("exports facade GPU instances without dropping CPU geometry", () => {
+    const parts = buildUrbanBuildingParts({ style: "glassTower", floors: 12 });
+    const frames = parts.find((part) => part.name === "window_frames")!;
+    expect(frames.mesh.positions.length).toBeGreaterThan(frames.renderInstances!.mesh.positions.length);
+    expect(frames.renderInstances!.transforms.length).toBeGreaterThan(100);
+    const viewerFrames = toViewerModel(parts, "tower").parts.find((part) => part.name === "window_frames")!;
+    expect(viewerFrames.renderInstances?.transforms.length).toBe(frames.renderInstances!.transforms.length);
+    expect(viewerFrames.positions.length).toBe(frames.mesh.positions.length * 3);
+  });
+
+  it("keeps facade and roof layers free of z-fighting", () => {
+    for (const style of STYLES) {
+      const parts = buildUrbanBuildingParts({ style, floors: 6, width: 5, depth: 4, seed: 3 });
+      expect(zFightingReport(parts, { includeSamePart: false }).pairs, style).toBe(0);
+    }
   });
 });

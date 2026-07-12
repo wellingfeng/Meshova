@@ -9,6 +9,7 @@ import { vec2 } from "../math/vec2.js";
 import { TAU } from "../math/scalar.js";
 import type { Mesh } from "./mesh.js";
 import { makeMesh } from "./mesh.js";
+import { parallelTransportFrames } from "./frame.js";
 
 /** A curve is just an ordered list of points; helpers below generate them. */
 export interface Curve {
@@ -173,58 +174,41 @@ export function sweep(curve: Curve, opts: SweepOptions = {}): Mesh {
   const baseRadius = opts.radius ?? 0.1;
   const sides = Math.max(3, Math.floor(opts.sides ?? 12));
   const radiusAt = opts.radiusAt ?? (() => 1);
-  const caps = opts.caps ?? true;
+  // Closed loops seal into a torus-like ring (no end caps); the frame closes
+  // its seam so the tube meets itself without a twist jump.
+  const caps = (opts.caps ?? true) && !curve.closed;
   const n = pts.length;
 
-  // Tangents.
-  const tangents: Vec3[] = pts.map((_, i) => {
-    const prev = pts[Math.max(0, i - 1)]!;
-    const next = pts[Math.min(n - 1, i + 1)]!;
-    return normalize(sub(next, prev));
-  });
-
-  // Parallel-transport an initial normal along the curve.
-  let normalRef = pickPerpendicular(tangents[0]!);
-  const frames: { normal: Vec3; binormal: Vec3 }[] = [];
-  for (let i = 0; i < n; i++) {
-    const t = tangents[i]!;
-    // project normalRef onto plane perpendicular to t
-    normalRef = normalize(sub(normalRef, scale(t, dot(normalRef, t))));
-    if (length(normalRef) < 1e-5) normalRef = pickPerpendicular(t);
-    const binormal = normalize(cross(t, normalRef));
-    frames.push({ normal: normalRef, binormal });
-    // rotate normalRef toward next tangent for next iteration
-    if (i < n - 1) {
-      const tNext = tangents[i + 1]!;
-      const axis = cross(t, tNext);
-      const axisLen = length(axis);
-      if (axisLen > 1e-6) {
-        const angle = Math.asin(Math.min(1, axisLen));
-        normalRef = rotateAroundAxis(normalRef, scale(axis, 1 / axisLen), angle);
-      }
-    }
-  }
+  // Rotation-minimizing frames (shared module): no twist flips, and closed
+  // curves get their holonomy residual distributed for a seamless seam.
+  const frames = parallelTransportFrames(pts, { closed: curve.closed });
+  const tangents = frames.map((f) => f.tangent);
 
   const positions: Vec3[] = [];
   const normals: Vec3[] = [];
   const uvs = [];
   const indices: number[] = [];
 
-  for (let i = 0; i < n; i++) {
-    const center = pts[i]!;
-    const frame = frames[i]!;
-    const r = baseRadius * radiusAt(i / (n - 1));
+  // For a closed loop we emit one extra ring that repeats point 0's frame so
+  // the last segment bridges back to the start; the v coordinate spans [0,1].
+  const rings = curve.closed ? n + 1 : n;
+  const denom = curve.closed ? n : n - 1;
+  for (let i = 0; i < rings; i++) {
+    const src = curve.closed && i === n ? 0 : i;
+    const center = pts[src]!;
+    const frame = frames[src]!;
+    const r = baseRadius * radiusAt(src / (n - 1));
     for (let j = 0; j <= sides; j++) {
       const a = (j / sides) * TAU;
       const dir = add(scale(frame.normal, Math.cos(a)), scale(frame.binormal, Math.sin(a)));
       positions.push(add(center, scale(dir, r)));
       normals.push(normalize(dir));
-      uvs.push(vec2(i / (n - 1), j / sides));
+      uvs.push(vec2(i / denom, j / sides));
     }
   }
 
   const stride = sides + 1;
-  for (let i = 0; i < n - 1; i++) {
+  for (let i = 0; i < rings - 1; i++) {
     for (let j = 0; j < sides; j++) {
       const a = i * stride + j;
       const b = a + stride;
@@ -238,20 +222,6 @@ export function sweep(curve: Curve, opts: SweepOptions = {}): Mesh {
   }
 
   return makeMesh({ positions, normals, uvs, indices });
-}
-
-function pickPerpendicular(t: Vec3): Vec3 {
-  const ax = Math.abs(t.x), ay = Math.abs(t.y), az = Math.abs(t.z);
-  const other = ax < ay && ax < az ? vec3(1, 0, 0) : ay < az ? vec3(0, 1, 0) : vec3(0, 0, 1);
-  return normalize(cross(t, other));
-}
-
-function rotateAroundAxis(v: Vec3, axis: Vec3, angle: number): Vec3 {
-  const c = Math.cos(angle), s = Math.sin(angle);
-  return add(
-    add(scale(v, c), scale(cross(axis, v), s)),
-    scale(axis, dot(axis, v) * (1 - c)),
-  );
 }
 
 function addCap(

@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { buildTitanBuildingParts, TITAN_BUILDING_DEFAULTS } from "../src/models/titan-building.js";
+import { zFightingReport } from "../src/critique/geometry-metrics.js";
 
 describe("titan-building (Tutorial_Building_Generator.hda)", () => {
   it("builds walls, frames, windows, doors and roof", () => {
@@ -34,6 +35,10 @@ describe("titan-building (Tutorial_Building_Generator.hda)", () => {
 
   it("windows use a glass surface", () => {
     expect(buildTitanBuildingParts().find((p) => p.name === "windows")!.surface?.type).toBe("glass");
+  });
+
+  it("keeps window glass off coplanar frame faces", () => {
+    expect(zFightingReport(buildTitanBuildingParts(), { includeSamePart: false }).pairs).toBe(0);
   });
 
   it("is deterministic", () => {

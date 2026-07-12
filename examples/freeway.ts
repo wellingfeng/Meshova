@@ -23,6 +23,10 @@ const parts = buildFreewayParts({
   guardrails: true,
   pillars: true,
   pillarSpacing: 12,
+  signGantry: true,
+  signSpacing: 36,
+  lightPoles: true,
+  lightSpacing: 18,
   sample: 1.2,
 });
 

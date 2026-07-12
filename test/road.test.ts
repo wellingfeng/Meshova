@@ -5,6 +5,10 @@ import {
   roadCenterLine,
   roadLaneLines,
   roadEdgeLines,
+  roadsidePlacements,
+  roadLightPoles,
+  roadNoiseBarrier,
+  roadNoiseBarrierFrame,
   polyline,
   bezier,
   bounds,
@@ -86,12 +90,12 @@ describe("roadLaneLines", () => {
     expect(b.min.x).toBeGreaterThanOrEqual(-4);
   });
 
-  it("dashed lines split into multiple quads unlike a single solid line", () => {
+  it("keeps solid lines on the sampled path while dashed lines leave gaps", () => {
     const dashed = roadLaneLines(straight, { halfWidth: 4, lanes: 2, dashed: true, skipCenter: false, dashLength: 1, gapLength: 3 });
     const solid = roadLaneLines(straight, { halfWidth: 4, lanes: 2, dashed: false, skipCenter: false });
-    // A solid divider is one long quad (2 tris); dashed breaks into many.
-    expect(triangleCount(solid)).toBe(2);
-    expect(triangleCount(dashed)).toBeGreaterThan(triangleCount(solid));
+    expect(triangleCount(solid)).toBeGreaterThan(2);
+    expect(triangleCount(dashed)).toBeGreaterThan(0);
+    expect(triangleCount(dashed)).toBeLessThan(triangleCount(solid));
   });
 
   it("is deterministic", () => {
@@ -110,5 +114,104 @@ describe("roadEdgeLines", () => {
     // Lines sit at +/-(halfWidth - inset) = +/-3.8, +/- half line width.
     expect(b.max.x).toBeCloseTo(3.85, 1);
     expect(b.min.x).toBeCloseTo(-3.85, 1);
+  });
+});
+
+describe("roadsidePlacements", () => {
+  it("places deterministic points beyond both road edges", () => {
+    const options = { spacing: 4, offsetMin: 5, offsetMax: 7, seed: 42, distanceJitter: 0 };
+    const a = roadsidePlacements(straight, options);
+    const b = roadsidePlacements(straight, options);
+    expect(a).toEqual(b);
+    expect(a.length).toBe(10);
+    expect(a.some((placement) => placement.side === "left" && placement.position.x >= 5)).toBe(true);
+    expect(a.some((placement) => placement.side === "right" && placement.position.x <= -5)).toBe(true);
+  });
+
+  it("supports density, one-sided placement, and exclusion zones", () => {
+    expect(roadsidePlacements(straight, { density: 0 })).toEqual([]);
+    const placements = roadsidePlacements(straight, {
+      spacing: 2,
+      side: "left",
+      offsetMin: 4,
+      offsetMax: 4,
+      distanceJitter: 0,
+      exclusionZones: [{ distance: 10, radius: 3 }],
+    });
+    expect(placements.every((placement) => placement.side === "left" && placement.position.x === 4)).toBe(true);
+    expect(placements.every((placement) => Math.abs(placement.distance - 10) >= 3)).toBe(true);
+  });
+
+  it("keeps generated scale within the requested range", () => {
+    const placements = roadsidePlacements(straight, { spacing: 2, scaleMin: 0.6, scaleMax: 1.4, seed: 7 });
+    expect(placements.every((placement) => placement.scale >= 0.6 && placement.scale < 1.4)).toBe(true);
+  });
+});
+
+describe("roadLightPoles", () => {
+  it("stamps masts along one edge, rising to the pole height", () => {
+    const m = roadLightPoles(straight, { halfWidth: 4, side: 1, spacing: 5, poleHeight: 6, lateral: 5 });
+    expect(triangleCount(m)).toBeGreaterThan(0);
+    const b = bounds(m);
+    // 20m run at 5m spacing -> multiple poles; side +1 rides the road's right
+    // vector, which is -X for a +Z-heading straight.
+    expect(b.max.y).toBeCloseTo(6, 0);
+    expect(b.min.x).toBeLessThan(-4);
+  });
+
+  it("mirrors to the opposite edge for side -1", () => {
+    const m = roadLightPoles(straight, { halfWidth: 4, side: -1, spacing: 5, lateral: 5 });
+    const b = bounds(m);
+    expect(b.max.x).toBeGreaterThan(4);
+  });
+
+  it("is deterministic", () => {
+    const a = roadLightPoles(straight, { halfWidth: 4, side: 1, spacing: 4 });
+    const b = roadLightPoles(straight, { halfWidth: 4, side: 1, spacing: 4 });
+    expect(a.positions).toEqual(b.positions);
+    expect(a.indices).toEqual(b.indices);
+  });
+});
+
+describe("roadNoiseBarrier", () => {
+  it("builds a tall wall rising to the requested height on one edge", () => {
+    const m = roadNoiseBarrier(straight, { halfWidth: 4, side: 1, lateral: 5, wallHeight: 2.6, baseHeight: 0.4 });
+    expect(triangleCount(m)).toBeGreaterThan(0);
+    const b = bounds(m);
+    expect(b.max.y).toBeCloseTo(2.6, 1);
+    // side +1 rides the road's right vector (-X for a +Z-heading straight).
+    expect(b.min.x).toBeLessThan(-4);
+    // thin slab: X extent far smaller than the run length.
+    expect(b.max.x - b.min.x).toBeLessThan(1);
+  });
+
+  it("mirrors to the opposite edge for side -1", () => {
+    const m = roadNoiseBarrier(straight, { halfWidth: 4, side: -1, lateral: 5, wallHeight: 2.6 });
+    const b = bounds(m);
+    expect(b.max.x).toBeGreaterThan(4);
+  });
+
+  it("is deterministic", () => {
+    const a = roadNoiseBarrier(straight, { halfWidth: 4, side: 1, lateral: 5 });
+    const b = roadNoiseBarrier(straight, { halfWidth: 4, side: 1, lateral: 5 });
+    expect(a.positions).toEqual(b.positions);
+    expect(a.indices).toEqual(b.indices);
+  });
+});
+
+describe("roadNoiseBarrierFrame", () => {
+  it("stamps posts and rails within the wall height band", () => {
+    const m = roadNoiseBarrierFrame(straight, { halfWidth: 4, side: 1, lateral: 5, wallHeight: 2.6, baseHeight: 0.4, postSpacing: 5 });
+    expect(triangleCount(m)).toBeGreaterThan(0);
+    const b = bounds(m);
+    expect(b.max.y).toBeLessThanOrEqual(2.7);
+    expect(b.min.y).toBeGreaterThanOrEqual(0.3);
+  });
+
+  it("is deterministic", () => {
+    const a = roadNoiseBarrierFrame(straight, { halfWidth: 4, side: 1, lateral: 5, postSpacing: 4 });
+    const b = roadNoiseBarrierFrame(straight, { halfWidth: 4, side: 1, lateral: 5, postSpacing: 4 });
+    expect(a.positions).toEqual(b.positions);
+    expect(a.indices).toEqual(b.indices);
   });
 });

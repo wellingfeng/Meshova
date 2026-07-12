@@ -10,6 +10,13 @@ describe("titan-shrub (Tutorial_shrub.hda)", () => {
     for (const p of parts) expect(p.mesh.positions.length).toBeGreaterThan(0);
   });
 
+  it("uses shaped blades instead of rectangular leaf cards", () => {
+    const leaves = buildTitanShrubParts({ branches: 1, leavesPerBranch: 1, dryRatio: 0 })
+      .find((part) => part.name === "leaves")!.mesh;
+    expect(leaves.positions.length).toBeGreaterThan(4);
+    expect(new Set(leaves.uvs.map((uv) => uv.y)).size).toBeGreaterThan(2);
+  });
+
   it("is deterministic for a given seed", () => {
     const a = buildTitanShrubParts({ seed: 5 });
     const b = buildTitanShrubParts({ seed: 5 });

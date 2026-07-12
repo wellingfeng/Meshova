@@ -45,4 +45,36 @@ describe("freeway-sign (CitySample Kit_FreewaySign)", () => {
   it("default span is 12m", () => {
     expect(FREEWAY_SIGN_DEFAULTS.span).toBeCloseTo(12, 3);
   });
+
+  it("legends add a procedural sign_legend text part", () => {
+    const withText = buildFreewaySignParts({ signCount: 2, legends: ["MAIN ST", "5TH AVE"] });
+    const legend = withText.find((p) => p.name === "sign_legend");
+    expect(legend, "has legend part").toBeTruthy();
+    expect(legend!.mesh.positions.length).toBeGreaterThan(0);
+  });
+
+  it("different legends produce different glyph geometry", () => {
+    const a = buildFreewaySignParts({ signCount: 1, legends: ["MAIN ST"] }).find((p) => p.name === "sign_legend")!;
+    const b = buildFreewaySignParts({ signCount: 1, legends: ["AIRPORT"] }).find((p) => p.name === "sign_legend")!;
+    expect(a.mesh.positions).not.toEqual(b.mesh.positions);
+  });
+
+  it("exit number adds a tab + legend geometry", () => {
+    const noExit = buildFreewaySignParts({ signCount: 1, legends: ["MAIN ST"], exitNumber: "" });
+    const withExit = buildFreewaySignParts({ signCount: 1, legends: ["MAIN ST"], exitNumber: "42" });
+    const nf = noExit.find((p) => p.name === "sign_face")!.mesh.positions.length;
+    const wf = withExit.find((p) => p.name === "sign_face")!.mesh.positions.length;
+    expect(wf).toBeGreaterThan(nf); // extra tab box
+  });
+
+  it("empty legends still build (seeded default legends)", () => {
+    const parts = buildFreewaySignParts({ signCount: 2, legends: [] });
+    expect(parts.some((p) => p.name === "sign_legend")).toBe(true);
+  });
+
+  it("legend rendering stays deterministic", () => {
+    const a = buildFreewaySignParts({ legends: ["HARBOR"], seed: 7 }).find((p) => p.name === "sign_legend")!;
+    const b = buildFreewaySignParts({ legends: ["HARBOR"], seed: 7 }).find((p) => p.name === "sign_legend")!;
+    expect(a.mesh.positions).toEqual(b.mesh.positions);
+  });
 });

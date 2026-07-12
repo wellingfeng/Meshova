@@ -8,26 +8,26 @@
  *
  * We reproduce it procedurally and deterministically: N branch curves fan out
  * from the base within a cone, each swept to a tapered tube; leaves are small
- * quad cards scattered along the branches with seeded position/orientation/scale
- * jitter, and a `dryRatio` fraction tinted brown. No volume/remesh dependency —
+ * shaped leaf blades scattered along the branches with seeded
+ * position/orientation/scale jitter, and a `dryRatio` fraction tinted brown.
+ * No volume/remesh dependency —
  * the branch skeleton drives leaf placement directly.
  *
  * Run: pnpm tsx examples/titan-shrub.ts
  */
 import {
   sweep,
-  plane,
   polyline,
   smoothCurve,
   merge,
-  transform,
-  translateMesh,
   type Curve,
   type Mesh,
   type NamedPart,
 } from "../geometry/index.js";
-import { vec3, add, scale as vscale, normalize, type Vec3 } from "../math/vec3.js";
+import { vec3, add, cross, scale as vscale, normalize, type Vec3 } from "../math/vec3.js";
 import { makeRng, type Rng } from "../random/prng.js";
+import { curveFrameAt } from "../vegetation/curve-frame.js";
+import { leafMesh } from "../vegetation/leaf.js";
 
 type RGB = [number, number, number];
 
@@ -63,8 +63,8 @@ export const TITAN_SHRUB_DEFAULTS: TitanShrubParams = {
   spread: 0.7,
   leavesPerBranch: 14,
   dryRatio: 0.2,
-  leafMin: 0.12,
-  leafMax: 0.26,
+  leafMin: 0.08,
+  leafMax: 0.18,
   branchRadius: 0.05,
   bend: 0.15,
   seed: 11,
@@ -78,7 +78,7 @@ function branchCurve(p: TitanShrubParams, rng: Rng): Curve {
   const dir = normalize(vec3(Math.cos(az) * Math.sin(tilt), Math.cos(tilt), Math.sin(az) * Math.sin(tilt)));
   const steps = 5;
   const pts: Vec3[] = [];
-  let pos = vec3(0, 0.05, 0);
+  let pos = vec3(0, 0, 0);
   let d = dir;
   for (let i = 0; i <= steps; i++) {
     pts.push(pos);
@@ -97,7 +97,6 @@ export function buildTitanShrubParts(params: Partial<TitanShrubParams> = {}): Na
   const branchMeshes: Mesh[] = [];
   const leafGreen: Mesh[] = [];
   const leafDry: Mesh[] = [];
-  const leafProto = plane(1, 1); // unit card, scaled per leaf
 
   for (let b = 0; b < p.branches; b++) {
     const curve = branchCurve(p, rng);
@@ -109,20 +108,26 @@ export function buildTitanShrubParts(params: Partial<TitanShrubParams> = {}): Na
         radiusAt: (t) => p.branchRadius * (1 - 0.8 * t), // taper to tip
       }),
     );
-    // Scatter leaves along the branch's sampled points (skip the woody base).
-    const pts = curve.points;
+    // Stratify leaves past the woody base, then fan each blade around the twig.
     for (let i = 0; i < p.leavesPerBranch; i++) {
-      const f = rng.range(0.25, 1); // bias to outer branch
-      const idx = Math.min(pts.length - 1, Math.floor(f * (pts.length - 1)));
-      const at = pts[idx]!;
+      const f = 0.28 + 0.72 * ((i + rng.range(0.15, 0.85)) / Math.max(1, p.leavesPerBranch));
+      const frame = curveFrameAt(curve, Math.min(1, f));
+      const yaw = rng.range(0, Math.PI * 2);
+      const radial = normalize(add(vscale(frame.normal, Math.cos(yaw)), vscale(frame.binormal, Math.sin(yaw))));
+      const bladeAxis = normalize(add(add(vscale(radial, 0.82), vscale(frame.tangent, 0.32)), vec3(0, 0.28, 0)));
+      const upward = normalize(add(vec3(0, 1, 0), vscale(radial, 0.28)));
+      let facing = normalize(cross(bladeAxis, upward));
+      if (facing.x === 0 && facing.y === 0 && facing.z === 0) facing = frame.binormal;
       const s = rng.range(p.leafMin, p.leafMax);
-      const leaf = transform(leafProto, {
-        rotate: vec3(rng.range(-1, 1), rng.range(0, Math.PI * 2), rng.range(-1, 1)),
-        scale: s,
+      const leaf = leafMesh(frame.position, facing, bladeAxis, s * rng.range(0.42, 0.56), s, {
+        shape: "oval",
+        segments: 7,
+        curl: rng.range(-0.12, 0.22),
+        fold: rng.range(0.08, 0.2),
+        roundedNormals: true,
       });
-      const placed = translateMesh(leaf, add(at, vec3(rng.range(-0.05, 0.05), rng.range(-0.02, 0.05), rng.range(-0.05, 0.05))));
-      if (rng.next() < p.dryRatio) leafDry.push(placed);
-      else leafGreen.push(placed);
+      if (rng.next() < p.dryRatio) leafDry.push(leaf);
+      else leafGreen.push(leaf);
     }
   }
 

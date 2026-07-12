@@ -31,6 +31,7 @@ interface TerrainSuiteSpec {
   baseColor: [number, number, number];
   surface: "mossyStone" | "stone" | "sand";
   waterLevel?: number;
+  waterBody?: "river" | "pond" | "ocean";
 }
 
 interface Manifest {
@@ -55,6 +56,7 @@ const suite: TerrainSuiteSpec[] = [
     baseColor: [0.33, 0.31, 0.28],
     surface: "stone",
     waterLevel: 0.16,
+    waterBody: "ocean",
     recipe: {
       name: "volcanic-caldera",
       seed: 8203,
@@ -153,6 +155,7 @@ const suite: TerrainSuiteSpec[] = [
     baseColor: [0.25, 0.38, 0.2],
     surface: "mossyStone",
     waterLevel: 0.08,
+    waterBody: "river",
     recipe: {
       name: "delta-wetlands",
       seed: 50317,
@@ -308,7 +311,7 @@ function terrainParts(
         translate: vec3(0, spec.waterLevel + 0.012, 0),
       }),
       color: WATER,
-      surface: { type: "water", params: { tint: WATER, seed: (spec.recipe.seed ?? 1) + 17 } },
+      surface: { type: "water", params: { body: spec.waterBody ?? "pond", tint: WATER, seed: (spec.recipe.seed ?? 1) + 17 } },
       metadata: { waterLevel: spec.waterLevel },
     });
   }

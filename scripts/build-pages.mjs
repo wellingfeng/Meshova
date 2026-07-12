@@ -164,6 +164,9 @@ function parseExportedModelIds(source) {
     const shorthand = /^([A-Za-z_$][\w$]*)$/.exec(entry);
     if (shorthand) ids.push(shorthand[1]);
   }
+  for (const assignment of source.matchAll(/PROC_MODELS\["([^"]+)"\]\s*=/g)) {
+    ids.push(assignment[1]);
+  }
   return [...new Set(ids)].sort((a, b) => a.localeCompare(b));
 }
 

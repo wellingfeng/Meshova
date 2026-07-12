@@ -9,7 +9,7 @@ import { BokehPass } from "three/addons/postprocessing/BokehPass.js";
 import { ShaderPass } from "three/addons/postprocessing/ShaderPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { Reflector } from "three/addons/objects/Reflector.js";
-import { bakeMaterial, bakeSurface, bakeSurfaceByName, isSurface, SURFACE_NAMES, SURFACE_LABEL_MAP, PRESET_NAMES, BUILDER_NAMES, SURFACE_PARAM_SCHEMA, defaultSurfaceParams } from "/web/materials.js";
+import { bakeMaterial, bakeSurface, bakeWaterSurface, bakeSurfaceByName, isSurface, SURFACE_NAMES, SURFACE_LABEL_MAP, PRESET_NAMES, BUILDER_NAMES, SURFACE_PARAM_SCHEMA, defaultSurfaceParams } from "/web/materials.js?v=water7";
 import {
   PRESET_PARAM_SCHEMA,
   defaultMatParams,
@@ -26,8 +26,10 @@ import {
   semanticSplitMesh,
   splitMeshByAiMasks,
   canonicalizeHumanoidPartsToTPose,
-} from "/dist/index.js";
-import { PROC_MODELS, defaultParams, makeSpeedTreeLibraryModel } from "/web/procmodels.js";
+  critique,
+  formatCritique,
+} from "/dist/index.js?v=water7";
+import { PROC_MODELS, defaultParams, makeSpeedTreeLibraryModel } from "/web/procmodels.js?v=water7";
 
 const stage = document.getElementById("stage");
 const errEl = document.getElementById("err");
@@ -37,10 +39,93 @@ const scriptCodeEl = document.getElementById("script-code");
 const scriptToggleBtn = document.getElementById("script-toggle");
 const scriptCopyBtn = document.getElementById("script-copy");
 const scriptCloseBtn = document.getElementById("script-close");
+const loadingEl = document.getElementById("loading");
+const loadingTitleEl = document.getElementById("loading-title");
+const loadingDetailEl = document.getElementById("loading-detail");
+const loadingFillEl = loadingEl?.querySelector(".loading-fill");
+const optRunBtn = document.getElementById("opt-run");
+const optModeSel = document.getElementById("opt-mode");
+const optStatsEl = document.getElementById("opt-stats");
+const optCandidatesEl = document.getElementById("opt-candidates");
 
 function fail(msg) {
   errEl.style.display = "flex";
   errEl.textContent = msg;
+}
+
+let activeLoadingToken = 0;
+let loadingHideTimer = 0;
+let loadingShownAt = 0;
+let loadingStatusTimer = 0;
+let loadingBaseDetail = "";
+
+function nextPaint() {
+  return new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+}
+
+async function showGenerationLoading(detail = "执行程序化建模脚本", title = "生成 3D 模型") {
+  if (!loadingEl) return 0;
+  const token = ++activeLoadingToken;
+  clearTimeout(loadingHideTimer);
+  clearInterval(loadingStatusTimer);
+  loadingShownAt = performance.now();
+  loadingBaseDetail = detail;
+  loadingFillEl?.classList.remove("determinate");
+  loadingFillEl?.style.removeProperty("--loading-progress");
+  loadingEl.removeAttribute("aria-valuenow");
+  if (loadingTitleEl) loadingTitleEl.textContent = title;
+  if (loadingDetailEl) loadingDetailEl.textContent = detail;
+  stage.classList.add("loading");
+  loadingEl.classList.add("show");
+  loadingEl.setAttribute("aria-hidden", "false");
+  loadingStatusTimer = setInterval(() => {
+    if (token !== activeLoadingToken || !loadingDetailEl) return;
+    const seconds = Math.max(1, Math.floor((performance.now() - loadingShownAt) / 1000));
+    loadingDetailEl.textContent = `${loadingBaseDetail} · 已等待 ${seconds} 秒 · 页面仍可响应`;
+  }, 1000);
+  await nextPaint();
+  return token;
+}
+
+function updateGenerationLoading(detail, progress = null) {
+  if (!loadingEl?.classList.contains("show")) return;
+  loadingBaseDetail = detail;
+  const seconds = Math.max(1, Math.floor((performance.now() - loadingShownAt) / 1000));
+  if (loadingDetailEl) loadingDetailEl.textContent = `${detail} · 已等待 ${seconds} 秒 · 页面仍可响应`;
+  if (!Number.isFinite(progress)) {
+    loadingFillEl?.classList.remove("determinate");
+    loadingEl.removeAttribute("aria-valuenow");
+    return;
+  }
+  const percent = Math.max(0, Math.min(100, Math.round(progress * 100)));
+  loadingFillEl?.classList.add("determinate");
+  loadingFillEl?.style.setProperty("--loading-progress", `${percent}%`);
+  loadingEl.setAttribute("aria-valuenow", String(percent));
+}
+
+function hideGenerationLoading(token) {
+  if (!loadingEl || token !== activeLoadingToken) return;
+  const elapsed = performance.now() - loadingShownAt;
+  const delay = Math.max(0, 180 - elapsed);
+  clearTimeout(loadingHideTimer);
+  loadingHideTimer = setTimeout(() => {
+    if (token !== activeLoadingToken) return;
+    clearInterval(loadingStatusTimer);
+    stage.classList.remove("loading");
+    loadingEl.classList.remove("show");
+    loadingEl.setAttribute("aria-hidden", "true");
+  }, delay);
+}
+
+function forceHideGenerationLoading() {
+  activeLoadingToken++;
+  clearTimeout(loadingHideTimer);
+  clearInterval(loadingStatusTimer);
+  stage.classList.remove("loading");
+  if (loadingEl) {
+    loadingEl.classList.remove("show");
+    loadingEl.setAttribute("aria-hidden", "true");
+  }
 }
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true, alpha: true });
@@ -152,8 +237,8 @@ let currentEnvRT = null;     // prefiltered PMREM target (for reflections)
 // controllable backdrop for silhouette-IoU matting; 'transparent' exports a
 // cutout PNG. The IBL environment stays active in every mode.
 let bgMode = "env";              // env | solid | gradient | transparent
-let bgColor = "#10141c";         // solid color / gradient top
-let bgColor2 = "#05070b";        // gradient bottom
+let bgColor = "#f2f2f2";         // solid color / gradient top（浅色影棚基调）
+let bgColor2 = "#d4d4d4";        // gradient bottom
 
 function applyEnvironment(name) {
   const p = ENV_PRESETS[name] || ENV_PRESETS.studio;
@@ -278,7 +363,8 @@ function updateShadowCamera() {
   cam.updateProjectionMatrix();
 }
 
-const grid = new THREE.GridHelper(20, 20, 0x30363d, 0x1c2330);
+// 浅色主题：地面网格用淡灰线，衬浅底不突兀（Sketchfab 单模型页干净风）。
+const grid = new THREE.GridHelper(20, 20, 0xc8c8c8, 0xdadada);
 scene.add(grid);
 
 // ---- Floor: three modes ----
@@ -408,7 +494,16 @@ const fogDepthRT = new THREE.WebGLRenderTarget(stage.clientWidth, stage.clientHe
 });
 // Packed depth must be sampled verbatim — no sRGB decode would corrupt the bytes.
 fogDepthRT.texture.colorSpace = THREE.NoColorSpace;
+fogDepthRT.texture.generateMipmaps = false;
 const fogDepthMat = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking });
+
+function resizeSceneDepthTarget() {
+  const ratio = renderer.getPixelRatio();
+  fogDepthRT.setSize(
+    Math.max(1, Math.floor(stage.clientWidth * ratio)),
+    Math.max(1, Math.floor(stage.clientHeight * ratio)),
+  );
+}
 
 // TAA: while the camera moves we render a single sample (cheap, like a plain
 // RenderPass). Once it goes idle we flip accumulate on and the pass jitters the
@@ -545,6 +640,54 @@ function resetTAA() {
 }
 
 let postEnabled = true;
+let postUserOverride = null;
+let perfMode = "quality";
+let activePerfTier = "quality";
+
+const PERF_TIERS = {
+  quality: { maxPixelRatio: 2, post: true, taa: true, gtao: true, bloom: true, shadows: true },
+  balanced: { maxPixelRatio: 1.25, post: true, taa: false, gtao: false, bloom: true, shadows: true },
+  fast: { maxPixelRatio: 1, post: false, taa: false, gtao: false, bloom: false, shadows: false },
+};
+
+function setRenderPixelRatio(maxPixelRatio) {
+  const ratio = Math.max(0.75, Math.min(devicePixelRatio || 1, maxPixelRatio));
+  renderer.setPixelRatio(ratio);
+  composer.setPixelRatio(ratio);
+  renderer.setSize(stage.clientWidth, stage.clientHeight);
+  composer.setSize(stage.clientWidth, stage.clientHeight);
+  gtao.setSize(stage.clientWidth, stage.clientHeight);
+  bloom.setSize(stage.clientWidth, stage.clientHeight);
+  if (bokeh) bokeh.setSize(stage.clientWidth, stage.clientHeight);
+  resizeSceneDepthTarget();
+}
+
+function setShadowEnabled(enabled) {
+  renderer.shadowMap.enabled = enabled;
+  key.castShadow = enabled;
+  shadowFloor.receiveShadow = enabled;
+  glossyFloor.receiveShadow = enabled;
+  modelRoot.traverse((o) => {
+    if (!o.isMesh || o.userData.isOutline) return;
+    o.castShadow = enabled && o.userData.castShadow !== false;
+    o.receiveShadow = enabled;
+  });
+  renderer.shadowMap.needsUpdate = true;
+}
+
+function applyAdaptivePerformance(meta = lastMeta) {
+  const tier = perfMode === "auto" ? "quality" : (PERF_TIERS[perfMode] ? perfMode : "quality");
+  const cfg = PERF_TIERS[tier];
+  activePerfTier = tier;
+  setRenderPixelRatio(cfg.maxPixelRatio);
+  if (postUserOverride === null) postEnabled = cfg.post;
+  taaEnabled = cfg.taa;
+  if (!taaEnabled) taaPass.accumulate = false;
+  gtao.enabled = cfg.gtao;
+  bloom.enabled = cfg.bloom;
+  setShadowEnabled(cfg.shadows);
+  resetTAA();
+}
 
 let modelRoot = new THREE.Group();
 scene.add(modelRoot);
@@ -555,13 +698,107 @@ let currentMatPreset = null;   // preset whose params are loaded
 let currentMatParams = {};     // active material param values
 let currentModel = null;   // active ProcModel definition
 let currentParams = null;  // active param values
+let currentBindings = {};
+let currentView = "persp"; // active named camera view (for share URL)
 let currentLoadedSource = null; // raw source carried by AI/external ViewerModel
 let currentLoadedSourceName = "";
 let selectedPart = null;   // selected part name
 let currentParts = [];     // last built parts, kept for async models
 let lastMeta = { parts: 0, verts: 0, tris: 0 };
+let currentOptimizationRun = null;
+let selectedOptimizationCandidateId = null;
 let lastAiSplitFrame = null;
 let rebuildToken = 0;
+const PARAM_LOADING_THRESHOLD_MS = 3000;
+const modelTimingMs = new Map();
+const workerModelIds = new WeakMap(Object.entries(PROC_MODELS).map(([id, model]) => [model, id]));
+let modelBuildWorker = null;
+let modelBuildRequestId = 0;
+let pendingWorkerBuild = null;
+const bindingOverlay = new THREE.Group();
+scene.add(bindingOverlay);
+let activeDrawing = null;
+let bindingEditEnabled = false;
+let selectedBindingPoint = -1;
+let bindingDrag = null;
+let bindingUndoStack = [];
+let bindingRedoStack = [];
+let viewportPress = null;
+const bindingRaycaster = new THREE.Raycaster();
+bindingRaycaster.params.Line.threshold = 0.18;
+const bindingPointer = new THREE.Vector2();
+const bindingPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+const drawBindingBtn = document.getElementById("draw-binding");
+const editBindingBtn = document.getElementById("edit-binding");
+const resetBindingBtn = document.getElementById("draw-reset");
+const undoBindingBtn = document.getElementById("draw-undo");
+const redoBindingBtn = document.getElementById("draw-redo");
+const drawStatusEl = document.getElementById("draw-status");
+const drawToolsEl = document.getElementById("draw-tools");
+
+function stopModelBuildWorker() {
+  if (modelBuildWorker) modelBuildWorker.terminate();
+  modelBuildWorker = null;
+  if (pendingWorkerBuild) {
+    pendingWorkerBuild.reject(new DOMException("模型构建已取消", "AbortError"));
+    pendingWorkerBuild = null;
+  }
+}
+
+function ensureModelBuildWorker() {
+  if (modelBuildWorker) return modelBuildWorker;
+  modelBuildWorker = new Worker("/web/model-build-worker.js?v=responsive2", { type: "module" });
+  modelBuildWorker.onmessage = (event) => {
+    const message = event.data || {};
+    if (!pendingWorkerBuild || message.requestId !== pendingWorkerBuild.requestId) return;
+    const pending = pendingWorkerBuild;
+    pendingWorkerBuild = null;
+    if (message.ok) pending.resolve(message);
+    else pending.reject(new Error(message.error || "后台模型构建失败"));
+  };
+  modelBuildWorker.onerror = (event) => {
+    const message = event.message || "后台模型构建失败";
+    stopModelBuildWorker();
+    if (pendingWorkerBuild) pendingWorkerBuild.reject(new Error(message));
+  };
+  return modelBuildWorker;
+}
+
+async function buildModelParts(model, params) {
+  const context = { bindings: cloneSerializable(currentBindings) };
+  const modelId = workerModelIds.get(model);
+  if (!modelId || typeof Worker === "undefined") {
+    stopModelBuildWorker();
+    return { parts: await model.build(params, context), elapsedMs: 0 };
+  }
+  if (pendingWorkerBuild) stopModelBuildWorker();
+  const worker = ensureModelBuildWorker();
+  const requestId = ++modelBuildRequestId;
+  return new Promise((resolve, reject) => {
+    pendingWorkerBuild = { requestId, resolve, reject };
+    worker.postMessage({ requestId, modelId, params, context });
+  });
+}
+
+function cloneSerializable(value) {
+  return value == null ? value : JSON.parse(JSON.stringify(value));
+}
+
+function modelTimingKey(model = currentModel, fallback = "") {
+  const raw = model?.id || model?.sourceName || model?.name || fallback || currentLoadedSourceName || "runtime";
+  return String(raw);
+}
+
+function recordModelTiming(model, elapsedMs, fallback = "") {
+  if (!Number.isFinite(elapsedMs) || elapsedMs <= 0) return;
+  const key = modelTimingKey(model, fallback);
+  const prev = modelTimingMs.get(key) || 0;
+  if (elapsedMs > prev) modelTimingMs.set(key, elapsedMs);
+}
+
+function shouldShowParamLoading() {
+  return (modelTimingMs.get(modelTimingKey(currentModel)) || 0) >= PARAM_LOADING_THRESHOLD_MS;
+}
 
 // ---- Wind animation state ----
 // Materials that carry a wind weight attribute register their `uTime` uniform
@@ -570,6 +807,11 @@ let rebuildToken = 0;
 const windClock = new THREE.Clock();
 let windEnabled = true;     // global toggle (off freezes for clean screenshots)
 let windStrength = 0.08;    // world-unit sway amplitude at weight=1
+let windMeshes = [];
+let cloudVolumeMeshes = [];
+let waterfallFxMeshes = [];
+let waterSurfaceMeshes = [];
+let waterfallFxTimeOverride = null;
 
 // Per-part surface param overrides in "model" (matched) mode, keyed by part
 // name. Each value is a partial params object merged onto the part's own
@@ -581,7 +823,12 @@ let currentSurfaceName = null;
 let currentSurfaceParams = {};
 
 // Flatten a Meshova Mesh (arrays of Vec3/Vec2) into typed arrays for three.
-function meshToBuffers(mesh) {
+function yieldToBrowser() {
+  if (globalThis.scheduler?.yield) return globalThis.scheduler.yield();
+  return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
+async function meshToBuffers(mesh) {
   const pos = new Float32Array(mesh.positions.length * 3);
   const nrm = new Float32Array(mesh.normals.length * 3);
   const uv = new Float32Array(mesh.uvs.length * 2);
@@ -594,6 +841,7 @@ function meshToBuffers(mesh) {
     nrm[i * 3 + 2] = mesh.normals[i].z;
     uv[i * 2] = mesh.uvs[i].x;
     uv[i * 2 + 1] = mesh.uvs[i].y;
+    if (i > 0 && i % 12000 === 0) await yieldToBrowser();
   }
   return { pos, nrm, uv, indices: mesh.indices };
 }
@@ -604,7 +852,7 @@ const importedTexturePending = new Set();
 
 function resolveImportedTextureUrl(path) {
   if (!path) return null;
-  if (/^(https?:)?\/\//i.test(path) || path.startsWith("/")) return path;
+  if (/^(?:(?:https?:)?\/\/|blob:|data:)/i.test(path) || path.startsWith("/")) return path;
   return `/out/${path}`;
 }
 
@@ -642,6 +890,16 @@ function waitForImportedTextures() {
     : Promise.resolve();
 }
 
+function releaseUploadedTexture(path) {
+  if (!String(path || "").startsWith("blob:")) return;
+  for (const [key, texture] of importedTextureCache) {
+    if (!key.endsWith(`:${path}`)) continue;
+    texture.dispose?.();
+    importedTextureCache.delete(key);
+  }
+  URL.revokeObjectURL(path);
+}
+
 function viewerPartToNamedPart(p) {
   if (p.mesh) return p;
   const positions = [];
@@ -668,7 +926,7 @@ function viewerPartToNamedPart(p) {
     uvs,
     indices: Array.from(p.indices || []),
   }));
-  return {
+  const namedPart = {
     name: p.name,
     label: p.label,
     color: p.color || [0.8, 0.8, 0.8],
@@ -679,6 +937,21 @@ function viewerPartToNamedPart(p) {
     metadata: p.metadata,
     mesh,
   };
+  const render = p.renderInstances;
+  if (render && Array.isArray(render.transforms) && render.transforms.length > 1) {
+    const renderPart = viewerPartToNamedPart({
+      name: p.name,
+      positions: render.positions || [],
+      normals: render.normals || [],
+      uvs: render.uvs || [],
+      indices: render.indices || [],
+    });
+    namedPart.renderInstances = {
+      mesh: renderPart.mesh,
+      transforms: render.transforms,
+    };
+  }
+  return namedPart;
 }
 
 function viewerModelToNamedParts(model) {
@@ -737,38 +1010,102 @@ function computeCurvatureAttr(mesh) {
   return out;
 }
 
+function inferLegacyWaterSurface(part) {
+  const name = String(part?.name || "").toLowerCase();
+  const label = String(part?.label || "");
+  const isWaterPart = name === "water"
+    || name === "water_plane"
+    || name === "water_level"
+    || name === "sea_plane"
+    || name === "ocean"
+    || name === "rivers"
+    || name.endsWith("_water")
+    || /(?:水面|河面|水域|水潭|海平面)$/.test(label);
+  if (!isWaterPart) return null;
+  const semantics = `${name} ${label}`;
+  const body = /(?:ocean|sea|海洋|海水|海平面)/i.test(semantics)
+    ? "ocean"
+    : /(?:river|stream|canal|河流|河道|河面|水道|溪流)/i.test(semantics)
+      ? "river"
+      : "pond";
+  return {
+    type: "water",
+    params: {
+      body,
+      tint: part?.color || [0.1, 0.35, 0.42],
+      seed: Number(part?.metadata?.seed || 71),
+    },
+  };
+}
+
 /** Build (or rebuild) the scene meshes from a list of {name, mesh, color} parts. */
-function buildParts(parts, { keepCamera = false } = {}) {
+async function buildParts(parts, { keepCamera = false, buildToken = null } = {}) {
   currentParts = parts;
   scene.remove(modelRoot);
   modelRoot.traverse((o) => { if (o.isMesh) { o.geometry.dispose(); o.material.dispose?.(); } });
   modelRoot = new THREE.Group();
+  await yieldToBrowser();
 
-  let verts = 0, tris = 0;
-  for (const part of parts) {
-    const { pos, nrm, uv, indices } = meshToBuffers(part.mesh);
+  let verts = 0, tris = 0, gpuVerts = 0, gpuTris = 0, gpuInstances = 0;
+  for (let partIndex = 0; partIndex < parts.length; partIndex++) {
+    if (buildToken !== null && buildToken !== rebuildToken) throw new DOMException("模型构建已取消", "AbortError");
+    const part = parts[partIndex];
+    updateGenerationLoading(`装配场景 ${partIndex + 1}/${parts.length}`, parts.length ? partIndex / parts.length : 1);
+    const instances = part.renderInstances?.transforms?.length > 1 ? part.renderInstances : null;
+    const renderMesh = instances?.mesh || part.mesh;
+    const { pos, nrm, uv, indices } = await meshToBuffers(renderMesh);
     verts += part.mesh.positions.length;
-    tris += indices.length / 3;
+    tris += part.mesh.indices.length / 3;
+    gpuVerts += renderMesh.positions.length;
+    gpuTris += indices.length / 3;
+    gpuInstances += instances?.transforms.length || 0;
     const geo = new THREE.BufferGeometry();
     geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
     geo.setAttribute("normal", new THREE.BufferAttribute(nrm, 3));
     geo.setAttribute("uv", new THREE.BufferAttribute(uv, 2));
     geo.setAttribute("uv1", new THREE.BufferAttribute(uv, 2));
     // Per-vertex colors (shape-aligned material): attach as a color attribute.
-    const hasVColors = Array.isArray(part.colors) && part.colors.length === part.mesh.positions.length * 3;
+    const hasVColors = Array.isArray(part.colors) && part.colors.length === renderMesh.positions.length * 3;
     if (hasVColors) {
       geo.setAttribute("color", new THREE.BufferAttribute(new Float32Array(part.colors), 3));
     }
     // Per-vertex wind weight: drives the GPU sway shader (foliage animation).
-    const hasWind = Array.isArray(part.windWeight) && part.windWeight.length === part.mesh.positions.length;
+    const hasWind = Array.isArray(part.windWeight) && part.windWeight.length === renderMesh.positions.length;
     if (hasWind) {
       geo.setAttribute("windWeight", new THREE.BufferAttribute(new Float32Array(part.windWeight), 1));
     }
-    // Per-vertex true curvature (convexity 0..1) for edge wear. Precomputed here
-    // so every part has it without bloating the exported model JSON.
-    geo.setAttribute("curvature", new THREE.BufferAttribute(computeCurvatureAttr(part.mesh), 1));
-    geo.setIndex([...indices]);
-    const mesh = new THREE.Mesh(geo, makePartMaterial(part.color, hasVColors));
+    // Edge wear is opt-in. Curvature is expensive on million-vertex scenes, so
+    // attach it only when the feature is active or toggled later.
+    if (edgeWearOn) {
+      geo.setAttribute("curvature", new THREE.BufferAttribute(computeCurvatureAttr(renderMesh), 1));
+    }
+    geo.setIndex(new THREE.BufferAttribute(new Uint32Array(indices), 1));
+    const material = makePartMaterial(part.color, hasVColors);
+    let mesh;
+    if (instances) {
+      mesh = new THREE.InstancedMesh(geo, material, instances.transforms.length);
+      const matrix = new THREE.Matrix4();
+      const position = new THREE.Vector3();
+      const rotation = new THREE.Euler();
+      const quaternion = new THREE.Quaternion();
+      const scale = new THREE.Vector3();
+      for (let index = 0; index < instances.transforms.length; index++) {
+        const instance = instances.transforms[index];
+        position.fromArray(instance.position || [0, 0, 0]);
+        rotation.fromArray([...(instance.rotation || [0, 0, 0]), "XYZ"]);
+        quaternion.setFromEuler(rotation);
+        scale.fromArray(instance.scale || [1, 1, 1]);
+        matrix.compose(position, quaternion, scale);
+        mesh.setMatrixAt(index, matrix);
+        if (index > 0 && index % 2000 === 0) await yieldToBrowser();
+      }
+      mesh.instanceMatrix.needsUpdate = true;
+      mesh.computeBoundingBox();
+      mesh.computeBoundingSphere();
+      mesh.userData.gpuInstances = instances.transforms.length;
+    } else {
+      mesh = new THREE.Mesh(geo, material);
+    }
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     mesh.name = part.name;
@@ -776,31 +1113,63 @@ function buildParts(parts, { keepCamera = false } = {}) {
     mesh.userData.baseColor = part.color;
     mesh.userData.vertexColors = hasVColors;
     mesh.userData.hasWind = hasWind;     // remember so material swaps re-inject wind
-    mesh.userData.surface = part.surface || null; // matched per-part material
+    mesh.userData.surface = part.surface || inferLegacyWaterSurface(part); // matched per-part material
     mesh.userData.textures = part.textures || null; // imported PBR texture atlas
+    mesh.userData.doubleSided = !!part.doubleSided;
+    mesh.userData.metadata = part.metadata || null;
+    mesh.userData.castShadow = part.metadata?.castShadow !== false;
+    mesh.castShadow = mesh.userData.castShadow;
+    mesh.userData.fxTransforms = instances
+      ? instances.transforms.map((item) => ({
+          position: [...(item.position || [0, 0, 0])],
+          rotation: [...(item.rotation || [0, 0, 0])],
+          scale: [...(item.scale || [1, 1, 1])],
+        }))
+      : null;
+    if (String(part.metadata?.renderFx || "").startsWith("waterfall-")) {
+      mesh.castShadow = false;
+      mesh.receiveShadow = false;
+    }
     if (hasWind) attachWind(mesh.material);
+    applyPartRenderHints(mesh);
     modelRoot.add(mesh);
+    await yieldToBrowser();
   }
 
-  const bbox = new THREE.Box3().setFromObject(modelRoot);
+  updateGenerationLoading("整理材质与视图", 0.94);
+  await yieldToBrowser();
+  const bbox = new THREE.Box3();
+  for (const child of modelRoot.children) {
+    if (child.userData.metadata?.cameraFitIgnore) continue;
+    bbox.expandByObject(child);
+  }
+  if (bbox.isEmpty()) bbox.setFromObject(modelRoot);
   const center = new THREE.Vector3();
   bbox.getCenter(center);
   const size = new THREE.Vector3();
   bbox.getSize(size);
   modelRoot.position.set(-center.x, -bbox.min.y, -center.z);
   scene.add(modelRoot);
+  updateBindingOverlay();
 
   lastMeta = {
     parts: parts.length,
     verts,
     tris,
+    gpuVerts,
+    gpuTris,
+    gpuInstances,
     size: { x: size.x, y: size.y, z: size.z },
   };
+  applyAdaptivePerformance(lastMeta);
   if (!keepCamera) fitView("persp", size);
   else lastSize = size.clone();
   updateShadowCamera();   // refit shadow frustum to the new model bounds
   updateContactShadow();  // size the contact blob to the new footprint
-  applyMaterial(currentPreset);
+  const materialSize = tris >= 500000 ? 96 : tris >= 150000 ? 128 : 256;
+  updateGenerationLoading(`烘焙材质 ${materialSize}×${materialSize}`, 0.96);
+  await yieldToBrowser();
+  applyMaterial(currentPreset, { size: materialSize });
   applyWire();
   applySelectionHighlight();
   renderPartList(parts);
@@ -808,6 +1177,93 @@ function buildParts(parts, { keepCamera = false } = {}) {
   updateScriptPanel();
   resetTAA();
   hud.textContent = `${currentModel ? currentModel.name : ""} · ${parts.length}件 / ${tris}面`;
+  scheduleCritique(parts);
+  updateGenerationLoading("模型生成完成", 1);
+}
+
+function ensureCurvatureAttributes() {
+  const byName = new Map(currentParts.map((part) => [part.name, part]));
+  modelRoot.traverse((o) => {
+    if (!o.isMesh || o.geometry.getAttribute("curvature")) return;
+    const part = byName.get(o.name);
+    if (!part) return;
+    const renderMesh = part.renderInstances?.mesh || part.mesh;
+    o.geometry.setAttribute("curvature", new THREE.BufferAttribute(computeCurvatureAttr(renderMesh), 1));
+  });
+}
+
+// ---- 确定性自审 (critique) ----
+// 每次 build 后跑一道无 API 的确定性自审：per-part 几何 sanity(退化面/翻转法线/
+// 破壳) + rubric 结构 + 比例。结果打到 console 并显示右下角标。装配级 analyzeAssembly
+// 是 O(n^2)，植被上百叶片会卡主线程，故此处不跑——那属于 agent loop 的重活。
+// 250ms 防抖，避免拖滑块时每帧重算。
+let critiqueTimer = 0;
+let critiqueBadge = null;
+
+function ensureCritiqueBadge() {
+  if (critiqueBadge) return critiqueBadge;
+  const el = document.createElement("div");
+  el.id = "critiqueBadge";
+  el.style.cssText =
+    "position:fixed;right:12px;bottom:12px;z-index:50;max-width:340px;" +
+    "font:12px/1.5 ui-monospace,Menlo,Consolas,monospace;padding:8px 10px;" +
+    "border-radius:8px;background:rgba(20,24,30,.88);color:#dfe6ee;" +
+    "box-shadow:0 2px 10px rgba(0,0,0,.35);white-space:pre-wrap;cursor:pointer;" +
+    "border-left:3px solid #4a5560;display:none;";
+  el.title = "点击折叠/展开自审详情";
+  let collapsed = false;
+  el.addEventListener("click", () => {
+    collapsed = !collapsed;
+    el.querySelector("[data-body]").style.display = collapsed ? "none" : "block";
+  });
+  document.body.appendChild(el);
+  critiqueBadge = el;
+  return el;
+}
+
+// 推断自审用的英文 goal：模型可显式声明 critiqueGoal，否则用英文 id
+// (veg-shrub/veg-tree 里的 shrub/tree 能被 rubric 的 \bword\b 命中)。
+function critiqueGoalFor() {
+  if (currentModel?.critiqueGoal) return currentModel.critiqueGoal;
+  if (currentModel?.id) return currentModel.id;
+  return currentLoadedSourceName || "";
+}
+
+function scheduleCritique(parts) {
+  clearTimeout(critiqueTimer);
+  const snapshot = parts;
+  critiqueTimer = setTimeout(() => runCritique(snapshot), 250);
+}
+
+function runCritique(parts) {
+  const badge = ensureCritiqueBadge();
+  try {
+    const goal = critiqueGoalFor();
+    const report = critique(parts, { goal });
+    const text = formatCritique(report);
+    console.log("[自审]\n" + text);
+    const s = report.scores;
+    const hard = report.issues.filter((i) => i.severity === "hard").length;
+    const soft = report.issues.filter((i) => i.severity === "soft").length;
+    const color = hard > 0 ? "#e0555a" : soft > 0 ? "#d6b24a" : "#4ec27a";
+    badge.style.borderLeftColor = color;
+    badge.style.display = "block";
+    const head =
+      `自审 [${report.category}] ${(s.overall * 100).toFixed(0)}分` +
+      (report.passed ? " ✅通过" : hard > 0 ? ` ⚠️${hard}项必修` : ` 🔎${soft}项待优化`);
+    const detail = report.issues.length
+      ? report.issues
+          .slice(0, 6)
+          .map((i) => `· ${i.severity === "hard" ? "必修" : "优化"}[${i.part || i.axis}] ${i.finding}`)
+          .join("\n")
+      : "无问题。";
+    badge.innerHTML =
+      `<div style="font-weight:600">${head}</div>` +
+      `<div data-body style="margin-top:4px;opacity:.85">${detail.replace(/</g, "&lt;")}</div>`;
+  } catch (e) {
+    console.warn("[自审] 失败:", e);
+    if (critiqueBadge) critiqueBadge.style.display = "none";
+  }
 }
 
 function makePartMaterial(color, vertexColors = false, textures = null) {
@@ -855,6 +1311,42 @@ function makePartMaterial(color, vertexColors = false, textures = null) {
   }
   mat.envMapIntensity = 1.0;
   return mat;
+}
+
+function colorKey(color) {
+  return Array.isArray(color) ? color.map((v) => Number(v).toFixed(4)).join(",") : "";
+}
+
+function surfaceMaterialCacheKey(surfaceRef, fallbackColor) {
+  return `${surfaceRef?.type || "none"}|${JSON.stringify(surfaceRef?.params || {})}|${colorKey(fallbackColor)}`;
+}
+
+function cachedSurfaceMaterial(cache, surfaceRef, size, fallbackColor) {
+  const key = surfaceMaterialCacheKey(surfaceRef, fallbackColor);
+  let base = cache.get(key);
+  if (!base) {
+    base = bakeSurface(surfaceRef, size, fallbackColor) || makePartMaterial(fallbackColor || [0.8, 0.8, 0.8]);
+    cache.set(key, base);
+  }
+  return base.clone();
+}
+
+const DOUBLE_SIDED_SURFACES = new Set(["leaf", "foliage", "grassBlade"]);
+
+function partNeedsDoubleSide(o) {
+  const surfaceType = o?.userData?.surface?.type;
+  return !!o?.userData?.doubleSided || DOUBLE_SIDED_SURFACES.has(surfaceType);
+}
+
+function applyPartRenderHints(o) {
+  if (!o || !o.material) return;
+  const mats = Array.isArray(o.material) ? o.material : [o.material];
+  for (const mat of mats) {
+    if (!mat || !partNeedsDoubleSide(o)) continue;
+    mat.side = THREE.DoubleSide;
+    mat.shadowSide = THREE.DoubleSide;
+    mat.needsUpdate = true;
+  }
 }
 
 /**
@@ -1161,6 +1653,412 @@ function attachRimLight(material, opts = {}) {
   material.needsUpdate = true;
 }
 
+// VOLUMETRIC CLOUD — a per-part raymarch material that replaces the hard
+// metaball shell with genuinely soft vapor. The cloud mesh acts only as a
+// bounding proxy: in the fragment shader we intersect the view ray with the
+// mesh's local bounding sphere, march through it sampling an fbm density field,
+// and accumulate Beer-Lambert transmittance with a short secondary march toward
+// the sun (self-shadowing) plus a powder term for the bright-core / dark-edge
+// read. The silhouette is eroded by the noise, so edges go feathery instead of
+// faceted. No time term -> deterministic, screenshot- and TAA-safe.
+const CLOUD_VOL_VERT = `
+  varying vec3 vLocalPos;
+  void main(){
+    vLocalPos = position;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }`;
+const CLOUD_VOL_FRAG = `
+  precision highp float;
+  varying vec3 vLocalPos;
+  uniform vec3 uCamLocal, uSunLocal, uCenter, uSeed;
+  uniform vec3 uBaseColor, uSunColor, uSkyColor;
+  uniform float uRadius, uDensity, uAbsorption, uCoverage, uNoiseFreq;
+  uniform int uSteps;
+  float hash(vec3 p){ p = fract(p*0.3183099 + 0.1); p *= 17.0; return fract(p.x*p.y*p.z*(p.x+p.y+p.z)); }
+  float vnoise(vec3 x){
+    vec3 i = floor(x); vec3 f = fract(x); f = f*f*(3.0-2.0*f);
+    return mix(mix(mix(hash(i+vec3(0,0,0)),hash(i+vec3(1,0,0)),f.x),
+                   mix(hash(i+vec3(0,1,0)),hash(i+vec3(1,1,0)),f.x),f.y),
+               mix(mix(hash(i+vec3(0,0,1)),hash(i+vec3(1,0,1)),f.x),
+                   mix(hash(i+vec3(0,1,1)),hash(i+vec3(1,1,1)),f.x),f.y),f.z);
+  }
+  float fbm(vec3 p){ float a=0.5,s=0.0; for(int i=0;i<5;i++){ s+=a*vnoise(p); p*=2.02; a*=0.5; } return s; }
+  float sampleDensity(vec3 p){
+    vec3 rel = (p - uCenter) / uRadius;
+    float dist = length(rel);
+    float shell = smoothstep(1.0, uCoverage, dist);   // 1 at core, 0 past the rim
+    if(shell <= 0.0) return 0.0;
+    vec3 q = rel * uNoiseFreq + uSeed;
+    float warp = fbm(q * 0.5);
+    float n = fbm(q + warp * 0.6);
+    return clamp(shell * (n * 1.7 - 0.12), 0.0, 1.0);  // noise erodes the edge -> soft silhouette
+  }
+  float lightMarch(vec3 p){
+    float lstep = uRadius * 0.16;
+    float dsum = 0.0;
+    for(int i=0;i<6;i++){ p += uSunLocal * lstep; dsum += sampleDensity(p); }
+    return exp(-dsum * lstep * uAbsorption);
+  }
+  void main(){
+    vec3 ro = uCamLocal;
+    vec3 rd = normalize(vLocalPos - uCamLocal);
+    vec3 oc = ro - uCenter;
+    float b = dot(oc, rd);
+    float c = dot(oc, oc) - uRadius * uRadius;
+    float h = b*b - c;
+    if(h < 0.0) discard;
+    h = sqrt(h);
+    float t0 = max(-b - h, 0.0), t1 = -b + h;
+    float span = t1 - t0;
+    if(span <= 0.0) discard;
+    int N = uSteps;
+    float stepLen = span / float(N);
+    float T = 1.0;
+    vec3 col = vec3(0.0);
+    for(int i=0;i<128;i++){
+      if(i >= N) break;
+      vec3 p = ro + rd * (t0 + (float(i) + 0.5) * stepLen);
+      float dens = sampleDensity(p);
+      if(dens > 0.001){
+        float lT = lightMarch(p);
+        float powder = 1.0 - exp(-dens * 2.0);
+        vec3 lit = uSunColor * lT * (0.55 + 0.45 * powder) + uSkyColor;
+        float a = clamp(dens * uDensity * stepLen, 0.0, 1.0);
+        col += lit * uBaseColor * a * T;   // premultiplied
+        T *= (1.0 - a);
+        if(T < 0.01) break;
+      }
+    }
+    float alpha = 1.0 - T;
+    if(alpha < 0.003) discard;
+    gl_FragColor = vec4(col, alpha);
+  }`;
+
+// Build a volumetric-cloud ShaderMaterial for one cloud mesh. The mesh's local
+// bounding sphere defines the march volume; uSeed is derived from the lump's
+// center so each cloud in a sky reads distinct while staying deterministic.
+function makeCloudVolumeMaterial(mesh, params = {}) {
+  const geo = mesh.geometry;
+  if (!geo.boundingSphere) geo.computeBoundingSphere();
+  const bs = geo.boundingSphere || { center: new THREE.Vector3(), radius: 1 };
+  const tint = params.color || [0.98, 0.99, 1.0];
+  const seed = params.seed ?? 7;
+  const seedVec = bs.center.clone().multiplyScalar(0.37).addScalar(seed * 0.13);
+  const mat = new THREE.ShaderMaterial({
+    uniforms: {
+      uCamLocal: { value: new THREE.Vector3() },
+      uSunLocal: { value: new THREE.Vector3(0, 1, 0) },
+      uCenter: { value: bs.center.clone() },
+      uSeed: { value: seedVec },
+      uBaseColor: { value: new THREE.Color(tint[0], tint[1], tint[2]) },
+      uSunColor: { value: new THREE.Color(1.0, 0.95, 0.85) },
+      uSkyColor: { value: new THREE.Color(0.32, 0.38, 0.5) },
+      uRadius: { value: bs.radius * 1.08 },
+      uDensity: { value: params.density ?? 6.0 },
+      uAbsorption: { value: params.absorption ?? 1.6 },
+      uCoverage: { value: params.coverage ?? 0.05 },
+      uNoiseFreq: { value: params.noiseFreq ?? 3.2 },
+      uSteps: { value: params.steps ?? 48 },
+    },
+    vertexShader: CLOUD_VOL_VERT,
+    fragmentShader: CLOUD_VOL_FRAG,
+    transparent: true,
+    premultipliedAlpha: true,
+    depthWrite: false,
+    side: THREE.FrontSide,
+  });
+  mat.userData.isCloudVolume = true;
+  return mat;
+}
+
+const WATERFALL_FX_VERT = `
+  uniform float uTime;
+  uniform float uFlowSpeed;
+  uniform float uKind;
+  varying vec2 vUv;
+  varying vec3 vNormalView;
+  varying vec3 vViewPosition;
+  void main() {
+    vUv = uv;
+    vec3 p = position;
+    float t = uTime * uFlowSpeed;
+    if (uKind < 0.5) {
+      p += normal * (sin(uv.y * 17.0 - t * 5.0 + uv.x * 8.0) * 0.025
+        + sin(uv.y * 39.0 - t * 8.0 - uv.x * 15.0) * 0.012);
+    } else {
+      p.y += sin((uv.x + uv.y) * 31.0 + t * 2.4) * 0.018
+        + sin((uv.x - uv.y) * 47.0 - t * 3.1) * 0.009;
+    }
+    vec4 mv = modelViewMatrix * vec4(p, 1.0);
+    vNormalView = normalize(normalMatrix * normal);
+    vViewPosition = -mv.xyz;
+    gl_Position = projectionMatrix * mv;
+  }`;
+
+const WATERFALL_FX_FRAG = `
+  uniform float uTime;
+  uniform float uFlowSpeed;
+  uniform float uKind;
+  uniform float uOpacity;
+  uniform float uSeed;
+  varying vec2 vUv;
+  varying vec3 vNormalView;
+  varying vec3 vViewPosition;
+  float hash21(vec2 p) {
+    p = fract(p * vec2(123.34, 456.21));
+    p += dot(p, p + 45.32);
+    return fract(p.x * p.y);
+  }
+  float noise21(vec2 p) {
+    vec2 i = floor(p), f = fract(p);
+    f = f * f * (3.0 - 2.0 * f);
+    return mix(mix(hash21(i), hash21(i + vec2(1.0, 0.0)), f.x),
+      mix(hash21(i + vec2(0.0, 1.0)), hash21(i + 1.0), f.x), f.y);
+  }
+  void main() {
+    float t = uTime * uFlowSpeed;
+    if (uKind < 0.5) {
+      float n1 = noise21(vec2(vUv.x * 10.0 + uSeed, vUv.y * 4.2 - t * 2.8));
+      float n2 = noise21(vec2(vUv.x * 27.0 - uSeed, vUv.y * 9.0 - t * 5.1));
+      float streak = smoothstep(0.48, 0.9, n1 * 0.72 + n2 * 0.5);
+      float edge = smoothstep(0.0, 0.075, vUv.x) * smoothstep(0.0, 0.075, 1.0 - vUv.x);
+      float fresnel = pow(1.0 - abs(dot(normalize(vNormalView), normalize(vViewPosition))), 2.0);
+      vec3 water = mix(vec3(0.13, 0.48, 0.68), vec3(0.88, 0.98, 1.0), streak * 0.86 + fresnel * 0.32);
+      float alpha = (0.24 + streak * 0.62 + fresnel * 0.14) * edge * uOpacity;
+      if (alpha < 0.035) discard;
+      gl_FragColor = vec4(water, alpha);
+      return;
+    }
+    vec2 p = vUv - 0.5;
+    float radius = length(p);
+    float wave = sin(radius * 95.0 - t * 4.8) * 0.5 + 0.5;
+    float crossWave = noise21(p * 24.0 + vec2(t * 0.35, -t * 0.22));
+    if (uKind < 1.5) {
+      float glint = smoothstep(0.72, 0.98, wave * 0.56 + crossWave * 0.55);
+      vec3 pool = mix(vec3(0.025, 0.18, 0.24), vec3(0.18, 0.62, 0.72), glint);
+      gl_FragColor = vec4(pool, uOpacity);
+      return;
+    }
+    float broken = smoothstep(0.42, 0.72, crossWave + wave * 0.28);
+    if (broken < 0.16) discard;
+    gl_FragColor = vec4(mix(vec3(0.72, 0.9, 0.95), vec3(1.0), broken), broken * uOpacity);
+  }`;
+
+function makeWaterfallFxMaterial(mesh, fx, params = {}) {
+  let mat;
+  if (fx === "waterfall-sheet" || fx === "waterfall-pool" || fx === "waterfall-foam-ring") {
+    const kind = fx === "waterfall-sheet" ? 0 : fx === "waterfall-pool" ? 1 : 2;
+    mat = new THREE.ShaderMaterial({
+      uniforms: {
+        uTime: { value: 0 },
+        uFlowSpeed: { value: params.flowSpeed ?? 1 },
+        uKind: { value: kind },
+        uOpacity: { value: params.opacity ?? (kind === 0 ? 0.72 : kind === 1 ? 0.82 : 0.9) },
+        uSeed: { value: Number(params.seed || 0) * 0.137 },
+      },
+      vertexShader: WATERFALL_FX_VERT,
+      fragmentShader: WATERFALL_FX_FRAG,
+      transparent: true,
+      depthWrite: kind === 1,
+      side: THREE.DoubleSide,
+    });
+  } else if (fx === "waterfall-mist") {
+    mat = new THREE.MeshBasicMaterial({
+      color: 0xdaf7ff,
+      transparent: true,
+      opacity: 0.16,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    });
+  } else if (fx === "waterfall-spray") {
+    mat = new THREE.MeshPhysicalMaterial({
+      color: 0xd9f5ff,
+      roughness: 0.08,
+      metalness: 0,
+      transmission: 0.72,
+      thickness: 0.03,
+      transparent: true,
+      opacity: 0.78,
+      depthWrite: false,
+    });
+  } else {
+    mat = new THREE.MeshStandardMaterial({
+      color: 0xe7fbff,
+      emissive: 0x3a6870,
+      emissiveIntensity: 0.3,
+      roughness: 0.45,
+      transparent: true,
+      opacity: 0.82,
+      depthWrite: false,
+    });
+  }
+  mat.userData.isWaterfallFx = true;
+  mesh.renderOrder = fx === "waterfall-pool" ? 1 : fx === "waterfall-sheet" ? 2 : fx === "waterfall-foam-ring" ? 3 : 4;
+  return mat;
+}
+
+function makePlanetOceanMaterial(mesh, params = {}) {
+  mesh.renderOrder = 1;
+  const material = new THREE.MeshPhysicalMaterial({
+    color: new THREE.Color(0.018, 0.13, 0.34),
+    metalness: 0,
+    roughness: 0.24,
+    clearcoat: 0.72,
+    clearcoatRoughness: 0.16,
+    envMapIntensity: 1.45,
+    depthWrite: true,
+  });
+  material.onBeforeCompile = (shader) => {
+    shader.vertexShader = shader.vertexShader
+      .replace("#include <common>", `#include <common>
+varying vec3 vMeshovaPlanetPosition;`)
+      .replace("#include <begin_vertex>", `#include <begin_vertex>
+vMeshovaPlanetPosition = position;`);
+    shader.fragmentShader = shader.fragmentShader
+      .replace("#include <common>", `#include <common>
+varying vec3 vMeshovaPlanetPosition;
+float meshovaOceanHash(vec3 p) {
+  p = fract(p * 0.1031);
+  p += dot(p, p.yzx + 33.33);
+  return fract((p.x + p.y) * p.z);
+}
+float meshovaOceanNoise(vec3 p) {
+  vec3 cell = floor(p);
+  vec3 local = fract(p);
+  local = local * local * (3.0 - 2.0 * local);
+  float n000 = meshovaOceanHash(cell);
+  float n100 = meshovaOceanHash(cell + vec3(1.0, 0.0, 0.0));
+  float n010 = meshovaOceanHash(cell + vec3(0.0, 1.0, 0.0));
+  float n110 = meshovaOceanHash(cell + vec3(1.0, 1.0, 0.0));
+  float n001 = meshovaOceanHash(cell + vec3(0.0, 0.0, 1.0));
+  float n101 = meshovaOceanHash(cell + vec3(1.0, 0.0, 1.0));
+  float n011 = meshovaOceanHash(cell + vec3(0.0, 1.0, 1.0));
+  float n111 = meshovaOceanHash(cell + vec3(1.0, 1.0, 1.0));
+  float nx00 = mix(n000, n100, local.x);
+  float nx10 = mix(n010, n110, local.x);
+  float nx01 = mix(n001, n101, local.x);
+  float nx11 = mix(n011, n111, local.x);
+  return mix(mix(nx00, nx10, local.y), mix(nx01, nx11, local.y), local.z);
+}`)
+      .replace("#include <color_fragment>", `#include <color_fragment>
+vec3 meshovaOceanP = normalize(vMeshovaPlanetPosition);
+float meshovaOceanLarge = meshovaOceanNoise(meshovaOceanP * 7.0 + vec3(3.1, 7.7, 1.9));
+float meshovaOceanSmall = meshovaOceanNoise(meshovaOceanP * 21.0 - vec3(8.3, 2.4, 5.6));
+float meshovaOceanWave = sin(dot(meshovaOceanP, vec3(17.3, -11.7, 23.1)) * 4.0) * 0.5 + 0.5;
+float meshovaOceanDetail = clamp(meshovaOceanLarge * 0.58 + meshovaOceanSmall * 0.3 + meshovaOceanWave * 0.12, 0.0, 1.0);
+diffuseColor.rgb *= mix(0.72, 1.18, meshovaOceanDetail);
+diffuseColor.rgb += vec3(0.0, 0.025, 0.055) * smoothstep(0.62, 0.92, meshovaOceanDetail);`);
+  };
+  material.customProgramCacheKey = () => "meshova-planet-ocean-v2";
+  return material;
+}
+
+function makePlanetAtmosphereMaterial(mesh, params = {}) {
+  const color = params.atmosphereColor || [0.18, 0.48, 0.92];
+  const strength = Number(params.atmosphereStrength ?? 0.72);
+  mesh.renderOrder = 4;
+  return new THREE.ShaderMaterial({
+    uniforms: {
+      uColor: { value: new THREE.Color(color[0], color[1], color[2]) },
+      uStrength: { value: strength },
+    },
+    vertexShader: `
+      varying vec3 vNormalView;
+      varying vec3 vViewDirection;
+      void main() {
+        vec4 viewPosition = modelViewMatrix * vec4(position, 1.0);
+        vNormalView = normalize(normalMatrix * normal);
+        vViewDirection = normalize(-viewPosition.xyz);
+        gl_Position = projectionMatrix * viewPosition;
+      }
+    `,
+    fragmentShader: `
+      uniform vec3 uColor;
+      uniform float uStrength;
+      varying vec3 vNormalView;
+      varying vec3 vViewDirection;
+      void main() {
+        float rim = pow(1.0 - max(dot(normalize(vNormalView), normalize(vViewDirection)), 0.0), 3.2);
+        float alpha = rim * uStrength;
+        if (alpha < 0.008) discard;
+        vec3 color = mix(uColor * 0.48, vec3(0.12, 0.48, 1.0), rim * 0.52);
+        gl_FragColor = vec4(color, alpha);
+      }
+    `,
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    side: THREE.FrontSide,
+  });
+}
+
+const _waterfallMatrix = new THREE.Matrix4();
+const _waterfallPosition = new THREE.Vector3();
+const _waterfallRotation = new THREE.Euler();
+const _waterfallQuaternion = new THREE.Quaternion();
+const _waterfallScale = new THREE.Vector3();
+
+function updateWaterfallFx(time) {
+  for (const mesh of waterfallFxMeshes) {
+    const uniforms = mesh.material?.uniforms;
+    if (uniforms?.uTime) uniforms.uTime.value = time;
+    if (!mesh.isInstancedMesh || !Array.isArray(mesh.userData.fxTransforms)) continue;
+    const fx = String(mesh.userData.metadata?.renderFx || "");
+    const params = mesh.userData.metadata || {};
+    const speed = Number(params.flowSpeed || 1);
+    const seed = Number(params.seed || 0);
+    const baseTransforms = mesh.userData.fxTransforms;
+    for (let i = 0; i < mesh.count; i++) {
+      const base = baseTransforms[i];
+      if (!base) continue;
+      const phaseOffset = ((i * 0.61803398875 + seed * 0.071) % 1 + 1) % 1;
+      const phase = (time * speed * (fx === "waterfall-mist" ? 0.08 : 0.16) + phaseOffset) % 1;
+      _waterfallPosition.fromArray(base.position);
+      _waterfallRotation.fromArray([...(base.rotation || [0, 0, 0]), "XYZ"]);
+      _waterfallQuaternion.setFromEuler(_waterfallRotation);
+      _waterfallScale.fromArray(base.scale || [1, 1, 1]);
+      if (fx === "waterfall-spray") {
+        const arc = 4 * phase * (1 - phase);
+        _waterfallPosition.x *= 0.35 + phase * 0.9;
+        _waterfallPosition.y = 0.12 + arc * (0.55 + (i % 11) * 0.055);
+        _waterfallPosition.z += (phase - 0.3) * (0.35 + (i % 7) * 0.045);
+        _waterfallScale.multiplyScalar(0.95 - phase * 0.5);
+      } else if (fx === "waterfall-mist") {
+        _waterfallPosition.x += Math.sin(time * 0.32 + i * 1.73) * 0.32;
+        _waterfallPosition.y += phase * 0.72;
+        _waterfallPosition.z += Math.cos(time * 0.27 + i * 0.91) * 0.22;
+        _waterfallScale.multiplyScalar(0.7 + Math.sin(phase * Math.PI) * 0.65);
+      } else if (fx === "waterfall-foam") {
+        const centerZ = Number(params.depth || 0) * 0.3;
+        const x = _waterfallPosition.x;
+        const z = _waterfallPosition.z - centerZ;
+        const angle = time * speed * 0.055 + (i % 3 === 0 ? -1 : 1) * phase * 0.16;
+        _waterfallPosition.x = x * Math.cos(angle) - z * Math.sin(angle);
+        _waterfallPosition.z = centerZ + x * Math.sin(angle) + z * Math.cos(angle);
+        _waterfallPosition.y += Math.sin(time * 1.7 + i) * 0.016;
+      }
+      _waterfallMatrix.compose(_waterfallPosition, _waterfallQuaternion, _waterfallScale);
+      mesh.setMatrixAt(i, _waterfallMatrix);
+    }
+    mesh.instanceMatrix.needsUpdate = true;
+  }
+}
+
+// Refresh per-frame view/light uniforms for every volumetric cloud in the model.
+// Camera + sun must be expressed in each mesh's local space (the space the
+// bounding sphere and march live in), so we invert each mesh's world matrix.
+const _cloudInv = new THREE.Matrix4();
+function updateCloudVolumes() {
+  modelRoot.updateMatrixWorld(true);
+  for (const o of cloudVolumeMeshes) {
+    const m = o.material;
+    if (!m || !m.userData || !m.userData.isCloudVolume) continue;
+    _cloudInv.copy(o.matrixWorld).invert();
+    m.uniforms.uCamLocal.value.copy(camera.position).applyMatrix4(_cloudInv);
+    m.uniforms.uSunLocal.value.copy(SUN_DIR).transformDirection(_cloudInv).normalize();
+  }
+}
+
 // HAIR — Marschner-style dual-highlight anisotropic shading via Kajiya-Kay. Real
 // hair has two specular lobes along the strand tangent: a primary "R" reflection
 // (shifted toward the tip, near-white) and a secondary "TRT" lobe (shifted toward
@@ -1268,6 +2166,7 @@ function buildMatcapTexture() {
 // --- NPR / cel (toon) shading ---------------------------------------------
 // Tunable cel parameters, driven by the toolbar (segments / outline width/color).
 const toonParams = { steps: 4, outline: 0.012, color: 0x12141a };
+let lowPolyGradientTex = null;
 // Optional PBR shader enhancements (global toggles, applied at material build).
 let edgeWearOn = false;
 const edgeWearOpts = { amount: 0.6, width: 1.5, tint: 0xb8b0a0 };
@@ -1277,6 +2176,9 @@ let rimOn = false;
 const rimOpts = { color: 0x88bbff, power: 3.0, strength: 0.8 };
 let fogOn = false;
 const fogOpts = { density: 0.12, height: 1.5, shaft: 0.5 };
+// Volumetric cloud rendering: on by default so cloud parts render as soft vapor
+// via raymarch instead of the hard metaball shell. Toggled by "体积云".
+let cloudVolOn = true;
 // A stepped gradient ramp turns MeshToonMaterial's diffuse falloff into hard
 // cel bands (shadow / mid / light) instead of a smooth gradient. This is the
 // "anime" look the Sketchfab data showed dominating the character category.
@@ -1297,8 +2199,18 @@ function buildToonGradient(steps = toonParams.steps) {
   return tex;
 }
 
-// An inverted-hull outline: a back-faced shell pushed out along normals in view
-// space, drawn dark. Cheap, robust, and works on any mesh without a second pass.
+function buildLowPolyGradient() {
+  const data = new Uint8Array([68, 112, 166, 224]);
+  const tex = new THREE.DataTexture(data, data.length, 1, THREE.RedFormat, THREE.UnsignedByteType);
+  tex.minFilter = THREE.NearestFilter;
+  tex.magFilter = THREE.NearestFilter;
+  tex.generateMipmaps = false;
+  tex.needsUpdate = true;
+  return tex;
+}
+
+// An inverted-hull outline: a back-faced shell expanded in clip space. Keeping
+// thickness in screen space prevents close-up or faceted meshes from exploding.
 function makeOutlineMaterial(thickness = toonParams.outline, color = toonParams.color) {
   const mat = new THREE.ShaderMaterial({
     side: THREE.BackSide,
@@ -1308,9 +2220,10 @@ function makeOutlineMaterial(thickness = toonParams.outline, color = toonParams.
       void main() {
         vec3 n = normalize(normalMatrix * normal);
         vec4 mv = modelViewMatrix * vec4(position, 1.0);
-        // Scale the push by view distance so the outline width stays even.
-        mv.xyz += n * uThickness * -mv.z;
-        gl_Position = projectionMatrix * mv;
+        vec4 clip = projectionMatrix * mv;
+        vec2 direction = normalize(n.xy + vec2(0.00001));
+        clip.xy += direction * uThickness * clip.w;
+        gl_Position = clip;
       }`,
     fragmentShader: `
       uniform vec3 uColor;
@@ -1335,6 +2248,25 @@ function makeToonMaterial(srcMat, fallbackColor, hasVColors) {
   return m;
 }
 
+function makeLowPolyMaterial(srcMat, fallbackColor, hasVColors) {
+  const material = new THREE.MeshToonMaterial({
+    gradientMap: lowPolyGradientTex,
+    flatShading: true,
+    vertexColors: !!hasVColors,
+  });
+  if (srcMat?.map) material.map = srcMat.map;
+  if (srcMat?.color) material.color = srcMat.color.clone();
+  else if (fallbackColor) material.color = new THREE.Color(fallbackColor[0], fallbackColor[1], fallbackColor[2]);
+  if (srcMat?.emissiveMap) {
+    material.emissive = new THREE.Color(0xffffff);
+    material.emissiveMap = srcMat.emissiveMap;
+  }
+  material.transparent = !!srcMat?.transparent;
+  material.opacity = srcMat?.opacity ?? 1;
+  material.alphaTest = srcMat?.alphaTest ?? 0;
+  return material;
+}
+
 
 // Apply the active debug view. Material-swap modes (normal/matcap/depth) replace
 // every part's material; 'ao' instead routes the GTAO pass to its raw AO output;
@@ -1354,6 +2286,7 @@ function applyDebugView(mode) {
     return;
   }
   if (mode === "toon") { applyToon(); resetTAA(); return; }
+  if (mode === "lowpoly") { applyLowPoly(); resetTAA(); return; }
   if (mode === "matcap" && !matcapTex) matcapTex = buildMatcapTexture();
   modelRoot.traverse((o) => {
     if (!o.isMesh) return;
@@ -1367,8 +2300,29 @@ function applyDebugView(mode) {
       o.material = new THREE.MeshMatcapMaterial({ matcap: matcapTex });
     }
     o.material.wireframe = wireframe;
+    applyPartRenderHints(o);
   });
+  refreshDynamicMeshLists();
   resetTAA();
+}
+
+function applyLowPoly() {
+  lowPolyGradientTex?.dispose?.();
+  lowPolyGradientTex = buildLowPolyGradient();
+  const keep = debugView;
+  debugView = "off";
+  applyMaterial(currentPreset, { skipPanel: true });
+  debugView = keep;
+
+  modelRoot.traverse((object) => {
+    if (!object.isMesh || object.userData.isOutline) return;
+    const material = makeLowPolyMaterial(object.material, object.userData.baseColor, object.userData.vertexColors);
+    material.wireframe = wireframe;
+    object.material.dispose?.();
+    object.material = material;
+    applyPartRenderHints(object);
+  });
+  refreshDynamicMeshLists();
 }
 
 // Remove inverted-hull outline shells added by the toon view.
@@ -1397,13 +2351,21 @@ function applyToon() {
     toon.wireframe = wireframe;
     o.material.dispose?.();
     o.material = toon;
+    applyPartRenderHints(o);
     // Outline shell shares the geometry, drawn back-faced and pushed out.
-    const outline = new THREE.Mesh(o.geometry, makeOutlineMaterial());
+    const outline = o.isInstancedMesh
+      ? new THREE.InstancedMesh(o.geometry, makeOutlineMaterial(), o.count)
+      : new THREE.Mesh(o.geometry, makeOutlineMaterial());
+    if (o.isInstancedMesh) {
+      outline.instanceMatrix.copy(o.instanceMatrix);
+      outline.instanceMatrix.needsUpdate = true;
+    }
     outline.userData.isOutline = true;
     outline.castShadow = false;
     outline.receiveShadow = false;
     o.add(outline);
   }
+  refreshDynamicMeshLists();
 }
 
 
@@ -1412,6 +2374,7 @@ function applyToon() {
 // skipPanel: don't rebuild the param DOM (avoids interrupting a drag).
 function applyMaterial(presetName, { size = 256, skipPanel = false } = {}) {
   currentPreset = presetName;
+  if (edgeWearOn) ensureCurvatureAttributes();
 
   // A material-swap debug view (normal/matcap/depth) overrides real materials.
   // Re-route to it so rebuilds/material changes keep the debug look.
@@ -1420,7 +2383,7 @@ function applyMaterial(presetName, { size = 256, skipPanel = false } = {}) {
     updateScriptPanel();
     return;
   }
-  if (debugView === "toon") { applyDebugView("toon"); updateScriptPanel(); return; }
+  if (debugView === "toon" || debugView === "lowpoly") { applyDebugView(debugView); updateScriptPanel(); return; }
 
   // "model" mode: each part wears its own matched surface material. Parts that
   // ship a surface ref get a baked MeshPhysicalMaterial (glass/metal/...);
@@ -1429,22 +2392,50 @@ function applyMaterial(presetName, { size = 256, skipPanel = false } = {}) {
   if (presetName === "model") {
     currentMatPreset = null;
     currentSurfaceName = null;
+    const surfaceMaterialCache = new Map();
+    const connectedWaterMaterialCache = new Map();
     modelRoot.traverse((o) => {
       if (!o.isMesh) return;
       o.material.dispose?.();
       const surf = o.userData.surface;
       const tex = o.userData.textures;
-      if (tex) {
+      const renderFx = String(o.userData.metadata?.renderFx || "");
+      if (renderFx === "planet-ocean") {
+        o.material = makePlanetOceanMaterial(o, o.userData.metadata || {});
+      } else if (renderFx === "planet-atmosphere") {
+        o.material = makePlanetAtmosphereMaterial(o, o.userData.metadata || {});
+      } else if (renderFx.startsWith("waterfall-")) {
+        o.material = makeWaterfallFxMaterial(o, renderFx, o.userData.metadata || {});
+      } else if (tex) {
         o.material = makePartMaterial(o.userData.baseColor || [0.8, 0.8, 0.8], o.userData.vertexColors, tex);
         if (edgeWearOn) attachEdgeWear(o.material, edgeWearOpts);
         if (pomOn) attachPOM(o.material, pomOpts);
         if (rimOn) attachRimLight(o.material, rimOpts);
+      } else if (surf && surf.type === "cloud" && cloudVolOn) {
+        // Volumetric path: cloud parts raymarch into soft vapor instead of
+        // wearing the hard metaball shell as a physical surface.
+        o.material = makeCloudVolumeMaterial(o, surf.params || {});
+      } else if (surf && surf.type === "water") {
+        const ov = surfaceOverrides[o.name];
+        const ref = ov ? { type: "water", params: { ...(surf.params || {}), ...ov } } : surf;
+        const waterSystem = !ov && o.userData.metadata?.waterSystem;
+        if (waterSystem) {
+          const key = `${waterSystem}|${JSON.stringify(ref.params || {})}`;
+          let material = connectedWaterMaterialCache.get(key);
+          if (!material) {
+            material = bakeWaterSurface(ref, size, o.userData.baseColor || [0.1, 0.35, 0.42]);
+            connectedWaterMaterialCache.set(key, material);
+          }
+          o.material = material;
+        } else {
+          o.material = bakeWaterSurface(ref, size, o.userData.baseColor || [0.1, 0.35, 0.42]);
+        }
       } else if (surf) {
         // Merge any live per-part override onto the part's own surface params,
         // so the right panel retunes this exact matched material.
         const ov = surfaceOverrides[o.name];
         const ref = ov ? { type: surf.type, params: { ...(surf.params || {}), ...ov } } : surf;
-        const m = bakeSurface(ref, size, o.userData.baseColor || [0.8, 0.8, 0.8]);
+        const m = cachedSurfaceMaterial(surfaceMaterialCache, ref, size, o.userData.baseColor || [0.8, 0.8, 0.8]);
         // If the part also ships per-vertex colors (e.g. a triplanar-baked rock),
         // let those drive the albedo and keep only the surface's roughness/normal/
         // ao质感: drop the UV-space color map (which would stretch on unwrapped
@@ -1467,10 +2458,12 @@ function applyMaterial(presetName, { size = 256, skipPanel = false } = {}) {
       }
       o.material.wireframe = wireframe;
       ensureWind(o);
+      applyPartRenderHints(o);
     });
     if (!skipPanel) renderMatPanel();
     applySelectionHighlight();
     updateScriptPanel();
+    refreshDynamicMeshLists();
     return;
   }
 
@@ -1485,7 +2478,9 @@ function applyMaterial(presetName, { size = 256, skipPanel = false } = {}) {
       currentSurfaceName = presetName;
       currentSurfaceParams = defaultSurfaceParams(presetName);
     }
-    const shared = bakeSurface({ type: presetName, params: { ...currentSurfaceParams } }, size);
+    const shared = presetName === "water"
+      ? bakeWaterSurface({ type: "water", params: { ...currentSurfaceParams } }, size)
+      : bakeSurface({ type: presetName, params: { ...currentSurfaceParams } }, size);
     if (shared && edgeWearOn) attachEdgeWear(shared, edgeWearOpts);
     if (shared && pomOn) attachPOM(shared, pomOpts);
     if (shared && rimOn) attachRimLight(shared, rimOpts);
@@ -1497,10 +2492,12 @@ function applyMaterial(presetName, { size = 256, skipPanel = false } = {}) {
       if (presetName === "hair" && o.material) attachHair(o.material);
       o.material.wireframe = wireframe;
       ensureWind(o);
+      applyPartRenderHints(o);
     });
     if (!skipPanel) renderMatPanel();
     applySelectionHighlight();
     updateScriptPanel();
+    refreshDynamicMeshLists();
     return;
   }
   currentSurfaceName = null;
@@ -1532,10 +2529,12 @@ function applyMaterial(presetName, { size = 256, skipPanel = false } = {}) {
     }
     o.material.wireframe = wireframe;
     ensureWind(o);
+    applyPartRenderHints(o);
   });
   if (!skipPanel) renderMatPanel();
   applySelectionHighlight();
   updateScriptPanel();
+  refreshDynamicMeshLists();
 }
 
 /**
@@ -1551,8 +2550,46 @@ function ensureWind(o) {
   }
 }
 
+function refreshDynamicMeshLists() {
+  windMeshes = [];
+  cloudVolumeMeshes = [];
+  waterfallFxMeshes = [];
+  waterSurfaceMeshes = [];
+  modelRoot.traverse((o) => {
+    if (!o.isMesh || o.userData.isOutline) return;
+    if (o.userData.hasWind) windMeshes.push(o);
+    if (o.material?.userData?.isCloudVolume) cloudVolumeMeshes.push(o);
+    if (o.material?.userData?.isWaterfallFx) waterfallFxMeshes.push(o);
+    if (o.material?.userData?.isWaterSurface) waterSurfaceMeshes.push(o);
+  });
+}
+
+function updateWaterSurfaceFx(time) {
+  for (const mesh of waterSurfaceMeshes) {
+    const material = mesh.material;
+    if (!material?.userData?.isWaterSurface) continue;
+    material.userData.waterTime = time;
+    const uniforms = material.userData.waterUniforms;
+    if (uniforms?.uWaterTime) uniforms.uWaterTime.value = time;
+    if (uniforms?.uWaterSceneDepth) uniforms.uWaterSceneDepth.value = fogDepthRT.texture;
+    if (uniforms?.uWaterDepthResolution) uniforms.uWaterDepthResolution.value.set(fogDepthRT.width, fogDepthRT.height);
+    if (uniforms?.uWaterCameraNear) uniforms.uWaterCameraNear.value = camera.near;
+    if (uniforms?.uWaterCameraFar) uniforms.uWaterCameraFar.value = camera.far;
+    if (uniforms?.uWaterDepthAvailable) uniforms.uWaterDepthAvailable.value = 1;
+  }
+}
+
 let lastSize = new THREE.Vector3(3, 3, 3);
+function updateCameraClipPlanes() {
+  const camDist = camera.position.distanceTo(controls.target);
+  const r = Math.max(lastSize.x, lastSize.y, lastSize.z);
+  camera.near = Math.max(0.05, (camDist - r * 2) * 0.5);
+  camera.far = Math.max(camera.near + 1, (camDist + r * 3) * 2);
+  camera.updateProjectionMatrix();
+}
+
 function fitView(view, size) {
+  if (view && ["persp", "front", "side", "top"].includes(view)) currentView = view;
   if (size) lastSize = size.clone();
   const s = lastSize;
   const r = Math.max(s.x, s.y, s.z);
@@ -1567,8 +2604,22 @@ function fitView(view, size) {
   const p = targets[view] || targets.persp;
   camera.position.set(p[0], p[1], p[2]);
   controls.target.set(0, cy, 0);
+  // Adapt clip planes to the model size so large models (terrain/tracks) aren't
+  // culled by a fixed far plane. Keep a generous margin around the fit distance.
+  updateCameraClipPlanes();
   controls.update();
   // Keep DOF focused on the model center (distance from camera to target).
+  if (bokeh) bokeh.uniforms["focus"].value = camera.position.distanceTo(controls.target);
+  resetTAA();
+}
+
+function zoomCamera(factor) {
+  const f = Math.max(0.1, Number(factor) || 1);
+  const offset = new THREE.Vector3().subVectors(camera.position, controls.target);
+  offset.multiplyScalar(1 / f);
+  camera.position.copy(controls.target).add(offset);
+  updateCameraClipPlanes();
+  controls.update();
   if (bokeh) bokeh.uniforms["focus"].value = camera.position.distanceTo(controls.target);
   resetTAA();
 }
@@ -1610,6 +2661,7 @@ function renderPartList(parts) {
     row.append(sw, name);
     row.onclick = () => {
       selectedPart = selectedPart === part.name ? null : part.name;
+      if (selectedPart && drawableBindingSpec()) setBindingEditEnabled(true);
       renderPartList(parts);
       applySelectionHighlight();
       renderMatPanel();
@@ -1620,8 +2672,12 @@ function renderPartList(parts) {
 }
 
 function updateMeta() {
+  const perfLabel = activePerfTier === "fast" ? "快速" : activePerfTier === "balanced" ? "均衡" : "质量";
+  const instanceLabel = lastMeta.gpuInstances > 0
+    ? ` · GPU实例 <b>${lastMeta.gpuInstances}</b> · GPU顶点 <b>${lastMeta.gpuVerts}</b>`
+    : "";
   document.getElementById("meta").innerHTML =
-    `部件 <b>${lastMeta.parts}</b> · 顶点 <b>${lastMeta.verts}</b> · 三角面 <b>${lastMeta.tris}</b>`;
+    `部件 <b>${lastMeta.parts}</b> · 顶点 <b>${lastMeta.verts}</b> · 三角面 <b>${lastMeta.tris}</b>${instanceLabel} · 渲染 <b>${perfLabel}</b>`;
 }
 
 // ---- script inspector ----
@@ -1754,10 +2810,10 @@ async function buildScriptText() {
     ].join("\n");
   }
 
-  if (currentModel && currentModel.id === "semantic-live") {
+  if (currentModel?.semanticRuntime) {
     return [
       ...header,
-      "// 来源: 当前 Meshova 运行时部件",
+      `// 来源: ${currentModel.sourceName || "ViewerModel"}`,
       "// 类型: SemanticMeshModel + 部件级程序化变形控制器",
       "",
       `const params = ${paramsText};`,
@@ -1845,6 +2901,7 @@ const SEMANTIC_GLOBAL_SCHEMA = [
   { key: "scaleY", label: "整体Y缩放", min: 0.5, max: 1.8, step: 0.01, default: 1 },
   { key: "scaleZ", label: "整体Z缩放", min: 0.5, max: 1.8, step: 0.01, default: 1 },
 ];
+const SEMANTIC_PARAM_PART_LIMIT = 12;
 
 function semanticPartParamKey(partName, suffix) {
   return `part:${partName}:${suffix}`;
@@ -1868,12 +2925,19 @@ function makeSemanticParamSpec(part, i, suffix, label, min, max, step, defaultVa
   };
 }
 
-function semanticParamSchema(parts) {
+function isSemanticSupportSurface(part) {
+  const text = `${part.name || ""} ${part.metadata?.role || ""}`.toLowerCase();
+  return /(^|[_\s-])(terrain|ground|landscape|floor|地形|地面)([_\s-]|$)/.test(text);
+}
+
+function semanticParamSchema(parts, { maxParts = SEMANTIC_PARAM_PART_LIMIT } = {}) {
   const ranked = [...parts]
     .map((part, i) => ({ part, i, tris: part.mesh.indices.length / 3, verts: part.mesh.positions.length }))
+    .filter(({ part }) => !isSemanticSupportSurface(part))
     .sort((a, b) => b.tris - a.tris || b.verts - a.verts);
   const schema = [...SEMANTIC_GLOBAL_SCHEMA];
-  for (const { part, i } of ranked) {
+  const selected = Number.isFinite(maxParts) ? ranked.slice(0, Math.max(0, Math.round(maxParts))) : ranked;
+  for (const { part, i } of selected) {
     schema.push(
       makeSemanticParamSpec(part, i, "length", "拉长", 0.45, 1.8, 0.01, 1),
       makeSemanticParamSpec(part, i, "thickness", "变粗", 0.45, 1.8, 0.01, 1),
@@ -1920,6 +2984,33 @@ function normalizeViewerSemanticAnalysis(analysis) {
 function trustedPartLabel(part) {
   const source = part.metadata?.labelSource;
   return source === "ai" || source === "explicit" || source === "user";
+}
+
+function remapSemanticVertexAttribute(model, semanticPart, values, itemSize) {
+  if (!semanticPart || !Array.isArray(values) || values.length !== semanticPart.vertices.length * itemSize) {
+    return values;
+  }
+  const vertexSet = new Set(semanticPart.vertices);
+  const localIndex = new Map(semanticPart.vertices.map((vertex, index) => [vertex, index]));
+  const ordered = [];
+  const seen = new Set();
+  for (let i = 0; i < model.mesh.indices.length; i += 3) {
+    const triangle = [model.mesh.indices[i], model.mesh.indices[i + 1], model.mesh.indices[i + 2]];
+    if (!triangle.every((vertex) => vertexSet.has(vertex))) continue;
+    for (const vertex of triangle) {
+      if (seen.has(vertex)) continue;
+      seen.add(vertex);
+      ordered.push(vertex);
+    }
+  }
+  const remapped = new Array(ordered.length * itemSize);
+  for (let outputIndex = 0; outputIndex < ordered.length; outputIndex++) {
+    const sourceIndex = localIndex.get(ordered[outputIndex]);
+    for (let component = 0; component < itemSize; component++) {
+      remapped[outputIndex * itemSize + component] = values[sourceIndex * itemSize + component];
+    }
+  }
+  return remapped;
 }
 
 function buildSemanticLiveModel(sourceParts, name = "语义网格实时变形", prompt = "", options = {}) {
@@ -1972,11 +3063,13 @@ function buildSemanticLiveModel(sourceParts, name = "语义网格实时变形", 
       };
     });
   }
-  const schema = semanticParamSchema(baseParts);
+  const schema = semanticParamSchema(baseParts, { maxParts: options.maxParts ?? SEMANTIC_PARAM_PART_LIMIT });
   const axes = new Map(baseParts.map((part) => [part.name, semanticLongestAxis(part)]));
   return {
-    id: "semantic-live",
+    id: options.id || "semantic-live",
     name,
+    semanticRuntime: true,
+    sourceName: options.sourceName || name,
     schema,
     defaultParams: () => defaultParamsFromSchema(schema),
     build(params) {
@@ -2008,26 +3101,60 @@ function buildSemanticLiveModel(sourceParts, name = "语义网格实时变形", 
       return out.map((part, i) => ({
         ...part,
         color: baseParts[i]?.color || part.color,
+        colors: remapSemanticVertexAttribute(deformed, deformed.parts[i], baseParts[i]?.colors, 3) || part.colors,
+        windWeight: remapSemanticVertexAttribute(deformed, deformed.parts[i], baseParts[i]?.windWeight, 1) || part.windWeight,
         surface: baseParts[i]?.surface || part.surface,
         textures: baseParts[i]?.textures || part.textures,
+        doubleSided: baseParts[i]?.doubleSided || part.doubleSided,
+        metadata: baseParts[i]?.metadata || part.metadata,
       }));
     },
   };
 }
 
-function loadViewerModel(model) {
+function sourceIdFromViewerModel(model, fallback = "") {
+  const raw = fallback || model?.id || model?.name || "runtime";
+  const file = String(raw).replace(/^\/+/, "").split(/[\\/]/).pop() || "runtime";
+  return file.replace(/\.json$/i, "") || "runtime";
+}
+
+async function loadViewerModel(model, options = {}) {
+  const loadStart = performance.now();
+  const loadingToken = options.showLoading === false
+    ? 0
+    : await showGenerationLoading(options.loadingLabel || `生成 ${(model && model.name) || "AI模型"}`);
   rebuildToken++;
-  currentModel = null;
-  currentParams = null;
-  currentLoadedSource = model && typeof model.source === "string" ? model.source : null;
-  currentLoadedSourceName = (model && model.name) || "AI模型";
-  selectedPart = null;
-  surfaceOverrides = {};
-  renderParamPanel();
-  const parts = viewerModelToNamedParts(model);
-  buildParts(parts, { keepCamera: false });
-  errEl.style.display = "none";
-  if (hud) hud.textContent = `${(model && model.name) || "AI模型"} · ${parts.length}件`;
+  try {
+    const parts = viewerModelToNamedParts(model);
+    if (options.parametrize !== false && parts.length) {
+      const id = options.id || sourceIdFromViewerModel(model);
+      const name = options.name || (model && model.name) || id || "AI模型";
+      const proc = buildSemanticLiveModel(parts, name, name, {
+        id,
+        sourceName: name,
+        analysis: semanticAnalysisFromModel(model, options.entry),
+        maxParts: options.maxParts ?? SEMANTIC_PARAM_PART_LIMIT,
+      });
+      const loaded = await loadProcModel(proc, { loadingLabel: options.loadingLabel || `生成 ${name}` });
+      recordModelTiming(proc, performance.now() - loadStart);
+      return loaded;
+    }
+    currentModel = null;
+    currentParams = null;
+    currentBindings = {};
+    resetBindingEditorState();
+    currentLoadedSource = model && typeof model.source === "string" ? model.source : null;
+    currentLoadedSourceName = (model && model.name) || "AI模型";
+    selectedPart = null;
+    surfaceOverrides = {};
+    renderParamPanel();
+    syncDrawableUi();
+    await buildParts(parts, { keepCamera: false });
+    errEl.style.display = "none";
+    if (hud) hud.textContent = `${(model && model.name) || "AI模型"} · ${parts.length}件`;
+  } finally {
+    if (loadingToken) hideGenerationLoading(loadingToken);
+  }
 }
 
 function semanticSplitTargetIndex(parts) {
@@ -2437,12 +3564,15 @@ async function autoTPoseCurrent(options = {}) {
   rebuildToken++;
   currentModel = null;
   currentParams = null;
+  currentBindings = {};
+  resetBindingEditorState();
   currentLoadedSource = null;
   currentLoadedSourceName = "T-Pose 规范化模型";
   selectedPart = null;
   surfaceOverrides = {};
   renderParamPanel();
-  buildParts(res.parts, { keepCamera: false });
+  syncDrawableUi();
+  await buildParts(res.parts, { keepCamera: false });
   if (hud) {
     const pct = Math.round(res.confidence * 100);
     const diag = res.diagnostics.length ? ` · ${res.diagnostics.join(", ")}` : "";
@@ -2452,36 +3582,768 @@ async function autoTPoseCurrent(options = {}) {
 }
 
 // ---- procedural model loading + live params ----
-async function rebuild({ keepCamera = true } = {}) {
-  if (!currentModel) return;
-  const token = ++rebuildToken;
-  try {
-    const parts = await currentModel.build(currentParams);
-    if (token !== rebuildToken) return;
-    errEl.style.display = "none";
-    buildParts(parts, { keepCamera });
-  } catch (e) {
-    if (token !== rebuildToken) return;
-    fail("构建模型出错: " + (e?.message || e));
+function workflowBindingSpecs(model = currentModel) {
+  return model?.workflowPreset?.bindings || [];
+}
+
+function drawableBindingSpec(model = currentModel) {
+  return workflowBindingSpecs(model).find((spec) => {
+    if (spec.kind === "curve" || spec.kind === "region") return true;
+    return spec.kind === "surface" && Array.isArray(spec.default?.points);
+  }) || null;
+}
+
+function defaultBindingsFor(model) {
+  const out = {};
+  for (const spec of workflowBindingSpecs(model)) {
+    if (Object.prototype.hasOwnProperty.call(spec, "default")) out[spec.key] = cloneSerializable(spec.default);
+  }
+  return out;
+}
+
+function bindingPointCount(spec = drawableBindingSpec()) {
+  return spec ? currentBindings[spec.key]?.points?.length || 0 : 0;
+}
+
+function bindingIsClosed(spec) {
+  return spec?.kind === "region" || spec?.kind === "surface";
+}
+
+function currentDrawableBinding(spec = drawableBindingSpec()) {
+  if (!spec) return null;
+  if (activeDrawing?.spec.key === spec.key) {
+    return { kind: spec.kind, points: activeDrawing.points, closed: bindingIsClosed(spec) };
+  }
+  return currentBindings[spec.key] || null;
+}
+
+function setBindingPointer(event) {
+  const rect = renderer.domElement.getBoundingClientRect();
+  bindingPointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+  bindingPointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+  bindingRaycaster.setFromCamera(bindingPointer, camera);
+}
+
+function localBindingPointFromEvent(event) {
+  setBindingPointer(event);
+  bindingPlane.constant = -modelRoot.position.y;
+  const hit = new THREE.Vector3();
+  if (!bindingRaycaster.ray.intersectPlane(bindingPlane, hit)) return null;
+  return [
+    Number((hit.x - modelRoot.position.x).toFixed(4)),
+    0,
+    Number((hit.z - modelRoot.position.z).toFixed(4)),
+  ];
+}
+
+function disposeOverlayObject(object) {
+  object.traverse((child) => {
+    child.geometry?.dispose?.();
+    if (Array.isArray(child.material)) child.material.forEach((material) => material?.dispose?.());
+    else child.material?.dispose?.();
+  });
+}
+
+function clearBindingOverlay() {
+  for (const child of [...bindingOverlay.children]) {
+    bindingOverlay.remove(child);
+    disposeOverlayObject(child);
   }
 }
 
-function loadProcModel(model, { resetParams = true } = {}) {
+function bindingBounds(points) {
+  if (!points.length) return null;
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minZ = Infinity;
+  let maxZ = -Infinity;
+  for (const point of points) {
+    minX = Math.min(minX, Number(point[0]));
+    maxX = Math.max(maxX, Number(point[0]));
+    minZ = Math.min(minZ, Number(point[2]));
+    maxZ = Math.max(maxZ, Number(point[2]));
+  }
+  return { minX, maxX, minZ, maxZ };
+}
+
+function addBindingLine(worldPoints, closed, color, opacity = 1) {
+  if (worldPoints.length < 2) return null;
+  const geometry = new THREE.BufferGeometry().setFromPoints(worldPoints);
+  const material = new THREE.LineBasicMaterial({ color, depthTest: false, transparent: true, opacity });
+  const line = closed && worldPoints.length >= 3
+    ? new THREE.LineLoop(geometry, material)
+    : new THREE.Line(geometry, material);
+  line.renderOrder = 1000;
+  line.userData.bindingPath = true;
+  bindingOverlay.add(line);
+  return line;
+}
+
+function addRegionSurface(worldPoints) {
+  if (worldPoints.length < 3) return;
+  const contour = worldPoints.map((point) => new THREE.Vector2(point.x, point.z));
+  const triangles = THREE.ShapeUtils.triangulateShape(contour, []);
+  if (!triangles.length) return;
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.Float32BufferAttribute(
+    worldPoints.flatMap((point) => [point.x, point.y - 0.025, point.z]),
+    3,
+  ));
+  geometry.setIndex(triangles.flat());
+  const material = new THREE.MeshBasicMaterial({
+    color: 0x19c6ff,
+    side: THREE.DoubleSide,
+    depthTest: false,
+    depthWrite: false,
+    transparent: true,
+    opacity: bindingEditEnabled ? 0.16 : 0.08,
+  });
+  const surface = new THREE.Mesh(geometry, material);
+  surface.renderOrder = 998;
+  surface.userData.bindingSurface = true;
+  bindingOverlay.add(surface);
+}
+
+function addBindingHandle(position, size, color, userData, shape = "sphere") {
+  const geometry = shape === "box"
+    ? new THREE.BoxGeometry(size * 1.45, size * 0.55, size * 1.45)
+    : new THREE.SphereGeometry(size, 16, 10);
+  const material = new THREE.MeshBasicMaterial({ color, depthTest: false, transparent: true, opacity: 0.98 });
+  const handle = new THREE.Mesh(geometry, material);
+  handle.position.copy(position);
+  handle.renderOrder = 1002;
+  handle.userData.bindingHandle = userData;
+  bindingOverlay.add(handle);
+  return handle;
+}
+
+function updateBindingOverlay() {
+  clearBindingOverlay();
+  const spec = drawableBindingSpec();
+  if (!spec) return;
+  const binding = currentDrawableBinding(spec);
+  const points = binding?.points || [];
+  if (!points.length) return;
+  const worldPoints = points.map((point) => new THREE.Vector3(
+    Number(point[0]) + modelRoot.position.x,
+    Number(point[1]) + modelRoot.position.y + 0.055,
+    Number(point[2]) + modelRoot.position.z,
+  ));
+  const closed = binding.closed || bindingIsClosed(spec);
+  if (closed) addRegionSurface(worldPoints);
+  addBindingLine(worldPoints, closed, 0x19c6ff, 0.95);
+
+  if (!bindingEditEnabled && !activeDrawing) {
+    const pointGeometry = new THREE.BufferGeometry().setFromPoints(worldPoints);
+    const pointMaterial = new THREE.PointsMaterial({ color: 0xffffff, size: 7, sizeAttenuation: false, depthTest: false });
+    const pointCloud = new THREE.Points(pointGeometry, pointMaterial);
+    pointCloud.renderOrder = 1001;
+    bindingOverlay.add(pointCloud);
+    return;
+  }
+
+  const bounds = bindingBounds(points);
+  const span = bounds ? Math.max(bounds.maxX - bounds.minX, bounds.maxZ - bounds.minZ) : 1;
+  const handleSize = Math.max(0.08, Math.min(0.32, span * 0.018));
+  worldPoints.forEach((point, index) => {
+    addBindingHandle(point, handleSize * (index === selectedBindingPoint ? 1.32 : 1),
+      index === selectedBindingPoint ? 0xffd34d : 0xffffff,
+      { type: "point", index });
+  });
+  if (!bindingEditEnabled || !bounds || points.length < 2) return;
+
+  const y = modelRoot.position.y + 0.09;
+  const corners = [
+    [bounds.minX, bounds.minZ, bounds.maxX, bounds.maxZ],
+    [bounds.maxX, bounds.minZ, bounds.minX, bounds.maxZ],
+    [bounds.maxX, bounds.maxZ, bounds.minX, bounds.minZ],
+    [bounds.minX, bounds.maxZ, bounds.maxX, bounds.minZ],
+  ];
+  const boxWorld = corners.map(([x, z]) => new THREE.Vector3(x + modelRoot.position.x, y, z + modelRoot.position.z));
+  const boundsLine = addBindingLine(boxWorld, true, 0xf3b33d, 0.72);
+  if (boundsLine) boundsLine.userData.bindingPath = false;
+  corners.forEach(([x, z, anchorX, anchorZ], index) => {
+    addBindingHandle(
+      new THREE.Vector3(x + modelRoot.position.x, y, z + modelRoot.position.z),
+      handleSize * 0.82,
+      0xf3b33d,
+      { type: "scale", index, anchor: [anchorX, 0, anchorZ], corner: [x, 0, z] },
+      "box",
+    );
+  });
+  addBindingHandle(
+    new THREE.Vector3((bounds.minX + bounds.maxX) * 0.5 + modelRoot.position.x, y, (bounds.minZ + bounds.maxZ) * 0.5 + modelRoot.position.z),
+    handleSize,
+    0x55d68b,
+    { type: "translate" },
+    "box",
+  );
+  const centerX = (bounds.minX + bounds.maxX) * 0.5;
+  const centerZ = (bounds.minZ + bounds.maxZ) * 0.5;
+  const rotateOffset = Math.max(handleSize * 4.5, span * 0.12);
+  const rotateBase = new THREE.Vector3(centerX + modelRoot.position.x, y, bounds.minZ + modelRoot.position.z);
+  const rotatePoint = new THREE.Vector3(centerX + modelRoot.position.x, y, bounds.minZ - rotateOffset + modelRoot.position.z);
+  const rotateLine = addBindingLine([rotateBase, rotatePoint], false, 0xff7a45, 0.9);
+  if (rotateLine) rotateLine.userData.bindingPath = false;
+  addBindingHandle(
+    rotatePoint,
+    handleSize * 0.9,
+    0xff7a45,
+    { type: "rotate", center: [centerX, 0, centerZ] },
+  );
+}
+
+function bindingEditorState() {
+  const rect = renderer.domElement.getBoundingClientRect();
+  const handles = [];
+  bindingOverlay.updateMatrixWorld(true);
+  bindingOverlay.traverse((object) => {
+    const handle = object.userData?.bindingHandle;
+    if (!handle) return;
+    const world = new THREE.Vector3();
+    object.getWorldPosition(world);
+    const projected = world.clone().project(camera);
+    handles.push({
+      ...cloneSerializable(handle),
+      world: world.toArray(),
+      screen: [
+        rect.left + (projected.x + 1) * rect.width * 0.5,
+        rect.top + (1 - projected.y) * rect.height * 0.5,
+      ],
+    });
+  });
+  return {
+    enabled: bindingEditEnabled,
+    drawing: !!activeDrawing,
+    selectedPoint: selectedBindingPoint,
+    binding: cloneSerializable(currentDrawableBinding()),
+    handles,
+    hasSurface: bindingOverlay.children.some((object) => !!object.userData?.bindingSurface),
+  };
+}
+
+function resetBindingEditorState() {
+  activeDrawing = null;
+  bindingEditEnabled = false;
+  selectedBindingPoint = -1;
+  bindingDrag = null;
+  bindingUndoStack = [];
+  bindingRedoStack = [];
+  controls.enabled = true;
+  renderer.domElement.classList.remove("binding-drag");
+}
+
+function setBindingEditEnabled(enabled) {
+  if (!drawableBindingSpec() || activeDrawing) return false;
+  bindingEditEnabled = !!enabled;
+  if (!bindingEditEnabled) selectedBindingPoint = -1;
+  syncDrawableUi();
+  return bindingEditEnabled;
+}
+
+function bindingLabel(spec) {
+  if (spec?.kind === "surface") return "曲面";
+  return spec?.kind === "region" ? "区域" : "路径";
+}
+
+function syncDrawableUi() {
+  const spec = drawableBindingSpec();
+  if (!drawBindingBtn || !editBindingBtn || !resetBindingBtn) return;
+  const visible = !!spec;
+  if (drawToolsEl) drawToolsEl.style.display = visible ? "" : "none";
+  editBindingBtn.style.display = visible ? "" : "none";
+  drawBindingBtn.style.display = visible ? "" : "none";
+  resetBindingBtn.style.display = visible ? "" : "none";
+  drawBindingBtn.classList.toggle("on", !!activeDrawing);
+  editBindingBtn.classList.toggle("on", bindingEditEnabled);
+  editBindingBtn.textContent = `${bindingEditEnabled ? "完成" : "编辑"}${bindingLabel(spec)}`;
+  drawBindingBtn.textContent = activeDrawing
+    ? "完成绘制"
+    : `重绘${bindingLabel(spec)}`;
+  if (undoBindingBtn) undoBindingBtn.disabled = !bindingUndoStack.length;
+  if (redoBindingBtn) redoBindingBtn.disabled = !bindingRedoStack.length;
+  if (drawStatusEl) {
+    drawStatusEl.classList.toggle("show", visible);
+    drawStatusEl.textContent = !spec
+      ? ""
+      : activeDrawing
+        ? `${spec.label} · 单击加点 · ${activeDrawing.points.length} 点 · 点击“完成绘制”结束`
+        : bindingDrag
+          ? `${spec.label} · 正在修改，松开鼠标应用并重建`
+          : bindingEditEnabled
+            ? `${spec.label} · 拖点改形 · 双击线段加点 · Delete删点 · 绿色平移 · 黄色缩放 · 橙色旋转 · Shift等比`
+            : `${spec.label} · ${bindingPointCount(spec)} 点 · 点击模型或“编辑${bindingLabel(spec)}”修改`;
+  }
+  renderer.domElement.classList.toggle("drawing", !!activeDrawing);
+  renderer.domElement.classList.toggle("binding-edit", bindingEditEnabled);
+  updateBindingOverlay();
+}
+
+function pushBindingHistory(previous) {
+  bindingUndoStack.push(cloneSerializable(previous));
+  if (bindingUndoStack.length > 50) bindingUndoStack.shift();
+  bindingRedoStack = [];
+}
+
+function applyBindingHistoryValue(spec, value) {
+  if (value == null) delete currentBindings[spec.key];
+  else currentBindings[spec.key] = cloneSerializable(value);
+  selectedBindingPoint = -1;
+  renderParamPanel();
+  syncDrawableUi();
+  rebuildAfterParamChange({ keepCamera: true });
+}
+
+function undoBindingEdit() {
+  const spec = drawableBindingSpec();
+  if (!spec || !bindingUndoStack.length || activeDrawing || bindingDrag) return false;
+  bindingRedoStack.push(cloneSerializable(currentBindings[spec.key]));
+  applyBindingHistoryValue(spec, bindingUndoStack.pop());
+  return true;
+}
+
+function redoBindingEdit() {
+  const spec = drawableBindingSpec();
+  if (!spec || !bindingRedoStack.length || activeDrawing || bindingDrag) return false;
+  bindingUndoStack.push(cloneSerializable(currentBindings[spec.key]));
+  applyBindingHistoryValue(spec, bindingRedoStack.pop());
+  return true;
+}
+
+function beginBindingDrawing() {
+  const spec = drawableBindingSpec();
+  if (!spec) return false;
+  bindingEditEnabled = false;
+  selectedBindingPoint = -1;
+  activeDrawing = {
+    spec,
+    points: [],
+    previous: cloneSerializable(currentBindings[spec.key]),
+  };
+  controls.enabled = false;
+  syncDrawableUi();
+  return true;
+}
+
+function finishBindingDrawing() {
+  if (!activeDrawing) return false;
+  const { spec, points, previous } = activeDrawing;
+  const minimum = spec.kind === "curve" ? 2 : 3;
+  currentBindings[spec.key] = points.length >= minimum
+    ? { kind: spec.kind, points: points.map((point) => [...point]), closed: bindingIsClosed(spec) }
+    : previous;
+  activeDrawing = null;
+  controls.enabled = true;
+  if (points.length >= minimum) {
+    pushBindingHistory(previous);
+    bindingEditEnabled = true;
+  }
+  renderParamPanel();
+  syncDrawableUi();
+  if (points.length >= minimum) rebuildAfterParamChange({ keepCamera: true });
+  return points.length >= minimum;
+}
+
+function cancelBindingDrawing() {
+  if (!activeDrawing) return false;
+  currentBindings[activeDrawing.spec.key] = activeDrawing.previous;
+  activeDrawing = null;
+  controls.enabled = true;
+  syncDrawableUi();
+  return true;
+}
+
+function resetDrawableBinding() {
+  const spec = drawableBindingSpec();
+  if (!spec) return;
+  cancelBindingDrawing();
+  const previous = cloneSerializable(currentBindings[spec.key]);
+  const defaults = defaultBindingsFor(currentModel);
+  if (Object.prototype.hasOwnProperty.call(defaults, spec.key)) currentBindings[spec.key] = defaults[spec.key];
+  else delete currentBindings[spec.key];
+  pushBindingHistory(previous);
+  selectedBindingPoint = -1;
+  renderParamPanel();
+  syncDrawableUi();
+  rebuildAfterParamChange({ keepCamera: true });
+}
+
+function addDrawingPoint(event) {
+  if (!activeDrawing || event.button !== 0) return;
+  const point = localBindingPointFromEvent(event);
+  if (!point) return;
+  activeDrawing.points.push(point);
+  syncDrawableUi();
+}
+
+function bindingOverlayHit(event) {
+  setBindingPointer(event);
+  return bindingRaycaster.intersectObjects(bindingOverlay.children, true)[0] || null;
+}
+
+function startBindingDrag(event) {
+  if (!bindingEditEnabled || activeDrawing || event.button !== 0) return false;
+  const hit = bindingOverlayHit(event);
+  const handle = hit?.object?.userData?.bindingHandle;
+  if (!handle) return false;
+  const spec = drawableBindingSpec();
+  const binding = currentBindings[spec.key];
+  const startPoint = localBindingPointFromEvent(event);
+  if (!binding?.points?.length || !startPoint) return false;
+  selectedBindingPoint = handle.type === "point" ? handle.index : -1;
+  bindingDrag = {
+    ...cloneSerializable(handle),
+    spec,
+    startPoint,
+    original: cloneSerializable(binding),
+  };
+  controls.enabled = false;
+  renderer.domElement.classList.add("binding-drag");
+  renderer.domElement.setPointerCapture?.(event.pointerId);
+  event.preventDefault();
+  event.stopPropagation();
+  syncDrawableUi();
+  return true;
+}
+
+function moveBindingDrag(event) {
+  if (!bindingDrag) return;
+  const point = localBindingPointFromEvent(event);
+  if (!point) return;
+  const next = cloneSerializable(bindingDrag.original);
+  if (bindingDrag.type === "point") {
+    next.points[bindingDrag.index] = [point[0], next.points[bindingDrag.index][1] || 0, point[2]];
+  } else if (bindingDrag.type === "translate") {
+    const dx = point[0] - bindingDrag.startPoint[0];
+    const dz = point[2] - bindingDrag.startPoint[2];
+    next.points = next.points.map((source) => [source[0] + dx, source[1] || 0, source[2] + dz]);
+  } else if (bindingDrag.type === "scale") {
+    const anchor = bindingDrag.anchor;
+    const corner = bindingDrag.corner;
+    let sx = Math.abs(corner[0] - anchor[0]) < 1e-6 ? 1 : (point[0] - anchor[0]) / (corner[0] - anchor[0]);
+    let sz = Math.abs(corner[2] - anchor[2]) < 1e-6 ? 1 : (point[2] - anchor[2]) / (corner[2] - anchor[2]);
+    if (event.shiftKey) {
+      const uniform = Math.abs(sx) >= Math.abs(sz) ? sx : sz;
+      sx = uniform;
+      sz = uniform;
+    }
+    next.points = next.points.map((source) => [
+      anchor[0] + (source[0] - anchor[0]) * sx,
+      source[1] || 0,
+      anchor[2] + (source[2] - anchor[2]) * sz,
+    ]);
+  } else if (bindingDrag.type === "rotate") {
+    const center = bindingDrag.center;
+    const startAngle = Math.atan2(bindingDrag.startPoint[2] - center[2], bindingDrag.startPoint[0] - center[0]);
+    const angle = Math.atan2(point[2] - center[2], point[0] - center[0]) - startAngle;
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
+    next.points = next.points.map((source) => {
+      const dx = source[0] - center[0];
+      const dz = source[2] - center[2];
+      return [center[0] + dx * cos - dz * sin, source[1] || 0, center[2] + dx * sin + dz * cos];
+    });
+  }
+  currentBindings[bindingDrag.spec.key] = next;
+  syncDrawableUi();
+}
+
+function finishBindingDrag(event) {
+  if (!bindingDrag) return false;
+  const drag = bindingDrag;
+  bindingDrag = null;
+  controls.enabled = true;
+  renderer.domElement.classList.remove("binding-drag");
+  renderer.domElement.releasePointerCapture?.(event.pointerId);
+  if (JSON.stringify(currentBindings[drag.spec.key]) !== JSON.stringify(drag.original)) {
+    pushBindingHistory(drag.original);
+    renderParamPanel();
+    syncDrawableUi();
+    rebuildAfterParamChange({ keepCamera: true });
+  } else {
+    syncDrawableUi();
+  }
+  return true;
+}
+
+function insertBindingPoint(event) {
+  if (!bindingEditEnabled || activeDrawing) return false;
+  const overlayHit = bindingOverlayHit(event);
+  if (!overlayHit?.object?.userData?.bindingPath) return false;
+  const spec = drawableBindingSpec();
+  const binding = currentBindings[spec.key];
+  const point = localBindingPointFromEvent(event);
+  if (!binding?.points?.length || !point) return false;
+  const count = binding.points.length;
+  const segmentCount = binding.closed || bindingIsClosed(spec) ? count : count - 1;
+  let bestIndex = -1;
+  let bestDistance = Infinity;
+  for (let index = 0; index < segmentCount; index++) {
+    const a = binding.points[index];
+    const b = binding.points[(index + 1) % count];
+    const dx = b[0] - a[0];
+    const dz = b[2] - a[2];
+    const length2 = dx * dx + dz * dz;
+    const t = length2 > 0 ? Math.max(0, Math.min(1, ((point[0] - a[0]) * dx + (point[2] - a[2]) * dz) / length2)) : 0;
+    const distance = Math.hypot(point[0] - (a[0] + dx * t), point[2] - (a[2] + dz * t));
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      bestIndex = index + 1;
+    }
+  }
+  if (bestIndex < 0) return false;
+  const previous = cloneSerializable(binding);
+  binding.points.splice(bestIndex, 0, point);
+  selectedBindingPoint = bestIndex;
+  pushBindingHistory(previous);
+  renderParamPanel();
+  syncDrawableUi();
+  rebuildAfterParamChange({ keepCamera: true });
+  event.preventDefault();
+  return true;
+}
+
+function deleteSelectedBindingPoint() {
+  const spec = drawableBindingSpec();
+  const binding = spec && currentBindings[spec.key];
+  const minimum = bindingIsClosed(spec) ? 3 : 2;
+  if (!bindingEditEnabled || !binding?.points || selectedBindingPoint < 0 || binding.points.length <= minimum) return false;
+  const previous = cloneSerializable(binding);
+  binding.points.splice(selectedBindingPoint, 1);
+  selectedBindingPoint = Math.min(selectedBindingPoint, binding.points.length - 1);
+  pushBindingHistory(previous);
+  renderParamPanel();
+  syncDrawableUi();
+  rebuildAfterParamChange({ keepCamera: true });
+  return true;
+}
+
+function selectModelPartFromViewport(event) {
+  if (activeDrawing || bindingDrag || event.button !== 0) return false;
+  const overlayHit = drawableBindingSpec() ? bindingOverlayHit(event) : null;
+  if (overlayHit?.object?.userData?.bindingPath || overlayHit?.object?.userData?.bindingSurface) {
+    setBindingEditEnabled(true);
+    return true;
+  }
+  setBindingPointer(event);
+  const candidates = [];
+  modelRoot.traverse((object) => {
+    if (object.isMesh && !object.userData.isOutline && object.visible) candidates.push(object);
+  });
+  const hit = bindingRaycaster.intersectObjects(candidates, false)[0];
+  if (!hit) return false;
+  selectedPart = hit.object.name || null;
+  renderPartList(currentParts);
+  applySelectionHighlight();
+  renderMatPanel();
+  updateScriptPanel();
+  if (drawableBindingSpec()) setBindingEditEnabled(true);
+  return true;
+}
+
+renderer.domElement.addEventListener("pointerdown", addDrawingPoint);
+renderer.domElement.addEventListener("pointerdown", (event) => {
+  viewportPress = { x: event.clientX, y: event.clientY };
+  startBindingDrag(event);
+});
+renderer.domElement.addEventListener("pointermove", (event) => {
+  if (viewportPress && Math.hypot(event.clientX - viewportPress.x, event.clientY - viewportPress.y) > 4) viewportPress = null;
+  moveBindingDrag(event);
+});
+renderer.domElement.addEventListener("pointerup", (event) => {
+  if (finishBindingDrag(event)) {
+    viewportPress = null;
+    return;
+  }
+  if (viewportPress) selectModelPartFromViewport(event);
+  viewportPress = null;
+});
+renderer.domElement.addEventListener("dblclick", insertBindingPoint);
+renderer.domElement.addEventListener("contextmenu", (event) => {
+  if (!activeDrawing) return;
+  event.preventDefault();
+  finishBindingDrawing();
+});
+document.addEventListener("keydown", (event) => {
+  const mod = event.ctrlKey || event.metaKey;
+  if (mod && event.key.toLowerCase() === "z") {
+    event.preventDefault();
+    if (event.shiftKey) redoBindingEdit();
+    else undoBindingEdit();
+    return;
+  }
+  if (mod && event.key.toLowerCase() === "y") {
+    event.preventDefault();
+    redoBindingEdit();
+    return;
+  }
+  if (activeDrawing && event.key === "Escape") cancelBindingDrawing();
+  else if (bindingEditEnabled && event.key === "Escape") setBindingEditEnabled(false);
+  if (activeDrawing && event.key === "Backspace") {
+    event.preventDefault();
+    activeDrawing.points.pop();
+    syncDrawableUi();
+  }
+  if (bindingEditEnabled && (event.key === "Delete" || event.key === "Backspace")) {
+    if (deleteSelectedBindingPoint()) event.preventDefault();
+  }
+});
+
+async function rebuild({ keepCamera = true, showLoading = false, loadingLabel = "", loadingTitle = "" } = {}) {
+  if (!currentModel) return;
+  const token = ++rebuildToken;
+  const modelAtStart = currentModel;
+  const loadingToken = showLoading
+    ? await showGenerationLoading(
+      loadingLabel || `生成 ${currentModel.name || "模型"}`,
+      loadingTitle || "生成 3D 模型",
+    )
+    : 0;
+  if (token !== rebuildToken) {
+    if (showLoading) hideGenerationLoading(loadingToken);
+    return;
+  }
+  try {
+    const buildStart = performance.now();
+    updateGenerationLoading(`后台计算 ${modelAtStart.name || "模型"}`);
+    const result = await buildModelParts(modelAtStart, currentParams);
+    const parts = result.parts;
+    recordModelTiming(modelAtStart, result.elapsedMs || performance.now() - buildStart);
+    if (token !== rebuildToken) return;
+    errEl.style.display = "none";
+    await buildParts(parts, { keepCamera, buildToken: token });
+  } catch (e) {
+    if (token !== rebuildToken) return;
+    fail("构建模型出错: " + (e?.message || e));
+  } finally {
+    if (showLoading) hideGenerationLoading(loadingToken);
+  }
+}
+
+function rebuildAfterParamChange({ keepCamera = true } = {}) {
+  return rebuild({
+    keepCamera,
+    showLoading: shouldShowParamLoading(),
+    loadingTitle: "修改参数",
+    loadingLabel: `重新计算 ${currentModel?.name || "模型"}`,
+  });
+}
+
+function applyModelScenePreset(model) {
+  const preset = model?.scenePreset;
+  if (!preset) return;
+  if (preset.environment && ENV_PRESETS[preset.environment]) applyEnvironment(preset.environment);
+  if (preset.background) {
+    bgMode = preset.background.mode || bgMode;
+    bgColor = preset.background.color || bgColor;
+    bgColor2 = preset.background.color2 || bgColor2;
+    syncBgColorInputs();
+    applyBackground();
+  }
+  if (Number.isFinite(preset.exposure)) renderer.toneMappingExposure = preset.exposure;
+  if (preset.bloom) {
+    bloom.enabled = preset.bloom.enabled !== false;
+    if (Number.isFinite(preset.bloom.strength)) bloom.strength = preset.bloom.strength;
+    if (Number.isFinite(preset.bloom.radius)) bloom.radius = preset.bloom.radius;
+    if (Number.isFinite(preset.bloom.threshold)) bloom.threshold = preset.bloom.threshold;
+  }
+  if (preset.fog) {
+    fogOn = preset.fog.enabled !== false;
+    Object.assign(fogOpts, preset.fog);
+    fogPass.enabled = fogOn;
+    if (fogBtn) fogBtn.classList.toggle("on", fogOn);
+  }
+  if (typeof preset.grid === "boolean") {
+    grid.visible = preset.grid;
+    const gridBtn = document.getElementById("grid");
+    if (gridBtn) gridBtn.classList.toggle("on", grid.visible);
+  }
+  if (preset.toon) {
+    if (Number.isFinite(preset.toon.steps)) toonParams.steps = Math.max(2, Math.round(preset.toon.steps));
+    if (Number.isFinite(preset.toon.outline)) toonParams.outline = preset.toon.outline;
+    if (preset.toon.color != null) {
+      toonParams.color = typeof preset.toon.color === "string"
+        ? parseInt(preset.toon.color.replace("#", ""), 16)
+        : preset.toon.color;
+    }
+    const stepsInput = document.getElementById("toon-steps");
+    const outlineInput = document.getElementById("toon-outline");
+    const colorInput = document.getElementById("toon-color");
+    if (stepsInput) stepsInput.value = String(toonParams.steps);
+    if (outlineInput) outlineInput.value = String(toonParams.outline);
+    if (colorInput) colorInput.value = `#${toonParams.color.toString(16).padStart(6, "0")}`;
+  }
+  if (preset.renderMode && ["off", "lowpoly", "toon", "normal", "matcap", "depth", "ao"].includes(preset.renderMode)) {
+    applyDebugView(preset.renderMode);
+    const debugInput = document.getElementById("debug");
+    const toonControls = document.getElementById("toon-ctl");
+    if (debugInput) debugInput.value = preset.renderMode;
+    if (toonControls) toonControls.style.display = preset.renderMode === "toon" ? "" : "none";
+  }
+  if (preset.camera === "courtyard") {
+    camera.fov = 68;
+    camera.updateProjectionMatrix();
+    camera.position.set(0, Math.max(1.5, lastSize.y * 0.16), lastSize.z * 0.23);
+    controls.target.set(0, lastSize.y * 0.18, -lastSize.z * 0.1);
+    updateCameraClipPlanes();
+    controls.update();
+    if (bokeh) bokeh.uniforms["focus"].value = camera.position.distanceTo(controls.target);
+  } else if (preset.camera === "planet") {
+    const radius = Math.max(lastSize.x, lastSize.y, lastSize.z);
+    const centerY = lastSize.y * 0.5;
+    camera.fov = 34;
+    camera.updateProjectionMatrix();
+    camera.position.set(radius * 0.22, centerY + radius * 0.32, radius * 1.72);
+    controls.target.set(0, centerY + radius * 0.04, 0);
+    updateCameraClipPlanes();
+    controls.update();
+    if (bokeh) bokeh.uniforms["focus"].value = camera.position.distanceTo(controls.target);
+  }
+  resetTAA();
+}
+
+async function loadProcModel(model, { resetParams = true, showLoading = true, loadingLabel = "" } = {}) {
+  const loadStart = performance.now();
+  const loadingToken = showLoading
+    ? await showGenerationLoading(loadingLabel || `生成 ${model.name || "模型"}`)
+    : 0;
+  cancelBindingDrawing();
+  resetBindingEditorState();
   currentModel = model;
   currentLoadedSource = null;
   currentLoadedSourceName = "";
-  if (resetParams || !currentParams) currentParams = model.defaultParams ? model.defaultParams() : defaultParams(model);
-  selectedPart = null;
-  surfaceOverrides = {}; // matched-material overrides are per-model
-  renderParamPanel();
-  updateScriptPanel();
-  return rebuild({ keepCamera: false });
+  try {
+    if (resetParams || !currentParams) currentParams = model.defaultParams ? model.defaultParams() : defaultParams(model);
+    if (resetParams) currentBindings = defaultBindingsFor(model);
+    selectedPart = null;
+    currentOptimizationRun = null;
+    selectedOptimizationCandidateId = null;
+    surfaceOverrides = {}; // matched-material overrides are per-model
+    renderParamPanel();
+    renderOptimizationPanel();
+    syncDrawableUi();
+    updateScriptPanel();
+    const result = await rebuild({ keepCamera: false });
+    applyModelScenePreset(model);
+    return result;
+  } finally {
+    recordModelTiming(model, performance.now() - loadStart);
+    if (loadingToken) hideGenerationLoading(loadingToken);
+  }
 }
 
 function renderParamPanel() {
   const panel = document.getElementById("params");
   panel.innerHTML = "";
   if (!currentModel) return;
+  const preset = currentModel.workflowPreset;
+  if (preset) {
+    const summary = document.createElement("div");
+    summary.className = "workflow-summary";
+    const tags = (preset.metadata?.tags || []).slice(0, 4).join(" · ");
+    summary.textContent = `${preset.metadata?.label || currentModel.name} · ${tags}`;
+    panel.appendChild(summary);
+  }
   for (const spec of currentModel.schema) {
     const g = document.createElement("div");
     g.className = "pgroup";
@@ -2489,6 +4351,78 @@ function renderParamPanel() {
     row.className = "row";
     const label = document.createElement("span");
     label.textContent = spec.label;
+    if (spec.type === "image") {
+      g.classList.add("image-param");
+      const fileInput = document.createElement("input");
+      fileInput.type = "file";
+      fileInput.accept = spec.accept || "image/*";
+      fileInput.hidden = true;
+      const choose = document.createElement("button");
+      choose.type = "button";
+      choose.className = "mini";
+      choose.textContent = currentParams[spec.key] ? "替换" : "选择图片";
+      choose.onclick = () => fileInput.click();
+      const clear = document.createElement("button");
+      clear.type = "button";
+      clear.className = "mini";
+      clear.textContent = "清除";
+      clear.disabled = !currentParams[spec.key];
+      const name = document.createElement("span");
+      name.className = "image-param-name";
+      name.textContent = currentParams[spec.key] ? "已加载自定义图片" : "未选择";
+      const applyTexture = (value, displayName) => {
+        currentParams[spec.key] = value;
+        name.textContent = displayName;
+        choose.textContent = value ? "替换" : "选择图片";
+        clear.disabled = !value;
+        clearOptimizationRun();
+        if (!setPartTexture(spec.part || "ad_face", value, spec.channel || "baseColor")) {
+          rebuildAfterParamChange();
+        }
+        updateScriptPanel();
+      };
+      fileInput.onchange = () => {
+        const file = fileInput.files?.[0];
+        if (!file) return;
+        applyTexture(URL.createObjectURL(file), file.name);
+      };
+      clear.onclick = () => {
+        applyTexture("", "未选择");
+        fileInput.value = "";
+      };
+      const actions = document.createElement("div");
+      actions.className = "image-param-actions";
+      actions.append(choose, clear);
+      row.append(label);
+      g.append(row, actions, name, fileInput);
+      panel.appendChild(g);
+      continue;
+    }
+    if (spec.type === "toggle") {
+      g.classList.add("toggle-group");
+      const toggle = document.createElement("button");
+      toggle.type = "button";
+      toggle.className = "param-toggle";
+      toggle.setAttribute("role", "switch");
+      const syncToggle = () => {
+        const on = Number(currentParams[spec.key]) === 1;
+        toggle.classList.toggle("on", on);
+        toggle.setAttribute("aria-checked", String(on));
+        toggle.setAttribute("aria-label", `${spec.label}：${on ? "开" : "关"}`);
+      };
+      syncToggle();
+      toggle.onclick = () => {
+        currentParams[spec.key] = Number(currentParams[spec.key]) === 1 ? 0 : 1;
+        syncToggle();
+        clearOptimizationRun();
+        rebuildAfterParamChange();
+        updateScriptPanel();
+      };
+      row.append(label, toggle);
+      g.append(row);
+      panel.appendChild(g);
+      continue;
+    }
     const val = document.createElement("span");
     val.className = "val";
     val.textContent = String(currentParams[spec.key]);
@@ -2501,11 +4435,482 @@ function renderParamPanel() {
       const v = Number(slider.value);
       currentParams[spec.key] = v;
       val.textContent = String(v);
-      rebuild({ keepCamera: true });
+      clearOptimizationRun();
+      rebuildAfterParamChange();
       updateScriptPanel();
     };
     g.append(row, slider);
     panel.appendChild(g);
+  }
+}
+
+function setPartTexture(partName, path, channel = "baseColor") {
+  const channels = new Set(["baseColor", "normal", "roughness", "metallic", "ao", "orm"]);
+  if (!channels.has(channel)) return false;
+  const partIndex = currentParts.findIndex((part) => part.name === partName);
+  if (partIndex < 0) return false;
+  const previous = currentParts[partIndex];
+  const previousPath = previous.textures?.[channel];
+  const textures = { ...(previous.textures || {}) };
+  if (path) textures[channel] = path;
+  else delete textures[channel];
+  const nextPart = { ...previous, textures: Object.keys(textures).length ? textures : undefined };
+  currentParts = currentParts.map((part, index) => index === partIndex ? nextPart : part);
+  const object = modelRoot.getObjectByName(partName);
+  if (!object?.isMesh) return false;
+  object.userData.textures = nextPart.textures || null;
+  applyMaterial("model");
+  if (previousPath !== path) releaseUploadedTexture(previousPath);
+  if (matSel) matSel.value = "model";
+  resetTAA();
+  return true;
+}
+
+function clearOptimizationRun() {
+  currentOptimizationRun = null;
+  selectedOptimizationCandidateId = null;
+  renderOptimizationPanel();
+}
+
+let optimizationApiPromise = null;
+function viewerOptRng(seed) {
+  let a = (seed >>> 0) || 1;
+  const next = () => {
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  return {
+    next,
+    range: (min, max) => min + (max - min) * next(),
+    int: (min, max) => Math.floor(min + next() * (max - min + 1)),
+  };
+}
+
+function viewerSnapGene(gene, value) {
+  const clamped = Math.min(gene.max, Math.max(gene.min, Number(value)));
+  if (gene.step > 0) {
+    const snapped = gene.min + Math.round((clamped - gene.min) / gene.step) * gene.step;
+    return gene.kind === "int" ? Math.round(snapped) : Number(snapped.toFixed(12));
+  }
+  return gene.kind === "int" ? Math.round(clamped) : Number(clamped.toFixed(12));
+}
+
+function viewerSchemaToGenes(schema, options = {}) {
+  const defaults = options.defaults || {};
+  return (schema || []).map((spec) => {
+    const key = String(spec.key);
+    if (Array.isArray(spec.values) && spec.values.length) {
+      return {
+        key,
+        label: spec.label,
+        kind: "choice",
+        values: [...spec.values],
+        default: defaults[key] ?? spec.default ?? spec.values[0],
+        locked: !!spec.locked,
+      };
+    }
+    const min = Number.isFinite(Number(spec.min)) ? Number(spec.min) : 0;
+    const max = Number.isFinite(Number(spec.max)) ? Number(spec.max) : 1;
+    const step = Number.isFinite(Number(spec.step)) ? Number(spec.step) : undefined;
+    const kind = step >= 1 && Number.isInteger(step) && Number.isInteger(min) && Number.isInteger(max) ? "int" : "float";
+    const gene = {
+      key,
+      label: spec.label,
+      kind,
+      min: Math.min(min, max),
+      max: Math.max(min, max),
+      step,
+      default: 0,
+      locked: !!spec.locked,
+    };
+    gene.default = viewerSnapGene(gene, defaults[key] ?? spec.default ?? gene.min);
+    return gene;
+  });
+}
+
+function viewerSampleGenome(genes, rng) {
+  const genome = {};
+  for (const gene of genes) {
+    if (gene.locked) { genome[gene.key] = gene.default; continue; }
+    if (gene.kind === "choice") genome[gene.key] = gene.values[rng.int(0, gene.values.length - 1)] ?? gene.default;
+    else genome[gene.key] = viewerSnapGene(gene, gene.kind === "int" ? rng.int(Math.ceil(gene.min), Math.floor(gene.max)) : rng.range(gene.min, gene.max));
+  }
+  return genome;
+}
+
+function viewerMutateGenome(genome, genes, rng, rate, strength) {
+  const out = {};
+  for (const gene of genes) {
+    const current = genome[gene.key] ?? gene.default;
+    if (gene.locked || rng.next() > rate) { out[gene.key] = gene.kind === "choice" ? current : viewerSnapGene(gene, current); continue; }
+    if (gene.kind === "choice") out[gene.key] = gene.values[rng.int(0, gene.values.length - 1)] ?? gene.default;
+    else out[gene.key] = viewerSnapGene(gene, Number(current) + rng.range(-(gene.max - gene.min) * strength, (gene.max - gene.min) * strength));
+  }
+  return out;
+}
+
+function viewerDominates(a, b, objectives) {
+  const avOk = a.valid !== false;
+  const bvOk = b.valid !== false;
+  if (avOk !== bvOk) return avOk;
+  if (!avOk && !bvOk) return false;
+  let better = false;
+  for (const objective of objectives) {
+    const av = Number(a.fitness[objective.key]);
+    const bv = Number(b.fitness[objective.key]);
+    if (objective.direction === "maximize") {
+      if (av < bv) return false;
+      if (av > bv) better = true;
+    } else {
+      if (av > bv) return false;
+      if (av < bv) better = true;
+    }
+  }
+  return better;
+}
+
+function viewerRankCandidates(candidates, objectives) {
+  const ranked = candidates.map((candidate) => ({ ...candidate, genome: { ...candidate.genome }, metrics: { ...candidate.metrics } }));
+  const remaining = new Set(ranked.map((_, index) => index));
+  let rank = 0;
+  while (remaining.size) {
+    const front = [];
+    for (const i of remaining) {
+      let dominated = false;
+      for (const j of remaining) {
+        if (i !== j && viewerDominates(ranked[j], ranked[i], objectives)) { dominated = true; break; }
+      }
+      if (!dominated) front.push(i);
+    }
+    for (const i of (front.length ? front : [...remaining])) {
+      ranked[i].rank = rank;
+      remaining.delete(i);
+    }
+    rank++;
+  }
+  const rangeSource = ranked.some((candidate) => candidate.valid !== false) ? ranked.filter((candidate) => candidate.valid !== false) : ranked;
+  const ranges = objectives.map((objective) => {
+    const values = rangeSource.map((candidate) => Number(candidate.fitness[objective.key]));
+    return { objective, min: Math.min(...values), max: Math.max(...values) };
+  });
+  for (const candidate of ranked) {
+    if (candidate.valid === false) {
+      candidate.score = 0;
+      continue;
+    }
+    let score = 0, weights = 0;
+    for (const range of ranges) {
+      const value = Number(candidate.fitness[range.objective.key]);
+      const denom = Math.max(1e-9, range.max - range.min);
+      const normalized = range.objective.direction === "maximize" ? (value - range.min) / denom : (range.max - value) / denom;
+      const weight = range.objective.weight ?? 1;
+      score += normalized * weight; weights += weight;
+    }
+    candidate.score = weights ? score / weights : 0;
+  }
+  return ranked;
+}
+
+async function viewerRunRandomSearch(options) {
+  const seed = options.seed ?? 1;
+  const rng = viewerOptRng(seed);
+  const populationSize = Math.max(1, Math.floor(options.populationSize ?? 12));
+  const generations = Math.max(1, Math.floor(options.generations ?? 1));
+  const candidates = [];
+  let ranked = [];
+  let nextIndex = 0;
+  for (let generation = 0; generation < generations; generation++) {
+    const elites = ranked.length ? [...ranked].sort((a, b) => a.rank - b.rank || b.score - a.score).slice(0, options.eliteCount ?? 3) : [];
+    for (let slot = 0; slot < populationSize; slot++) {
+      const parent = elites.length ? elites[rng.int(0, elites.length - 1)] : null;
+      const genome = parent
+        ? viewerMutateGenome(parent.genome, options.genes, rng, options.mutationRate ?? 0.3, options.mutationStrength ?? 0.2)
+        : viewerSampleGenome(options.genes, rng);
+      const index = nextIndex++;
+      let evaluation;
+      try {
+        evaluation = await options.evaluate(genome, { index, generation, seed: seed + index, parentId: parent?.id });
+      } catch (err) {
+        evaluation = { valid: false, invalidReason: err?.message || String(err) };
+      }
+      const valid = evaluation.valid !== false;
+      const fitness = {};
+      for (const objective of options.objectives) {
+        const raw = evaluation.fitness?.[objective.key];
+        fitness[objective.key] = Number.isFinite(Number(raw))
+          ? Number(raw)
+          : objective.direction === "maximize" ? -1e12 : 1e12;
+      }
+      candidates.push({
+        id: `g${generation}-c${slot}`,
+        index,
+        generation,
+        genome,
+        fitness,
+        metrics: evaluation.metrics ? { ...evaluation.metrics } : {},
+        rank: Number.POSITIVE_INFINITY,
+        score: 0,
+        valid,
+        invalidReason: valid ? undefined : evaluation.invalidReason || "invalid candidate",
+        parentId: parent?.id,
+      });
+    }
+    ranked = viewerRankCandidates(candidates, options.objectives);
+  }
+  const pareto = ranked.filter((candidate) => candidate.rank === 0 && candidate.valid !== false);
+  const best = [...ranked].filter((candidate) => candidate.valid !== false).sort((a, b) => a.rank - b.rank || b.score - a.score || a.index - b.index)[0] || null;
+  return { id: options.id || `viewer-${seed}`, seed, genes: options.genes, objectives: options.objectives, candidates: ranked, paretoFront: pareto, best, clusters: [] };
+}
+
+async function loadOptimizationApi() {
+  if (!optimizationApiPromise) optimizationApiPromise = import("/dist/index.js?v=opt2");
+  try {
+    const api = await optimizationApiPromise;
+    if (typeof api.schemaToGenes === "function" && typeof api.runRandomSearch === "function") return api;
+  } catch {
+    // fall through to viewer-local implementation
+  }
+  return { schemaToGenes: viewerSchemaToGenes, runRandomSearch: viewerRunRandomSearch };
+}
+
+function measureCandidateParts(parts) {
+  let verts = 0;
+  let tris = 0;
+  for (const part of parts || []) {
+    const mesh = part.mesh || part;
+    verts += Array.isArray(mesh?.positions) ? mesh.positions.length : 0;
+    tris += Array.isArray(mesh?.indices) ? Math.floor(mesh.indices.length / 3) : 0;
+  }
+  return { parts: Array.isArray(parts) ? parts.length : 0, verts, tris };
+}
+
+function compactNumber(value) {
+  const n = Number(value) || 0;
+  if (n >= 1000000) return `${(n / 1000000).toFixed(1)}m`;
+  if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
+  return String(Math.round(n));
+}
+
+function normalizedParamDistance(genome, baseParams, genes) {
+  let total = 0;
+  let count = 0;
+  for (const gene of genes) {
+    if (gene.locked) continue;
+    const a = genome[gene.key];
+    const b = baseParams[gene.key];
+    if (gene.kind === "choice") {
+      total += a === b ? 0 : 1;
+      count++;
+      continue;
+    }
+    const span = Math.max(1e-9, gene.max - gene.min);
+    total += Math.min(1, Math.abs(Number(a) - Number(b)) / span);
+    count++;
+  }
+  return count ? total / count : 0;
+}
+
+function sortedOptimizationCandidates(run) {
+  return [...(run?.candidates || [])].sort((a, b) => {
+    const av = a.valid !== false ? 0 : 1;
+    const bv = b.valid !== false ? 0 : 1;
+    return av - bv || a.rank - b.rank || b.score - a.score || a.index - b.index;
+  });
+}
+
+function optimizationMode() {
+  return optModeSel?.value || "best";
+}
+
+function validOptimizationCandidates(run) {
+  return sortedOptimizationCandidates(run).filter((candidate) => candidate.valid !== false);
+}
+
+function objectiveBetterForMode(a, b, objective) {
+  return objective.direction === "maximize" ? a > b : a < b;
+}
+
+function optimizationRanges(candidates, objectives) {
+  return objectives.map((objective) => {
+    const values = candidates.map((candidate) => Number(candidate.fitness[objective.key]));
+    return { objective, min: Math.min(...values), max: Math.max(...values) };
+  });
+}
+
+function optimizationVector(candidate, ranges) {
+  return ranges.map((range) => {
+    const value = Number(candidate.fitness[range.objective.key]);
+    const denom = Math.max(1e-9, range.max - range.min);
+    return range.objective.direction === "maximize" ? (value - range.min) / denom : (range.max - value) / denom;
+  });
+}
+
+function vectorDist(a, b) {
+  let sum = 0;
+  for (let i = 0; i < a.length; i++) {
+    const d = (a[i] || 0) - (b[i] || 0);
+    sum += d * d;
+  }
+  return Math.sqrt(sum);
+}
+
+function selectOptimizationCandidates(run, count = 10) {
+  const valid = validOptimizationCandidates(run);
+  if (!valid.length) return sortedOptimizationCandidates(run).slice(0, count);
+  const mode = optimizationMode();
+  if (mode === "best") return valid.slice(0, count);
+  if (mode === "per-objective") {
+    const picks = [];
+    const seen = new Set();
+    for (const objective of run.objectives || []) {
+      let best = null;
+      for (const candidate of valid) {
+        if (!best || objectiveBetterForMode(Number(candidate.fitness[objective.key]), Number(best.fitness[objective.key]), objective)) best = candidate;
+      }
+      if (best && !seen.has(best.id)) { picks.push(best); seen.add(best.id); }
+    }
+    return picks.slice(0, count);
+  }
+  if (mode === "cluster-representatives") {
+    const picks = [];
+    const seen = new Set();
+    for (const cluster of run.clusters || []) {
+      const best = sortedOptimizationCandidates({ candidates: cluster.candidates })[0];
+      if (best && best.valid !== false && !seen.has(best.id)) { picks.push(best); seen.add(best.id); }
+    }
+    return (picks.length ? picks : valid).slice(0, count);
+  }
+  const ranges = optimizationRanges(valid, run.objectives || []);
+  if (mode === "pareto-knee") {
+    const front = (run.paretoFront && run.paretoFront.length ? run.paretoFront : valid).filter((candidate) => candidate.valid !== false);
+    return front.map((candidate) => {
+      const v = optimizationVector(candidate, ranges);
+      return { candidate, dist: vectorDist(v, new Array(v.length).fill(1)) };
+    }).sort((a, b) => a.dist - b.dist || a.candidate.rank - b.candidate.rank || b.candidate.score - a.candidate.score)
+      .slice(0, count)
+      .map((item) => item.candidate);
+  }
+  const picks = [valid[0]];
+  const seen = new Set([valid[0].id]);
+  while (picks.length < count && picks.length < valid.length) {
+    let best = null;
+    let bestDist = -Infinity;
+    for (const candidate of valid) {
+      if (seen.has(candidate.id)) continue;
+      const v = optimizationVector(candidate, ranges);
+      let minDist = Infinity;
+      for (const pick of picks) minDist = Math.min(minDist, vectorDist(v, optimizationVector(pick, ranges)));
+      if (minDist > bestDist) { best = candidate; bestDist = minDist; }
+    }
+    if (!best) break;
+    picks.push(best);
+    seen.add(best.id);
+  }
+  return picks;
+}
+
+function renderOptimizationPanel() {
+  if (!optStatsEl || !optCandidatesEl) return;
+  optCandidatesEl.innerHTML = "";
+  const run = currentOptimizationRun;
+  if (!run) {
+    optStatsEl.textContent = "暂无候选";
+    return;
+  }
+  const invalid = run.candidates.filter((candidate) => candidate.valid === false).length;
+  optStatsEl.textContent = `候选 ${run.candidates.length} · Pareto ${run.paretoFront.length} · 无效 ${invalid}`;
+  for (const candidate of selectOptimizationCandidates(run, 10)) {
+    const row = document.createElement("button");
+    row.type = "button";
+    row.className = "opt-row" + (candidate.id === selectedOptimizationCandidateId ? " sel" : "") + (candidate.valid === false ? " bad" : "");
+    const title = document.createElement("span");
+    title.textContent = candidate.valid === false
+      ? `#${candidate.index + 1} · 无效`
+      : `#${candidate.index + 1} · R${candidate.rank} · 分 ${candidate.score.toFixed(2)}`;
+    const sub = document.createElement("span");
+    sub.className = "sub";
+    const variation = candidate.fitness.variation ?? 0;
+    const tris = candidate.metrics.triangles ?? candidate.fitness.triangles ?? 0;
+    const parts = candidate.metrics.parts ?? 0;
+    sub.textContent = candidate.valid === false
+      ? (candidate.invalidReason || "构建失败")
+      : `差异 ${Number(variation).toFixed(2)} · 面 ${compactNumber(tris)} · 部件 ${parts}`;
+    row.append(title, sub);
+    row.onclick = () => applyOptimizationCandidate(candidate.id);
+    optCandidatesEl.appendChild(row);
+  }
+}
+
+async function applyOptimizationCandidate(candidateId) {
+  const candidate = currentOptimizationRun?.candidates.find((item) => item.id === candidateId);
+  if (!candidate || !currentParams) return null;
+  if (candidate.valid === false) return null;
+  selectedOptimizationCandidateId = candidate.id;
+  Object.assign(currentParams, candidate.genome);
+  renderParamPanel();
+  renderOptimizationPanel();
+  updateScriptPanel();
+  await rebuildAfterParamChange();
+  return candidate;
+}
+
+async function runCandidateSearch() {
+  if (!currentModel || !currentParams) return null;
+  const modelAtStart = currentModel;
+  const baseParams = { ...currentParams };
+  const token = await showGenerationLoading(`采样 ${modelAtStart.name || "模型"} 参数候选`, "候选搜索");
+  if (optRunBtn) optRunBtn.disabled = true;
+  if (optStatsEl) optStatsEl.textContent = "搜索中...";
+  try {
+    const { schemaToGenes, runRandomSearch } = await loadOptimizationApi();
+    const genes = schemaToGenes(modelAtStart.schema || [], { defaults: baseParams });
+    if (!genes.length) throw new Error("当前模型没有可搜索参数");
+    const seedValue = Number.isFinite(Number(baseParams.seed)) ? Number(baseParams.seed) : 17;
+    const objectives = [
+      { key: "variation", label: "差异", direction: "maximize", weight: 0.7 },
+      { key: "triangles", label: "三角面", direction: "minimize", weight: 0.3 },
+    ];
+    const run = await runRandomSearch({
+      id: `${modelAtStart.id || "model"}-search`,
+      seed: seedValue,
+      genes,
+      objectives,
+      populationSize: 6,
+      generations: 2,
+      eliteCount: 3,
+      mutationRate: 0.35,
+      mutationStrength: 0.22,
+      includeDefault: false,
+      clusterCount: 3,
+      evaluate: async (genome) => {
+        const params = { ...baseParams, ...genome };
+        const parts = await modelAtStart.build(params);
+        const metrics = measureCandidateParts(parts);
+        return {
+          fitness: {
+            variation: normalizedParamDistance(genome, baseParams, genes),
+            triangles: metrics.tris,
+          },
+          metrics: { parts: metrics.parts, vertices: metrics.verts, triangles: metrics.tris },
+        };
+      },
+    });
+    if (modelAtStart !== currentModel) return null;
+    currentOptimizationRun = run;
+    const selected = selectOptimizationCandidates(run, 1)[0] ?? run.best;
+    selectedOptimizationCandidateId = selected?.id || null;
+    renderOptimizationPanel();
+    if (selected) await applyOptimizationCandidate(selected.id);
+    return run;
+  } catch (err) {
+    if (optStatsEl) optStatsEl.textContent = err?.message || String(err);
+    if (hud) hud.textContent = `候选搜索失败: ${err?.message || err}`;
+    return null;
+  } finally {
+    if (optRunBtn) optRunBtn.disabled = false;
+    if (token) hideGenerationLoading(token);
   }
 }
 
@@ -2650,7 +5055,7 @@ function makeControl(spec, store, onPreview, onFull, writeFn) {
     const sel = document.createElement("select");
     for (const opt of spec.options || []) {
       const o = document.createElement("option");
-      o.value = opt; o.textContent = opt;
+      o.value = opt; o.textContent = spec.optionLabels?.[opt] || opt;
       sel.appendChild(o);
     }
     sel.value = store[spec.key] ?? spec.default;
@@ -2696,46 +5101,142 @@ async function loadGeneratedModelById(id) {
   const safe = String(id || "").replace(/^\/+/, "").split(/[\\/]/).pop();
   if (!safe) return null;
   const file = safe.endsWith(".json") ? safe : `${safe}.json`;
+  const modelId = file.replace(/\.json$/i, "");
+  const loadingToken = await showGenerationLoading(`生成 ${modelId || "模型"}`);
   try {
     const res = await fetch(`/out/${file}`, { cache: "no-store" });
     if (!res.ok) return null;
     const model = await res.json();
     if (model?.meta?.procedural?.type === "speedtree-library") {
-      await loadProcModel(makeSpeedTreeLibraryModel(model.meta.procedural, model.name));
+      await loadProcModel(makeSpeedTreeLibraryModel(model.meta.procedural, model.name), { loadingLabel: `生成 ${model.name || modelId}` });
       return true;
     }
-    loadViewerModel(model);
+    await loadViewerModel(model, { id: modelId, loadingLabel: `生成 ${model.name || modelId}` });
     return true;
   } catch {
     return null;
+  } finally {
+    hideGenerationLoading(loadingToken);
   }
 }
 
+const PROC_MODEL_ALIASES = {
+  "teddy-bear": "teddy",
+  "office-chair": "officechair",
+  "city-block": "cityblock",
+  "preview-sphere": "sphere",
+  "hard-surface-panel": "hard-surface-kit",
+};
+
 function procModelForId(id) {
   const key = String(id || "").replace(/\.json$/i, "");
-  return PROC_MODELS[key] || null;
+  const alias = PROC_MODEL_ALIASES[key] || key.replace(/-/g, "");
+  return PROC_MODELS[key] || PROC_MODELS[alias] || null;
+}
+
+// ---- 分享即复现：把当前完整可视状态编码进 URL，任何人打开都还原同一画面 ----
+// URL 载荷：?model=<id>&s=<base64url(JSON)>。s 里放参数/材质/环境/背景/视角/调试。
+// 这是 Meshova 相对 Sketchfab 的差异点——产物是"可重跑脚本+参数"，不是烘死的封面。
+function encodeShareState() {
+  const state = {
+    v: 1,
+    view: currentView,
+    mat: currentPreset,
+    matParams: currentMatParams && Object.keys(currentMatParams).length ? currentMatParams : undefined,
+    env: currentEnvName,
+    envRot: envRotationDeg || undefined,
+    bg: bgMode !== "env" ? { mode: bgMode, c: bgColor, c2: bgColor2 } : undefined,
+    debug: debugView !== "off" ? debugView : undefined,
+    wire: wireframe || undefined,
+    params: currentParams || undefined,
+    bindings: Object.keys(currentBindings).length ? currentBindings : undefined,
+  };
+  const json = JSON.stringify(state);
+  // base64url，避免 URL 里出现 +/= 需转义
+  const b64 = btoa(unescape(encodeURIComponent(json))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  return b64;
+}
+
+function decodeShareState(b64) {
+  try {
+    const pad = b64.length % 4 ? "=".repeat(4 - (b64.length % 4)) : "";
+    const norm = b64.replace(/-/g, "+").replace(/_/g, "/") + pad;
+    return JSON.parse(decodeURIComponent(escape(atob(norm))));
+  } catch { return null; }
+}
+
+// 模型已加载后，按分享状态还原参数/材质/环境/背景/视角/调试。
+async function applyShareState(state) {
+  if (!state || typeof state !== "object") return;
+  let needsRebuild = false;
+  if (state.params && currentParams) {
+    for (const k of Object.keys(state.params)) {
+      if (k in currentParams) currentParams[k] = state.params[k];
+    }
+    needsRebuild = true;
+  }
+  if (state.bindings && drawableBindingSpec()) {
+    currentBindings = { ...currentBindings, ...cloneSerializable(state.bindings) };
+    needsRebuild = true;
+  }
+  if (needsRebuild) {
+    renderParamPanel();
+    syncDrawableUi();
+    await rebuildAfterParamChange();
+    updateScriptPanel();
+  }
+  if (state.env && ENV_PRESETS[state.env]) { applyEnvironment(state.env); if (envSel) envSel.value = state.env; }
+  if (typeof state.envRot === "number") { applyEnvRotation(state.envRot); if (envRotEl) envRotEl.value = String(state.envRot); }
+  if (state.bg && state.bg.mode) {
+    bgMode = state.bg.mode; if (state.bg.c) bgColor = state.bg.c; if (state.bg.c2) bgColor2 = state.bg.c2;
+    if (bgModeSel) bgModeSel.value = bgMode;
+    syncBgColorInputs(); applyBackground();
+  }
+  if (state.mat) { applyMaterial(state.mat); if (matSel) matSel.value = state.mat; }
+  if (state.matParams && currentMatParams) { Object.assign(currentMatParams, state.matParams); applyMaterial(currentPreset); }
+  if (state.debug && state.debug !== "off") { applyDebugView(state.debug); if (debugSel) debugSel.value = debugView; syncToonCtl(); }
+  if (state.wire) { wireframe = true; applyWire(); const b = document.getElementById("wire"); if (b) b.classList.add("on"); }
+  if (state.view) fitView(state.view);
+}
+
+// 生成完整分享 URL 并写入地址栏（不刷新页面），返回 URL 字符串。
+function buildShareUrl() {
+  const modelId = currentModel?.id || currentLoadedSourceName || new URLSearchParams(location.search).get("model") || "";
+  const u = new URL(location.href);
+  u.search = "";
+  if (modelId) u.searchParams.set("model", modelId);
+  u.searchParams.set("s", encodeShareState());
+  return u.toString();
 }
 
 // 初始模型由模型库通过 URL 参数 ?model=<id> 指定；工具栏不再有模型/材质下拉。
 async function initModelSelect() {
   const first = Object.keys(PROC_MODELS)[0];
-  const wanted = new URLSearchParams(location.search).get("model");
+  const q = new URLSearchParams(location.search);
+  const wanted = q.get("model");
+  const shareRaw = q.get("s");
+  const share = shareRaw ? decodeShareState(shareRaw) : null;
+  let loaded = false;
   if (wanted) {
     const proc = procModelForId(wanted);
-    if (proc) {
-      loadProcModel(proc);
-      return;
-    }
-    const loaded = await loadGeneratedModelById(wanted);
-    if (loaded) return;
+    if (proc) { await loadProcModel(proc); loaded = true; }
+    else if (await loadGeneratedModelById(wanted)) loaded = true;
   }
-  loadProcModel(PROC_MODELS[first]);
+  if (!loaded) await loadProcModel(PROC_MODELS[first]);
+  // 模型就位后套用分享状态（延一帧确保 schema/材质面板已建）。
+  if (share) requestAnimationFrame(() => applyShareState(share));
 }
 
 // ---- UI wiring ----
 // 材质默认“跟随模型（匹配材质）”，不再提供工具栏下拉。
 const matSel = null;
 applyMaterial("model");
+
+if (editBindingBtn) editBindingBtn.onclick = () => setBindingEditEnabled(!bindingEditEnabled);
+if (drawBindingBtn) drawBindingBtn.onclick = () => activeDrawing ? finishBindingDrawing() : beginBindingDrawing();
+if (undoBindingBtn) undoBindingBtn.onclick = undoBindingEdit;
+if (redoBindingBtn) redoBindingBtn.onclick = redoBindingEdit;
+if (resetBindingBtn) resetBindingBtn.onclick = resetDrawableBinding;
 
 document.querySelectorAll("[data-view]").forEach((b) => {
   b.onclick = () => {
@@ -2812,6 +5313,26 @@ if (scriptCopyBtn) scriptCopyBtn.onclick = async () => {
 };
 document.getElementById("reset").onclick = () => fitView("persp");
 
+// 分享：生成可复现链接，写入地址栏并复制到剪贴板。
+const shareBtn = document.getElementById("share");
+if (shareBtn) shareBtn.onclick = async () => {
+  const url = buildShareUrl();
+  try { history.replaceState(null, "", url); } catch { /* file:// 下忽略 */ }
+  const done = () => {
+    const old = shareBtn.textContent;
+    shareBtn.textContent = "链接已复制";
+    shareBtn.classList.add("on");
+    setTimeout(() => { shareBtn.textContent = old; shareBtn.classList.remove("on"); }, 1200);
+  };
+  try {
+    await navigator.clipboard.writeText(url);
+    done();
+  } catch {
+    // 剪贴板不可用（非安全上下文）时，退回选中提示
+    window.prompt("复制此分享链接：", url);
+  }
+};
+
 // Environment (IBL lighting mood) selector.
 const envSel = document.getElementById("env");
 if (envSel) {
@@ -2876,6 +5397,14 @@ if (fogBtn) fogBtn.onclick = (e) => {
   fogOn = !fogOn; e.target.classList.toggle("on", fogOn);
   fogPass.enabled = fogOn; resetTAA();
 };
+const cloudBtn = document.getElementById("cloudvol");
+if (cloudBtn) {
+  cloudBtn.classList.toggle("on", cloudVolOn);
+  cloudBtn.onclick = (e) => {
+    cloudVolOn = !cloudVolOn; e.target.classList.toggle("on", cloudVolOn);
+    applyMaterial(currentPreset); resetTAA();
+  };
+}
 
 // Floor mode (shadow/glossy/mirror) + depth-of-field toggle.
 const floorSel = document.getElementById("floor");
@@ -2966,6 +5495,8 @@ if (planLoadBtn) {
 }
 const planFullBtn = document.getElementById("plan-full");
 if (planFullBtn) planFullBtn.onclick = () => { if (currentPlan) showPlanStep(-1); };
+if (optRunBtn) optRunBtn.onclick = () => runCandidateSearch();
+if (optModeSel) optModeSel.onchange = () => renderOptimizationPanel();
 
 // Background mode + color pickers (decoupled from the IBL environment).
 const bgModeSel = document.getElementById("bgmode");
@@ -2992,12 +5523,16 @@ addEventListener("resize", () => {
   gtao.setSize(stage.clientWidth, stage.clientHeight);
   bloom.setSize(stage.clientWidth, stage.clientHeight);
   if (bokeh) bokeh.setSize(stage.clientWidth, stage.clientHeight);
-  fogDepthRT.setSize(stage.clientWidth, stage.clientHeight);
+  resizeSceneDepthTarget();
   resetTAA();
 });
 
-// Any orbit interaction restarts TAA accumulation so we don't smear motion.
-controls.addEventListener("change", resetTAA);
+// Orbit/pan/zoom changes camera distance. Refit clipping planes so a stale
+// near plane cannot slice through large scenes after dollying inward.
+controls.addEventListener("change", () => {
+  updateCameraClipPlanes();
+  resetTAA();
+});
 
 // Track camera movement: if the view changed since last frame, we're not idle.
 const _prevCamPos = new THREE.Vector3();
@@ -3017,16 +5552,29 @@ function animate() {
   // Tick wind: advance uTime for every foliage material carrying wind uniforms.
   // Traverse so material swaps (preset changes) are always reflected. Wind keeps
   // animating when the camera is still, so TAA stays off while it runs.
-  if (windEnabled) {
+  if (windEnabled && windMeshes.length) {
     const t = windClock.getElapsedTime();
-    modelRoot.traverse((o) => {
-      if (!o.isMesh || !o.userData.hasWind) return;
+    for (const o of windMeshes) {
       const u = o.material && o.material.userData && o.material.userData.windUniforms;
       if (u) {
         if (u.uTime) u.uTime.value = t;
         if (u.uWindStrength) u.uWindStrength.value = windStrength;
       }
-    });
+    }
+  }
+  if (waterfallFxMeshes.length) {
+    updateWaterfallFx(waterfallFxTimeOverride ?? windClock.getElapsedTime());
+    if (waterfallFxTimeOverride === null) {
+      idleFrames = 0;
+      if (taaPass) taaPass.accumulate = false;
+    }
+  }
+  if (waterSurfaceMeshes.length) {
+    updateWaterSurfaceFx(waterfallFxTimeOverride ?? windClock.getElapsedTime());
+    if (waterfallFxTimeOverride === null) {
+      idleFrames = 0;
+      if (taaPass) taaPass.accumulate = false;
+    }
   }
 
   // Drive progressive AA: once the camera has been still for a few frames,
@@ -3043,23 +5591,37 @@ function animate() {
     }
   }
 
-  if (fogOn && postEnabled) updateFog();
-  if (postEnabled) composer.render();
-  else renderer.render(scene, camera);
+  if (!loadingEl?.classList.contains("show")) {
+    if (cloudVolOn && cloudVolumeMeshes.length) updateCloudVolumes();
+    if (waterSurfaceMeshes.length || (fogOn && postEnabled)) captureSceneDepth();
+    if (fogOn && postEnabled) updateFog();
+    if (postEnabled) composer.render();
+    else renderer.render(scene, camera);
+  }
 }
 
-// Capture scene depth + refresh fog uniforms. Done only while fog is on so the
-// extra depth pass costs nothing otherwise. TAA accumulation is forced off
-// because the god-ray march would smear; fog stays crisp at single-sample.
-function updateFog() {
+function captureSceneDepth() {
   const prevTarget = renderer.getRenderTarget();
   const prevOverride = scene.overrideMaterial;
+  const prevBackground = scene.background;
+  const prevClearColor = renderer.getClearColor(new THREE.Color());
+  const prevClearAlpha = renderer.getClearAlpha();
+  const waterVisibility = waterSurfaceMeshes.map((mesh) => mesh.visible);
+  for (const mesh of waterSurfaceMeshes) mesh.visible = false;
   scene.overrideMaterial = fogDepthMat;
+  scene.background = null;
+  renderer.setClearColor(0xffffff, 1);
   renderer.setRenderTarget(fogDepthRT);
   renderer.clear();
   renderer.render(scene, camera);
+  for (let i = 0; i < waterSurfaceMeshes.length; i++) waterSurfaceMeshes[i].visible = waterVisibility[i];
   scene.overrideMaterial = prevOverride;
+  scene.background = prevBackground;
+  renderer.setClearColor(prevClearColor, prevClearAlpha);
   renderer.setRenderTarget(prevTarget);
+}
+
+function updateFog() {
   const u = fogPass.uniforms;
   u.uInvProj.value.copy(camera.projectionMatrixInverse);
   u.uInvView.value.copy(camera.matrixWorld);
@@ -3073,7 +5635,14 @@ function updateFog() {
 }
 animate();
 applyEnvironment("studio");
-void initModelSelect();
+window.__meshovaReady = initModelSelect().then(() => {
+  window.__meshovaBootDone?.();
+}).catch((e) => {
+  window.__meshovaBootDone?.();
+  forceHideGenerationLoading();
+  fail("加载初始模型出错: " + (e?.message || e));
+  console.error(e);
+});
 
 // Expose hooks for headless screenshot tooling + AI procedural control.
 window.__meshova = {
@@ -3090,20 +5659,64 @@ window.__meshova = {
   // render callback to screenshot arbitrary script output.
   loadParts: (model) => loadViewerModel(model),
   getParams: () => ({ ...currentParams }),
+  getBindings: () => cloneSerializable(currentBindings),
+  getBindingEditorState: () => bindingEditorState(),
+  setBinding: (key, binding) => {
+    const spec = workflowBindingSpecs().find((item) => item.key === key);
+    if (!spec || !binding || !Array.isArray(binding.points)) return false;
+    currentBindings[key] = cloneSerializable({ ...binding, kind: spec.kind, closed: bindingIsClosed(spec) });
+    renderParamPanel();
+    syncDrawableUi();
+    return rebuildAfterParamChange().then(() => true);
+  },
+  resetBinding: () => resetDrawableBinding(),
+  startDrawing: () => beginBindingDrawing(),
+  finishDrawing: () => finishBindingDrawing(),
+  startBindingEdit: () => setBindingEditEnabled(true),
+  finishBindingEdit: () => setBindingEditEnabled(false),
+  undoBindingEdit: () => undoBindingEdit(),
+  redoBindingEdit: () => redoBindingEdit(),
+  getRenderStats: () => {
+    let sceneMeshes = 0;
+    let instancedMeshes = 0;
+    modelRoot.traverse((object) => {
+      if (!object.isMesh || object.userData.isOutline) return;
+      sceneMeshes++;
+      if (object.isInstancedMesh) instancedMeshes++;
+    });
+    return {
+      ...lastMeta,
+      sceneMeshes,
+      instancedMeshes,
+      geometries: renderer.info.memory.geometries,
+      pixelRatio: renderer.getPixelRatio(),
+      performanceTier: activePerfTier,
+      postEnabled,
+      taaEnabled,
+      gtaoEnabled: gtao.enabled,
+      bloomEnabled: bloom.enabled,
+      shadowsEnabled: renderer.shadowMap.enabled,
+    };
+  },
   setParam: (key, value) => {
     if (!currentParams || !(key in currentParams)) return;
     currentParams[key] = value;
+    clearOptimizationRun();
     renderParamPanel();
-    return rebuild({ keepCamera: true });
+    return rebuildAfterParamChange();
   },
   setParams: (obj) => {
     if (!currentParams) return;
     Object.assign(currentParams, obj);
+    clearOptimizationRun();
     renderParamPanel();
-    return rebuild({ keepCamera: true });
+    return rebuildAfterParamChange();
   },
+  setPartTexture: (partName, path, channel = "baseColor") => setPartTexture(partName, path, channel),
+  getPartTextures: (partName) => ({ ...(currentParts.find((part) => part.name === partName)?.textures || {}) }),
   // view + material
   setView: (v) => fitView(v),
+  setZoom: (factor) => zoomCamera(factor),
   setAutorot: (on) => { autorot = on; },
   setWire: (on) => { wireframe = on; applyWire(); },
   setGrid: (on) => { grid.visible = !!on; const btn = document.getElementById("grid"); if (btn) btn.classList.toggle("on", grid.visible); },
@@ -3112,6 +5725,13 @@ window.__meshova = {
   setWind: (on, strength) => {
     windEnabled = !!on;
     if (typeof strength === "number") windStrength = strength;
+  },
+  // null = live animation; numeric time = deterministic frozen FX frame.
+  setFxTime: (time) => {
+    waterfallFxTimeOverride = time !== null && time !== undefined && Number.isFinite(Number(time)) ? Number(time) : null;
+    if (waterfallFxMeshes.length) updateWaterfallFx(waterfallFxTimeOverride ?? windClock.getElapsedTime());
+    if (waterSurfaceMeshes.length) updateWaterSurfaceFx(waterfallFxTimeOverride ?? windClock.getElapsedTime());
+    resetTAA();
   },
   // Orbit the camera to a specific azimuth (radians, around +Y) and elevation
   // (degrees above horizon). Used by the imposter atlas capture to shoot a tree
@@ -3125,20 +5745,29 @@ window.__meshova = {
     const horiz = Math.cos(el) * d;
     camera.position.set(Math.sin(azimuth) * horiz, cy + Math.sin(el) * d, Math.cos(azimuth) * horiz);
     controls.target.set(0, cy, 0);
+    updateCameraClipPlanes();
     controls.update();
     if (bokeh) bokeh.uniforms["focus"].value = camera.position.distanceTo(controls.target);
     resetTAA();
   },
   setMaterial: (name) => { applyMaterial(name); if (matSel) matSel.value = name; },
-  setPost: (on) => { postEnabled = !!on; resetTAA(); },
+  setPost: (on) => { postUserOverride = !!on; postEnabled = !!on; resetTAA(); },
+  setPerformanceMode: (mode = "auto") => {
+    if (mode !== "auto" && !PERF_TIERS[mode]) return false;
+    perfMode = mode;
+    postUserOverride = null;
+    applyAdaptivePerformance(lastMeta);
+    updateMeta();
+    return true;
+  },
   setBloom: (strength) => { bloom.strength = strength; resetTAA(); },
   setAO: (on) => { gtao.enabled = !!on; resetTAA(); },
   // environment + background (headless control for the AI screenshot loop)
   environments: () => ENV_NAMES.slice(),
   setEnvironment: (name) => { if (ENV_PRESETS[name]) { applyEnvironment(name); if (envSel) envSel.value = name; } },
   setEnvRotation: (deg) => { applyEnvRotation(Number(deg) || 0); if (envRotEl) envRotEl.value = String(((Number(deg) || 0) % 360 + 360) % 360); },
-  // Debug views for VLM semantic decomposition: off/normal/matcap/depth/ao.
-  debugViews: () => ["off", "toon", "normal", "matcap", "depth", "ao"],
+  // Debug views for VLM semantic decomposition and stylized rendering.
+  debugViews: () => ["off", "lowpoly", "toon", "normal", "matcap", "depth", "ao"],
   setDebugView: (mode) => { applyDebugView(mode); if (debugSel) debugSel.value = debugView; syncToonCtl(); },
   // Toon tunables + PBR enhancement toggles (also usable from headless shots).
   setToonParams: (p = {}) => {
@@ -3151,6 +5780,14 @@ window.__meshova = {
   setPOM: (on, opts = {}) => { pomOn = !!on; Object.assign(pomOpts, opts); applyMaterial(currentPreset); resetTAA(); },
   setRimLight: (on, opts = {}) => { rimOn = !!on; Object.assign(rimOpts, opts); applyMaterial(currentPreset); resetTAA(); },
   setFog: (on, opts = {}) => { fogOn = !!on; Object.assign(fogOpts, opts); fogPass.enabled = fogOn; resetTAA(); },
+  // Volumetric cloud rendering: cloud parts raymarch into soft vapor instead of
+  // the hard metaball shell. On by default; headless-controllable for the loop.
+  setCloudVolume: (on) => {
+    cloudVolOn = !!on;
+    const btn = document.getElementById("cloudvol");
+    if (btn) btn.classList.toggle("on", cloudVolOn);
+    applyMaterial(currentPreset); resetTAA();
+  },
   // Floor + depth of field (showroom presentation controls).
   setFloor: (mode) => { applyFloor(mode); if (floorSel) floorSel.value = floorMode; },
   setDOF: (on, opts = {}) => {
@@ -3182,6 +5819,8 @@ window.__meshova = {
     const step = () => {
       controls.update();
       taaPass.accumulate = n >= IDLE_BEFORE_ACCUM;
+      if (cloudVolOn && cloudVolumeMeshes.length) updateCloudVolumes();
+      if (waterSurfaceMeshes.length || (fogOn && postEnabled)) captureSceneDepth();
       if (fogOn && postEnabled) updateFog();
       if (postEnabled) composer.render(); else renderer.render(scene, camera);
       if (++n >= frames) resolve();
@@ -3214,6 +5853,9 @@ window.__meshova = {
     currentSurfaceParams[key] = value;
     applyMaterial(currentSurfaceName);
   },
+  runOptimization: runCandidateSearch,
+  getOptimizationRun: () => currentOptimizationRun,
+  applyOptimizationCandidate,
   selectPart: (name) => {
     selectedPart = name;
     applySelectionHighlight();

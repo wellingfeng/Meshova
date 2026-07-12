@@ -1,8 +1,8 @@
 /**
  * Titan Stacking — reverse-engineered from Houdini "Titan_StackingTool.hda" (project_titan).
- * A curve is resampled, each segment measured, classified into small/medium/large
- * buckets by rest length [1,3], then a matching prefab track module is stretched
- * to fill it. Emits OBJ + viewer JSON and registers into out/models.json.
+ * Fractures a source block into deterministic Voronoi shards, applies Titan-style
+ * random scale/rotation, then settles the shards into a low rubble mound.
+ * Emits OBJ + viewer JSON and registers into out/models.json.
  *
  * Run: pnpm tsx examples/titan-stacking.ts
  */

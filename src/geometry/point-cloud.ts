@@ -81,6 +81,52 @@ export function storePointAttribute(
   });
 }
 
+/** Store an HSV debug color as `color.r/g/b` point attributes. Hue wraps in [0,1). */
+export function storePointColorHSV(
+  pc: PointCloud,
+  hue: PointScalar,
+  saturation: PointScalar = 1,
+  value: PointScalar = 1,
+): PointCloud {
+  const red: number[] = [];
+  const green: number[] = [];
+  const blue: number[] = [];
+  for (let index = 0; index < pc.points.length; index++) {
+    const context = pointContext(pc, index);
+    const h = ((evalPointScalar(hue, context) % 1) + 1) % 1;
+    const s = Math.max(0, Math.min(1, evalPointScalar(saturation, context)));
+    const v = Math.max(0, Math.min(1, evalPointScalar(value, context)));
+    const sector = h * 6;
+    const whole = Math.floor(sector);
+    const fraction = sector - whole;
+    const p = v * (1 - s);
+    const q = v * (1 - s * fraction);
+    const t = v * (1 - s * (1 - fraction));
+    const colors: ReadonlyArray<readonly [number, number, number]> = [
+      [v, t, p],
+      [q, v, p],
+      [p, v, t],
+      [p, q, v],
+      [t, p, v],
+      [v, p, q],
+    ];
+    const color = colors[whole % 6]!;
+    red.push(color[0]);
+    green.push(color[1]);
+    blue.push(color[2]);
+  }
+  return makePointCloud({
+    points: pc.points,
+    normals: pc.normals,
+    attributes: {
+      ...pc.attributes,
+      "color.r": red,
+      "color.g": green,
+      "color.b": blue,
+    },
+  });
+}
+
 export function filterPoints(
   pc: PointCloud,
   field: PointScalar,

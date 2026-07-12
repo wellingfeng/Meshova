@@ -17,6 +17,84 @@ import type { MaterialFields } from "./pbr.js";
 
 const clamp01 = (x: number) => clamp(x, 0, 1);
 
+export interface SbsReproParams {
+  seed?: number;
+  uvScale?: number;
+  brightness?: number;
+  contrast?: number;
+  roughnessShift?: number;
+  heightStrength?: number;
+  normalScale?: number;
+  [key: string]: unknown;
+}
+
+export interface SbsParamSpec {
+  key: string;
+  label: string;
+  type: "range" | "rgb";
+  min?: number;
+  max?: number;
+  step?: number;
+  default: number | [number, number, number];
+}
+
+const COMMON_SBS_PARAMS: SbsParamSpec[] = [
+  { key: "uvScale", label: "纹理缩放", type: "range", min: 0.25, max: 4, step: 0.05, default: 1 },
+  { key: "brightness", label: "明度", type: "range", min: 0.5, max: 1.5, step: 0.02, default: 1 },
+  { key: "contrast", label: "对比度", type: "range", min: 0, max: 2, step: 0.02, default: 1 },
+  { key: "roughnessShift", label: "粗糙度偏移", type: "range", min: -0.5, max: 0.5, step: 0.01, default: 0 },
+  { key: "heightStrength", label: "高度强度", type: "range", min: 0, max: 2, step: 0.02, default: 1 },
+  { key: "normalScale", label: "法线强度", type: "range", min: 0, max: 2, step: 0.02, default: 1 },
+];
+
+const SEED_PARAM: SbsParamSpec = {
+  key: "seed", label: "随机种子", type: "range", min: 0, max: 40, step: 1, default: 5,
+};
+
+function recipeSchema(specific: SbsParamSpec[] = [], seed = 5): SbsParamSpec[] {
+  return [{ ...SEED_PARAM, default: seed }, ...specific, ...COMMON_SBS_PARAMS];
+}
+
+function wrapCoordinates<T>(fn: ((u: number, v: number) => T) | undefined, scale: number) {
+  if (!fn) return undefined;
+  return (u: number, v: number) => fn((u * scale) % 1, (v * scale) % 1);
+}
+
+function applySbsControls(fields: MaterialFields, params: SbsReproParams): MaterialFields {
+  const scale = Number(params.uvScale ?? 1);
+  const brightness = Number(params.brightness ?? 1);
+  const contrast = Number(params.contrast ?? 1);
+  const roughnessShift = Number(params.roughnessShift ?? 0);
+  const heightStrength = Number(params.heightStrength ?? 1);
+  const normalScale = Number(params.normalScale ?? 1);
+  const baseColor = wrapCoordinates(fields.baseColor, scale);
+  const roughness = wrapCoordinates(fields.roughness, scale);
+  const height = wrapCoordinates(fields.height, scale);
+  const controlledFields: MaterialFields = {
+    ...fields,
+    normalStrength: (fields.normalStrength ?? 2) * normalScale,
+  };
+  if (baseColor) {
+    controlledFields.baseColor = (u, v) => {
+      const color = baseColor(u, v);
+      return color.map((channel) => clamp01(clamp01((channel - 0.5) * contrast + 0.5) * brightness)) as [number, number, number];
+    };
+  }
+  const metallic = wrapCoordinates(fields.metallic, scale);
+  if (metallic) controlledFields.metallic = metallic;
+  if (roughness) controlledFields.roughness = (u, v) => clamp(roughness(u, v) + roughnessShift, 0.04, 1);
+  const ao = wrapCoordinates(fields.ao, scale);
+  if (ao) controlledFields.ao = ao;
+  if (height) controlledFields.height = (u, v) => clamp01(0.5 + (height(u, v) - 0.5) * heightStrength);
+  const emission = wrapCoordinates(fields.emission, scale);
+  if (emission) controlledFields.emission = emission;
+  return controlledFields;
+}
+
+function controlled<T extends SbsReproParams>(recipe: (params?: T) => MaterialFields) {
+  return (params: T = {} as T) => applySbsControls(recipe(params), params);
+}
+
 /**
  * baseColor is authored directly in the viewer/sRGB display space (matching the
  * existing presets and the reference bakes, which are sRGB JPEGs). No
@@ -451,8 +529,25 @@ const woodPlanksStylized = (p: { seed?: number; count?: number } = {}) =>
   planks([0.34, 0.22, 0.1], [0.62, 0.44, 0.24], 0.52, { seed: p.seed ?? 11, count: p.count ?? 6 });
 const woodParquet02 = (p: { seed?: number; planks?: number } = {}) =>
   woodParquet({ seed: p.seed ?? 5, planks: p.planks ?? 7 });
-const woodOSB = (p: { seed?: number } = {}) =>
-  speckle([0.655, 0.489, 0.322], 0.62, 0, { seed: p.seed ?? 25, scale: 30, colorVar: 0.16, roughVar: 0.06, relief: 0.3, nStr: 2 });
+interface WoodOsbParams extends SbsReproParams {
+  baseColor?: RGB;
+  fiberScale?: number;
+  colorVariation?: number;
+  roughness?: number;
+  roughnessVariation?: number;
+  relief?: number;
+  bumpStrength?: number;
+}
+
+const woodOSB = (p: WoodOsbParams = {}) =>
+  speckle(p.baseColor ?? [0.655, 0.489, 0.322], Number(p.roughness ?? 0.62), 0, {
+    seed: p.seed ?? 25,
+    scale: Number(p.fiberScale ?? 30),
+    colorVar: Number(p.colorVariation ?? 0.16),
+    roughVar: Number(p.roughnessVariation ?? 0.06),
+    relief: Number(p.relief ?? 0.3),
+    nStr: Number(p.bumpStrength ?? 2),
+  });
 
 // Skin (soft dielectric, low variation)
 const skinLight = (p: { seed?: number } = {}) =>
@@ -462,38 +557,105 @@ const skinTan = (p: { seed?: number } = {}) =>
 
 /** Registry of SBS reproduction recipes, keyed by the reference folder name. */
 export const SBS_REPRO = {
-  Metal_Knurled_01: metalKnurled,
-  Metal_Knurled_02: metalKnurled02,
-  Metal_Knurled_03: metalKnurled03,
-  Tiles_Metallic_01: tilesMetallic,
-  Tiles_01: tilesGlossy,
-  Tiles_04: tilesDarkGlossy,
-  Tiles_02: tilesBlueGlossy,
-  Wall_KitchenTiles_01: kitchenTiles,
-  Stylized_01_Bricks: stylizedBricks,
-  Plastic_01: plasticPebbled,
-  Plastic_02: plasticRed,
-  Plastic_03: plasticDark,
-  Plastic_04: plasticRedLight,
-  Plastic_BubbleWrap_01: bubbleWrap,
-  Wall_PaintedRough_01: wallPainted,
-  Facades_07: facadeStone,
-  Wall_Walpaper_01: wallpaper,
-  Concrete_Decorative_01: concreteDecorative,
-  Stylized_06_Sand: sand,
-  Stylized_08_Snow: snow,
-  Stylized_15_Grass: grass,
-  Food_Rice_01: rice,
-  Wood_Parquet_01: woodParquet,
-  Wood_Parquet_02: woodParquet02,
-  Wood_Base_01: woodBase,
-  Stylized_03_Wood_Planks: woodPlanksStylized,
-  Wood_OBS_01: woodOSB,
-  Skin_02: skinLight,
-  Skin_03: skinTan,
+  Metal_Knurled_01: controlled(metalKnurled),
+  Metal_Knurled_02: controlled(metalKnurled02),
+  Metal_Knurled_03: controlled(metalKnurled03),
+  Tiles_Metallic_01: controlled(tilesMetallic),
+  Tiles_01: controlled(tilesGlossy),
+  Tiles_04: controlled(tilesDarkGlossy),
+  Tiles_02: controlled(tilesBlueGlossy),
+  Wall_KitchenTiles_01: controlled(kitchenTiles),
+  Stylized_01_Bricks: controlled(stylizedBricks),
+  Plastic_01: controlled(plasticPebbled),
+  Plastic_02: controlled(plasticRed),
+  Plastic_03: controlled(plasticDark),
+  Plastic_04: controlled(plasticRedLight),
+  Plastic_BubbleWrap_01: controlled(bubbleWrap),
+  Wall_PaintedRough_01: controlled(wallPainted),
+  Facades_07: controlled(facadeStone),
+  Wall_Walpaper_01: controlled(wallpaper),
+  Concrete_Decorative_01: controlled(concreteDecorative),
+  Stylized_06_Sand: controlled(sand),
+  Stylized_08_Snow: controlled(snow),
+  Stylized_15_Grass: controlled(grass),
+  Food_Rice_01: controlled(rice),
+  Wood_Parquet_01: controlled(woodParquet),
+  Wood_Parquet_02: controlled(woodParquet02),
+  Wood_Base_01: controlled(woodBase),
+  Stylized_03_Wood_Planks: controlled(woodPlanksStylized),
+  Wood_OBS_01: controlled(woodOSB),
+  Skin_02: controlled(skinLight),
+  Skin_03: controlled(skinTan),
 } as const;
 
 export type SbsReproName = keyof typeof SBS_REPRO;
 
+const GRID_PARAMS: SbsParamSpec[] = [
+  { key: "columns", label: "横向格数", type: "range", min: 2, max: 24, step: 1, default: 8 },
+  { key: "rows", label: "纵向格数", type: "range", min: 2, max: 24, step: 1, default: 8 },
+];
 
+export const SBS_PARAM_SCHEMA: Record<SbsReproName, SbsParamSpec[]> = {
+  Metal_Knurled_01: recipeSchema([
+    { key: "freq", label: "滚花密度", type: "range", min: 8, max: 48, step: 1, default: 26 },
+    { key: "depth", label: "滚花深度", type: "range", min: 0.2, max: 2, step: 0.05, default: 1 },
+  ], 3),
+  Metal_Knurled_02: recipeSchema([], 5),
+  Metal_Knurled_03: recipeSchema([], 7),
+  Tiles_Metallic_01: recipeSchema([], 3),
+  Tiles_01: recipeSchema(GRID_PARAMS.map((spec) => ({ ...spec, default: 10 })), 8),
+  Tiles_04: recipeSchema(GRID_PARAMS, 5),
+  Tiles_02: recipeSchema(GRID_PARAMS.map((spec) => ({ ...spec, default: 6 })), 6),
+  Wall_KitchenTiles_01: recipeSchema(GRID_PARAMS.map((spec) => ({ ...spec, default: 5 })), 9),
+  Stylized_01_Bricks: recipeSchema([
+    { ...GRID_PARAMS[0]!, default: 6 }, { ...GRID_PARAMS[1]!, default: 11 },
+  ], 4),
+  Plastic_01: recipeSchema([
+    { key: "grain", label: "颗粒密度", type: "range", min: 30, max: 160, step: 5, default: 90 },
+  ], 6),
+  Plastic_02: recipeSchema([], 6),
+  Plastic_03: recipeSchema([], 4),
+  Plastic_04: recipeSchema([], 8),
+  Plastic_BubbleWrap_01: recipeSchema([], 2),
+  Wall_PaintedRough_01: recipeSchema([], 11),
+  Facades_07: recipeSchema([], 13),
+  Wall_Walpaper_01: recipeSchema([], 15),
+  Concrete_Decorative_01: recipeSchema([
+    { key: "scale", label: "斑驳频率", type: "range", min: 2, max: 14, step: 0.5, default: 6 },
+  ], 12),
+  Stylized_06_Sand: recipeSchema([], 17),
+  Stylized_08_Snow: recipeSchema([], 19),
+  Stylized_15_Grass: recipeSchema([], 21),
+  Food_Rice_01: recipeSchema([], 23),
+  Wood_Parquet_01: recipeSchema([
+    { key: "planks", label: "拼花密度", type: "range", min: 2, max: 12, step: 1, default: 6 },
+  ], 9),
+  Wood_Parquet_02: recipeSchema([
+    { key: "planks", label: "拼花密度", type: "range", min: 2, max: 12, step: 1, default: 7 },
+  ], 5),
+  Wood_Base_01: recipeSchema([
+    { key: "count", label: "木板数", type: "range", min: 2, max: 12, step: 1, default: 4 },
+  ], 9),
+  Stylized_03_Wood_Planks: recipeSchema([
+    { key: "count", label: "木板数", type: "range", min: 2, max: 12, step: 1, default: 6 },
+  ], 11),
+  Wood_OBS_01: recipeSchema([
+    { key: "baseColor", label: "木片基色", type: "rgb", default: [0.655, 0.489, 0.322] },
+    { key: "fiberScale", label: "木片密度", type: "range", min: 6, max: 100, step: 1, default: 30 },
+    { key: "colorVariation", label: "色差", type: "range", min: 0, max: 0.5, step: 0.01, default: 0.16 },
+    { key: "roughness", label: "基础粗糙度", type: "range", min: 0.04, max: 1, step: 0.01, default: 0.62 },
+    { key: "roughnessVariation", label: "粗糙度变化", type: "range", min: 0, max: 0.3, step: 0.01, default: 0.06 },
+    { key: "relief", label: "木片起伏", type: "range", min: 0, max: 1, step: 0.02, default: 0.3 },
+    { key: "bumpStrength", label: "木片法线", type: "range", min: 0, max: 6, step: 0.1, default: 2 },
+  ], 25),
+  Skin_02: recipeSchema([], 27),
+  Skin_03: recipeSchema([], 29),
+};
 
+export function defaultSbsParams(name: SbsReproName): Record<string, unknown> {
+  const params: Record<string, unknown> = {};
+  for (const spec of SBS_PARAM_SCHEMA[name]) {
+    params[spec.key] = Array.isArray(spec.default) ? [...spec.default] : spec.default;
+  }
+  return params;
+}

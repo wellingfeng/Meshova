@@ -1,7 +1,7 @@
 /**
  * Fronds & needles — SpeedTree's continuous-leaf forms (palms, ferns, conifers).
  *
- * A frond is a central rachis (a thin swept stem) with leaflet cards growing in
+ * A frond is a central rachis (a thin swept stem) with shaped leaflets growing in
  * pairs down both sides, each angled and scaled by a length profile. Needle
  * clusters are short fronds bundled at a point. These cover plant types that the
  * scattered-card leaf system can't: palm fronds, fern blades, pine needles.
@@ -16,7 +16,7 @@ import type { Mesh } from "../geometry/mesh.js";
 import { merge } from "../geometry/mesh.js";
 import { makeRng } from "../random/prng.js";
 import { curveFrameAt, rotateAround } from "./curve-frame.js";
-import { leafCard } from "./leaf.js";
+import { leafCard, leafMesh, type LeafShape } from "./leaf.js";
 
 export interface FrondOptions {
   seed?: number;
@@ -34,6 +34,12 @@ export interface FrondOptions {
   tipScale?: number;
   /** Skip leaflets before this fraction of the rachis (bare base). */
   startPct?: number;
+  /** Leaflet silhouette. Defaults to "lanceolate"; use "quad" for alpha cards. */
+  leafletShape?: LeafShape;
+  leafletSegments?: number;
+  leafletCurl?: number;
+  leafletFold?: number;
+  roundedNormals?: boolean;
 }
 
 /**
@@ -49,6 +55,7 @@ export function frond(rachis: Curve, opts: FrondOptions = {}): { stem: Mesh; bla
   const rachisRadius = opts.rachisRadius ?? 0.015;
   const tipScale = opts.tipScale ?? 0.35;
   const startPct = opts.startPct ?? 0.08;
+  const leafletShape = opts.leafletShape ?? "lanceolate";
 
   const stem = sweep(rachis, { sides: 4, radius: rachisRadius, radiusAt: (t) => 1 - 0.8 * t, caps: false });
 
@@ -64,7 +71,20 @@ export function frond(rachis: Curve, opts: FrondOptions = {}): { stem: Mesh; bla
       const center = add(frame.position, scale(dir, len * 0.5));
       // Card normal faces roughly up out of the frond plane.
       const cardNormal = normalize(lerpVec3(frame.normal, vec3(0, 1, 0), 0.3));
-      blades.push(leafCard(center, cardNormal, dir, leafletWidth, len));
+      if (leafletShape !== "quad") {
+        const leafOpts = {
+          shape: leafletShape,
+          segments: opts.leafletSegments ?? 6,
+          curl: opts.leafletCurl ?? 0,
+          fold: opts.leafletFold ?? 0,
+        };
+        if (opts.roundedNormals !== undefined) {
+          (leafOpts as typeof leafOpts & { roundedNormals: boolean }).roundedNormals = opts.roundedNormals;
+        }
+        blades.push(leafMesh(center, cardNormal, dir, leafletWidth, len, leafOpts));
+      } else {
+        blades.push(leafCard(center, cardNormal, dir, leafletWidth, len));
+      }
     }
   }
   return { stem, blades: blades.length ? merge(...blades) : merge() };

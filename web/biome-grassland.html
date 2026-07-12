@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Meshova · 程序化草地生态</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;overflow:hidden;font:14px/1.5 "Segoe UI","Microsoft YaHei",sans-serif;background:#b9a875}
+  #view{display:block;width:100vw;height:100vh}
+  #panel{position:fixed;top:14px;left:14px;width:306px;max-height:calc(100vh - 28px);overflow:auto;padding:15px 16px;color:#f2f0df;
+    background:rgba(31,30,20,.87);border:1px solid #fff2;border-radius:11px;backdrop-filter:blur(10px);box-shadow:0 14px 40px #0005}
+  h1{font-size:17px;font-weight:680;letter-spacing:.02em;margin-bottom:4px}
+  .intro{font-size:12px;color:#c8c4a8;margin-bottom:12px}
+  code{color:#d8e491}
+  .group{padding:10px 0;border-top:1px solid #fff1}
+  .group-title{margin-bottom:7px;color:#dfd5a6;font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase}
+  .row{margin:8px 0}
+  .row label,.button-row{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:12px;color:#dedcc9;margin-bottom:3px}
+  .row span,.button-row span{color:#d8e491;font-variant-numeric:tabular-nums}
+  input[type=range]{width:100%;accent-color:#a8bd5b}
+  button{padding:6px 10px;color:#f1efd9;background:#48502d;border:1px solid #fff2;border-radius:6px;cursor:pointer}
+  button:hover{background:#5a6437}
+  #stat{padding-top:10px;border-top:1px solid #fff1;color:#d8e491;font-size:11px;line-height:1.65}
+  #draws{color:#bcb99f;font-size:11px}
+  .legend{display:grid;grid-template-columns:repeat(2,1fr);gap:5px 8px;margin:9px 0 2px;color:#bcb99f;font-size:10px}
+  .legend i{display:inline-block;width:8px;height:8px;margin-right:5px;border-radius:50%}
+  .hint{margin-top:8px;color:#97947e;font-size:10px;line-height:1.55}
+  .back{position:fixed;right:14px;top:14px;padding:7px 11px;color:#f3efd6;text-decoration:none;background:#2b2a1dcc;border:1px solid #fff2;border-radius:7px;backdrop-filter:blur(8px)}
+  @media(max-width:680px){#panel{width:calc(100vw - 24px);top:12px;left:12px;max-height:54vh}.back{display:none}}
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "/web/vendor/three.module.js",
+  "three/addons/": "/web/vendor/addons/"
+} }
+</script>
+</head>
+<body>
+<canvas id="view"></canvas>
+<a class="back" href="/web/gallery.html">返回模型库</a>
+<div id="panel">
+  <h1>程序化草地生态</h1>
+  <p class="intro">复刻 Biome Generator 的生态分层：<code>Cover Mask</code> 决定草地岛，内部与边缘使用不同散布规则。</p>
+  <div class="group">
+    <div class="group-title">生态掩膜</div>
+    <div class="row">
+      <label>草地覆盖率 <span id="coveragev"></span></label>
+      <input type="range" id="coverage" min="0.25" max="0.85" step="0.02" value="0.58" />
+    </div>
+    <div class="row">
+      <label>边缘破碎度 <span id="edgeNoisev"></span></label>
+      <input type="range" id="edgeNoise" min="0" max="1" step="0.05" value="0.72" />
+    </div>
+    <div class="row">
+      <label>地形起伏 <span id="reliefv"></span></label>
+      <input type="range" id="relief" min="0.2" max="3.6" step="0.1" value="1.7" />
+    </div>
+  </div>
+  <div class="group">
+    <div class="group-title">植被层级</div>
+    <div class="row">
+      <label>草叶数量 <span id="grassCountv"></span></label>
+      <input type="range" id="grassCount" min="10000" max="110000" step="5000" value="70000" />
+    </div>
+    <div class="row">
+      <label>地被密度 <span id="groundCoverv"></span></label>
+      <input type="range" id="groundCover" min="0" max="1.5" step="0.05" value="0.85" />
+    </div>
+    <div class="row">
+      <label>灌木密度 <span id="shrubsv"></span></label>
+      <input type="range" id="shrubs" min="0" max="1.5" step="0.05" value="0.78" />
+    </div>
+    <div class="row">
+      <label>乔木数量 <span id="treesv"></span></label>
+      <input type="range" id="trees" min="0" max="24" step="1" value="12" />
+    </div>
+    <div class="row">
+      <label>岩石封边 <span id="edgeRocksv"></span></label>
+      <input type="range" id="edgeRocks" min="0" max="1.5" step="0.05" value="1" />
+    </div>
+  </div>
+  <div class="group">
+    <div class="group-title">动态</div>
+    <div class="row">
+      <label>风力强度 <span id="windv"></span></label>
+      <input type="range" id="wind" min="0" max="1.8" step="0.02" value="0.62" />
+    </div>
+    <div class="row">
+      <label>秋季比例 <span id="seasonv"></span></label>
+      <input type="range" id="season" min="0" max="1" step="0.02" value="0.42" />
+    </div>
+    <div class="button-row">
+      <button id="seed" type="button">换一个生态种子</button>
+      <span id="seedv"></span>
+    </div>
+  </div>
+  <div class="legend">
+    <span><i style="background:#c5ad75"></i>外部沙土</span>
+    <span><i style="background:#4f4428"></i>近边缘土壤</span>
+    <span><i style="background:#68762f"></i>内部草地</span>
+    <span><i style="background:#9a883f"></i>树灌层</span>
+  </div>
+  <div id="stat"></div>
+  <div id="draws"></div>
+  <div class="hint">拖动旋转 · 滚轮缩放。所有散布确定性；草叶风摆在顶点着色器执行。</div>
+</div>
+<script type="module" src="/web/biome-grassland.js"></script>
+</body>
+</html>

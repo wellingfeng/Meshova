@@ -228,8 +228,8 @@ function buildLeaves(branches: BranchSegment[], opts: GrowingTreeOptions, openne
     perBranch: Math.max(1, Math.round(leafDensity * (0.35 + 0.65 * openness))),
     size: (opts.leafSize ?? 0.18) * (0.4 + 0.6 * openness),
     upBias: 0.45,
-    cross: true,
-    shape: (opts.leafShape ?? "quad") as LeafShape,
+    cross: opts.leafShape === "quad",
+    shape: (opts.leafShape ?? "oval") as LeafShape,
   };
   if (opts.leafCurl !== undefined) leafOpts.curl = opts.leafCurl;
   if (opts.leafFold !== undefined) leafOpts.fold = opts.leafFold;

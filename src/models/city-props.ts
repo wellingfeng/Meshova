@@ -16,10 +16,14 @@
  */
 import { vec3, type Vec3 } from "../math/vec3.js";
 import { makeRng } from "../random/prng.js";
+import { scatterLeaves } from "../vegetation/leaf.js";
+import { tree } from "../vegetation/plant.js";
 import {
   box,
   cylinder,
   cone,
+  frustum,
+  plane,
   sphere,
   torus,
   transform,
@@ -135,10 +139,10 @@ export function buildRooftopKitParts(params: Partial<RooftopKitParams> = {}): Na
 
   // Roof-access stair hut with a door and slab roof.
   if (p.accessHut) {
-    const hx = rw * 0.5, hz = -rd * 0.55;
+    const hx = 0, hz = rd * 0.55;
     parts.push({ name: "access_hut", label: "楼梯间", mesh: transform(box(2.4, 2.6, 2.4), { translate: vec3(hx, 1.3, hz) }), color: BRICK, surface: conc(BRICK, 0.85) });
     parts.push({ name: "hut_roof", label: "楼梯间顶", mesh: transform(box(2.7, 0.25, 2.7), { translate: vec3(hx, 2.72, hz) }), color: CONCRETE, surface: conc(CONCRETE) });
-    parts.push({ name: "hut_door", label: "屋顶门", mesh: transform(box(0.9, 1.9, 0.1), { translate: vec3(hx, 0.95, hz + 1.2) }), color: RUST_RED, surface: metal(RUST_RED, 0.6) });
+    parts.push({ name: "hut_door", label: "屋顶门", mesh: transform(box(0.9, 1.9, 0.1), { translate: vec3(hx, 0.95, hz + 1.255) }), color: RUST_RED, surface: metal(RUST_RED, 0.6) });
   }
 
   return parts;
@@ -199,11 +203,11 @@ export function buildScaffoldingParts(params: Partial<ScaffoldingParams> = {}): 
   for (let l = 1; l <= lifts; l++) {
     const y = l * lh;
     for (const z of [0, d]) {
-      ledgers.push(transform(box(totalW, t, t), { translate: vec3(0, y, z) }));
+      ledgers.push(transform(box(totalW, t * 0.82, t * 0.82), { translate: vec3(0, y, z) }));
     }
     for (let i = 0; i <= bays; i++) {
       const x = -totalW / 2 + i * bw;
-      ledgers.push(transform(box(t, t, d), { translate: vec3(x, y, d / 2) }));
+      ledgers.push(transform(box(t * 0.82, t * 0.82, d), { translate: vec3(x, y, d / 2) }));
     }
   }
   parts.push({ name: "ledgers", label: "横杆", mesh: merge(...ledgers), color: GALV, surface: metal(GALV, 0.45) });
@@ -216,7 +220,7 @@ export function buildScaffoldingParts(params: Partial<ScaffoldingParams> = {}): 
     for (let i = 0; i < bays; i++) {
       const cx = -totalW / 2 + i * bw + bw / 2;
       const cy = l * lh + lh / 2;
-      braces.push(transform(box(t, diag, t), { rotate: vec3(0, 0, Math.PI / 2 - ang), translate: vec3(cx, cy, 0) }));
+      braces.push(transform(box(t * 0.68, diag, t * 0.68), { rotate: vec3(0, 0, Math.PI / 2 - ang), translate: vec3(cx, cy, 0) }));
     }
   }
   parts.push({ name: "braces", label: "斜撑", mesh: merge(...braces), color: STEEL_DK, surface: metal(STEEL_DK, 0.55) });
@@ -289,8 +293,8 @@ export function buildBusStopParts(params: Partial<BusStopParams> = {}): NamedPar
 
   // Glass rear wall + two partial side walls.
   const glass: Mesh[] = [];
-  glass.push(transform(box(L - 0.1, H - 0.2, 0.04), { translate: vec3(0, H / 2, -(D / 2 - 0.04)) }));
-  glass.push(transform(box(0.04, H - 0.2, D - 0.1), { translate: vec3(-(L / 2 - 0.04), H / 2, 0) }));
+  glass.push(transform(box(L - 0.28, H - 0.2, 0.04), { translate: vec3(0, H / 2, -(D / 2 - 0.14)) }));
+  glass.push(transform(box(0.04, H - 0.2, D - 0.28), { translate: vec3(-(L / 2 - 0.14), H / 2, 0) }));
   parts.push({ name: "glass", label: "玻璃围板", mesh: merge(...glass), color: GLASS, surface: { type: "glass" as const, params: { color: GLASS, roughness: 0.05 } } });
 
   // Bench along the rear wall.
@@ -304,7 +308,7 @@ export function buildBusStopParts(params: Partial<BusStopParams> = {}): NamedPar
   // Illuminated ad panel light-box at the right end.
   if (p.adPanel) {
     parts.push({ name: "ad_frame", label: "广告灯箱框", mesh: transform(box(0.12, H - 0.3, D - 0.2), { translate: vec3(L / 2 - 0.02, H / 2, 0) }), color: STEEL_DK, surface: metal(STEEL_DK, 0.4) });
-    parts.push({ name: "ad_panel", label: "广告面板", mesh: transform(box(0.04, H - 0.6, D - 0.5), { translate: vec3(L / 2 + 0.02, H / 2, 0) }), color: [0.95, 0.95, 0.9], surface: ceram([0.95, 0.95, 0.9], 0.2) });
+    parts.push({ name: "ad_panel", label: "广告面板", mesh: transform(box(0.04, H - 0.6, D - 0.5), { translate: vec3(L / 2 + 0.065, H / 2, 0) }), color: [0.95, 0.95, 0.9], surface: ceram([0.95, 0.95, 0.9], 0.2) });
   }
 
   // Bus-stop sign pole standing just outside the shelter.
@@ -416,7 +420,9 @@ export function buildBicycleParts(params: Partial<BicycleParams> = {}): NamedPar
   const pedals: Mesh[] = [];
   parts.push({ name: "crank", label: "牙盘", mesh: transform(cylinder(0.09, ft * 2, 16), { rotate: vec3(Math.PI / 2, 0, 0), translate: bb }), color: CHROME, surface: metal(CHROME, 0.25) });
   for (const [dx, dz] of [[0.11, 0.09], [-0.11, -0.09]] as Array<[number, number]>) {
-    pedals.push(transform(box(0.1, 0.03, 0.06), { translate: vec3(bb.x + dx, bb.y - 0.02, dz) }));
+    const pedalCenter = vec3(bb.x + dx, bb.y - 0.02, dz);
+    pedals.push(tubeBetween(bb, pedalCenter, ft * 0.42));
+    pedals.push(transform(box(0.1, 0.03, 0.06), { translate: pedalCenter }));
   }
   parts.push({ name: "pedals", label: "脚踏", mesh: merge(...pedals), color: RUBBER, surface: metal(RUBBER, 0.7) });
 
@@ -436,6 +442,8 @@ export interface BillboardParams {
   truss: boolean;
   /** Draw the top-mounted flood-light bar. */
   lights: boolean;
+  /** Replaceable base-color image shown on the front advertising face. */
+  adTexture: string;
 }
 
 export const BILLBOARD_DEFAULTS: BillboardParams = {
@@ -445,6 +453,7 @@ export const BILLBOARD_DEFAULTS: BillboardParams = {
   singleMast: true,
   truss: true,
   lights: true,
+  adTexture: "",
 };
 
 /** Roadside billboard: mast(s) + lattice truss backing + ad panel + flood-lights. */
@@ -495,8 +504,23 @@ export function buildBillboardParts(params: Partial<BillboardParams> = {}): Name
     parts.push({ name: "truss", label: "桁架", mesh: merge(...truss), color: STEEL, surface: metal(STEEL, 0.55) });
   }
 
-  // Ad panel (bright faced board).
-  parts.push({ name: "panel", label: "广告面板", mesh: transform(box(pw, ph, 0.2), { translate: vec3(0, panelCy, 0) }), color: [0.92, 0.92, 0.88], surface: ceram([0.92, 0.92, 0.88], 0.25) });
+  // Structural backing plus a separate, full-range UV advertising face. The
+  // face stays independent so replacing artwork never changes the structure.
+  parts.push({ name: "panel", label: "广告背板", mesh: transform(box(pw, ph, 0.2), { translate: vec3(0, panelCy, 0) }), color: [0.24, 0.25, 0.27], surface: metal([0.24, 0.25, 0.27], 0.65) });
+  const faceBase = plane(pw, ph);
+  const face = transform(
+    { ...faceBase, uvs: faceBase.uvs.map((uv) => ({ x: uv.x, y: 1 - uv.y })) },
+    { rotate: vec3(Math.PI / 2, 0, 0), translate: vec3(0, panelCy, 0.106) },
+  );
+  parts.push({
+    name: "ad_face",
+    label: "广告画面",
+    mesh: face,
+    color: [0.92, 0.92, 0.88],
+    surface: ceram([0.92, 0.92, 0.88], 0.3),
+    ...(p.adTexture ? { textures: { baseColor: p.adTexture } } : {}),
+    metadata: { textureReplaceable: true, textureSlot: "广告贴图", textureChannel: "baseColor" },
+  });
   // Panel frame border.
   parts.push({ name: "frame", label: "边框", mesh: merge(
     transform(box(pw + 0.4, 0.3, 0.3), { translate: vec3(0, panelCy + ph / 2 + 0.15, 0) }),
@@ -785,7 +809,7 @@ export function buildBarrierRunParts(params: Partial<BarrierRunParams> = {}): Na
     rails.push(transform(box(total, 0.05, 0.05), { translate: vec3(0, ry, 0) }));
   }
   parts.push({ name: "rails", label: "横管", mesh: merge(...rails), color: GALV, surface: metal(GALV, 0.5) });
-  parts.push({ name: "mesh_panel", label: "网面", mesh: transform(box(total, p.height - 0.15, 0.01), { translate: vec3(0, p.height / 2 + 0.02, 0) }), color: [0.55, 0.56, 0.58], surface: metal([0.55, 0.56, 0.58], 0.6) });
+  parts.push({ name: "mesh_panel", label: "网面", mesh: transform(box(Math.max(0.01, total - 0.12), p.height - 0.15, 0.01), { translate: vec3(0, p.height / 2 + 0.02, 0) }), color: [0.55, 0.56, 0.58], surface: metal([0.55, 0.56, 0.58], 0.6) });
   return parts;
 }
 
@@ -819,14 +843,25 @@ export function buildFireEscapeParts(params: Partial<FireEscapeParams> = {}): Na
   const pd = p.platformDepth;
   const w = p.width;
   // Wall at z=0; escape extends into +Z.
+  const frontZ = pd + 0.1;
+  const stairZ = frontZ + 0.22;
+  const gateHalf = Math.min(0.54, Math.max(0.34, w * 0.2));
+  const gateX = (floorIndex: number) => (floorIndex % 2 === 0 ? 1 : -1) * (w / 2 - 0.4);
 
   const platforms: Mesh[] = [];
   const rails: Mesh[] = [];
   const stringers: Mesh[] = [];
   const steps: Mesh[] = [];
 
+  function frontRailSegment(x0: number, x1: number, y: number): void {
+    const len = x1 - x0;
+    if (len <= 0.12) return;
+    rails.push(transform(box(len, 0.05, 0.05), { translate: vec3((x0 + x1) / 2, y, frontZ) }));
+  }
+
   for (let f = 0; f < n; f++) {
     const y = (f + 1) * fh;
+    const gx = gateX(f);
     // Landing grate platform.
     platforms.push(transform(box(w, 0.08, pd), { translate: vec3(0, y, pd / 2 + 0.1) }));
     // Support brackets under the platform (two diagonal struts to the wall).
@@ -835,37 +870,41 @@ export function buildFireEscapeParts(params: Partial<FireEscapeParams> = {}): Na
     }
     // Railings: front rail + two side rails + balusters.
     const rh = 1.0;
-    rails.push(transform(box(w, 0.05, 0.05), { translate: vec3(0, y + rh, pd + 0.1) }));
+    frontRailSegment(-w / 2, gx - gateHalf, y + rh);
+    frontRailSegment(gx + gateHalf, w / 2, y + rh);
     for (const sx of [-w / 2, w / 2]) {
       rails.push(transform(box(0.05, 0.05, pd), { translate: vec3(sx, y + rh, pd / 2 + 0.1) }));
+      rails.push(transform(box(0.04, rh, 0.04), { translate: vec3(sx, y + rh / 2, 0.1) }));
     }
     const nbal = 6;
     for (let b = 0; b <= nbal; b++) {
       const bx = -w / 2 + (b / nbal) * w;
-      rails.push(transform(box(0.03, rh, 0.03), { translate: vec3(bx, y + rh / 2, pd + 0.1) }));
+      if (Math.abs(bx - gx) < gateHalf) continue;
+      rails.push(transform(box(0.03, rh, 0.03), { translate: vec3(bx, y + rh / 2, frontZ) }));
     }
   }
 
-  // Zig-zag connecting stairs between consecutive landings.
+  // Zig-zag connecting stairs between consecutive landings. Flights run across
+  // the landing width and hit the explicit guardrail gaps, so access is clear.
   if (p.stairs) {
     for (let f = 0; f < n; f++) {
       const yTop = (f + 1) * fh;
-      const yBot = f * fh + 0.1;
-      const side = f % 2 === 0 ? -1 : 1; // alternate stair side
-      const sx = side * (w / 2 - 0.4);
-      const run = pd;
+      const yBot = f === 0 ? 0.025 : f * fh + 0.08;
+      const xTop = gateX(f);
+      const xBot = f === 0 ? -xTop : gateX(f - 1);
+      const run = xTop - xBot;
       const rise = yTop - yBot;
-      const diag = Math.hypot(run, rise);
+      const diag = Math.hypot(Math.abs(run), rise);
       const ang = Math.atan2(rise, run);
       // Two stringers.
-      for (const off of [-0.35, 0.35]) {
-        stringers.push(transform(box(0.05, 0.05, diag), { rotate: vec3(-ang, 0, 0), translate: vec3(sx + off, (yTop + yBot) / 2, pd / 2 + 0.1) }));
+      for (const off of [-0.28, 0.28]) {
+        stringers.push(transform(box(diag, 0.05, 0.05), { rotate: vec3(0, 0, ang), translate: vec3((xTop + xBot) / 2, (yTop + yBot) / 2, stairZ + off) }));
       }
       // Steps.
       const nsteps = Math.max(4, Math.round(rise / 0.28));
       for (let s = 1; s < nsteps; s++) {
         const t = s / nsteps;
-        steps.push(transform(box(0.7, 0.03, 0.22), { translate: vec3(sx, yBot + t * rise, 0.1 + t * pd) }));
+        steps.push(transform(box(0.24, 0.03, 0.64), { translate: vec3(xBot + t * run, yBot + t * rise, stairZ) }));
       }
     }
   }
@@ -921,7 +960,7 @@ export function buildNewsstandParts(params: Partial<NewsstandParams> = {}): Name
   const racks: Mesh[] = [];
   const rackZ = frontZ + 0.05;
   for (let s = 0; s < 3; s++) {
-    racks.push(transform(box(w * 0.9, 0.04, 0.28), { rotate: vec3(-0.35, 0, 0), translate: vec3(0, h * 0.28 - s * 0.28, rackZ + 0.2 + s * 0.05) }));
+    racks.push(transform(box(w * 0.9, 0.04, 0.28), { rotate: vec3(-0.35, 0, 0), translate: vec3(0, h * 0.28 - s * 0.28, rackZ + 0.06 + s * 0.015) }));
   }
   parts.push({ name: "racks", label: "报刊架", mesh: merge(...racks), color: [0.85, 0.82, 0.72], surface: ceram([0.85, 0.82, 0.72], 0.5) });
 
@@ -1082,16 +1121,20 @@ export function buildUmbrellaTableParts(params: Partial<UmbrellaTableParams> = {
 
   // Table top + pedestal + base.
   parts.push({ name: "table_top", label: "桌面", mesh: transform(cylinder(tr, 0.06, 32), { translate: vec3(0, tableY, 0) }), color: STONE, surface: conc(STONE, 0.5) });
-  parts.push({ name: "table_pole", label: "桌柱", mesh: transform(cylinder(0.07, tableY, 12), { translate: vec3(0, tableY / 2, 0) }), color: STEEL_DK, surface: metal(STEEL_DK, 0.5) });
+  const tableBaseHeight = 0.06;
+  const tablePoleHeight = tableY - tableBaseHeight;
+  parts.push({ name: "table_pole", label: "桌柱", mesh: transform(cylinder(0.07, tablePoleHeight, 12), { translate: vec3(0, tableBaseHeight + tablePoleHeight / 2, 0) }), color: STEEL_DK, surface: metal(STEEL_DK, 0.5) });
   parts.push({ name: "table_base", label: "桌基", mesh: transform(cylinder(0.28, 0.06, 24), { translate: vec3(0, 0.03, 0) }), color: STONE, surface: conc(STONE, 0.6) });
 
   // Umbrella mast through the table + canopy (cone) + tip finial.
   const canopyY = 2.35;
-  parts.push({ name: "umbrella_pole", label: "伞杆", mesh: transform(cylinder(0.035, canopyY, 12), { translate: vec3(0, canopyY / 2, 0) }), color: WOOD, surface: metal(WOOD, 0.6) });
+  const mastBaseY = tableY + 0.03;
+  const mastHeight = canopyY - mastBaseY;
+  parts.push({ name: "umbrella_pole", label: "伞杆", mesh: transform(cylinder(0.035, mastHeight, 12), { translate: vec3(0, mastBaseY + mastHeight / 2, 0) }), color: WOOD, surface: metal(WOOD, 0.6) });
   parts.push({ name: "canopy", label: "伞面", mesh: transform(cone(p.umbrellaRadius, 0.55, 12, false), { translate: vec3(0, canopyY, 0) }), color: p.canopy, surface: { type: "fabric" as const, params: { color: p.canopy, roughness: 0.85 } } });
   // Scalloped valance ring under the canopy edge.
   parts.push({ name: "valance", label: "伞裙", mesh: transform(cylinder(p.umbrellaRadius * 0.92, 0.12, 12, false), { translate: vec3(0, canopyY - 0.14, 0) }), color: p.canopy, surface: { type: "fabric" as const, params: { color: p.canopy, roughness: 0.85 } } });
-  parts.push({ name: "finial", label: "伞顶", mesh: transform(sphere(0.06, 10, 8), { translate: vec3(0, canopyY + 0.58, 0) }), color: WOOD, surface: metal(WOOD, 0.5) });
+  parts.push({ name: "finial", label: "伞顶", mesh: transform(sphere(0.06, 10, 8), { translate: vec3(0, canopyY + 0.32, 0) }), color: WOOD, surface: metal(WOOD, 0.5) });
 
   // Ring of stools around the table.
   const ns = Math.max(0, Math.round(p.stools));
@@ -1124,7 +1167,7 @@ export interface StreetTreeParams {
   trunkHeight: number;
   /** Overall canopy radius (metres). */
   canopyRadius: number;
-  /** Number of canopy foliage clusters (blobs). */
+  /** Crown density control. Drives first-order branches and terminal leaves. */
   clusters: number;
   /** Draw the paver tree-pit surround + steel tree guard. */
   pit: boolean;
@@ -1137,68 +1180,441 @@ export interface StreetTreeParams {
 export const STREET_TREE_DEFAULTS: StreetTreeParams = {
   trunkHeight: 2.2,
   canopyRadius: 2.0,
-  clusters: 7,
+  clusters: 8,
   pit: true,
   foliage: [0.26, 0.44, 0.2],
   seed: 7,
 };
 
-const BARK: RGB = [0.32, 0.24, 0.17];
+const BARK: RGB = [0.28, 0.19, 0.12];
 
-/** Street tree: trunk + a few tapered limbs + clustered canopy blobs + paver pit + steel guard. */
+/** Street tree: tapered leader + recursive branch hierarchy + branch-bound leaves + flush tree grate. */
 export function buildStreetTreeParts(params: Partial<StreetTreeParams> = {}): NamedPart[] {
   const p: StreetTreeParams = { ...STREET_TREE_DEFAULTS, ...params };
   const parts: NamedPart[] = [];
-  const rng = makeRng(p.seed);
-  const th = p.trunkHeight;
-  const cr = p.canopyRadius;
+  const trunkHeight = Math.max(0.8, p.trunkHeight);
+  const crownRadius = Math.max(0.45, p.canopyRadius);
+  const density = Math.max(2, Math.round(p.clusters));
+  const totalHeight = trunkHeight + crownRadius * 1.32;
+  const trunkRadius = Math.max(0.11, Math.min(0.26, crownRadius * 0.065 + 0.07));
+  const firstBranchT = Math.min(0.72, Math.max(0.28, trunkHeight / totalHeight));
+  const plant = tree({
+    seed: p.seed,
+    height: totalHeight,
+    trunkRadius,
+    gnarl: 0.16,
+    placement: "stratified-shuffled",
+    branchPhototropism: 0.48,
+    branchGravity: 0.06,
+    branchFlare: true,
+    branchFlareScale: 1.15,
+    leaves: false,
+    branchLengthProfile: [
+      { t: firstBranchT, value: 1.0 },
+      { t: 0.72, value: 0.82 },
+      { t: 1, value: 0.42 },
+    ],
+    branchRadiusProfile: [
+      { t: 0, value: 1 },
+      { t: 1, value: 0.54 },
+    ],
+    authoring: {
+      levels: [
+        {
+          count: density + 2,
+          startPct: firstBranchT,
+          endPct: 0.94,
+          angle: 53,
+          angleJitter: 10,
+          lengthScale: crownRadius / totalHeight,
+          radiusScale: 0.5,
+          childFalloff: 0.55,
+          gnarl: 0.11,
+          segments: 7,
+        },
+        {
+          count: 4,
+          startPct: 0.38,
+          endPct: 0.94,
+          angle: 48,
+          angleJitter: 14,
+          lengthScale: 0.5,
+          radiusScale: 0.46,
+          gnarl: 0.16,
+          segments: 6,
+        },
+        {
+          count: 2,
+          startPct: 0.5,
+          endPct: 0.96,
+          angle: 42,
+          angleJitter: 16,
+          lengthScale: 0.45,
+          radiusScale: 0.4,
+          gnarl: 0.2,
+          segments: 5,
+        },
+      ],
+    },
+    canopy: {
+      shape: "ellipsoid",
+      baseY: trunkHeight * 0.9,
+      height: crownRadius * 1.7,
+      radiusX: crownRadius,
+      radiusZ: crownRadius * 0.9,
+      strength: 0.82,
+      minScale: 0.18,
+      power: 0.82,
+    },
+  });
+  const terminalBranches = plant.branches.filter((branch) => branch.terminal);
+  const primaryTerminals = terminalBranches.filter((_, index) => index % 3 !== 0);
+  const highlightTerminals = terminalBranches.filter((_, index) => index % 3 === 0);
+  const leafOptions = {
+    perBranch: Math.max(5, Math.round(density * 1.75)),
+    size: crownRadius * 0.085,
+    aspect: 1.55,
+    sizeJitter: 0.32,
+    upBias: 0.52,
+    cross: false,
+    startPct: 0.16,
+    shape: "oval" as const,
+    leafSegments: 6,
+    curl: 0.12,
+    fold: 0.16,
+    placement: "stratified-shuffled" as const,
+    roundedNormals: true,
+  };
+  const leaves = scatterLeaves(primaryTerminals, { ...leafOptions, seed: p.seed * 31 + 17 });
+  const highlightLeaves = scatterLeaves(highlightTerminals, { ...leafOptions, seed: p.seed * 31 + 29 });
+  const highlightFoliage: RGB = [
+    Math.min(1, p.foliage[0] * 1.18 + 0.025),
+    Math.min(1, p.foliage[1] * 1.12 + 0.02),
+    Math.min(1, p.foliage[2] * 1.1 + 0.015),
+  ];
 
-  // Trunk (slightly tapered by using a stubby cone) + flare at ground.
-  parts.push({ name: "trunk", label: "树干", mesh: transform(cylinder(0.18, th, 12), { translate: vec3(0, th / 2, 0) }), color: BARK, surface: { type: "wood" as const, params: { color: BARK, roughness: 0.85 } } });
-  parts.push({ name: "flare", label: "根盘", mesh: transform(cone(0.34, 0.4, 12, false), { translate: vec3(0, 0.2, 0) }), color: BARK, surface: { type: "wood" as const, params: { color: BARK, roughness: 0.9 } } });
+  parts.push({
+    name: "trunk",
+    label: "树干与枝系",
+    mesh: plant.wood,
+    color: BARK,
+    surface: { type: "bark" as const, params: { color: BARK, scale: 11, seed: p.seed } },
+  });
+  parts.push({
+    name: "canopy",
+    label: "主树冠",
+    mesh: leaves,
+    color: p.foliage,
+    surface: { type: "leaf" as const, params: { color: p.foliage, roughness: 0.76 } },
+  });
+  parts.push({
+    name: "canopy_highlights",
+    label: "树冠嫩叶",
+    mesh: highlightLeaves,
+    color: highlightFoliage,
+    surface: { type: "leaf" as const, params: { color: highlightFoliage, roughness: 0.72, seed: p.seed + 1 } },
+  });
 
-  // A few upward limbs.
-  const limbs: Mesh[] = [];
-  const nl = 4;
-  for (let i = 0; i < nl; i++) {
-    const a = (i / nl) * Math.PI * 2 + 0.4;
-    const lean = 0.5 + rng.next() * 0.3;
-    limbs.push(transform(cylinder(0.07, 1.1, 8), { rotate: vec3(lean, a, 0), translate: vec3(Math.cos(a) * 0.35, th + 0.35, Math.sin(a) * 0.35) }));
-  }
-  parts.push({ name: "limbs", label: "枝条", mesh: merge(...limbs), color: BARK, surface: { type: "wood" as const, params: { color: BARK, roughness: 0.85 } } });
-
-  // Canopy: overlapping foliage blobs placed deterministically in a dome.
-  const blobs: Mesh[] = [];
-  const nc = Math.max(1, Math.round(p.clusters));
-  const canopyBase = th + 0.6;
-  for (let i = 0; i < nc; i++) {
-    const a = rng.next() * Math.PI * 2;
-    const rr = rng.next() * cr * 0.6;
-    const bx = Math.cos(a) * rr;
-    const bz = Math.sin(a) * rr;
-    const by = canopyBase + rng.next() * cr * 0.7;
-    const br = cr * (0.4 + rng.next() * 0.35);
-    blobs.push(transform(sphere(br, 12, 9), { translate: vec3(bx, by, bz) }));
-  }
-  parts.push({ name: "canopy", label: "树冠", mesh: merge(...blobs), color: p.foliage, surface: { type: "fabric" as const, params: { color: p.foliage, roughness: 0.95 } } });
-
-  // Tree pit: paver surround ring + soil disc + steel tree guard grate.
+  // Flush square paving frame + recessed soil + open-centre steel grate.
   if (p.pit) {
-    parts.push({ name: "pit_border", label: "树池边", mesh: transform(torus(0.95, 0.1, 32, 8), { translate: vec3(0, 0.05, 0) }), color: STONE, surface: conc(STONE, 0.8) });
-    parts.push({ name: "soil", label: "树池土", mesh: transform(cylinder(0.85, 0.04, 32), { translate: vec3(0, 0.02, 0) }), color: [0.24, 0.18, 0.12], surface: conc([0.24, 0.18, 0.12], 0.95) });
-    // Radial guard bars.
+    const pitHalf = Math.max(0.5, Math.min(0.82, crownRadius * 0.38));
+    const borderWidth = Math.max(0.08, pitHalf * 0.13);
+    const borderColor: RGB = [0.42, 0.43, 0.42];
+    const border: Mesh[] = [
+      transform(box(pitHalf * 2, 0.08, borderWidth), { translate: vec3(0, 0.04, -pitHalf + borderWidth / 2) }),
+      transform(box(pitHalf * 2, 0.08, borderWidth), { translate: vec3(0, 0.04, pitHalf - borderWidth / 2) }),
+      transform(box(borderWidth, 0.08, pitHalf * 2 - borderWidth * 2), { translate: vec3(-pitHalf + borderWidth / 2, 0.04, 0) }),
+      transform(box(borderWidth, 0.08, pitHalf * 2 - borderWidth * 2), { translate: vec3(pitHalf - borderWidth / 2, 0.04, 0) }),
+    ];
+    const soilRadius = pitHalf - borderWidth * 1.25;
+    parts.push({ name: "pit_border", label: "方形树池边", mesh: merge(...border), color: borderColor, surface: conc(borderColor, 0.88) });
+    parts.push({ name: "soil", label: "树池土", mesh: transform(cylinder(soilRadius, 0.035, 32), { translate: vec3(0, 0.035, 0) }), color: [0.2, 0.14, 0.09], surface: conc([0.2, 0.14, 0.09], 0.98) });
+
+    const grateHalf = soilRadius * 0.95;
+    const opening = Math.max(trunkRadius * 1.75, grateHalf * 0.27);
+    const grateThickness = Math.max(0.018, pitHalf * 0.025);
     const bars: Mesh[] = [];
-    for (let i = 0; i < 8; i++) {
-      const a = (i / 8) * Math.PI * 2;
-      bars.push(transform(box(0.82, 0.03, 0.03), { rotate: vec3(0, a, 0), translate: vec3(0, 0.09, 0) }));
+    const ringCount = 4;
+    for (let i = 0; i < ringCount; i++) {
+      const radius = opening + ((grateHalf - opening) * i) / (ringCount - 1);
+      bars.push(transform(box(radius * 2, 0.025, grateThickness), { translate: vec3(0, 0.075, -radius) }));
+      bars.push(transform(box(radius * 2, 0.025, grateThickness), { translate: vec3(0, 0.075, radius) }));
+      bars.push(transform(box(grateThickness, 0.025, radius * 2), { translate: vec3(-radius, 0.075, 0) }));
+      bars.push(transform(box(grateThickness, 0.025, radius * 2), { translate: vec3(radius, 0.075, 0) }));
     }
-    bars.push(transform(torus(0.8, 0.02, 32, 6), { translate: vec3(0, 0.09, 0) }));
-    bars.push(transform(torus(0.4, 0.02, 24, 6), { translate: vec3(0, 0.09, 0) }));
-    parts.push({ name: "guard", label: "护树栅", mesh: merge(...bars), color: STEEL_DK, surface: metal(STEEL_DK, 0.55) });
+    const spokeLength = grateHalf - opening;
+    const spokeCenter = (grateHalf + opening) * 0.5;
+    bars.push(transform(box(spokeLength, 0.025, grateThickness), { translate: vec3(-spokeCenter, 0.075, 0) }));
+    bars.push(transform(box(spokeLength, 0.025, grateThickness), { translate: vec3(spokeCenter, 0.075, 0) }));
+    bars.push(transform(box(grateThickness, 0.025, spokeLength), { translate: vec3(0, 0.075, -spokeCenter) }));
+    bars.push(transform(box(grateThickness, 0.025, spokeLength), { translate: vec3(0, 0.075, spokeCenter) }));
+    parts.push({ name: "guard", label: "方形护树格栅", mesh: merge(...bars), color: STEEL_DK, surface: metal(STEEL_DK, 0.62) });
   }
 
   return parts;
 }
 
+// ---- CitySample Kit_StreetLamp_A..E: ornamental / cobra-head street lamp ----
+export interface StreetLampParams {
+  /** Total pole height (metres). */
+  height: number;
+  /** Lamp style: modern cobra-head arm or ornamental acorn top. */
+  style: "cobra" | "ornamental" | "double";
+  /** Cobra arm reach over the roadway (metres). */
+  armReach: number;
+  /** Draw the fluted cast base. */
+  base: boolean;
+  /** Pole colour. */
+  color: RGB;
+}
 
+export const STREET_LAMP_DEFAULTS: StreetLampParams = {
+  height: 6.5,
+  style: "cobra",
+  armReach: 2.2,
+  base: true,
+  color: [0.2, 0.21, 0.23],
+};
 
+/** Street lamp: fluted base + tapered pole + cobra arm/ornamental head + luminaire(s). */
+export function buildStreetLampParts(params: Partial<StreetLampParams> = {}): NamedPart[] {
+  const p: StreetLampParams = { ...STREET_LAMP_DEFAULTS, ...params };
+  const parts: NamedPart[] = [];
+  const h = p.height;
+  const paint = metal(p.color, 0.45);
+  const lit: RGB = [0.98, 0.92, 0.7];
+
+  if (p.base) {
+    parts.push({ name: "base", label: "灯座", mesh: transform(cone(0.28, 0.5, 16, false), { translate: vec3(0, 0.25, 0) }), color: p.color, surface: paint });
+    parts.push({ name: "collar", label: "束腰", mesh: transform(torus(0.16, 0.05, 20, 8), { translate: vec3(0, 0.55, 0) }), color: p.color, surface: paint });
+  }
+  // Slightly tapered pole. Keep the top radius non-zero so the arm has a
+  // believable socket instead of collapsing to a needle point.
+  parts.push({ name: "pole", label: "灯杆", mesh: transform(frustum(0.085, 0.06, h, 18), { translate: vec3(0, h / 2 + 0.4, 0) }), color: p.color, surface: paint });
+
+  const emit = (color: RGB) => ({ type: "emissive" as const, params: { color, roughness: 0.3 } });
+  const luminaire = (cx: number, cy: number): NamedPart[] => [
+    { name: "head", label: "灯头", mesh: transform(box(0.5, 0.16, 0.24), { translate: vec3(cx, cy, 0) }), color: p.color, surface: paint },
+    { name: "lens", label: "灯罩", mesh: transform(box(0.36, 0.06, 0.18), { translate: vec3(cx, cy - 0.11, 0) }), color: lit, surface: emit(lit) },
+  ];
+
+  if (p.style === "cobra" || p.style === "double") {
+    const topY = h + 0.4;
+    const arm = (sign: number): NamedPart => {
+      const a = transform(cylinder(0.05, p.armReach, 8), { rotate: vec3(0, 0, Math.PI / 2), translate: vec3((sign * p.armReach) / 2, topY, 0) });
+      return { name: sign > 0 ? "arm_r" : "arm_l", label: "灯臂", mesh: a, color: p.color, surface: paint };
+    };
+    parts.push(arm(1), ...luminaire(p.armReach, topY - 0.05));
+    if (p.style === "double") parts.push(arm(-1), ...luminaire(-p.armReach, topY - 0.05));
+  } else {
+    // Ornamental acorn: banded globe on a decorative finial.
+    const topY = h + 0.4;
+    parts.push({ name: "finial", label: "灯托", mesh: transform(cone(0.14, 0.3, 12, false), { translate: vec3(0, topY + 0.05, 0) }), color: p.color, surface: paint });
+    parts.push({ name: "globe", label: "灯球", mesh: transform(sphere(0.28, 16, 12), { translate: vec3(0, topY + 0.45, 0) }), color: lit, surface: emit(lit) });
+    parts.push({ name: "cap", label: "顶盖", mesh: transform(cone(0.2, 0.18, 12, false), { translate: vec3(0, topY + 0.72, 0) }), color: p.color, surface: paint });
+  }
+  return parts;
+}
+
+// ---- CitySample fire hydrant (common US city prop) ----
+export interface FireHydrantParams {
+  /** Barrel height (metres). */
+  height: number;
+  /** Barrel radius (metres). */
+  radius: number;
+  /** Number of side hose outlets. */
+  outlets: number;
+  /** Body colour. */
+  color: RGB;
+}
+
+export const FIRE_HYDRANT_DEFAULTS: FireHydrantParams = {
+  height: 0.75,
+  radius: 0.11,
+  outlets: 2,
+  color: [0.7, 0.12, 0.1],
+};
+
+/** Fire hydrant: flanged base + barrel + domed bonnet + hex cap + side outlets. */
+export function buildFireHydrantParts(params: Partial<FireHydrantParams> = {}): NamedPart[] {
+  const p: FireHydrantParams = { ...FIRE_HYDRANT_DEFAULTS, ...params };
+  const parts: NamedPart[] = [];
+  const paint = metal(p.color, 0.5);
+  const h = p.height;
+  const r = p.radius;
+
+  parts.push({ name: "base_flange", label: "底盘", mesh: transform(cylinder(r * 1.7, 0.06, 16), { translate: vec3(0, 0.03, 0) }), color: p.color, surface: paint });
+  parts.push({ name: "boot", label: "底座", mesh: transform(cone(r * 1.5, 0.12, 16, false), { translate: vec3(0, 0.12, 0) }), color: p.color, surface: paint });
+  parts.push({ name: "barrel", label: "本体", mesh: transform(cylinder(r, h * 0.7, 16), { translate: vec3(0, 0.18 + (h * 0.7) / 2, 0) }), color: p.color, surface: paint });
+  const shoulderY = 0.18 + h * 0.7;
+  parts.push({ name: "shoulder", label: "肩部", mesh: transform(sphere(r * 1.15, 16, 8), { translate: vec3(0, shoulderY, 0) }), color: p.color, surface: paint });
+  parts.push({ name: "bonnet", label: "顶帽", mesh: transform(sphere(r * 0.85, 14, 8), { translate: vec3(0, shoulderY + r * 0.7, 0) }), color: p.color, surface: paint });
+  parts.push({ name: "cap", label: "顶栓", mesh: transform(cylinder(r * 0.4, 0.08, 6), { translate: vec3(0, shoulderY + r * 1.15, 0) }), color: CHROME, surface: metal(CHROME, 0.35) });
+
+  const no = Math.max(0, Math.round(p.outlets));
+  for (let i = 0; i < no; i++) {
+    const a = i === 0 ? 0 : Math.PI; // front + back for the classic pair
+    const cx = Math.cos(a) * r;
+    const cz = Math.sin(a) * r;
+    parts.push({ name: `outlet_${i}`, label: "出水口", mesh: transform(cylinder(r * 0.55, 0.12, 12), { rotate: vec3(0, 0, Math.PI / 2), translate: vec3(cx + Math.cos(a) * 0.06, shoulderY - r * 0.3, cz) }), color: CHROME, surface: metal(CHROME, 0.35) });
+  }
+  return parts;
+}
+
+// ---- CitySample Kit_bench_RR: slatted park / sidewalk bench ----
+export interface ParkBenchParams {
+  /** Bench length (metres). */
+  length: number;
+  /** Number of seat/back slats. */
+  slats: number;
+  /** Draw a backrest. */
+  backrest: boolean;
+  /** Draw cast-iron armrests at the ends. */
+  armrests: boolean;
+  /** Slat wood colour. */
+  wood: RGB;
+}
+
+export const PARK_BENCH_DEFAULTS: ParkBenchParams = {
+  length: 1.8,
+  slats: 5,
+  backrest: true,
+  armrests: true,
+  wood: [0.46, 0.32, 0.18],
+};
+
+/** Park bench: cast frame legs + horizontal wooden slats for seat and back. */
+export function buildParkBenchParts(params: Partial<ParkBenchParams> = {}): NamedPart[] {
+  const p: ParkBenchParams = { ...PARK_BENCH_DEFAULTS, ...params };
+  const parts: NamedPart[] = [];
+  const L = p.length;
+  const seatY = 0.45;
+  const iron = metal([0.15, 0.16, 0.18], 0.55);
+  const woodSurf = { type: "wood" as const, params: { color: p.wood, roughness: 0.8 } };
+
+  // Two end frames (leg + seat riser).
+  const frames: Mesh[] = [];
+  for (const sx of [-(L / 2 - 0.1), L / 2 - 0.1]) {
+    frames.push(transform(box(0.06, seatY, 0.5), { translate: vec3(sx, seatY / 2, 0) }));
+    frames.push(transform(box(0.06, 0.06, 0.6), { translate: vec3(sx, seatY, 0) }));
+  }
+  if (p.backrest) {
+    for (const sx of [-(L / 2 - 0.1), L / 2 - 0.1]) {
+      frames.push(transform(box(0.055, 0.52, 0.055), { rotate: vec3(-0.15, 0, 0), translate: vec3(sx, seatY + 0.26, -0.22) }));
+    }
+  }
+  parts.push({ name: "frame", label: "铁架", mesh: merge(...frames), color: [0.15, 0.16, 0.18], surface: iron });
+
+  // Seat slats along X.
+  const ns = Math.max(2, Math.round(p.slats));
+  const seat: Mesh[] = [];
+  for (let i = 0; i < ns; i++) {
+    const z = -0.22 + (i / (ns - 1)) * 0.44;
+    seat.push(transform(box(L - 0.1, 0.04, 0.06), { translate: vec3(0, seatY + 0.02, z) }));
+  }
+  parts.push({ name: "seat", label: "座板", mesh: merge(...seat), color: p.wood, surface: woodSurf });
+
+  if (p.backrest) {
+    const back: Mesh[] = [];
+    for (let i = 0; i < ns - 1; i++) {
+      const y = seatY + 0.12 + (i / (ns - 2 || 1)) * 0.36;
+      back.push(transform(box(L - 0.1, 0.05, 0.04), { rotate: vec3(-0.15, 0, 0), translate: vec3(0, y, -0.275) }));
+    }
+    parts.push({ name: "back", label: "靠背", mesh: merge(...back), color: p.wood, surface: woodSurf });
+  }
+  if (p.armrests) {
+    const arms: Mesh[] = [];
+    for (const sx of [-(L / 2 + 0.02), L / 2 + 0.02]) {
+      arms.push(transform(box(0.05, 0.05, 0.5), { translate: vec3(sx, seatY + 0.24, 0.05) }));
+      arms.push(transform(box(0.05, 0.24, 0.05), { translate: vec3(sx, seatY + 0.12, 0.05) }));
+    }
+    parts.push({ name: "arms", label: "扶手", mesh: merge(...arms), color: [0.15, 0.16, 0.18], surface: iron });
+  }
+  return parts;
+}
+
+// ---- CitySample Kit_Trashcan_A: perforated steel litter bin ----
+export interface TrashcanParams {
+  /** Bin radius (metres). */
+  radius: number;
+  /** Bin height (metres). */
+  height: number;
+  /** Draw a domed / hooded lid. */
+  lid: boolean;
+  /** Draw the surrounding steel frame stand. */
+  frame: boolean;
+  /** Body colour. */
+  color: RGB;
+}
+
+export const TRASHCAN_DEFAULTS: TrashcanParams = {
+  radius: 0.28,
+  height: 0.8,
+  lid: true,
+  frame: true,
+  color: [0.24, 0.34, 0.3],
+};
+
+/** Litter bin: cylindrical body + banded rings + hooded lid + optional post frame. */
+export function buildTrashcanParts(params: Partial<TrashcanParams> = {}): NamedPart[] {
+  const p: TrashcanParams = { ...TRASHCAN_DEFAULTS, ...params };
+  const parts: NamedPart[] = [];
+  const r = p.radius;
+  const h = p.height;
+  const paint = metal(p.color, 0.55);
+
+  parts.push({ name: "body", label: "桶身", mesh: transform(cylinder(r, h, 20), { translate: vec3(0, h / 2, 0) }), color: p.color, surface: paint });
+  // Reinforcing bands.
+  for (const by of [0.15, h * 0.55, h - 0.16]) {
+    parts.push({ name: `band_${by.toFixed(2)}`, label: "箍圈", mesh: transform(torus(r + 0.01, 0.02, 22, 6), { translate: vec3(0, by, 0) }), color: [0.15, 0.16, 0.16], surface: metal([0.15, 0.16, 0.16], 0.5) });
+  }
+  if (p.lid) {
+    parts.push({ name: "lid", label: "盖", mesh: transform(cone(r + 0.03, 0.14, 20, false), { translate: vec3(0, h + 0.07, 0) }), color: [0.15, 0.16, 0.16], surface: metal([0.15, 0.16, 0.16], 0.5) });
+    parts.push({ name: "opening", label: "投口", mesh: transform(box(0.22, 0.12, 0.02), { translate: vec3(0, h - 0.04, r) }), color: [0.05, 0.05, 0.05], surface: metal([0.05, 0.05, 0.05], 0.9) });
+  }
+  if (p.frame) {
+    const posts: Mesh[] = [];
+    for (const a of [Math.PI * 0.25, Math.PI * 0.75, Math.PI * 1.25, Math.PI * 1.75]) {
+      posts.push(strutY(Math.cos(a) * (r + 0.08), Math.sin(a) * (r + 0.08), 0, h + 0.1, 0.04));
+    }
+    parts.push({ name: "frame", label: "支架", mesh: merge(...posts), color: STEEL_DK, surface: metal(STEEL_DK, 0.5) });
+  }
+  return parts;
+}
+
+// ---- CitySample Kit_Cone_C_A / Kit_ConstructionCone_RR: traffic cone ----
+export interface TrafficConeParams {
+  /** Cone height (metres). */
+  height: number;
+  /** Base half-width (metres). */
+  baseWidth: number;
+  /** Number of reflective collars. */
+  collars: number;
+}
+
+export const TRAFFIC_CONE_DEFAULTS: TrafficConeParams = {
+  height: 0.7,
+  baseWidth: 0.18,
+  collars: 2,
+};
+
+/** Traffic cone: square rubber base + tapered body + reflective collars. */
+export function buildTrafficConeParts(params: Partial<TrafficConeParams> = {}): NamedPart[] {
+  const p: TrafficConeParams = { ...TRAFFIC_CONE_DEFAULTS, ...params };
+  const parts: NamedPart[] = [];
+  const ORANGE: RGB = [0.92, 0.35, 0.05];
+  const WHITE: RGB = [0.92, 0.92, 0.9];
+  const cone_ = { type: "plastic" as const, params: { color: ORANGE, roughness: 0.6 } };
+
+  parts.push({ name: "base", label: "底座", mesh: transform(box(p.baseWidth * 2, 0.05, p.baseWidth * 2), { translate: vec3(0, 0.025, 0) }), color: [0.1, 0.06, 0.03], surface: { type: "plastic" as const, params: { color: [0.1, 0.06, 0.03], roughness: 0.7 } } });
+  parts.push({ name: "body", label: "锥体", mesh: transform(cone(p.baseWidth * 0.7, p.height, 20, false), { translate: vec3(0, 0.05 + p.height / 2, 0) }), color: ORANGE, surface: cone_ });
+
+  const nc = Math.max(0, Math.round(p.collars));
+  for (let i = 0; i < nc; i++) {
+    const frac = 0.4 + (i / Math.max(1, nc)) * 0.4;
+    const cy = 0.05 + p.height * frac;
+    const cr = p.baseWidth * 0.7 * (1 - frac) + 0.02;
+    parts.push({ name: `collar_${i}`, label: "反光带", mesh: transform(cylinder(cr + 0.01, 0.08, 20), { translate: vec3(0, cy, 0) }), color: WHITE, surface: { type: "plastic" as const, params: { color: WHITE, roughness: 0.35 } } });
+  }
+  return parts;
+}

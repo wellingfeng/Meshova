@@ -111,17 +111,18 @@ export function plushFur(
 
 /** Glossy ceramic with subtle surface waviness. */
 export function ceramic(
-  params: PresetParams & { color?: [number, number, number] } = {},
+  params: PresetParams & { color?: [number, number, number]; roughness?: number } = {},
 ): MaterialFields {
   const seed = params.seed ?? 5;
   const color = params.color ?? [0.85, 0.82, 0.78];
+  const roughness = clamp(params.roughness ?? 0.15, 0.04, 1);
   const noise = makeNoise(seed);
   const wave = (u: number, v: number) =>
     fbm2(noise, u * 10, v * 10, { octaves: 3 }) * 0.5 + 0.5;
   return {
     baseColor: () => color,
     metallic: () => 0,
-    roughness: (u, v) => clamp(0.12 + wave(u, v) * 0.06, 0.04, 1),
+    roughness: (u, v) => clamp(roughness + (wave(u, v) - 0.5) * 0.06, 0.04, 1),
     ao: () => 1,
     height: (u, v) => clamp(0.5 + (wave(u, v) - 0.5) * 0.1, 0, 1),
     normalStrength: 0.8,

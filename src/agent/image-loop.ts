@@ -31,6 +31,13 @@ import {
   type SolidityBreakdown,
   type TargetOptions,
 } from "../vision/index.js";
+import {
+  critique,
+  formatCritique,
+  critiqueWithVlm,
+  type CritiqueReport,
+  type VlmCritique,
+} from "../critique/index.js";
 
 export interface ImageRenderResult {
   /** base64 PNG (no data: prefix) of the rendered model. Required for scoring. */
@@ -64,6 +71,18 @@ export interface ImageLoopOptions {
   solidityPenalty?: number;
   timeoutMs?: number;
   opBudget?: number;
+  /**
+   * Run the deterministic mesh critic (geometry + proportion/rubric) each
+   * iteration and feed its report back. Default true. The goal used for its
+   * rubric is the `hint` (falls back to a generic rubric).
+   */
+  critic?: boolean;
+  /**
+   * Run the expensive VLM aesthetic/realism review every N iterations (and on
+   * the final scored iteration), folding it into the critic report. 0 disables.
+   * Default 0 — enable explicitly since it costs VLM calls per milestone.
+   */
+  vlmCriticEveryN?: number;
   onStep?: (step: ImageAgentStep) => void;
 }
 
@@ -77,6 +96,8 @@ export interface ImageAgentStep {
   solidity?: SolidityBreakdown;
   /** Score after folding solidity into the shape score (what `best` ranks on). */
   combinedScore?: number;
+  /** Mesh critic report (geometry + proportion, and VLM axes at milestones). */
+  critique?: CritiqueReport;
 }
 
 export interface ImageLoopResult {
@@ -87,7 +108,10 @@ export interface ImageLoopResult {
   target: ReferenceTarget;
 }
 
-const SYSTEM_PROMPT = `You are a procedural 3D modeling assistant for Meshova.
+// Built lazily (not at module load) to avoid a circular-import TDZ crash:
+// reading SCRIPT_API_REFERENCE at top level races api.js -> ../index.js barrel.
+function systemPrompt(): string {
+  return `You are a procedural 3D modeling assistant for Meshova.
 Your job: write a SINGLE JavaScript snippet (no imports, no async) that builds
 a model whose SHAPE approximates a reference photo. Getting the overall form
 and proportions right matters most; fine surface detail does not.
@@ -129,6 +153,7 @@ Rules:
 - You will be shown the reference photo and your latest render plus a score.
   Increase silhouette overlap by fixing proportions, part placement, and counts.
 - Output ONLY one fenced \`\`\`js code block.`;
+}
 
 function feedback(run: RunScriptResult, score: ScoreBreakdown | undefined, solidity: SolidityBreakdown | undefined): string {
   if (!run.ok) {
@@ -160,11 +185,14 @@ function feedback(run: RunScriptResult, score: ScoreBreakdown | undefined, solid
 export async function runImageLoop(opts: ImageLoopOptions): Promise<ImageLoopResult> {
   const maxIterations = Math.max(1, opts.maxIterations ?? 4);
   const targetScore = opts.targetScore ?? 0.9;
+  const useCritic = opts.critic ?? true;
+  const vlmEveryN = Math.max(0, opts.vlmCriticEveryN ?? 0);
+  const critiqueGoal = opts.hint ?? "object";
   const target = makeReferenceTarget(opts.referencePng, opts.scoreOptions);
   const refB64 = bytesToBase64(opts.referencePng);
 
   const messages: LlmMessage[] = [
-    { role: "system", content: SYSTEM_PROMPT },
+    { role: "system", content: systemPrompt() },
     {
       role: "user",
       content: `Reference photo is attached.${opts.hint ? ` Hint: ${opts.hint}.` : ""} Write the script to approximate its shape.`,
@@ -210,11 +238,42 @@ export async function runImageLoop(opts: ImageLoopOptions): Promise<ImageLoopRes
       }
     }
 
+    // Mesh critic: deterministic geometry + proportion every iteration, with an
+    // optional VLM aesthetic/realism pass at milestones (or on the last turn).
+    let report: CritiqueReport | undefined;
+    if (run.ok && useCritic) {
+      const isLast = i === maxIterations - 1;
+      const milestone =
+        vlmEveryN > 0 && (isLast || (i + 1) % vlmEveryN === 0) && imageBase64 !== undefined;
+      let vlm: VlmCritique | undefined;
+      if (milestone && imageBase64 !== undefined) {
+        try {
+          const renders = [imageBase64];
+          // Fold in extra angles when the renderer supplied them (better solidity
+          // and proportion judgment for the VLM).
+          vlm = await critiqueWithVlm({
+            client: opts.client,
+            goal: critiqueGoal,
+            rendersBase64: renders,
+            referenceBase64: refB64,
+          });
+        } catch {
+          vlm = undefined;
+        }
+      }
+      try {
+        report = critique(run.parts, vlm ? { goal: critiqueGoal, vlm } : { goal: critiqueGoal });
+      } catch {
+        report = undefined;
+      }
+    }
+
     const step: ImageAgentStep = { iteration: i, script, run };
     if (imageBase64 !== undefined) step.imageBase64 = imageBase64;
     if (score !== undefined) step.score = score;
     if (solidity !== undefined) step.solidity = solidity;
     if (combinedScore !== undefined) step.combinedScore = combinedScore;
+    if (report !== undefined) step.critique = report;
     steps.push(step);
     opts.onStep?.(step);
 
@@ -227,7 +286,8 @@ export async function runImageLoop(opts: ImageLoopOptions): Promise<ImageLoopRes
 
     // Feedback turn: attach reference first, then the latest render, so the
     // model can compare the two directly.
-    const fb = feedback(run, score, solidity);
+    let fb = feedback(run, score, solidity);
+    if (report) fb += `\n\nAutomated mesh review — address MUST FIX first:\n${formatCritique(report)}`;
     messages.push({
       role: "user",
       content: renderNotes ? `${fb}\nRenderer notes: ${renderNotes}` : fb,

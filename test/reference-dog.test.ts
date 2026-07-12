@@ -16,6 +16,7 @@ describe("reference dog procedural template", () => {
     expect(a.find((p) => p.name === "front_paw_1")?.surface?.type).toBe("shortCoat");
     expect(a.find((p) => p.name === "nose")?.surface?.type).toBe("rubber");
     expect(a.find((p) => p.name === "tongue")?.surface?.type).toBe("plastic");
+    expect(a.find((p) => p.name === "eye_1")?.surface?.type).toBe("glossPaint");
     expect(a.some((p) => p.name === "mane")).toBe(false);
   });
 

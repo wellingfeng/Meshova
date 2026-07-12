@@ -69,15 +69,49 @@ export function displaceByNoise(mesh: Mesh, opts: DisplaceOptions = {}): Mesh {
   const freq = opts.scale ?? 2;
   const seed = opts.seed ?? 0;
   const noise: Noise = makeNoise(seed);
-  const positions = mesh.positions.map((p, i) => {
-    const n = mesh.normals[i] ?? vec3(0, 1, 0);
-    const d = noise.noise3(p.x * freq, p.y * freq, p.z * freq);
-    return add(p, scale(n, d * amount));
-  });
+
+  // Coincident vertices (a cylinder's cap rim, seams, or any merged primitive
+  // boundary) share a position but may carry DIFFERENT normals. Displacing each
+  // along its own normal pushes them apart and tears the surface into an open
+  // shell. Instead we group vertices by welded position, displace the whole
+  // group by ONE shared vector (position-sampled amplitude along the group's
+  // averaged normal), so coincident verts stay coincident and seams hold.
+  const n = mesh.positions.length;
+  const keyOf = (p: Vec3): string => {
+    const q = 1e5; // ~1e-5 world-units weld tolerance
+    return `${Math.round(p.x * q)},${Math.round(p.y * q)},${Math.round(p.z * q)}`;
+  };
+  const groups = new Map<string, number[]>();
+  for (let i = 0; i < n; i++) {
+    const k = keyOf(mesh.positions[i]!);
+    let g = groups.get(k);
+    if (!g) {
+      g = [];
+      groups.set(k, g);
+    }
+    g.push(i);
+  }
+
+  const positions = mesh.positions.map((p) => ({ ...p }));
+  for (const idxs of groups.values()) {
+    const p = mesh.positions[idxs[0]!]!;
+    const d = noise.noise3(p.x * freq, p.y * freq, p.z * freq) * amount;
+    // Averaged normal for the shared displacement direction.
+    let nx = 0, ny = 0, nz = 0;
+    for (const i of idxs) {
+      const nrm = mesh.normals[i] ?? vec3(0, 1, 0);
+      nx += nrm.x; ny += nrm.y; nz += nrm.z;
+    }
+    const nl = Math.hypot(nx, ny, nz) || 1;
+    const disp = { x: (nx / nl) * d, y: (ny / nl) * d, z: (nz / nl) * d };
+    const moved = add(p, disp);
+    for (const i of idxs) positions[i] = { ...moved };
+  }
+
   return recomputeNormals(
     makeMesh({
       positions,
-      normals: mesh.normals.map((n) => ({ ...n })),
+      normals: mesh.normals.map((nrm) => ({ ...nrm })),
       uvs: mesh.uvs.map((uv) => ({ ...uv })),
       indices: mesh.indices.slice(),
     }),

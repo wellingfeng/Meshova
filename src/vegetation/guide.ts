@@ -42,8 +42,11 @@ export function treeGuideFromSilhouette(opts: TreeGuideSilhouetteOptions = {}): 
       height: height * (1 - crownBasePct),
       radiusX: crownWidth * 0.5,
       radiusZ: crownDepth * 0.5,
-      strength: 0.85,
-      minScale: 0.14,
+      // Soft clamp: only rein tips that clearly spear outside the crown, and
+      // never pull them all the way to the axis. A high strength + a spindly
+      // top profile is what wove the old canopies into inward "birdcages".
+      strength: 0.55,
+      minScale: 0.4,
     },
   };
 }

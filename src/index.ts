@@ -17,11 +17,15 @@ export * from "./vegetation/index.js";
 export * from "./field/index.js";
 export * from "./texture/index.js";
 export * from "./terrain/index.js";
+export * from "./recipes/index.js";
 export * from "./agent/index.js";
+export * from "./critique/index.js";
 export * from "./vision/index.js";
 export * from "./pipeline/index.js";
 export * from "./character/index.js";
 export * from "./clothing/index.js";
 export * from "./models/index.js";
+export * from "./optimization/index.js";
+export * from "./simulation/index.js";
 
 export const VERSION = "0.0.0";

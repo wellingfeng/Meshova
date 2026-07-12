@@ -30,6 +30,20 @@ import {
   ceramic as ceramicFields,
   rustyMetal as rustyMetalFields,
 } from "./presets.js";
+import {
+  painterVertex as painterVertexFields,
+  stylizedPlaster as plasterFields,
+  stylizedRoof as roofFields,
+  brushPainted as brushPaintedFields,
+  stylizedMetal as stylizedMetalFields,
+  stylizedFoliage as stylizedFoliageFields,
+  type StylizedParams,
+} from "./stylized.js";
+import {
+  weatheredPlaster as weatheredPlasterFields,
+  terracottaRoof as terracottaRoofFields,
+  romanCobblestone as romanCobblestoneFields,
+} from "./roman-presets.js";
 
 /**
  * Physical surface parameters layered on top of the PBR channel fields. Every
@@ -541,9 +555,60 @@ export function brickSurface(p: SurfaceParams = {}): SurfaceMaterial {
 }
 
 /** Glossy ceramic / porcelain. */
-export function ceramicSurface(p: SurfaceParams & { color?: [number, number, number] } = {}): SurfaceMaterial {
-  const fields = ceramicFields({ seed: p.seed ?? 5, ...(p.color ? { color: p.color } : {}) });
-  return makeSurface({ type: "ceramic", label: "陶瓷", fields, physical: { clearcoat: 0.25, clearcoatRoughness: 0.25 } });
+export function ceramicSurface(p: SurfaceParams & { color?: [number, number, number]; roughness?: number } = {}): SurfaceMaterial {
+  const roughness = clamp(p.roughness ?? 0.15, 0.04, 1);
+  const fields = ceramicFields({
+    seed: p.seed ?? 5,
+    ...(p.color ? { color: p.color } : {}),
+    roughness,
+  });
+  return makeSurface({
+    type: "ceramic",
+    label: "陶瓷",
+    fields,
+    physical: { clearcoat: 0.25, clearcoatRoughness: clamp(roughness * 0.8, 0.18, 0.75) },
+  });
+}
+
+/** Aged lime plaster used by warm rendered Roman facades. */
+export function weatheredPlasterSurface(
+  p: SurfaceParams & { color?: [number, number, number]; wear?: number; scale?: number } = {},
+): SurfaceMaterial {
+  const fields = weatheredPlasterFields({
+    seed: p.seed ?? 71,
+    ...(p.color ? { color: p.color } : {}),
+    ...(p.wear !== undefined ? { wear: p.wear } : {}),
+    ...(p.scale !== undefined ? { scale: p.scale } : {}),
+  });
+  return makeSurface({ type: "weatheredPlaster", label: "风化灰泥", fields, physical: {} });
+}
+
+/** Fired clay roof courses with curved tile relief. */
+export function terracottaRoofSurface(
+  p: SurfaceParams & { color?: [number, number, number]; columns?: number; rows?: number; weathering?: number } = {},
+): SurfaceMaterial {
+  const fields = terracottaRoofFields({
+    seed: p.seed ?? 83,
+    ...(p.color ? { color: p.color } : {}),
+    ...(p.columns !== undefined ? { columns: p.columns } : {}),
+    ...(p.rows !== undefined ? { rows: p.rows } : {}),
+    ...(p.weathering !== undefined ? { weathering: p.weathering } : {}),
+  });
+  return makeSurface({ type: "terracottaRoof", label: "陶瓦屋顶", fields, physical: {} });
+}
+
+/** Roman basalt street setts with worn crowns and recessed joints. */
+export function romanCobblestoneSurface(
+  p: SurfaceParams & { color?: [number, number, number]; columns?: number; rows?: number; wetness?: number } = {},
+): SurfaceMaterial {
+  const fields = romanCobblestoneFields({
+    seed: p.seed ?? 97,
+    ...(p.color ? { color: p.color } : {}),
+    ...(p.columns !== undefined ? { columns: p.columns } : {}),
+    ...(p.rows !== undefined ? { rows: p.rows } : {}),
+    ...(p.wetness !== undefined ? { wetness: p.wetness } : {}),
+  });
+  return makeSurface({ type: "romanCobblestone", label: "罗马块石路", fields, physical: {} });
 }
 
 /** Rusted/pitted metal. */
@@ -706,22 +771,149 @@ export function gem(p: SurfaceParams & { tint?: [number, number, number]; ior?: 
   });
 }
 
-/** Clear water surface — transmissive, low roughness, ripple normals. */
-export function water(p: SurfaceParams & { tint?: [number, number, number] } = {}): SurfaceMaterial {
-  const tint = p.tint ?? p.color ?? [0.6, 0.78, 0.82];
-  const noise = makeNoise(p.seed ?? 71);
-  const ripple = (u: number, v: number) => fbm2(noise, u * 24, v * 24, { octaves: 4 }) * 0.5 + 0.5;
+export type WaterBodyKind = "river" | "pond" | "ocean";
+
+export interface WaterSurfaceParams extends SurfaceParams {
+  body?: WaterBodyKind;
+  tint?: [number, number, number];
+  deepColor?: [number, number, number];
+  roughness?: number;
+  transmission?: number;
+  thickness?: number;
+  attenuationDistance?: number;
+  waveAmplitude?: number;
+  waveScale?: number;
+  rippleScale?: number;
+  flowSpeed?: number;
+  flowAngle?: number;
+  foamStrength?: number;
+  shallowWidth?: number;
+  shallowOpacity?: number;
+  deepOpacity?: number;
+}
+
+export interface ResolvedWaterSurfaceParams {
+  body: WaterBodyKind;
+  tint: [number, number, number];
+  deepColor: [number, number, number];
+  roughness: number;
+  transmission: number;
+  thickness: number;
+  attenuationDistance: number;
+  waveAmplitude: number;
+  waveScale: number;
+  rippleScale: number;
+  flowSpeed: number;
+  flowAngle: number;
+  foamStrength: number;
+  shallowWidth: number;
+  shallowOpacity: number;
+  deepOpacity: number;
+  seed: number;
+}
+
+const WATER_PROFILES: Record<WaterBodyKind, Omit<ResolvedWaterSurfaceParams, "body" | "seed">> = {
+  river: {
+    tint: [0.14, 0.32, 0.24],
+    deepColor: [0.025, 0.085, 0.065],
+    roughness: 0.12,
+    transmission: 0.28,
+    thickness: 0.65,
+    attenuationDistance: 1.4,
+    waveAmplitude: 0.018,
+    waveScale: 2.4,
+    rippleScale: 28,
+    flowSpeed: 0.85,
+    flowAngle: 90,
+    foamStrength: 0.38,
+    shallowWidth: 0.08,
+    shallowOpacity: 0.42,
+    deepOpacity: 0.86,
+  },
+  pond: {
+    tint: [0.18, 0.3, 0.19],
+    deepColor: [0.035, 0.075, 0.045],
+    roughness: 0.09,
+    transmission: 0.4,
+    thickness: 0.9,
+    attenuationDistance: 1.2,
+    waveAmplitude: 0.006,
+    waveScale: 1.5,
+    rippleScale: 32,
+    flowSpeed: 0.24,
+    flowAngle: 25,
+    foamStrength: 0.12,
+    shallowWidth: 0.06,
+    shallowOpacity: 0.36,
+    deepOpacity: 0.82,
+  },
+  ocean: {
+    tint: [0.08, 0.32, 0.5],
+    deepColor: [0.01, 0.055, 0.13],
+    roughness: 0.065,
+    transmission: 0.18,
+    thickness: 2.5,
+    attenuationDistance: 3.2,
+    waveAmplitude: 0.055,
+    waveScale: 0.7,
+    rippleScale: 42,
+    flowSpeed: 0.55,
+    flowAngle: 18,
+    foamStrength: 0.48,
+    shallowWidth: 0.045,
+    shallowOpacity: 0.5,
+    deepOpacity: 0.92,
+  },
+};
+
+export function resolveWaterSurfaceParams(p: WaterSurfaceParams = {}): ResolvedWaterSurfaceParams {
+  const body = p.body ?? "pond";
+  const profile = WATER_PROFILES[body];
+  return {
+    body,
+    tint: p.tint ?? p.color ?? profile.tint,
+    deepColor: p.deepColor ?? profile.deepColor,
+    roughness: clamp(p.roughness ?? profile.roughness, 0.02, 1),
+    transmission: clamp(p.transmission ?? profile.transmission, 0, 1),
+    thickness: Math.max(0, p.thickness ?? profile.thickness),
+    attenuationDistance: Math.max(0.01, p.attenuationDistance ?? profile.attenuationDistance),
+    waveAmplitude: Math.max(0, p.waveAmplitude ?? profile.waveAmplitude),
+    waveScale: Math.max(0.01, p.waveScale ?? profile.waveScale),
+    rippleScale: Math.max(1, p.rippleScale ?? profile.rippleScale),
+    flowSpeed: Math.max(0, p.flowSpeed ?? profile.flowSpeed),
+    flowAngle: p.flowAngle ?? profile.flowAngle,
+    foamStrength: clamp(p.foamStrength ?? profile.foamStrength, 0, 1),
+    shallowWidth: clamp(p.shallowWidth ?? profile.shallowWidth, 0.01, 0.49),
+    shallowOpacity: clamp(p.shallowOpacity ?? profile.shallowOpacity, 0.05, 1),
+    deepOpacity: clamp(p.deepOpacity ?? profile.deepOpacity, 0.05, 1),
+    seed: p.seed ?? 71,
+  };
+}
+
+/** River, pond, or ocean water with profile-scaled ripple normals and absorption. */
+export function water(p: WaterSurfaceParams = {}): SurfaceMaterial {
+  const waterParams = resolveWaterSurfaceParams(p);
+  const noise = makeNoise(waterParams.seed);
+  const ripple = (u: number, v: number) => fbm2(noise, u * waterParams.rippleScale, v * waterParams.rippleScale, { octaves: 4 }) * 0.5 + 0.5;
   return makeSurface({
     type: "water",
     label: "水面",
     fields: {
-      baseColor: () => tint,
+      baseColor: () => waterParams.tint,
       metallic: () => 0,
-      roughness: () => 0.03,
+      roughness: () => waterParams.roughness,
       height: (u, v) => clamp(0.5 + (ripple(u, v) - 0.5) * 0.6, 0, 1),
-      normalStrength: 1.4,
+      normalStrength: waterParams.body === "ocean" ? 1.2 : 0.85,
     },
-    physical: { transmission: 0.95, ior: 1.333, thickness: 1.0, attenuationColor: tint, attenuationDistance: 2.0 },
+    physical: {
+      transmission: waterParams.transmission,
+      ior: 1.333,
+      thickness: waterParams.thickness,
+      attenuationColor: waterParams.deepColor,
+      attenuationDistance: waterParams.attenuationDistance,
+      clearcoat: 0.7,
+      clearcoatRoughness: waterParams.roughness * 0.55,
+    },
     transparent: true,
   });
 }
@@ -884,6 +1076,57 @@ export function concrete(p: SurfaceParams & { color?: [number, number, number] }
       normalStrength: 1.8,
     },
     physical: { specularIntensity: 0.5 },
+  });
+}
+
+/** Slate / dark roof shingles — rectangular courses with subtle per-tile variation. */
+export function slateRoof(
+  p: SurfaceParams & { rows?: number; columns?: number } = {},
+): SurfaceMaterial {
+  const seed = p.seed ?? 63;
+  const color = p.color ?? [0.24, 0.25, 0.22];
+  const rows = Math.max(4, p.rows ?? 14);
+  const columns = Math.max(3, p.columns ?? 8);
+  const noise = makeNoise(seed);
+  const rand = (x: number, y: number) => {
+    const n = Math.sin(x * 127.1 + y * 311.7 + seed * 17.3) * 43758.5453123;
+    return n - Math.floor(n);
+  };
+  const tileInfo = (u: number, v: number) => {
+    const row = Math.floor(v * rows);
+    const fy = v * rows - row;
+    const x = u * columns + (row % 2) * 0.5;
+    const col = Math.floor(x);
+    const fx = x - col;
+    const mortar = fx < 0.035 || fx > 0.965 || fy < 0.055 || fy > 0.985;
+    const crown = Math.sin(fx * Math.PI) * Math.sin(fy * Math.PI);
+    return { row, col, mortar, crown };
+  };
+  return makeSurface({
+    type: "slateRoof",
+    label: "板瓦屋顶",
+    fields: {
+      baseColor: (u, v) => {
+        const t = tileInfo(u, v);
+        const grain = fbm2(noise, u * 28, v * 42, { octaves: 3 }) * 0.5 + 0.5;
+        const varied = 0.78 + rand(t.col, t.row) * 0.18 + grain * 0.08;
+        const shade = t.mortar ? 0.48 : varied + t.crown * 0.06;
+        return [
+          clamp(color[0] * shade, 0, 1),
+          clamp(color[1] * shade, 0, 1),
+          clamp(color[2] * shade, 0, 1),
+        ];
+      },
+      metallic: () => 0,
+      roughness: (u, v) => clamp(0.82 + fbm2(noise, u * 18, v * 18, { octaves: 2 }) * 0.08, 0.04, 1),
+      ao: (u, v) => (tileInfo(u, v).mortar ? 0.55 : 0.92),
+      height: (u, v) => {
+        const t = tileInfo(u, v);
+        return t.mortar ? 0.2 : clamp(0.55 + t.crown * 0.25, 0, 1);
+      },
+      normalStrength: 1.15,
+    },
+    physical: { specularIntensity: 0.45 },
   });
 }
 
@@ -1119,6 +1362,51 @@ export function sand(p: SurfaceParams & { color?: [number, number, number] } = {
   });
 }
 
+/** Dry dirt road — compacted dust + fine gravel, low relief so it does not read as rails/stone. */
+export function dirtRoad(
+  p: SurfaceParams & {
+    color?: [number, number, number];
+    rutStrength?: number;
+    normalStrength?: number;
+  } = {},
+): SurfaceMaterial {
+  const color = p.color ?? [0.5, 0.42, 0.31];
+  const rutStrength = clamp(p.rutStrength ?? 0.12, 0, 0.5);
+  const noise = makeNoise(p.seed ?? 141);
+  const broad = (u: number, v: number) => fbm2(noise, u * 6, v * 2.5, { octaves: 3 }) * 0.5 + 0.5;
+  const dust = (u: number, v: number) => fbm2(noise, u * 55, v * 55, { octaves: 2 }) * 0.5 + 0.5;
+  const gravel = voronoi({ scale: 90, seed: p.seed ?? 141, metric: "f1" });
+  const rut = (u: number) => {
+    const left = Math.exp(-Math.pow((u - 0.32) / 0.07, 2));
+    const right = Math.exp(-Math.pow((u - 0.68) / 0.07, 2));
+    return clamp(Math.max(left, right), 0, 1);
+  };
+  return makeSurface({
+    type: "dirtRoad",
+    label: "土路",
+    fields: {
+      baseColor: (u, v) => {
+        const wear = rut(u) * rutStrength;
+        const shade = (broad(u, v) - 0.5) * 0.16 + (dust(u, v) - 0.5) * 0.07 - wear * 0.12;
+        const pebble = gravel(u, v) > 0.88 ? 0.045 : 0;
+        return [
+          clamp(color[0] + shade + pebble, 0, 1),
+          clamp(color[1] + shade + pebble * 0.85, 0, 1),
+          clamp(color[2] + shade * 0.8 + pebble * 0.65, 0, 1),
+        ];
+      },
+      metallic: () => 0,
+      roughness: (u, v) => clamp(0.9 + dust(u, v) * 0.08, 0.04, 1),
+      height: (u, v) => {
+        const pebbles = (dust(u, v) - 0.5) * 0.08 + (gravel(u, v) > 0.9 ? 0.035 : 0);
+        return clamp(0.5 + pebbles - rut(u) * rutStrength * 0.08, 0, 1);
+      },
+      normalStrength: p.normalStrength ?? 0.55,
+    },
+    physical: { specularIntensity: 0.25 },
+  });
+}
+
 /** Mossy stone — rock base with moss growing in the cavities (soft sheen patches). */
 export function mossyStone(p: SurfaceParams & { moss?: number } = {}): SurfaceMaterial {
   const base = terrainFields({ seed: p.seed ?? 12, scale: 5 });
@@ -1344,6 +1632,58 @@ export function hair(
   });
 }
 
+/* ============================================================= */
+/* Stylized / hand-painted surfaces — the Project Skylark look   */
+/* (toon cel-shading + baked fake-light + painterly grain), all  */
+/* baked into MaterialFields so they render through the standard */
+/* MeshPhysicalMaterial path with no shader changes.             */
+/* ============================================================= */
+
+type StyleParams = SurfaceParams & StylizedParams;
+
+/** Merge SurfaceParams.color + stylized knobs into a StylizedParams object. */
+function styleArgs(p: StyleParams): StylizedParams {
+  const out: StylizedParams = {};
+  if (p.seed !== undefined) out.seed = p.seed;
+  if (p.color !== undefined) out.color = p.color;
+  if (p.bands !== undefined) out.bands = p.bands;
+  if (p.shadow !== undefined) out.shadow = p.shadow;
+  if (p.grain !== undefined) out.grain = p.grain;
+  return out;
+}
+
+/** Flagship toon flat-color surface (Skylark M_Painter_Vertex). */
+export function painterVertexSurface(p: StyleParams = {}): SurfaceMaterial {
+  return makeSurface({ type: "painterVertex", label: "手绘卡通", fields: painterVertexFields(styleArgs(p)), physical: {} });
+}
+
+/** Toon-mottled plaster wall (Skylark T_Plaster). */
+export function stylizedPlasterSurface(p: StyleParams = {}): SurfaceMaterial {
+  return makeSurface({ type: "stylizedPlaster", label: "卡通灰泥", fields: plasterFields(styleArgs(p)), physical: {} });
+}
+
+/** Rounded stylized roof tiles (Skylark T_Roof). */
+export function stylizedRoofSurface(p: StyleParams & { rows?: number } = {}): SurfaceMaterial {
+  const args = styleArgs(p) as StylizedParams & { rows?: number };
+  if (p.rows !== undefined) args.rows = p.rows;
+  return makeSurface({ type: "stylizedRoof", label: "卡通屋顶瓦", fields: roofFields(args), physical: {} });
+}
+
+/** Directional hand-painted brush strokes (Skylark T_Brush_Strokes). */
+export function brushPaintedSurface(p: StyleParams = {}): SurfaceMaterial {
+  return makeSurface({ type: "brushPainted", label: "笔触手绘", fields: brushPaintedFields(styleArgs(p)), physical: {} });
+}
+
+/** Toon-banded metal (Skylark M_Metal_Stylized). */
+export function stylizedMetalSurface(p: StyleParams = {}): SurfaceMaterial {
+  return makeSurface({ type: "stylizedMetal", label: "卡通金属", fields: stylizedMetalFields(styleArgs(p)), physical: {} });
+}
+
+/** Toon canopy/bush green (Skylark Blob_Tree / Blob_Bush). */
+export function stylizedFoliageSurface(p: StyleParams = {}): SurfaceMaterial {
+  return makeSurface({ type: "stylizedFoliage", label: "卡通植被", fields: stylizedFoliageFields(styleArgs(p)), physical: {} });
+}
+
 
 /** Registry of surface-material builders, keyed by type id. */
 export const SURFACE_LIBRARY = {
@@ -1365,6 +1705,9 @@ export const SURFACE_LIBRARY = {
   stone: stoneSurface,
   brick: brickSurface,
   ceramic: ceramicSurface,
+  weatheredPlaster: weatheredPlasterSurface,
+  terracottaRoof: terracottaRoofSurface,
+  romanCobblestone: romanCobblestoneSurface,
   rustyMetal: rustyMetalSurface,
   // AAA additions
   preciousMetal,
@@ -1373,6 +1716,7 @@ export const SURFACE_LIBRARY = {
   carbonFiber,
   marble,
   concrete,
+  slateRoof,
   skin,
   velvet,
   rubber,
@@ -1390,6 +1734,7 @@ export const SURFACE_LIBRARY = {
   wetGround,
   snow,
   sand,
+  dirtRoad,
   mossyStone,
   // Phase: more material types (scratched metal, knit, bark, neon, foliage)
   scratchedMetal,
@@ -1400,6 +1745,13 @@ export const SURFACE_LIBRARY = {
   grassBlade,
   hair,
   cloud: cloudSurface,
+  // Stylized / hand-painted (Project Skylark toon look)
+  painterVertex: painterVertexSurface,
+  stylizedPlaster: stylizedPlasterSurface,
+  stylizedRoof: stylizedRoofSurface,
+  brushPainted: brushPaintedSurface,
+  stylizedMetal: stylizedMetalSurface,
+  stylizedFoliage: stylizedFoliageSurface,
 } as const;
 
 export type SurfaceName = keyof typeof SURFACE_LIBRARY;
@@ -1430,6 +1782,7 @@ export interface SurfaceParamSpec {
   max?: number;
   step?: number;
   options?: string[];
+  optionLabels?: Record<string, string>;
   default: number | [number, number, number] | string;
 }
 
@@ -1527,7 +1880,28 @@ export const SURFACE_PARAM_SCHEMA: Record<string, SurfaceParamSpec[]> = {
   brick: [SEED(4)],
   ceramic: [
     { key: "color", label: "釉色", type: "rgb", default: [0.85, 0.82, 0.78] },
+    ROUGH(0.15),
     SEED(5),
+  ],
+  weatheredPlaster: [
+    { key: "color", label: "灰泥底色", type: "rgb", default: [0.72, 0.52, 0.34] },
+    { key: "wear", label: "风化程度", type: "range", min: 0, max: 1, step: 0.02, default: 0.52 },
+    { key: "scale", label: "污渍尺度", type: "range", min: 0.5, max: 12, step: 0.25, default: 4.2 },
+    SEED(71),
+  ],
+  terracottaRoof: [
+    { key: "color", label: "陶瓦底色", type: "rgb", default: [0.48, 0.18, 0.09] },
+    { key: "columns", label: "横向瓦数", type: "range", min: 3, max: 32, step: 1, default: 12 },
+    { key: "rows", label: "纵向瓦数", type: "range", min: 4, max: 48, step: 1, default: 22 },
+    { key: "weathering", label: "屋瓦风化", type: "range", min: 0, max: 1, step: 0.02, default: 0.38 },
+    SEED(83),
+  ],
+  romanCobblestone: [
+    { key: "color", label: "玄武岩底色", type: "rgb", default: [0.20, 0.19, 0.17] },
+    { key: "columns", label: "横向石块", type: "range", min: 4, max: 32, step: 1, default: 13 },
+    { key: "rows", label: "纵向石块", type: "range", min: 6, max: 48, step: 1, default: 24 },
+    { key: "wetness", label: "路面湿润", type: "range", min: 0, max: 1, step: 0.02, default: 0.08 },
+    SEED(97),
   ],
   rustyMetal: [
     { key: "rust", label: "锈蚀程度", type: "range", min: -0.3, max: 0.5, step: 0.02, default: 0.15 },
@@ -1560,7 +1934,24 @@ export const SURFACE_PARAM_SCHEMA: Record<string, SurfaceParamSpec[]> = {
     { key: "dispersion", label: "色散", type: "range", min: 0, max: 8, step: 0.1, default: 4.0 },
   ],
   water: [
-    { key: "tint", label: "水色", type: "rgb", default: [0.6, 0.78, 0.82] },
+    {
+      key: "body",
+      label: "水体类型",
+      type: "select",
+      options: ["river", "pond", "ocean"],
+      optionLabels: { river: "河流", pond: "池塘", ocean: "海洋" },
+      default: "pond",
+    },
+    { key: "tint", label: "浅水色", type: "rgb", default: [0.12, 0.42, 0.38] },
+    { key: "deepColor", label: "深水色", type: "rgb", default: [0.025, 0.14, 0.13] },
+    ROUGH(0.09),
+    { key: "waveAmplitude", label: "波浪高度", type: "range", min: 0, max: 0.4, step: 0.005, default: 0.006 },
+    { key: "waveScale", label: "波浪尺度", type: "range", min: 0.05, max: 4, step: 0.05, default: 1.5 },
+    { key: "flowSpeed", label: "流动速度", type: "range", min: 0, max: 2, step: 0.02, default: 0.24 },
+    { key: "foamStrength", label: "泡沫强度", type: "range", min: 0, max: 1, step: 0.02, default: 0.12 },
+    { key: "shallowWidth", label: "浅滩宽度", type: "range", min: 0.01, max: 0.49, step: 0.005, default: 0.06 },
+    { key: "shallowOpacity", label: "浅水透明度", type: "range", min: 0.05, max: 1, step: 0.01, default: 0.36 },
+    { key: "deepOpacity", label: "深水不透明度", type: "range", min: 0.05, max: 1, step: 0.01, default: 0.82 },
     SEED(71),
   ],
   frostedGlass: [
@@ -1598,6 +1989,12 @@ export const SURFACE_PARAM_SCHEMA: Record<string, SurfaceParamSpec[]> = {
     { key: "color", label: "颜色", type: "rgb", default: [0.55, 0.54, 0.52] },
     SEED(97),
   ],
+  slateRoof: [
+    { key: "color", label: "瓦色", type: "rgb", default: [0.24, 0.25, 0.22] },
+    { key: "rows", label: "瓦片行数", type: "range", min: 4, max: 28, step: 1, default: 14 },
+    { key: "columns", label: "每行瓦片", type: "range", min: 3, max: 18, step: 1, default: 8 },
+    SEED(63),
+  ],
   chrome: [],
   silk: [
     { key: "color", label: "丝色", type: "rgb", default: [0.55, 0.12, 0.2] },
@@ -1626,6 +2023,12 @@ export const SURFACE_PARAM_SCHEMA: Record<string, SurfaceParamSpec[]> = {
   sand: [
     { key: "color", label: "沙色", type: "rgb", default: [0.76, 0.62, 0.4] },
     SEED(139),
+  ],
+  dirtRoad: [
+    { key: "color", label: "土路色", type: "rgb", default: [0.5, 0.42, 0.31] },
+    { key: "rutStrength", label: "车辙强度", type: "range", min: 0, max: 0.5, step: 0.01, default: 0.12 },
+    { key: "normalStrength", label: "法线强度", type: "range", min: 0, max: 2, step: 0.05, default: 0.55 },
+    SEED(141),
   ],
   mossyStone: [
     { key: "moss", label: "苔藓覆盖", type: "range", min: 0, max: 1, step: 0.02, default: 0.6 },
@@ -1663,6 +2066,39 @@ export const SURFACE_PARAM_SCHEMA: Record<string, SurfaceParamSpec[]> = {
     { key: "color", label: "发色", type: "rgb", default: [0.22, 0.13, 0.07] },
     { key: "variation", label: "发丝变化", type: "range", min: 0, max: 1, step: 0.02, default: 0.3 },
     SEED(181),
+  ],
+  // Stylized / hand-painted surfaces
+  painterVertex: [
+    { key: "color", label: "主色", type: "rgb", default: [0.85, 0.55, 0.25] },
+    { key: "bands", label: "明暗阶数", type: "range", min: 1, max: 5, step: 1, default: 3 },
+    { key: "shadow", label: "暗部深度", type: "range", min: 0.2, max: 0.9, step: 0.02, default: 0.55 },
+    { key: "grain", label: "笔触强度", type: "range", min: 0, max: 0.4, step: 0.02, default: 0.12 },
+    SEED(3),
+  ],
+  stylizedPlaster: [
+    { key: "color", label: "墙色", type: "rgb", default: [0.86, 0.82, 0.72] },
+    { key: "bands", label: "明暗阶数", type: "range", min: 1, max: 5, step: 1, default: 4 },
+    SEED(8),
+  ],
+  stylizedRoof: [
+    { key: "color", label: "瓦色", type: "rgb", default: [0.62, 0.24, 0.18] },
+    { key: "rows", label: "瓦片行数", type: "range", min: 4, max: 20, step: 1, default: 10 },
+    SEED(6),
+  ],
+  brushPainted: [
+    { key: "color", label: "主色", type: "rgb", default: [0.35, 0.55, 0.45] },
+    { key: "bands", label: "明暗阶数", type: "range", min: 1, max: 4, step: 1, default: 2 },
+    SEED(12),
+  ],
+  stylizedMetal: [
+    { key: "color", label: "金属色", type: "rgb", default: [0.55, 0.57, 0.62] },
+    { key: "bands", label: "明暗阶数", type: "range", min: 1, max: 5, step: 1, default: 3 },
+    SEED(5),
+  ],
+  stylizedFoliage: [
+    { key: "color", label: "叶色", type: "rgb", default: [0.28, 0.5, 0.22] },
+    { key: "bands", label: "明暗阶数", type: "range", min: 1, max: 5, step: 1, default: 3 },
+    SEED(21),
   ],
 };
 

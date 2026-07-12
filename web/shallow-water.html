@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Meshova · 浅水方程测试场景</title>
+<link rel="icon" href="data:," />
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;overflow:hidden;background:#11171a;color:#e9ece8;font:13px/1.5 "Segoe UI","Microsoft YaHei",sans-serif}
+  #view{display:block;width:100vw;height:100vh;cursor:grab}
+  #view:active{cursor:grabbing}
+  #panel{position:fixed;left:16px;top:16px;width:310px;padding:16px 17px;background:#12191ddd;border:1px solid #ffffff1c;
+    border-radius:9px;box-shadow:0 16px 48px #0007;backdrop-filter:blur(10px)}
+  h1{font-size:17px;line-height:1.25;margin-bottom:5px;color:#f2f4ef}
+  .summary{font-size:11px;color:#aab5b4;margin-bottom:13px}
+  .badges{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+  .badge{padding:2px 6px;border:1px solid #75b8c844;border-radius:4px;background:#25464c55;color:#99d8e6;font-size:10px}
+  .row{margin:10px 0}
+  .row label{display:flex;align-items:center;justify-content:space-between;color:#cad1ce;font-size:12px;margin-bottom:4px}
+  .row output{color:#81d3df;font-variant-numeric:tabular-nums}
+  input[type=range]{width:100%;accent-color:#4db6c5}
+  select,button{height:29px;border:1px solid #ffffff20;border-radius:5px;background:#283338;color:#e5eae7;padding:0 9px;font:inherit}
+  select{width:100%}
+  button{cursor:pointer}
+  button:hover{background:#344248;border-color:#68b9c866}
+  button.on{background:#246777;border-color:#73cedf;color:#fff}
+  .buttons{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:12px 0}
+  #stats{padding-top:10px;border-top:1px solid #ffffff18;color:#9ec9ce;font-size:11px;font-variant-numeric:tabular-nums}
+  .hint{margin-top:8px;color:#7f8d8e;font-size:10px;line-height:1.5}
+  #source-dot{position:fixed;width:10px;height:10px;border:2px solid #d7f7ff;border-radius:50%;box-shadow:0 0 12px #5ee6ff;
+    pointer-events:none;transform:translate(-50%,-50%);display:none}
+  @media(max-width:680px){#panel{left:10px;top:10px;width:calc(100vw - 20px);max-height:58vh;overflow:auto}}
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "/web/vendor/three.module.js",
+  "three/addons/": "/web/vendor/addons/"
+} }
+</script>
+</head>
+<body>
+<canvas id="view"></canvas>
+<div id="panel">
+  <h1>峡谷浅水方程</h1>
+  <div class="summary">复刻 Unity-SWE 核心流程：速度平流 → 压力梯度 → 迎风守恒通量 → 湿干/反射边界 → 注水与泡沫。</div>
+  <div class="badges"><span class="badge">96 × 96 网格</span><span class="badge">CFL 自适应子步</span><span class="badge">质量守恒</span></div>
+  <div class="row">
+    <label>时间倍率 <output id="speedv"></output></label>
+    <input id="speed" type="range" min="0.1" max="2" step="0.1" value="1" />
+  </div>
+  <div class="row">
+    <label>注水速率 <output id="sourceRatev"></output></label>
+    <input id="sourceRate" type="range" min="0" max="2.4" step="0.05" value="0.65" />
+  </div>
+  <div class="row">
+    <label>重力 <output id="gravityv"></output></label>
+    <input id="gravity" type="range" min="1" max="18" step="0.2" value="9.8" />
+  </div>
+  <div class="row">
+    <label>地表阻力 <output id="frictionv"></output></label>
+    <input id="friction" type="range" min="0" max="1.5" step="0.05" value="0.28" />
+  </div>
+  <div class="row">
+    <label>显示模式</label>
+    <select id="mode"><option value="0">PBR 泥水</option><option value="1">水深热图</option><option value="2">流速热图</option></select>
+  </div>
+  <div class="buttons">
+    <button id="pause" type="button">暂停</button>
+    <button id="inject" type="button" class="on">持续注水</button>
+    <button id="reset" type="button">重置洪水</button>
+  </div>
+  <div id="stats"></div>
+  <div class="hint">拖动旋转 · 滚轮缩放 · 单击地形注入一次水脉冲。白色泡沫由局部散度与流速生成。</div>
+</div>
+<div id="source-dot"></div>
+<script type="module" src="/web/shallow-water.js"></script>
+</body>
+</html>

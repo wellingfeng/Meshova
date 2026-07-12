@@ -28,6 +28,9 @@ import {
   roadPillars,
   roadPierCaps,
   roadSignGantry,
+  roadLightPoles,
+  roadNoiseBarrier,
+  roadNoiseBarrierFrame,
   type Curve,
   type NamedPart,
 } from "../geometry/index.js";
@@ -39,6 +42,8 @@ const CONCRETE: RGB = [0.62, 0.62, 0.64];
 const PAINT_WHITE: RGB = [0.92, 0.92, 0.9];
 const PAINT_YELLOW: RGB = [0.95, 0.82, 0.15];
 const STEEL: RGB = [0.55, 0.56, 0.58];
+const BARRIER_RED: RGB = [0.55, 0.09, 0.11];
+const FRAME_DARK: RGB = [0.14, 0.14, 0.16];
 
 export interface FreewayParams {
   /** Total run length (metres). */
@@ -63,6 +68,14 @@ export interface FreewayParams {
   signGantry: boolean;
   /** Spacing between overhead sign gantries along the run. */
   signSpacing: number;
+  /** Draw roadside cantilever light poles along both outer edges. */
+  lightPoles: boolean;
+  /** Spacing between light poles along the run. */
+  lightSpacing: number;
+  /** Draw the red acoustic noise-barrier wall along both outer edges. */
+  noiseBarrier: boolean;
+  /** Height of the noise-barrier wall (metres). */
+  barrierHeight: number;
   /** Deck slab thickness — gives the elevated deck a solid underside. */
   deckThickness: number;
   /** Arc-length sample spacing (lower = smoother curve). */
@@ -81,6 +94,10 @@ export const FREEWAY_DEFAULTS: FreewayParams = {
   pillarSpacing: 12,
   signGantry: true,
   signSpacing: 36,
+  lightPoles: true,
+  lightSpacing: 18,
+  noiseBarrier: true,
+  barrierHeight: 2.6,
   deckThickness: 0.6,
   sample: 1.5,
 };
@@ -211,7 +228,7 @@ export function buildFreewayParts(params: Partial<FreewayParams> = {}): NamedPar
         spacing: p.pillarSpacing,
         radius: Math.max(0.5, totalHalf * 0.18),
         groundY: 0,
-        deckThickness: p.deckThickness,
+        deckThickness: p.deckThickness + 0.71,
       }),
       color: CONCRETE,
       surface: { type: "concrete", params: { color: CONCRETE, roughness: 0.8 } },
@@ -255,6 +272,64 @@ export function buildFreewayParts(params: Partial<FreewayParams> = {}): NamedPar
       color: STEEL,
       surface: { type: "metal", params: { color: STEEL, roughness: 0.45 } },
     });
+  }
+
+  // Roadside cantilever light poles lining both outer edges of the carriageways.
+  if (p.lightPoles) {
+    const totalHalf = p.medianWidth / 2 + p.lanesPerSide * p.laneWidth;
+    const lightOpt = {
+      sampleDistance: p.sample,
+      halfWidth: totalHalf,
+      verticalOffset: 0.02,
+      spacing: p.lightSpacing,
+      lateral: totalHalf + 0.8,
+      poleHeight: p.elevation > 0.01 ? 7 : 6,
+      poleRadius: 0.14,
+      armLength: totalHalf * 0.7,
+      lampSize: 0.4,
+    };
+    for (const side of [1, -1] as const) {
+      const tag = side > 0 ? "r" : "l";
+      parts.push({
+        name: `light_poles_${tag}`,
+        label: `路灯-${tag}`,
+        mesh: roadLightPoles(center, { ...lightOpt, side }),
+        color: STEEL,
+        surface: { type: "metal", params: { color: STEEL, roughness: 0.5 } },
+      });
+    }
+  }
+
+  // Red acoustic noise-barrier walls lining both outer edges — the signature
+  // element of the reference footage: tall red panels held in a dark steel
+  // frame, standing just outside the guardrails.
+  if (p.noiseBarrier) {
+    const totalHalf = p.medianWidth / 2 + p.lanesPerSide * p.laneWidth;
+    const barrierOpt = {
+      sampleDistance: p.sample,
+      halfWidth: totalHalf,
+      verticalOffset: 0.02,
+      lateral: totalHalf + 0.6,
+      wallHeight: p.barrierHeight,
+      baseHeight: 0.4,
+    };
+    for (const side of [1, -1] as const) {
+      const tag = side > 0 ? "r" : "l";
+      parts.push({
+        name: `noise_wall_${tag}`,
+        label: `隔音屏-${tag}`,
+        mesh: roadNoiseBarrier(center, { ...barrierOpt, side, thickness: 0.14 }),
+        color: BARRIER_RED,
+        surface: { type: "plastic", params: { color: BARRIER_RED, roughness: 0.35 } },
+      });
+      parts.push({
+        name: `noise_frame_${tag}`,
+        label: `隔音屏框架-${tag}`,
+        mesh: roadNoiseBarrierFrame(center, { ...barrierOpt, side, postSpacing: 3, postSize: 0.14, railSize: 0.16 }),
+        color: FRAME_DARK,
+        surface: { type: "metal", params: { color: FRAME_DARK, roughness: 0.4 } },
+      });
+    }
   }
 
   return parts;

@@ -501,26 +501,33 @@ export function buildChineseHallParts(
 
   // --- 5 墙 walls: infill on sides/back + lattice doors on the front bay ---
   if (p.walls) {
-    const wallH = p.columnHeight - 0.5;
-    const wallY = floorY + wallH / 2;
+    const wallH = p.columnHeight - 0.5 - plinthH;
+    const wallBaseY = floorY + plinthH;
+    const wallY = wallBaseY + wallH / 2;
     const wallMeshes: Mesh[] = [];
-    // Back wall (solid ochre plaster).
-    wallMeshes.push(translateMesh(box(spanX, wallH, 0.12), vec3(0, wallY, colZs[0]!)));
-    // Side walls.
-    wallMeshes.push(translateMesh(box(0.12, wallH, spanZ), vec3(colXs[0]!, wallY, 0)));
-    wallMeshes.push(translateMesh(box(0.12, wallH, spanZ), vec3(colXs[baysX]!, wallY, 0)));
+    const columnClearance = p.columnRadius * 2.2;
+    for (let bay = 0; bay < baysX; bay++) {
+      const x = (colXs[bay]! + colXs[bay + 1]!) / 2;
+      wallMeshes.push(translateMesh(box(p.bayWidth - columnClearance, wallH, 0.12), vec3(x, wallY, colZs[0]!)));
+    }
+    for (const side of [0, baysX]) {
+      for (let bay = 0; bay < baysZ; bay++) {
+        const z = (colZs[bay]! + colZs[bay + 1]!) / 2;
+        wallMeshes.push(translateMesh(box(0.12, wallH, p.bayDepth - columnClearance), vec3(colXs[side]!, wallY, z)));
+      }
+    }
     parts.push({ name: "walls", mesh: merge(...wallMeshes), color: WALL_OCHRE, surface: { type: "stone", params: { color: WALL_OCHRE, roughness: 0.8 } } });
 
     // Front lattice doors (隔扇): a mullion grid across the front bays.
     const doorMeshes: Mesh[] = [];
-    const frontZ = colZs[baysZ]!;
+    const frontZ = colZs[baysZ]! - p.columnRadius - 0.04;
     const doorH = wallH;
-    const doorY = floorY + doorH / 2;
+    const doorY = wallBaseY + doorH / 2;
     const mullX = 5, mullY = 4;
     const frame = 0.05;
     for (let bx = 0; bx < baysX; bx++) {
       const cx = (colXs[bx]! + colXs[bx + 1]!) / 2;
-      const bw = p.bayWidth - p.columnRadius * 2;
+      const bw = p.bayWidth - p.columnRadius * 2.3;
       // Vertical mullions.
       for (let m = 0; m <= mullX; m++) {
         const x = cx + (m / mullX - 0.5) * bw;
@@ -528,7 +535,7 @@ export function buildChineseHallParts(
       }
       // Horizontal rails.
       for (let m = 0; m <= mullY; m++) {
-        const y = floorY + (m / mullY) * doorH;
+        const y = wallBaseY + (m / mullY) * doorH;
         doorMeshes.push(translateMesh(box(bw, frame, 0.06), vec3(cx, y, frontZ)));
       }
     }
@@ -607,4 +614,3 @@ function wenFinial(h: number, dir = 1): Mesh {
   }
   return merge(...parts);
 }
-

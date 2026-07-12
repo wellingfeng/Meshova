@@ -7,6 +7,9 @@ import {
   VINE_PRESETS,
   cylinderSurface,
   wallSurface,
+  meshSurface,
+  box,
+  icosphere,
   growClimbingStrands,
   buildClimbingVineParts,
   buildIvyRuinsParts,
@@ -150,3 +153,30 @@ describe("surface-climbing ivy", () => {
   });
 });
 
+describe("meshSurface — climb any mesh", () => {
+  it("projects points onto an arbitrary mesh with a valid basis", () => {
+    const surf = meshSurface(icosphere(1, 2));
+    const p = surf.project({ x: 3, y: 0.5, z: 0 });
+    // snapped roughly onto the unit sphere surface
+    const r = Math.hypot(p.point.x, p.point.y, p.point.z);
+    expect(r).toBeGreaterThan(0.7);
+    expect(r).toBeLessThan(1.4);
+    // basis vectors are finite and roughly unit
+    expect(Number.isFinite(p.up.x + p.up.y + p.up.z)).toBe(true);
+    expect(Number.isFinite(p.around.x + p.around.y + p.around.z)).toBe(true);
+  });
+
+  it("grows deterministic climbing strands on a box", () => {
+    const surf = meshSurface(box(2, 3, 2));
+    const a = buildClimbingVineParts(surf, { seed: 4, strands: 3 });
+    const b = buildClimbingVineParts(surf, { seed: 4, strands: 3 });
+    expect(a[0]!.mesh.positions.length).toBeGreaterThan(0);
+    expect(b[0]!.mesh.positions).toEqual(a[0]!.mesh.positions);
+  });
+
+  it("exposes a finite topY from the mesh bounds", () => {
+    const surf = meshSurface(box(1, 5, 1));
+    expect(Number.isFinite(surf.topY)).toBe(true);
+    expect(surf.topY).toBeGreaterThan(2);
+  });
+});

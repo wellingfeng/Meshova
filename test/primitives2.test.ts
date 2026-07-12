@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   cylinder,
   cone,
+  frustum,
   torus,
   icosphere,
   circle,
@@ -44,6 +45,19 @@ describe("cone", () => {
     const m = cone(0.5, 2, 24, true);
     assertValid(m);
     expect(bounds(m).max.y).toBeCloseTo(1, 5);
+  });
+});
+
+describe("frustum", () => {
+  it("keeps distinct bottom and top radii", () => {
+    const m = frustum(0.5, 0.25, 2, 24, true);
+    assertValid(m);
+    const b = bounds(m);
+    expect(b.min.y).toBeCloseTo(-1, 5);
+    expect(b.max.y).toBeCloseTo(1, 5);
+    expect(b.max.x).toBeCloseTo(0.5, 2);
+    const topRadius = Math.max(...m.positions.filter((p) => Math.abs(p.y - b.max.y) < 1e-6).map((p) => Math.hypot(p.x, p.z)));
+    expect(topRadius).toBeCloseTo(0.25, 5);
   });
 });
 

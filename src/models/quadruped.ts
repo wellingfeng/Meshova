@@ -640,7 +640,7 @@ export function buildQuadrupedParts(
     const eyeX = preset.bodyProfile === "dog" ? side * 0.15 * s : side * 0.16 * s;
     addPart(parts, `eye_${side}`, transform(sphere(0.045 * s, 10, 8), {
       translate: vec3(eyeX, eyeY, eyeZ),
-    }), preset.eye, "gem", { tint: preset.eye, ior: 1.5, dispersion: 0.7 });
+    }), preset.eye, "glossPaint", { color: preset.eye });
     const ear = preset.earKind === "floppy"
       ? buildFloppyEar(side, p)
       : transform(cone(0.065 * s, 0.3 * s, 8, false), {

@@ -30,6 +30,7 @@ import { merge } from "./mesh.js";
 import { polyline, smoothCurve, sweep, type Curve } from "./curve.js";
 import { transform } from "./transform.js";
 import { sphere } from "./primitives.js";
+import { closestPointOnMesh } from "./query.js";
 import type { NamedPart } from "./export.js";
 
 export type VineMode = "hanging" | "climbing" | "creeping";
@@ -436,6 +437,65 @@ export function wallSurface(opts: {
     seedPoint(frac, rng) {
       const u = (frac - 0.5) * width + (rng.next() - 0.5) * 0.3;
       return add(add(origin, scale(right, u)), scale(up, 0.02 * height));
+    },
+  };
+}
+
+/**
+ * Adhere to an ARBITRARY mesh — the Natsura "grow on any surface" idea, done
+ * with a closest-point projection instead of voxels. Each step snaps back onto
+ * the nearest triangle, reads that face's geometric normal, and derives an
+ * up/around tangent basis so climbers hug ruins, rocks, statues, trunks — any
+ * shape, not just cylinders and flat walls. Deterministic (no spatial hashing
+ * randomness). O(tris) per projection: fine for prop-scale meshes.
+ */
+export function meshSurface(mesh: Mesh, opts: { up?: Vec3 } = {}): ClimbSurface {
+  const worldUp = normalize(opts.up ?? vec3(0, 1, 0));
+  // Precompute face normals + centroids for seed sampling and normal reads.
+  const triCount = mesh.indices.length / 3;
+  const faceN: Vec3[] = [];
+  const faceC: Vec3[] = [];
+  let topY = -Infinity;
+  for (let t = 0; t < triCount; t++) {
+    const a = mesh.positions[mesh.indices[t * 3]!]!;
+    const b = mesh.positions[mesh.indices[t * 3 + 1]!]!;
+    const c = mesh.positions[mesh.indices[t * 3 + 2]!]!;
+    const n = cross(sub(b, a), sub(c, a));
+    faceN.push(length(n) > 1e-9 ? normalize(n) : vec3(0, 1, 0));
+    faceC.push(vec3((a.x + b.x + c.x) / 3, (a.y + b.y + c.y) / 3, (a.z + b.z + c.z) / 3));
+    topY = Math.max(topY, a.y, b.y, c.y);
+  }
+  if (!isFinite(topY)) topY = 0;
+
+  const basisFor = (normal: Vec3): { up: Vec3; around: Vec3 } => {
+    // up = worldUp projected into the tangent plane (climb direction).
+    let up = sub(worldUp, scale(normal, worldUp.x * normal.x + worldUp.y * normal.y + worldUp.z * normal.z));
+    if (length(up) < 1e-6) {
+      // surface is horizontal: pick an arbitrary tangent.
+      up = cross(normal, vec3(1, 0, 0));
+      if (length(up) < 1e-6) up = cross(normal, vec3(0, 0, 1));
+    }
+    up = normalize(up);
+    const around = normalize(cross(normal, up));
+    return { up, around };
+  };
+
+  return {
+    topY,
+    project(p) {
+      const cp = closestPointOnMesh(mesh, p);
+      const normal = faceN[cp.prim] ?? vec3(0, 1, 0);
+      const { up, around } = basisFor(normal);
+      return { point: cp.position, normal, up, around };
+    },
+    seedPoint(frac, rng) {
+      // Bias seeds toward lower faces so vines start near the base and climb up.
+      if (triCount === 0) return vec3(0, 0, 0);
+      const idx = Math.min(triCount - 1, Math.floor(frac * triCount + (rng.next() - 0.5) * 2));
+      const t = Math.max(0, idx);
+      const c = faceC[t] ?? vec3(0, 0, 0);
+      const n = faceN[t] ?? vec3(0, 1, 0);
+      return add(c, scale(n, 0.01));
     },
   };
 }

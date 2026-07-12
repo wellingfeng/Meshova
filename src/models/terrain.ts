@@ -184,7 +184,15 @@ export function buildTerrainIslandParts(
   ];
 
   const water = makeWaterMesh(size * 1.06, sea + 0.01, seed);
-  parts.push(surf("water", water, WATER, "water", { tint: WATER, seed: seed + 1 }));
+  parts.push(surf("water", water, WATER, "water", {
+    body: "ocean",
+    tint: [0.12, 0.38, 0.58],
+    deepColor: [0.012, 0.065, 0.15],
+    waveAmplitude: 0.08,
+    waveScale: 0.42,
+    foamStrength: 0.38,
+    seed: seed + 1,
+  }));
 
   const riverbed = makeRiverRibbon(size, sea - 0.035, sea, p.riverWidth * 1.45, sampler, seed);
   if (riverbed) {

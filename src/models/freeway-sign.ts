@@ -18,6 +18,8 @@ import {
   merge,
   transform,
   translateMesh,
+  textMesh,
+  textMeshWidth,
   type Mesh,
   type NamedPart,
 } from "../geometry/index.js";
@@ -43,9 +45,20 @@ export interface FreewaySignParams {
   truss: boolean;
   /** Add luminaires above each panel. */
   lights: boolean;
-  /** Seed for truss-diagonal jitter. */
+  /**
+   * Road-name legends painted on each panel (one per panel). Rendered as
+   * procedural 5x7 dot-matrix glyph geometry — no bitmap. If fewer entries than
+   * panels, later panels reuse a seeded default from ROAD_NAMES.
+   */
+  legends: string[];
+  /** Exit number tab on the last panel (e.g. "42"), or "" for none. */
+  exitNumber: string;
+  /** Seed for truss-diagonal jitter + default legend pick. */
   seed: number;
 }
+
+/** Default legend pool when no legends are supplied (seeded pick). */
+export const ROAD_NAMES = ["MAIN ST", "5TH AVE", "HARBOR", "CENTRAL", "AIRPORT", "DOWNTOWN", "RIVERSIDE", "PARK AVE"] as const;
 
 export const FREEWAY_SIGN_DEFAULTS: FreewaySignParams = {
   span: 12,
@@ -54,6 +67,8 @@ export const FREEWAY_SIGN_DEFAULTS: FreewaySignParams = {
   signHeight: 2.2,
   truss: true,
   lights: true,
+  legends: [],
+  exitNumber: "",
   seed: 5,
 };
 
@@ -113,8 +128,12 @@ function beam(p: FreewaySignParams): Mesh {
   return merge(...parts);
 }
 
-/** Green guide panels + white trim, hung under the beam and evenly spread. */
-function signs(p: FreewaySignParams): { face: Mesh; trim: Mesh } {
+/**
+ * Green guide panels + white trim + procedural road-name legends, hung under
+ * the beam and evenly spread. Legends are 5x7 glyph geometry sitting proud of
+ * the panel face (a separate mesh so it reads as retroreflective white text).
+ */
+function signs(p: FreewaySignParams): { face: Mesh; trim: Mesh; legend: Mesh } {
   const beamY = 0.2 + p.postHeight + 0.35;
   const topY = beamY - 0.4;
   const cy = topY - p.signHeight / 2;
@@ -122,6 +141,8 @@ function signs(p: FreewaySignParams): { face: Mesh; trim: Mesh } {
   const panelW = usable / p.signCount - 0.25;
   const faces: Mesh[] = [];
   const trims: Mesh[] = [];
+  const legends: Mesh[] = [];
+  const rng = makeRng((p.seed ^ 0x5f37) >>> 0);
   for (let i = 0; i < p.signCount; i++) {
     const cx = -usable / 2 + panelW / 2 + i * (panelW + 0.25);
     faces.push(translateMesh(box(panelW, p.signHeight, 0.06), vec3(cx, cy, 0.28)));
@@ -131,10 +152,40 @@ function signs(p: FreewaySignParams): { face: Mesh; trim: Mesh } {
     }
     // Thin white border frame (four bars).
     const bw = 0.05;
-    trims.push(translateMesh(box(panelW, bw, 0.07), vec3(cx, cy + p.signHeight / 2 - bw, 0.29)));
-    trims.push(translateMesh(box(panelW, bw, 0.07), vec3(cx, cy - p.signHeight / 2 + bw, 0.29)));
+    trims.push(translateMesh(box(panelW, bw, 0.04), vec3(cx, cy + p.signHeight / 2 - bw, 0.34)));
+    trims.push(translateMesh(box(panelW, bw, 0.04), vec3(cx, cy - p.signHeight / 2 + bw, 0.34)));
+
+    // --- road-name legend on this panel ---
+    const legend = (p.legends[i] ?? ROAD_NAMES[rng.int(0, ROAD_NAMES.length - 1)]!).trim();
+    if (legend.length > 0) {
+      // Fit the glyph height to the panel, then shrink if the run is too wide.
+      let gh = p.signHeight * 0.42;
+      const maxW = panelW * 0.84;
+      const w0 = textMeshWidth(legend, { height: gh });
+      if (w0 > maxW) gh *= maxW / w0;
+      const text = textMesh(legend, { height: gh, depth: 0.04 });
+      legends.push(translateMesh(text, vec3(cx, cy, 0.32)));
+    }
   }
-  return { face: merge(...faces), trim: merge(...trims) };
+
+  // Exit-number tab: a small yellow-free (white-text) box perched top-right of
+  // the last panel, with its own glyph run.
+  if (p.exitNumber.trim().length > 0) {
+    const lastCx = -usable / 2 + panelW / 2 + (p.signCount - 1) * (panelW + 0.25);
+    const tabW = Math.min(panelW * 0.5, 1.2);
+    const tabH = p.signHeight * 0.32;
+    const tabY = topY + tabH * 0.6;
+    const tabX = lastCx + panelW / 2 - tabW / 2;
+    faces.push(translateMesh(box(tabW, tabH, 0.06), vec3(tabX, tabY, 0.28)));
+    const label = "EXIT " + p.exitNumber.trim();
+    let gh = tabH * 0.4;
+    const w0 = textMeshWidth(label, { height: gh });
+    const maxW = tabW * 0.86;
+    if (w0 > maxW) gh *= maxW / w0;
+    legends.push(translateMesh(textMesh(label, { height: gh, depth: 0.04 }), vec3(tabX, tabY, 0.32)));
+  }
+
+  return { face: merge(...faces), trim: merge(...trims), legend: legends.length ? merge(...legends) : merge() };
 }
 
 /** Small downward luminaires perched on the beam above each panel. */
@@ -160,13 +211,17 @@ export function buildFreewaySignParts(params: Partial<FreewaySignParams> = {}): 
   p.signCount = Math.max(1, Math.round(p.signCount));
 
   const structure = merge(upright(p, -1), upright(p, 1), beam(p));
-  const { face, trim } = signs(p);
+  const { face, trim, legend } = signs(p);
 
   const parts: NamedPart[] = [
     { name: "gantry", label: "门架", mesh: structure, color: METAL_GALV, surface: metal(METAL_GALV, 0.5) },
     { name: "sign_face", label: "导向牌面", mesh: face, color: SIGN_GREEN, surface: { type: "metal", params: { color: SIGN_GREEN, roughness: 0.6, metallic: 0.2 } } },
     { name: "sign_trim", label: "牌框吊挂", mesh: trim, color: SIGN_TRIM, surface: { type: "metal", params: { color: SIGN_TRIM, roughness: 0.5, metallic: 0.3 } } },
   ];
+  if (legend.positions.length > 0) {
+    // Retroreflective white legend text — matte white so it reads at any angle.
+    parts.push({ name: "sign_legend", label: "路名字牌", mesh: legend, color: SIGN_TRIM, surface: { type: "plastic", params: { color: SIGN_TRIM, roughness: 0.7 } } });
+  }
   if (p.lights) {
     const { arm, lens } = lights(p);
     parts.push({ name: "lamp_arm", label: "灯臂", mesh: arm, color: METAL_DARK, surface: metal(METAL_DARK, 0.4) });

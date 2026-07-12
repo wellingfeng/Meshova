@@ -5,3 +5,4 @@ export * from "./mutation.js";
 export * from "./polygon-island.js";
 export * from "./biome.js";
 export * from "./scatter-points.js";
+export * from "./landmass.js";

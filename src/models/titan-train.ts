@@ -165,7 +165,7 @@ export function buildTitanTrainParts(params: Partial<TitanTrainParams> = {}): Na
     running.push(translateMesh(bogieProto, vec3(0, 0, cz + bogieOff)));
     if (i < cars - 1) {
       const linkZ = cz + p.carLength / 2 + p.coupleGap / 2;
-      couplers.push(translateMesh(box(0.3, 0.3, p.coupleGap + 0.4), vec3(0, p.wheelRadius + 0.5, linkZ)));
+      couplers.push(translateMesh(box(0.3, 0.3, Math.max(0.05, p.coupleGap - 0.04)), vec3(0, p.wheelRadius + 0.5, linkZ)));
     }
   }
 

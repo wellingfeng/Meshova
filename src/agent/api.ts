@@ -47,6 +47,33 @@ function coloredPart(
 }
 
 /**
+ * M_Trim_Vertex part: ONE mesh transitions across several trim-sheet strips by
+ * per-vertex weights, baked to per-vertex colors. `attributes` supplies any
+ * per-vertex weight arrays a layer references by name (length = vertex count).
+ * Each layer's weight is a constant, an attribute name, or a (ctx)=>number; the
+ * weights are normalized per vertex so the blend always sums to 1. All parts
+ * built from the same `sheet` share one atlas — the trim-vertex memory win.
+ */
+function vertexBlendSurface(
+  name: string,
+  mesh: Mesh,
+  sheet: M.TrimSheet,
+  layers: ReadonlyArray<M.TrimBlendLayer>,
+  opts: {
+    attributes?: Record<string, number[]>;
+    blend?: M.TrimBlendOptions;
+  } = {},
+): NamedPart {
+  const field = M.trimBlendColorField(sheet, layers, opts.blend ?? {});
+  const colorFn = (ctx: M.FieldContext): M.Vec3 => {
+    const [r, g, b] = field(ctx);
+    return M.vec3(r, g, b);
+  };
+  const colors = M.bakeVertexColors(M.withAttributes(mesh, opts.attributes ?? {}), colorFn);
+  return { name, mesh, colors };
+}
+
+/**
  * The object spread into the sandbox scope. Keep this list curated: every
  * entry is something we're happy for generated scripts to depend on.
  */
@@ -78,6 +105,21 @@ export const SCRIPT_API: Record<string, unknown> = {
   sphericalUV: M.sphericalUV,
   normalizeUV: M.normalizeUV,
   transformUV: M.transformUV,
+  // Trim-sheet UV remap — point a part at one band of a shared atlas
+  mapUVToTrimBand: M.mapUVToTrimBand,
+  // Trim-sheet material atlas (pack many bands into ONE reusable texture)
+  makeTrimSheet: M.makeTrimSheet,
+  trimSheetFields: M.trimSheetFields,
+  trimStripBand: M.trimStripBand,
+  trimStripNames: M.trimStripNames,
+  architecturalTrim: M.architecturalTrim,
+  // M_Trim_Vertex — blend one part across multiple strips by per-vertex weights
+  trimBlendColorField: M.trimBlendColorField,
+  // Voxel remesh — rebuild clean uniform topology from messy meshes
+  voxelRemesh: M.voxelRemesh,
+  // Rotation-minimizing frames along a curve (no twist flips)
+  parallelTransportFrames: M.parallelTransportFrames,
+  curveTangents: M.curveTangents,
   // DCC-style topology edit operators (P1)
   extrudeRegion: M.extrudeRegion,
   insetFaces: M.insetFaces,
@@ -98,6 +140,9 @@ export const SCRIPT_API: Record<string, unknown> = {
   taperMesh: M.taperMesh,
   twistMesh: M.twistMesh,
   stretchMesh: M.stretchMesh,
+  // cloth physics (deterministic XPBD — drape any mesh under gravity/wind/colliders)
+  simulateCloth: M.simulateCloth,
+  clothStrain: M.clothStrain,
   // implicit-surface fusion (one seamless skin from blobs — heads into bodies)
   metaballs: M.metaballs,
   fuseSpheres: M.fuseSpheres,
@@ -157,6 +202,10 @@ export const SCRIPT_API: Record<string, unknown> = {
   copyAssembliesToPoints: M.copyAssembliesToPoints,
   partitionByAttribute: M.partitionByAttribute,
   scatterToLayers: M.scatterToLayers,
+  // text / signage (procedural 5x7 glyph geometry — no bitmaps)
+  textMesh: M.textMesh,
+  textMeshWidth: M.textMeshWidth,
+  glyphSupported: M.glyphSupported,
   // curves
   polyline: M.polyline,
   bezier: M.bezier,
@@ -165,6 +214,10 @@ export const SCRIPT_API: Record<string, unknown> = {
   resampleCurve: M.resampleCurve,
   curveLength: M.curveLength,
   sweep: M.sweep,
+  // race-track toolkit (curvature auto-bank, coving road surface, prop instancing)
+  bankedFrames: M.bankedFrames,
+  trackSurface: M.trackSurface,
+  instanceAlongCurve: M.instanceAlongCurve,
   // procedural vines / creepers / hanging plants (grown, not baked)
   buildVineParts: M.buildVineParts,
   buildVineStemMesh: M.buildVineStemMesh,
@@ -173,6 +226,7 @@ export const SCRIPT_API: Record<string, unknown> = {
   // surface-climbing ivy: grow vines that adhere to a column/wall and climb up
   cylinderSurface: M.cylinderSurface,
   wallSurface: M.wallSurface,
+  meshSurface: M.meshSurface,
   growClimbingStrands: M.growClimbingStrands,
   buildClimbingVineParts: M.buildClimbingVineParts,
   buildIvyRuinsParts: M.buildIvyRuinsParts,
@@ -198,6 +252,7 @@ export const SCRIPT_API: Record<string, unknown> = {
   roadDeck: M.roadDeck,
   roadPierCaps: M.roadPierCaps,
   roadSignGantry: M.roadSignGantry,
+  roadLightPoles: M.roadLightPoles,
   // procedural railway kit (ballast bed + sleepers + steel rails swept along a centerline)
   railwayBallast: M.railwayBallast,
   railwaySleepers: M.railwaySleepers,
@@ -252,6 +307,28 @@ export const SCRIPT_API: Record<string, unknown> = {
   emptyRuleTreeCache: M.emptyRuleTreeCache,
   ruleKind: M.ruleKind,
   describeRuleTree: M.describeRuleTree,
+  // architecture generators (parametric arch/column/pavilion/bridge-wall)
+  archway: M.archway,
+  column: M.column,
+  pavilion: M.pavilion,
+  bridgeWall: M.bridgeWall,
+  // ruinify — weather/break an intact structure into a ruin
+  ruinify: M.ruinify,
+  crumbleTop: M.crumbleTop,
+  erodeEdges: M.erodeEdges,
+  knockChunks: M.knockChunks,
+  // rock / cliff variants (one rule, N deterministic variants)
+  rock: M.rock,
+  rockVariants: M.rockVariants,
+  archetypeRock: M.archetypeRock,
+  // heightfield terrain (fbm base -> stamps -> erosion -> flatten under track)
+  fbmHeightfield: M.fbmHeightfield,
+  stampHeightfield: M.stampHeightfield,
+  thermalErode: M.thermalErode,
+  hydraulicErode: M.hydraulicErode,
+  flattenUnderCurve: M.flattenUnderCurve,
+  heightfieldToMesh: M.heightfieldToMesh,
+  sampleHeight: M.sampleHeight,
   // vegetation (P7: procedural trees/shrubs/grass/conifer/palm — SpeedTree-style generator)
   tree: M.tree,
   shrub: M.shrub,
@@ -264,6 +341,8 @@ export const SCRIPT_API: Record<string, unknown> = {
   constrainPointToEnvelope: M.constrainPointToEnvelope,
   envelopeRadiusScale: M.envelopeRadiusScale,
   frond: M.frond,
+  fern: M.fern,
+  fernFrond: M.fernFrond,
   needleCluster: M.needleCluster,
   branchFeatures: M.branchFeatures,
   branchFeatureMeshes: M.branchFeatureMeshes,
@@ -313,6 +392,9 @@ export const SCRIPT_API: Record<string, unknown> = {
   // shape-aligned material (per-vertex color driven by geometry)
   weatheredColor: M.weatheredColor,
   bakeVertexColors: M.bakeVertexColors,
+  // terrain layering + RVT-style ground blend (color fields for coloredPart)
+  terrainAutoMaterial: M.terrainAutoMaterial,
+  groundBlendColorField: M.groundBlendColorField,
   // math / random
   vec3: M.vec3,
   vec2: M.vec2,
@@ -334,6 +416,7 @@ export const SCRIPT_API: Record<string, unknown> = {
   solveCloth: M.solveCloth,
   getFabric: M.getFabric,
   // procedural architecture (parametric building generator)
+  buildPcgBrickWallParts: M.buildPcgBrickWallParts,
   buildBuildingParts: M.buildBuildingParts,
   buildCityBlockParts: M.buildCityBlockParts,
   // urban city buildings (CitySample-style podium/shaft/crown modular towers)
@@ -348,6 +431,7 @@ export const SCRIPT_API: Record<string, unknown> = {
   part,
   coloredPart,
   surfacePart,
+  vertexBlendSurface,
   Math,
 };
 
@@ -378,6 +462,23 @@ UV PROJECTION (fix stretched textures after boolean/extrude/sweep — reproject 
   sphericalUV(mesh,{center?:vec3,uRepeat?}) lat-long mapping (balls/domes/gems), seam-fixed
   normalizeUV(mesh) rescale existing UVs into the [0,1] tile, aspect-preserving
   transformUV(mesh,{scale?:number|vec2,rotateDeg?,offset?:vec2}) tile/rotate/shift existing UVs
+TRIM SHEETS (one atlas, many parts — the SKYLARK/SideFX memory + draw-call win. Pack material bands into ONE
+  texture, then point each part's UVs at the band it needs. Bake the sheet ONCE and reuse across a whole prop set):
+  makeTrimSheet([{name,fields,weight?,physical?},...],{gutter?}) -> sheet  // stack strips bottom->top along V
+  architecturalTrim({seed?,gutter?}) -> sheet  // ready-made bands: "wood","plank","metal","plaster"
+  trimStripBand(sheet,name) -> {v0,v1} | null  // the atlas band for one strip
+  trimStripNames(sheet) -> [name,...]
+  mapUVToTrimBand(mesh,{v0,v1,uTile?,uOffset?,from?:"u"|"v",normalize?}) -> Mesh  // squeeze a part's V into a band
+  trimSheetFields(sheet) -> MaterialFields  // collapse the sheet to one bakeable recipe
+  // Flow: box/plane a part -> boxUV/planarUV it -> mapUVToTrimBand(mesh,trimStripBand(sheet,"wood")) ->
+  //   surfacePart uses the shared atlas. All parts sharing a sheet share ONE texture.
+  vertexBlendSurface(name,mesh,sheet,[{strip,weight},...],{attributes?,blend?:{uFrom?,uTile?,localV?}}) -> part
+    // M_Trim_Vertex: ONE part transitions across several strips by per-vertex weight, baked to vertex colors.
+    // weight is a number, an attribute name (array in attributes, length=verts), or (ctx)=>number; weights
+    // normalize per vertex. e.g. a wall that fades wood->plaster: weight by height. All parts sharing a sheet
+    // share the atlas. trimBlendColorField(sheet,layers,opts) -> the raw (ctx)=>[r,g,b] field if you need it.
+REMESH (rebuild clean uniform topology — run after boolean/heavy extrude before subdivide/smooth/unwrap):
+  voxelRemesh(mesh,{resolution?=32,padding?=0.05}) VDB-style: mesh->SDF->marching cubes; one watertight shell, even faces. Lossy: rounds sharp corners + drops sub-cell thin features. Keep resolution 16-64 (cost ~cubic).
 DCC EDIT (topology operators — clean panels, hard-surface edges, shells):
   extrudeRegion(mesh,{faces?:[i],normalDir?:vec3,angleDeg?},{distance?,direction?:vec3,taper?})
     lift a connected face region along its normal; side walls only on the region border
@@ -403,6 +504,14 @@ DEFORMERS (cheap per-vertex shape control — apply AFTER building a primitive/t
   twistMesh(mesh,{axis?,angle?,center?}) spiral cross-sections around axis (drill/horn/shell/screw)
   stretchMesh(mesh,{axis?,factor?,pivot?}) elongate/squash along one axis only
     axis is "x"|"y"|"z" or a unit vec3. These return a new deformed mesh.
+CLOTH PHYSICS (deterministic XPBD — drop fabric and let it settle into real folds):
+  simulateCloth(mesh,{iterations?,passes?,gravity?,gravityDir?,damping?,stretchStiffness?,
+    bendStiffness?,wind?,colliders?,collisionOffset?,pin?,pinAboveY?,pinTopBand?}) -> Mesh
+    Feed a subdivided plane (plane(w,d,cols,rows)); pin anchors then it drapes/hangs.
+    colliders: [{kind:"ground",y?},{kind:"sphere",center,radius},{kind:"plane",point,normal}].
+    pin(p,i)->bool fixes verts (flags/tablecloths); pinTopBand/pinAboveY pin the top.
+    stretchStiffness 0..1 (silk≈0.6/canvas≈0.95), bendStiffness 0..1 (limp..cardboard).
+  clothStrain(restMesh,settledMesh) -> number  mean per-edge stretch (settle/stress metric)
 IMPLICIT FUSION (melt overlapping blobs into ONE seamless skin — the right way
   to join a head to a thorax, limbs to a torso, beads into a body — no seams):
   metaballs([{center:vec3,radius,strength?}], {iso?,resolution?,padding?}) -> Mesh
@@ -459,10 +568,20 @@ HIERARCHICAL ASSEMBLY (UE PCG ApplyHierarchy / CopyPointsWithHierarchy — scatt
   copyAssembliesToPoints(pc, assemblyOrAssemblies, opts) -> Mesh  // scatter whole assemblies (variant picks which)
   partitionByAttribute(pc,attr,count) -> [pc,...]  // split a cloud into N sub-clouds by a floored attribute
   scatterToLayers(pc,attr,[{name,library,options?},...]) -> [{name,mesh,count},...]  // one mesh per layer
+TEXT/SIGNAGE (procedural glyph geometry, XY plane, +Z facing, centered):
+  textMesh(text,{height?,depth?,tracking?,fill?}) -> Mesh  // A-Z 0-9 -/. as extruded 5x7 dot-matrix strokes; place onto sign faces/plates
+  textMeshWidth(text,{height?,tracking?}) -> number  // layout width for fitting text into a panel
+  glyphSupported(ch) -> bool  // whether a char is in the font (case-insensitive)
 CURVES:
   polyline(points[],closed?) bezier(p0,p1,p2,p3,seg) helix({radius,height,turns,segments})
   smoothCurve(curve,subdiv) resampleCurve(curve,{count?,segmentLength?}) curveLength(curve)
-  sweep(curve,{radius,sides,radiusAt?,caps?})  // resample BEFORE sweep for even tubes (ropes/pipes/vines)
+  sweep(curve,{radius,sides,radiusAt?,caps?})  // resample BEFORE sweep for even tubes (ropes/pipes/vines); a closed curve sweeps a seamless ring (no caps, seam twist auto-cancelled)
+  parallelTransportFrames(points[],{closed?,initialNormal?:vec3}) -> [{position,tangent,normal,binormal}]  // rotation-minimizing frames: no twist flip when the curve goes vertical; use to orient your own profile/instances along a path
+  curveTangents(points[],closed?) -> [vec3]  // unit tangents (wraps if closed)
+RACE TRACK (curve-driven roads/rally tracks; feed a polyline path):
+  bankedFrames(curve,{factor?,maxAngle?,smooth?,up?}) -> frames rolled by local curvature so the road leans into corners (factor 0 = flat, 1 = natural bank); reuse to orient your own road section
+  trackSurface(curve,{width?,coving?,covingDrop?,bank?,widthAt?}) sweep a road strip; coving>0 flares a skirt down from each edge to blend into terrain (no floating road); bank:{factor} tilts corners
+  instanceAlongCurve(curve, meshOrArray, {spacing?,count?,offset?,endsOffset?,bank?,scaleAt?,yawAt?,variantAt?}) resample to even spacing and stamp props along the road — guard rails/cones/tyre stacks/fence posts; offset rides the banked sideways axis (put rails on the edge), endsOffset trims the start/finish
 VINES / CREEPERS (grown by a seeded gravity+wander walk, then swept — never baked meshes):
   buildVineParts({seed,mode,length,radius,branches,branchDepth,leafDensity,leafSize,wander,gravity,origin,heading}) -> [stem,leaves]
   buildVineStemMesh(opts) -> Mesh   // just the woody tube(s), no leaves
@@ -471,6 +590,7 @@ VINES / CREEPERS (grown by a seeded gravity+wander walk, then swept — never ba
   // mode: "hanging"(droops under gravity) | "climbing"(grows up a wall) | "creeping"(ground runner)
 SURFACE-CLIMBING IVY (vines that ADHERE to a column/wall and spiral up — for ruins/architecture):
   cylinderSurface({center,radius,height}) / wallSurface({origin,normal,up,width,height}) -> ClimbSurface
+  meshSurface(mesh,{up?}) -> ClimbSurface  // grow vines on ANY mesh (ruins/rocks/statues), closest-point projection
   buildClimbingVineParts(surface,{seed,strands,radius,climb,weave,wander,leafDensity,branches,length}) -> [stem,leaves]
   growClimbingStrands(surface,opts) -> strands  // climb=up drive, weave=winding (helix on a column)
   buildIvyRuinsParts({seed,columns,columnRadius,ivyPerColumn,leafDensity,lushness}) -> ivy-covered ruin scene
@@ -498,6 +618,7 @@ FREEWAY / VIADUCT KIT (CitySample Kit_Freeway_A; sweep along the same centerline
   roadPillars(centerline,{spacing,radius,groundY,deckThickness,verticalOffset,...}) cylindrical support columns to the ground
   roadPierCaps(centerline,{spacing,capWidth,capHeight,capLength,deckThickness,...}) transverse cross-beams on top of the columns
   roadSignGantry(centerline,{spacing,halfWidth,clearance,poleRadius,beamThickness,panelSpan,panelHeight,overhang}) overhead sign bridge
+  roadLightPoles(centerline,{side(+1/-1),lateral,spacing,poleHeight,poleRadius,armLength,lampSize,...}) roadside cantilever lamp standards along one edge
 RAILWAY KIT (ballast bed + sleepers + two steel rails, swept along a centerline; ground-aligned so rails stay upright on curves):
   railwayBallast(centerline,{ballastTopWidth,ballastShoulder,ballastHeight,sampleDistance,verticalOffset}) trapezoidal crushed-stone embankment
   railwaySleepers(centerline,{gauge,sleeperSpacing,sleeperLength,sleeperWidth,sleeperHeight,...}) cross-ties arrayed at a pitch (wood/concrete)
@@ -547,6 +668,28 @@ SLICEANDDICE RULE TREE (branching layout, the UE RuleProcessor node types; build
   emptyRuleTreeCache() -> cache to thread across iterations; describeRuleTree(node) -> outline; ruleKind(node)
   // Pattern for a city: grid cloud of lots -> filter(big vs small) -> per-branch emitNode returns
   //   [...buildUrbanBuildingParts({...})] positioned at the lot; flatten to a NamedPart[] scene.
+ARCHITECTURE (parametric structure generators — params -> recognizable masonry, then compose/ruinify):
+  archway({span?,pierHeight?,pierWidth?,depth?,ringThickness?,archStyle?:"round"|"pointed",keystone?,segments?}) gate/doorway ring on two piers
+  column({height?,radius?,segments?,taper?,flutes?,fluteDepth?,base?,capital?}) classical fluted column w/ plinth+capital
+  pavilion({size?,depth?,columnHeight?,columnRadius?,columnsPerSide?,roof?:"hip"|"flat"|"dome",roofRise?,platform?}) open colonnade + roof
+  bridgeWall({length?,height?,thickness?,openings?,style?:"baluster"|"crenel"|"solid",coping?}) parapet/balustrade run
+  buildPcgBrickWallParts({length?,height?,depth?,columns?,rows?,curveDepth?,brickScale?,mortar?,stagger?,jitter?,seed?})
+    -> NamedPart[] UE-PCG-style curved running-bond brick wall: real bricks + dark recessed mortar backing
+RUINIFY (turn an intact structure into a weathered ruin — a capability, feed it any building mesh):
+  ruinify(mesh,{seed?,crumble?,erosion?,chunks?,chunkSize?,cusp?}) full pass: crumble top -> knock chunks -> erode edges
+  crumbleTop(mesh,amount,seed?) bite jagged chunks off the upper region  | erodeEdges(mesh,amount,seed?) weather the silhouette
+  knockChunks(mesh,count,sizeFrac,seed?) subtract missing-masonry bites   // e.g. ruinify(archway({span:3}),{seed:7,crumble:0.5})
+ROCK / CLIFF (one rule, N deterministic variants — no static mesh dumps):
+  rock({seed?,radius?,detail?,lumpiness?,roughness?,stretch?:vec3,flatBase?,cusp?}) one boulder/cliff (fbm-displaced icosphere)
+  rockVariants(count,{seed?,...rockOpts}) -> Mesh[]  // a natural family from one seed (stretch/lumpiness auto-jittered)
+  archetypeRock("boulder"|"slab"|"spire"|"eroded"|"strata",{seed?,strata?,strataBands?,...rockOpts})  // named silhouette recipe; strata adds horizontal sedimentary banding
+TERRAIN (heightfield pipeline; deterministic; combine ops then heightfieldToMesh):
+  fbmHeightfield({cols?,rows?,size?,seed?,amplitude?,featureScale?,octaves?,ridged?}) -> Heightfield  // ridged 0=hills 1=mountain crests
+  stampHeightfield(hf,[{x,z,radius,height,shape?:"cone"|"dome"|"crater"|"plateau"}]) -> Heightfield  // add peaks/craters/mesas
+  thermalErode(hf,{iterations?,talus?,strength?}) -> Heightfield  // slump cliffs into scree
+  hydraulicErode(hf,{iterations?,rain?,capacity?,solubility?,evaporation?}) -> Heightfield  // carve valleys/gullies with water
+  flattenUnderCurve(hf,curve,{width?,falloff?,raise?}) -> Heightfield  // press a buildable pad under a track centreline
+  heightfieldToMesh(hf,{cusp?}) -> Mesh   //  sampleHeight(hf,wx,wz) -> y  to sit props on the ground
 VEGETATION (P7: procedural trees/shrubs/grass — recursive spline branches + leaf cards):
   tree({seed,height?,trunkRadius?,branchCount?,depth?,branchAngle?,leafDensity?,leafSize?,leaves?,leafShape?,leafCurl?,leafFold?,branchFlare?,
     branchLengthProfile?,branchRadiusProfile?,branchAngleProfile?,branchCountProfile?,leafDensityProfile?,
@@ -569,6 +712,8 @@ VEGETATION (P7: procedural trees/shrubs/grass — recursive spline branches + le
   branchFeatures(branches,{seed?,count?,kind?,size?}) -> feature metadata
   branchFeatureMeshes(branches,{seed?,count?,kind?,size?}) -> Mesh // knots/scars/burls on bark
   frond(rachisCurve,{pairs?,leafletLength?,leafletWidth?,angle?,rachisRadius?}) -> {stem,blades} // palm/fern leaf blade
+  fern({fronds?,pitch?,bendStrength?,length?,segments?,leafletLength?,leafletWidth?,leafletAngle?,windPhase?,windStrength?}) -> Mesh // Vercidium vertex-shader-style fern: fronds fanned by golden angle, each a bending rachis of leaflet cards
+  fernFrond({segments?,pitch?,yaw?,bendStrength?,length?,leafletLength?,leafletWidth?,leafletAngle?,windPhase?,windStrength?}) -> Mesh // one bending fern frond (pitch/yaw dir + bentPitch curl)
   needleCluster(center,dir,{count?,length?,spread?}) -> Mesh // pine needle tuft
   windWeights(mesh,{heightInfluence?,radialInfluence?}) -> number[] // per-vertex 0..1 wind weight (root=0,tip=1); pass as part.windWeight for viewer sway
   foliageWindWeights(mesh,base?,jitter?) -> number[] // uniform-high weights for leaf/grass meshes
@@ -651,6 +796,10 @@ QUADRUPEDS (animal template: skeleton curve + cross-section skin, not sphere pil
 SHAPE-ALIGNED MATERIAL (color follows the geometry, never misaligns):
   weatheredColor({base?,topColor?,topThreshold?,topSoftness?,cavityColor?,cavityBelow?})
     -> returns a color field (ctx)=>vec3 using ctx.position / ctx.normal
+  terrainAutoMaterial([{color,minSlope?,heightRange?,priority?}],{breakup?,softness?,seed?}) -> (pos,normal)=>rgb
+    // UE auto-landscape: rock on steep faces, grass on flat tops, snow up high — pure code
+  groundBlendColorField(objColorAt,groundColorAt,{groundY?,fade?,strength?,breakup?,seed?}) -> (pos,normal)=>rgb
+    // RVT-style: a prop's base picks up the ground color it rests on (kills the "pasted-on" look)
   coloredPart(name, mesh, colorFn)  // bakes a color field to per-vertex colors
 SURFACE MATERIAL (matched, generated WITH the model — pick the right physical type):
   surfacePart(name, mesh, type, params?)
@@ -678,6 +827,14 @@ SURFACE MATERIAL (matched, generated WITH the model — pick the right physical 
       "neon"         saturated emissive (drives bloom)  params {color?:[r,g,b],intensity?}
       "leaf"         thin two-sided translucent leaf    params {color?:[r,g,b]}
       "grassBlade"   soft translucent grass blade       params {color?:[r,g,b]}
+    STYLIZED / hand-painted (toon look — light is BAKED into the texture, for
+    cartoon/stylized scenes; each takes {color?:[r,g,b], bands?:1..5}):
+      "painterVertex"   flat toon color, cel light + brush grain   params {color?,bands?,shadow?,grain?}
+      "stylizedPlaster" toon-mottled plaster wall                  params {color?,bands?}
+      "stylizedRoof"    rounded cel-shaded roof tiles              params {color?,rows?}
+      "brushPainted"    directional hand-painted brush strokes     params {color?,bands?}
+      "stylizedMetal"   toon-banded metal                          params {color?,bands?}
+      "stylizedFoliage" toon canopy/bush green                     params {color?,bands?}
     More types also exist (gem, marble, skin, velvet, wood, stone, brick, ceramic,
     concrete, carbonFiber, rubber, pearl, chrome, preciousMetal, ice, water, ...).
     Use surfacePart for objects whose material matters (a wine glass bowl is

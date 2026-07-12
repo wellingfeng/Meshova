@@ -169,7 +169,7 @@ function register(id: string, name: string, parts: NamedPart[]): void {
 
   // circular plaza slab (disc) via a squashed low-poly sphere cap -> just a big cylinder
   const slab: NamedPart = { name: "plaza", mesh: scaleMesh(cylinder(1, 0.3, 48), vec3(R + 4, 1, R + 4)), color: [0.6, 0.58, 0.52] };
-  const fountain: NamedPart = { name: "fountain", mesh: translateMesh(sphere(1, 16, 12), vec3(0, 0.9, 0)), surface: { type: "water" } };
+  const fountain: NamedPart = { name: "fountain", mesh: translateMesh(sphere(1, 16, 12), vec3(0, 0.9, 0)), surface: { type: "water", params: { body: "pond" } } };
 
   console.log(`plaza: inner ${inside.points.length} pts (trees), outer ${outside.points.length} pts (bollards)`);
   register("rt-plaza", "分区广场", mergeByName([slab, fountain, ...raw]));

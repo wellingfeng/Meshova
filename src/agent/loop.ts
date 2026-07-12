@@ -13,6 +13,7 @@ import { runMeshScript, type RunScriptResult } from "./runner.js";
 import { SCRIPT_API_REFERENCE } from "./api.js";
 import { extractCode, type LlmClient, type LlmMessage } from "./llm.js";
 import type { NamedPart } from "../geometry/export.js";
+import { critique, formatCritique, type CritiqueReport } from "../critique/index.js";
 
 export interface RenderResult {
   /** base64 PNG (no data: prefix) of the rendered model. */
@@ -32,6 +33,16 @@ export interface AgentLoopOptions {
   /** Sandbox limits. */
   timeoutMs?: number;
   opBudget?: number;
+  /**
+   * Enable the deterministic mesh critic (geometry + proportion/rubric review)
+   * each iteration; its report is fed back to the model for targeted revision.
+   * Default true. Set false for pure similarity/text iteration.
+   */
+  critic?: boolean;
+  /** Overall critique pass threshold, 0..1. Default 0.7. */
+  criticThreshold?: number;
+  /** Stop early once a run passes the critic. Default true. */
+  stopOnPass?: boolean;
   /** Called after each iteration for logging/streaming. */
   onStep?: (step: AgentStep) => void;
 }
@@ -41,6 +52,8 @@ export interface AgentStep {
   script: string;
   run: RunScriptResult;
   imageBase64?: string;
+  /** Mesh critic report for this iteration, when the critic is enabled. */
+  critique?: CritiqueReport;
 }
 
 export interface AgentLoopResult {
@@ -50,7 +63,12 @@ export interface AgentLoopResult {
   final: AgentStep | null;
 }
 
-const SYSTEM_PROMPT = `You are a procedural 3D modeling assistant for Meshova.
+// Built lazily (not at module load): `SCRIPT_API_REFERENCE` comes from api.js,
+// which pulls in the barrel `../index.js`. Reading it at top level here races
+// the circular import and hits a temporal-dead-zone error in strict ESM eval
+// order (crashes any bundle that imports the barrel, e.g. the web viewer).
+function systemPrompt(): string {
+  return `You are a procedural 3D modeling assistant for Meshova.
 You write a SINGLE JavaScript snippet (no imports, no async) that calls the
 provided API and ends with \`return [ part(...), ... ];\`.
 
@@ -69,22 +87,29 @@ Rules:
   as same-material leather/fabric detail. Do not turn them into metal/plastic
   rods unless the reference clearly shows raised hardware.
 - Prefer clean, readable code. Output ONLY one fenced \`\`\`js code block.`;
+}
 
-function feedbackMessage(run: RunScriptResult, hasImage: boolean): string {
+function feedbackMessage(run: RunScriptResult, hasImage: boolean, criticText?: string): string {
   if (!run.ok) {
     return `The script failed.\nError: ${run.error}\nFix the script and return the corrected full snippet.`;
   }
   const visionNote = hasImage
     ? "A rendered screenshot is attached. Critique it against the goal and improve the model."
     : "No screenshot available; use the stats to judge proportions.";
-  return `The script ran successfully.\n${run.summary}\n${visionNote}\nIf it already matches the goal well, return the same script. Otherwise return an improved full snippet.`;
+  const criticBlock = criticText
+    ? `\n\nAutomated mesh review — address MUST FIX items first:\n${criticText}`
+    : "";
+  return `The script ran successfully.\n${run.summary}\n${visionNote}${criticBlock}\nIf it already matches the goal well, return the same script. Otherwise return an improved full snippet.`;
 }
 
 /** Run the closed generate→render→revise loop. */
 export async function runAgentLoop(opts: AgentLoopOptions): Promise<AgentLoopResult> {
   const maxIterations = Math.max(1, opts.maxIterations ?? 3);
+  const useCritic = opts.critic ?? true;
+  const criticThreshold = opts.criticThreshold ?? 0.7;
+  const stopOnPass = opts.stopOnPass ?? true;
   const messages: LlmMessage[] = [
-    { role: "system", content: SYSTEM_PROMPT },
+    { role: "system", content: systemPrompt() },
     { role: "user", content: `Goal: ${opts.goal}\nWrite the script.` },
   ];
 
@@ -113,15 +138,27 @@ export async function runAgentLoop(opts: AgentLoopOptions): Promise<AgentLoopRes
       }
     }
 
+    let report: CritiqueReport | undefined;
+    if (run.ok && useCritic) {
+      try {
+        report = critique(run.parts, { goal: opts.goal, passThreshold: criticThreshold });
+      } catch {
+        report = undefined;
+      }
+    }
+
     const step: AgentStep = { iteration: i, script, run };
     if (imageBase64 !== undefined) step.imageBase64 = imageBase64;
+    if (report !== undefined) step.critique = report;
     steps.push(step);
     opts.onStep?.(step);
     if (run.ok) lastSuccess = step;
 
-    // Stop early on the last iteration; otherwise prepare feedback turn.
+    // Stop early once the critic is satisfied, or on the last iteration.
+    if (report && report.passed && stopOnPass) break;
     if (i === maxIterations - 1) break;
-    const fb = feedbackMessage(run, !!imageBase64);
+    const criticText = report ? formatCritique(report) : undefined;
+    const fb = feedbackMessage(run, !!imageBase64, criticText);
     const msg: LlmMessage = {
       role: "user",
       content: renderNotes ? `${fb}\nRenderer notes: ${renderNotes}` : fb,

@@ -402,3 +402,58 @@ export function terrainAutoMaterial(
     return [r / wsum, g / wsum, b / wsum];
   };
 }
+
+export interface GroundBlendOptions {
+  /** World Y of the ground plane the object rests on. Default 0. */
+  groundY?: number;
+  /** Height above groundY over which the blend fades to the object's own color. */
+  fade?: number;
+  /** How strongly the ground color takes over at the contact (0..1). Default 1. */
+  strength?: number;
+  /** Extra low-frequency noise breakup of the blend line (0..1). Default 0.3. */
+  breakup?: number;
+  /** World-space frequency of the break-up noise. Default 0.5. */
+  breakupScale?: number;
+  seed?: number;
+}
+
+/**
+ * RVT-style ground blend: tint an object's per-vertex color toward the color
+ * of the ground it sits on, strongest at the contact and fading out with
+ * height. This is the trick that kills the "pasted-on prop" look — a rock or
+ * ruin dropped on mossy dirt picks up that dirt around its base, exactly like
+ * UE's Runtime Virtual Texture ground-blend, but computed as pure vertex color.
+ *
+ * `groundColorAt(pos)` supplies the terrain color under a point (e.g. the same
+ * `terrainAutoMaterial` used for the landscape). Returns a color field you feed
+ * to `coloredPart`, so shape and blend can never misalign.
+ */
+export function groundBlendColorField(
+  objectColorAt: (pos: Vec3, normal: Vec3) => RGB,
+  groundColorAt: (pos: Vec3) => RGB,
+  opts: GroundBlendOptions = {},
+): (pos: Vec3, normal: Vec3) => RGB {
+  const groundY = opts.groundY ?? 0;
+  const fade = Math.max(1e-4, opts.fade ?? 0.5);
+  const strength = clamp(opts.strength ?? 1, 0, 1);
+  const breakup = clamp(opts.breakup ?? 0.3, 0, 1);
+  const bScale = opts.breakupScale ?? 0.5;
+  const noise = makeNoise((opts.seed ?? 0) >>> 0);
+  return (pos, normal) => {
+    const base = objectColorAt(pos, normal);
+    const ground = groundColorAt(pos);
+    // height above the contact, 0 at ground, 1 by `fade` up.
+    let h = (pos.y - groundY) / fade;
+    if (breakup > 0) {
+      const n = fbm2(noise, pos.x * bScale, pos.z * bScale, { octaves: 3 });
+      h += n * 0.5 * breakup;
+    }
+    // blend weight: 1 at/below ground, 0 above the fade band.
+    const w = strength * (1 - smoothstep(0, 1, clamp(h, 0, 1)));
+    return [
+      base[0] * (1 - w) + ground[0] * w,
+      base[1] * (1 - w) + ground[1] * w,
+      base[2] * (1 - w) + ground[2] * w,
+    ];
+  };
+}

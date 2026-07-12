@@ -37,6 +37,42 @@ function sendJson(res, status, body) {
   res.end(JSON.stringify(body));
 }
 
+/**
+ * 读取 models.json，并给每个条目补上时间戳。
+ * - 保留条目里已有的 createdAt/updatedAt（生成脚本显式写入的优先）。
+ * - 缺失时用该模型 .json 文件的 mtime（生成/最近修改时间）兜底。
+ * - 最后按 updatedAt 倒序排序，最新生成或修改的排在最前。
+ */
+async function withModelTimestamps(manifestPath) {
+  let data;
+  try {
+    data = JSON.parse(await readFile(manifestPath, "utf8"));
+  } catch {
+    return null;
+  }
+  if (!data || !Array.isArray(data.models)) return null;
+  await Promise.all(
+    data.models.map(async (m) => {
+      if (!m || !m.file) return;
+      let mtimeMs = 0;
+      const modelPath = normalize(join(ROOT, "out", m.file));
+      if (modelPath.startsWith(ROOT)) {
+        const st = await stat(modelPath).catch(() => null);
+        if (st) mtimeMs = st.mtimeMs;
+      }
+      const iso = mtimeMs ? new Date(mtimeMs).toISOString() : undefined;
+      if (!m.createdAt && iso) m.createdAt = iso;
+      if (!m.updatedAt) m.updatedAt = m.createdAt || iso;
+    }),
+  );
+  data.models.sort((a, b) => {
+    const ta = Date.parse(a?.updatedAt || a?.createdAt || 0) || 0;
+    const tb = Date.parse(b?.updatedAt || b?.createdAt || 0) || 0;
+    return tb - ta;
+  });
+  return data;
+}
+
 async function readJson(req) {
   const chunks = [];
   let size = 0;
@@ -230,6 +266,13 @@ const server = createServer(async (req, res) => {
     }
     const info = await stat(filePath).catch(() => null);
     const target = info?.isDirectory() ? join(filePath, "index.html") : filePath;
+    // 模型库清单：为每个条目注入对应 .json 文件的真实修改时间(mtime)作为
+    // updatedAt 兜底。文件系统 mtime 天然就是模型的"生成/最近修改"时间，
+    // 这样所有 example 产物无需逐个改脚本，就能被前端按时间倒序排列。
+    if (urlPath === "/out/models.json") {
+      const patched = await withModelTimestamps(target);
+      if (patched) { sendJson(res, 200, patched); return; }
+    }
     const body = await readFile(target);
     const mime = MIME[extname(target)] || "application/octet-stream";
     res.writeHead(200, { "content-type": mime, "cache-control": "no-store, no-cache, must-revalidate", "pragma": "no-cache" });

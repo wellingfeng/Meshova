@@ -264,7 +264,8 @@ export function railwaySleepers(centerline: Curve, options: RailwayOptions = {})
   const total = cum[cum.length - 1]!;
 
   // Unit box: length across track (x) = sleeperLength, width (z) = sleeperWidth.
-  const yCenter = opt.verticalOffset + opt.sleeperHeight / 2;
+  const contactGap = 0.002;
+  const yCenter = opt.verticalOffset + contactGap + opt.sleeperHeight / 2;
   const sleepers: Mesh[] = [];
 
   for (let d = opt.sleeperSpacing * 0.5; d <= total - opt.sleeperSpacing * 0.25; d += opt.sleeperSpacing) {
@@ -324,7 +325,7 @@ export function railwayRails(centerline: Curve, options: RailwayOptions = {}): M
   const frames = buildFrames(centerline, opt.sampleDistance);
   if (frames.length < 2) return makeMesh({ positions: [], normals: [], uvs: [], indices: [] });
 
-  const baseY = opt.verticalOffset + opt.sleeperHeight;
+  const baseY = opt.verticalOffset + opt.sleeperHeight + 0.004;
   const halfGauge = opt.gauge / 2 + opt.railFootWidth / 2; // gauge = inner-face distance
   const section = railProfile(opt, baseY);
 

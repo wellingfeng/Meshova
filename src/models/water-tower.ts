@@ -71,7 +71,11 @@ const metalSurf = (color: RGB, roughness = 0.5) =>
 function stavedTank(p: WaterTowerParams, baseY: number): Mesh {
   const rng = makeRng(p.seed >>> 0);
   const n = Math.max(8, Math.round(p.staves));
-  const staveW = (2 * Math.PI * p.radius) / n * 1.05; // slight overlap
+  // Each stave is a flat (tangential) plank, so its width must cover the CHORD
+  // between neighbours plus enough overlap that the gaps close. A flat plank
+  // spanning one sector needs ~chord/ cos(half-sector); 1.25 gives a snug,
+  // visibly gap-free barrel even with the weathering wobble below.
+  const staveW = ((2 * Math.PI * p.radius) / n) * 1.25;
   const staveT = 0.1;
   const parts: Mesh[] = [];
   for (let i = 0; i < n; i++) {
@@ -86,6 +90,15 @@ function stavedTank(p: WaterTowerParams, baseY: number): Mesh {
     });
     parts.push(placed);
   }
+  // Inner sealing shell: a continuous cylinder just inside the staves so the
+  // vessel actually holds liquid (the planks are the visible outer cladding).
+  // Without this the barrel leaks through the seams between flat planks.
+  parts.push(
+    translateMesh(
+      cylinder(p.radius - staveT * 0.5, p.tankHeight, Math.max(24, n * 2), true),
+      vec3(0, baseY + p.tankHeight / 2, 0),
+    ),
+  );
   // Flat tank floor just inside the staves.
   parts.push(translateMesh(cylinder(p.radius * 0.98, 0.12, n), vec3(0, baseY + 0.06, 0)));
   return merge(...parts);
@@ -150,7 +163,7 @@ type Vec3Tuple = [number, number];
 /** Vertical access ladder up the +X leg. */
 function ladder(p: WaterTowerParams): Mesh {
   const parts: Mesh[] = [];
-  const x = p.radius * 0.95;
+  const x = p.radius + 0.28;
   const topY = p.legHeight + p.tankHeight;
   for (const rx of [x - 0.16, x + 0.16]) {
     parts.push(translateMesh(box(0.03, topY, 0.03), vec3(rx, topY / 2, 0)));

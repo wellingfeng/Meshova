@@ -19,6 +19,7 @@ import type { Vec3 } from "../math/vec3.js";
 import { vec3, add, sub, scale, cross, normalize, length, dot } from "../math/vec3.js";
 import { vec2 } from "../math/vec2.js";
 import { clamp, lerp } from "../math/scalar.js";
+import { makeRng } from "../random/prng.js";
 import type { Curve } from "./curve.js";
 import { resampleCurve } from "./curve.js";
 import type { Mesh } from "./mesh.js";
@@ -264,8 +265,9 @@ export function roadCurbs(
       const right = rightAtDistance(points, cum, d);
       const edge = add(center, scale(right, side * opt.halfWidth));
       const outer = add(edge, scale(right, side * curbWidth));
-      const y0 = opt.verticalOffset;
-      const y1 = opt.verticalOffset + curbHeight;
+      const curbLift = Math.min(0.006, curbHeight * 0.1);
+      const y0 = opt.verticalOffset + curbLift;
+      const y1 = opt.verticalOffset + curbHeight + curbLift;
       sideBase.push(positions.length);
       const innerBottom = { x: edge.x, y: edge.y + y0, z: edge.z };
       const innerTop = { x: edge.x, y: edge.y + y1, z: edge.z };
@@ -369,10 +371,16 @@ function paintedStrip(
     indices.push(base, base + 3, base + 2, base, base + 1, base + 3);
   };
 
-  for (let d = 0; d < total - 1e-6; d += period) {
-    const end = Math.min(total, d + on);
-    if (end - d < 1e-4) continue;
-    emitQuad(d, end);
+  if (!dashed) {
+    for (let i = 0; i < cum.length - 1; i++) {
+      emitQuad(cum[i]!, cum[i + 1]!);
+    }
+  } else {
+    for (let d = 0; d < total - 1e-6; d += period) {
+      const end = Math.min(total, d + on);
+      if (end - d < 1e-4) continue;
+      emitQuad(d, end);
+    }
   }
   return { positions, uvs, indices };
 }
@@ -447,6 +455,87 @@ export function roadEdgeLines(
   }
   const normals = positions.map(() => vec3(0, 1, 0));
   return recomputeNormals(makeMesh({ positions, normals, uvs, indices }));
+}
+
+export interface RoadsideExclusionZone {
+  distance: number;
+  radius: number;
+}
+
+export interface RoadsidePlacement {
+  position: Vec3;
+  distance: number;
+  side: "left" | "right";
+  yaw: number;
+  scale: number;
+}
+
+export interface RoadsidePlacementOptions {
+  spacing?: number;
+  offsetMin?: number;
+  offsetMax?: number;
+  density?: number;
+  distanceJitter?: number;
+  yawJitterDeg?: number;
+  scaleMin?: number;
+  scaleMax?: number;
+  seed?: number;
+  side?: "both" | "left" | "right";
+  startDistance?: number;
+  endDistance?: number;
+  exclusionZones?: ReadonlyArray<RoadsideExclusionZone>;
+}
+
+export function roadsidePlacements(
+  centerline: Curve,
+  options: RoadsidePlacementOptions = {},
+): RoadsidePlacement[] {
+  const points = resampleCurve(centerline, {
+    segmentLength: Math.max(0.1, Math.min(options.spacing ?? 4, 1)),
+  }).points;
+  if (points.length < 2) return [];
+
+  const cumulative = cumulativeLengths(points);
+  const total = cumulative[cumulative.length - 1]!;
+  const spacing = Math.max(0.1, options.spacing ?? 4);
+  const offsetMin = Math.max(0, options.offsetMin ?? 3.5);
+  const offsetMax = Math.max(offsetMin, options.offsetMax ?? offsetMin + 3);
+  const density = clamp(options.density ?? 1, 0, 1);
+  const distanceJitter = Math.max(0, options.distanceJitter ?? spacing * 0.25);
+  const yawJitter = Math.max(0, options.yawJitterDeg ?? 180) * Math.PI / 180;
+  const scaleMin = Math.max(0.001, options.scaleMin ?? 0.8);
+  const scaleMax = Math.max(scaleMin, options.scaleMax ?? 1.2);
+  const startDistance = clamp(options.startDistance ?? spacing * 0.5, 0, total);
+  const endDistance = clamp(options.endDistance ?? total - spacing * 0.5, startDistance, total);
+  const exclusions = options.exclusionZones ?? [];
+  const rng = makeRng(options.seed ?? 1);
+  const sideSigns = options.side === "left"
+    ? [-1] as const
+    : options.side === "right"
+      ? [1] as const
+      : [-1, 1] as const;
+  const placements: RoadsidePlacement[] = [];
+
+  for (let nominal = startDistance; nominal <= endDistance + 1e-6; nominal += spacing) {
+    for (const sideSign of sideSigns) {
+      if (rng.next() > density) continue;
+      const distance = clamp(nominal + rng.range(-distanceJitter, distanceJitter), 0, total);
+      if (exclusions.some((zone) => Math.abs(distance - zone.distance) < Math.max(0, zone.radius))) continue;
+      const center = pointAtDistance(points, cumulative, distance);
+      const tangent = tangentAtDistance(points, cumulative, distance);
+      const right = rightAtDistance(points, cumulative, distance);
+      const lateral = rng.range(offsetMin, offsetMax);
+      placements.push({
+        position: add(center, scale(right, sideSign * lateral)),
+        distance,
+        side: sideSign < 0 ? "left" : "right",
+        yaw: Math.atan2(tangent.x, tangent.z) + rng.range(-yawJitter, yawJitter),
+        scale: rng.range(scaleMin, scaleMax),
+      });
+    }
+  }
+
+  return placements;
 }
 
 /**
@@ -834,7 +923,7 @@ export function roadPierCaps(
     const right = rightAtDistance(points, cum, d);
     const tan = tangentAtDistance(points, cum, d);
     // Beam top sits at the deck underside; grows downward by capHeight.
-    const topY = center.y + opt.verticalOffset - deckT;
+    const topY = center.y + opt.verticalOffset - deckT - 0.01;
     const c = vec3(center.x, topY - capHeight * 0.5, center.z);
     emitOrientedBox(
       positions, uvList, indices, c,
@@ -908,6 +997,224 @@ export function roadSignGantry(
     }
   };
   for (let d = spacing * 0.5; d < total; d += spacing) emitGantry(d);
+
+  const normals = positions.map(() => vec3(0, 1, 0));
+  return recomputeNormals(makeMesh({ positions, normals, uvs: uvList, indices }));
+}
+
+/**
+ * Roadside light poles — the cantilevered lamp standards that line a freeway
+ * (CitySample's Kit_StreetLight). Each pole is a tall vertical mast offset to one
+ * side of the carriageway, an arm reaching out over the road, and a small lamp
+ * head at the arm tip. Poles are stamped at a fixed `spacing` along the spline.
+ * `side` = +1 lines the right edge, -1 the left; pass a curve offset outward for
+ * both sides. Everything follows the road frame (right/tangent) so masts stay
+ * square to the carriageway through bends. Returns the merged mesh. Deterministic.
+ */
+export function roadLightPoles(
+  centerline: Curve,
+  options: RoadRibbonOptions & {
+    side?: 1 | -1;
+    lateral?: number;
+    spacing?: number;
+    poleHeight?: number;
+    poleRadius?: number;
+    armLength?: number;
+    lampSize?: number;
+  } = {},
+): Mesh {
+  const opt = resolve(options);
+  const side = options.side ?? 1;
+  const lateral = options.lateral ?? opt.halfWidth + 0.6;
+  const spacing = Math.max(1, options.spacing ?? 24);
+  const poleH = options.poleHeight ?? 6;
+  const poleR = options.poleRadius ?? 0.14;
+  const armLen = options.armLength ?? Math.min(lateral, opt.halfWidth * 0.7);
+  const lampSize = options.lampSize ?? 0.4;
+  const dense = resampleCurve(centerline, { segmentLength: opt.sampleDistance });
+  const points = dense.points;
+  if (points.length < 2) return makeMesh({ positions: [], normals: [], uvs: [], indices: [] });
+  const cum = cumulativeLengths(points);
+  const total = cum[cum.length - 1]!;
+
+  const positions: Vec3[] = [];
+  const uvList: ReturnType<typeof vec2>[] = [];
+  const indices: number[] = [];
+
+  const emitPole = (d: number): void => {
+    const center = pointAtDistance(points, cum, d);
+    const right = rightAtDistance(points, cum, d);
+    const tan = tangentAtDistance(points, cum, d);
+    const y0 = center.y + opt.verticalOffset;
+    // Vertical mast at the edge, base at road level.
+    const foot = add(center, scale(right, side * lateral));
+    const mastC = vec3(foot.x, y0 + poleH * 0.5, foot.z);
+    emitOrientedBox(positions, uvList, indices, mastC, right, UP, tan, poleR, poleH * 0.5, poleR);
+    // Cantilever arm reaching inward over the carriageway at the mast top.
+    const armInner = add(foot, scale(right, side * -armLen));
+    const armC = vec3((foot.x + armInner.x) * 0.5, y0 + poleH, (foot.z + armInner.z) * 0.5);
+    emitOrientedBox(positions, uvList, indices, armC, right, UP, tan, armLen * 0.5, poleR * 0.6, poleR * 0.6);
+    // Lamp head at the arm tip, hanging just below the arm.
+    const lampC = vec3(armInner.x, y0 + poleH - lampSize * 0.3, armInner.z);
+    emitOrientedBox(positions, uvList, indices, lampC, right, UP, tan, lampSize, lampSize * 0.25, lampSize * 0.6);
+  };
+  for (let d = spacing * 0.5; d < total; d += spacing) emitPole(d);
+
+  const normals = positions.map(() => vec3(0, 1, 0));
+  return recomputeNormals(makeMesh({ positions, normals, uvs: uvList, indices }));
+}
+
+/**
+ * Roadside noise-barrier wall (声屏障): a tall continuous panel swept along one
+ * edge of the road, matching the reference footage's red acoustic-barrier
+ * fence. The wall is a thin vertical slab (two faces + top edge) running from a
+ * base kick-height up to `wallHeight`; it sits back-to-back so both sides show.
+ * Only the wall skin is emitted here — the metal framing (posts + top/bottom
+ * rails) is a separate part so it can carry a distinct steel material.
+ *
+ * `side` = +1 for the right edge, -1 for the left. Deterministic pure sweep.
+ */
+export function roadNoiseBarrier(
+  centerline: Curve,
+  options: RoadRibbonOptions & {
+    side?: 1 | -1;
+    lateral?: number;
+    wallHeight?: number;
+    baseHeight?: number;
+    thickness?: number;
+  } = {},
+): Mesh {
+  const opt = resolve(options);
+  const side = options.side ?? 1;
+  const lateral = options.lateral ?? opt.halfWidth + 0.3;
+  const wallH = options.wallHeight ?? 2.6;
+  const baseH = options.baseHeight ?? 0.4;
+  const halfT = (options.thickness ?? 0.14) * 0.5;
+  const dense = resampleCurve(centerline, { segmentLength: opt.sampleDistance });
+  const points = dense.points;
+  if (points.length < 2) return makeMesh({ positions: [], normals: [], uvs: [], indices: [] });
+  const cum = cumulativeLengths(points);
+  const distances = buildSampleDistances(points, cum, opt);
+
+  const positions: Vec3[] = [];
+  const uvList: ReturnType<typeof vec2>[] = [];
+  const indices: number[] = [];
+
+  // Cross-section: a thin rectangle in the (right, up) plane. Four corners per
+  // ring, swept along the spline into a closed box wall.
+  const profile: Array<{ lat: number; y: number }> = [
+    { lat: -halfT, y: baseH },
+    { lat: -halfT, y: wallH },
+    { lat: halfT, y: wallH },
+    { lat: halfT, y: baseH },
+  ];
+  const n = profile.length;
+  const ringBase: number[] = [];
+  for (const d of distances) {
+    const center = pointAtDistance(points, cum, d);
+    const right = rightAtDistance(points, cum, d);
+    const at = add(center, scale(right, side * lateral));
+    ringBase.push(positions.length);
+    for (const pr of profile) {
+      const p = add(at, scale(right, side * pr.lat));
+      positions.push(vec3(p.x, center.y + opt.verticalOffset + pr.y, p.z));
+      uvList.push(vec2((pr.y - baseH) / Math.max(0.001, wallH - baseH), d / opt.uvLengthScale));
+    }
+  }
+  for (let s = 0; s < distances.length - 1; s++) {
+    const b0 = ringBase[s]!;
+    const b1 = ringBase[s + 1]!;
+    for (let e = 0; e < n; e++) {
+      const e2 = (e + 1) % n;
+      const i00 = b0 + e, i01 = b0 + e2, i10 = b1 + e, i11 = b1 + e2;
+      if (side > 0) indices.push(i00, i11, i10, i00, i01, i11);
+      else indices.push(i00, i10, i11, i00, i11, i01);
+    }
+  }
+  const normals = positions.map(() => vec3(0, 1, 0));
+  return recomputeNormals(makeMesh({ positions, normals, uvs: uvList, indices }));
+}
+
+/**
+ * Steel framing for the noise barrier: evenly spaced vertical posts plus a top
+ * and bottom horizontal rail beam, matching the dark metal mullions that divide
+ * the red acoustic panels in the reference. Emitted separately from the wall
+ * skin so it can carry a steel material. Deterministic.
+ */
+export function roadNoiseBarrierFrame(
+  centerline: Curve,
+  options: RoadRibbonOptions & {
+    side?: 1 | -1;
+    lateral?: number;
+    wallHeight?: number;
+    baseHeight?: number;
+    postSpacing?: number;
+    postSize?: number;
+    railSize?: number;
+  } = {},
+): Mesh {
+  const opt = resolve(options);
+  const side = options.side ?? 1;
+  const lateral = options.lateral ?? opt.halfWidth + 0.3;
+  const wallH = options.wallHeight ?? 2.6;
+  const baseH = options.baseHeight ?? 0.4;
+  const spacing = Math.max(0.5, options.postSpacing ?? 3);
+  const postHalf = (options.postSize ?? 0.12) * 0.5;
+  const railHalf = (options.railSize ?? 0.14) * 0.5;
+  const dense = resampleCurve(centerline, { segmentLength: opt.sampleDistance });
+  const points = dense.points;
+  if (points.length < 2) return makeMesh({ positions: [], normals: [], uvs: [], indices: [] });
+  const cum = cumulativeLengths(points);
+  const total = cum[cum.length - 1]!;
+
+  const positions: Vec3[] = [];
+  const uvList: ReturnType<typeof vec2>[] = [];
+  const indices: number[] = [];
+
+  // Top + bottom rail beams: thin boxes swept along the spline at the panel
+  // edges, poking slightly proud of the wall so they read as framing.
+  const railDist = buildSampleDistances(points, cum, opt);
+  for (const railY of [baseH - 0.01, wallH + 0.01]) {
+    const railBaseIdx: number[] = [];
+    for (const d of railDist) {
+      const center = pointAtDistance(points, cum, d);
+      const right = rightAtDistance(points, cum, d);
+      const at = add(center, scale(right, side * lateral));
+      const y = center.y + opt.verticalOffset + railY;
+      const inner = add(at, scale(right, side * -railHalf));
+      const outer = add(at, scale(right, side * railHalf));
+      railBaseIdx.push(positions.length);
+      positions.push(
+        vec3(inner.x, y - railHalf, inner.z),
+        vec3(inner.x, y + railHalf, inner.z),
+        vec3(outer.x, y + railHalf, outer.z),
+        vec3(outer.x, y - railHalf, outer.z),
+      );
+      for (let k = 0; k < 4; k++) uvList.push(vec2(0, d / opt.uvLengthScale));
+    }
+    for (let s = 0; s < railDist.length - 1; s++) {
+      const b0 = railBaseIdx[s]!;
+      const b1 = railBaseIdx[s + 1]!;
+      for (let e = 0; e < 4; e++) {
+        const e2 = (e + 1) % 4;
+        const i00 = b0 + e, i01 = b0 + e2, i10 = b1 + e, i11 = b1 + e2;
+        if (side > 0) indices.push(i00, i11, i10, i00, i01, i11);
+        else indices.push(i00, i10, i11, i00, i11, i01);
+      }
+    }
+  }
+
+  // Vertical posts at fixed spacing, from base to wall top.
+  const emitPost = (d: number): void => {
+    const center = pointAtDistance(points, cum, d);
+    const right = rightAtDistance(points, cum, d);
+    const tan = tangentAtDistance(points, cum, d);
+    const at = add(center, scale(right, side * lateral));
+    const yMid = center.y + opt.verticalOffset + (baseH + wallH) * 0.5;
+    const postC = vec3(at.x, yMid, at.z);
+    emitOrientedBox(positions, uvList, indices, postC, right, UP, tan, postHalf, (wallH - baseH) * 0.5 + 0.03, postHalf);
+  };
+  for (let d = spacing * 0.5; d < total; d += spacing) emitPost(d);
 
   const normals = positions.map(() => vec3(0, 1, 0));
   return recomputeNormals(makeMesh({ positions, normals, uvs: uvList, indices }));

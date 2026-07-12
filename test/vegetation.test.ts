@@ -23,6 +23,10 @@ import {
   vegetationSpeciesPreset,
   buildSpeciesPlant,
   growBranches,
+  carveBranches,
+  applyBranchGravity,
+  removeBranches,
+  reduceBranchBones,
   branchesToMesh,
   branchFlareMesh,
   branchFeatures,
@@ -288,6 +292,63 @@ describe("growBranches", () => {
   });
 });
 
+describe("vegetation editor modifiers", () => {
+  it("tracks branch hierarchy and distance from the trunk root", () => {
+    const trunk = polyline([vec3(0, 0, 0), vec3(0, 4, 0)]);
+    const branches = growBranches(trunk, 0.3, { seed: 21, count: 5, depth: 3 });
+    expect(branches.every((branch) => branch.lengthFromRoot !== undefined)).toBe(true);
+    expect(branches.some((branch) => branch.parentIndex !== undefined)).toBe(true);
+    branches.forEach((branch, index) => {
+      if (branch.parentIndex !== undefined) expect(branch.parentIndex).toBeLessThan(index);
+    });
+  });
+
+  it("carves by radius and cascades removed parent branches", () => {
+    const trunk = polyline([vec3(0, 0, 0), vec3(0, 4, 0)]);
+    const branches = growBranches(trunk, 0.3, { seed: 22, count: 6, depth: 3 });
+    const carved = carveBranches(branches, { mode: "radius", amount: 0.45 });
+    expect(carved.length).toBeLessThan(branches.length);
+    carved.forEach((branch, index) => {
+      if (branch.parentIndex !== undefined) expect(branch.parentIndex).toBeLessThan(index);
+    });
+  });
+
+  it("form-bottom compresses height without changing branch density", () => {
+    const trunk = polyline([vec3(0, 0, 0), vec3(0, 4, 0)]);
+    const branches = growBranches(trunk, 0.3, { seed: 23, count: 5, depth: 2 });
+    const carved = carveBranches(branches, { mode: "form-bottom", amount: 0.6 });
+    const span = (items: typeof branches) => {
+      const ys = items.flatMap((branch) => branch.curve.points.map((point) => point.y));
+      return Math.max(...ys) - Math.min(...ys);
+    };
+    expect(carved).toHaveLength(branches.length);
+    expect(span(carved)).toBeCloseTo(span(branches) * 0.4, 5);
+  });
+
+  it("applies deterministic gravity and keeps first-order roots fixed", () => {
+    const trunk = polyline([vec3(0, 0, 0), vec3(0, 4, 0)]);
+    const branches = growBranches(trunk, 0.3, { seed: 24, count: 4, depth: 2 });
+    const a = applyBranchGravity(branches, { strength: 0.25 });
+    const b = applyBranchGravity(branches, { strength: 0.25 });
+    expect(a).toEqual(b);
+    expect(a[0]!.curve.points[0]).toEqual(branches[0]!.curve.points[0]);
+    expect(a[0]!.curve.points.at(-1)!.y).toBeLessThan(branches[0]!.curve.points.at(-1)!.y);
+  });
+
+  it("removes branches deterministically and reduces curve bones", () => {
+    const trunk = polyline([vec3(0, 0, 0), vec3(0, 4, 0)]);
+    const branches = growBranches(trunk, 0.3, { seed: 25, count: 7, depth: 3, segments: 9 });
+    const a = removeBranches(branches, { mode: "random", amount: 0.45, seed: 8 });
+    const b = removeBranches(branches, { mode: "random", amount: 0.45, seed: 8 });
+    expect(a).toEqual(b);
+    expect(a.length).toBeLessThan(branches.length);
+    const reduced = reduceBranchBones(a, { reduction: 0.65, minPoints: 3 });
+    expect(reduced.every((branch) => branch.curve.points.length >= 3)).toBe(true);
+    expect(reduced.reduce((sum, branch) => sum + branch.curve.points.length, 0))
+      .toBeLessThan(a.reduce((sum, branch) => sum + branch.curve.points.length, 0));
+  });
+});
+
 describe("leaves", () => {
   it("scatters valid leaf cards on terminal branches", () => {
     const trunk = polyline([vec3(0, 0, 0), vec3(0, 4, 0)]);
@@ -330,6 +391,31 @@ describe("leaves", () => {
     assertValid(leaves);
     expect(vertexCount(leaves)).toBeGreaterThan(0);
   });
+
+  it("supports leaf scale profiles, angle controls, and resource variants", () => {
+    const trunk = polyline([vec3(0, 0, 0), vec3(0, 4, 0)]);
+    const branches = growBranches(trunk, 0.3, { seed: 27, count: 5, depth: 2 });
+    const leaves = scatterLeaves(branches, {
+      seed: 27,
+      perBranch: 4,
+      sizeJitter: 0,
+      scaleProfile: [{ t: 0, value: 0.5 }, { t: 1, value: 1.5 }],
+      angle: 20,
+      angleJitter: 8,
+      shapeVariants: ["oval", "lanceolate", "teardrop"],
+    });
+    const again = scatterLeaves(branches, {
+      seed: 27,
+      perBranch: 4,
+      sizeJitter: 0,
+      scaleProfile: [{ t: 0, value: 0.5 }, { t: 1, value: 1.5 }],
+      angle: 20,
+      angleJitter: 8,
+      shapeVariants: ["oval", "lanceolate", "teardrop"],
+    });
+    assertValid(leaves);
+    expect(meshKey(leaves)).toBe(meshKey(again));
+  });
 });
 
 describe("plant builders", () => {
@@ -342,6 +428,16 @@ describe("plant builders", () => {
     // tree should be roughly as tall as requested
     const bb = bounds(t.wood);
     expect(bb.max.y).toBeGreaterThan(3);
+  });
+
+  it("tree and shrub default to shaped single leaves", () => {
+    const t = tree({ seed: 3, leafDensity: 2 });
+    const treeLeafCount = t.branches.filter((branch) => branch.terminal).length * 2;
+    expect(vertexCount(t.leaves)).toBeGreaterThan(treeLeafCount * 4);
+
+    const s = shrub({ seed: 4, stems: 2, leafDensity: 2 });
+    const shrubLeafCount = s.branches.filter((branch) => branch.terminal).length * 2;
+    expect(vertexCount(s.leaves)).toBeGreaterThan(shrubLeafCount * 4);
   });
 
   it("tree is deterministic", () => {
@@ -473,8 +569,11 @@ describe("frond + needles", () => {
     assertValid(f.stem);
     assertValid(f.blades);
     expect(triangleCount(f.stem)).toBeGreaterThan(0);
-    // 10 pairs * 2 sides = 20 leaflet quads * 2 tris each = 40 tris
-    expect(triangleCount(f.blades)).toBe(10 * 2 * 2);
+    // Default leaflets are shaped blades: 10 pairs * 2 sides * 6 segments * 4 tris.
+    expect(triangleCount(f.blades)).toBe(10 * 2 * 6 * 4);
+
+    const cardFrond = frond(rachis, { seed: 1, pairs: 10, leafletShape: "quad" });
+    expect(triangleCount(cardFrond.blades)).toBe(10 * 2 * 2);
   });
 
   it("needleCluster builds the requested number of needles", () => {

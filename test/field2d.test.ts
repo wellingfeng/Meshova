@@ -21,6 +21,7 @@ import {
   curvatureMeshField,
   vec3,
   warpField2D,
+  weaveField2D,
 } from "../src/index.js";
 
 describe("Field2D buffer", () => {
@@ -91,6 +92,15 @@ describe("Field2D warp + pattern", () => {
 
     const edges = cellsField2D(16, 16, { columns: 4, rows: 4, mode: "edge" });
     expect(field2DStats(edges).max).toBeGreaterThan(0.9);
+  });
+
+  it("builds deterministic weave relief fields", () => {
+    const a = weaveField2D(32, 32, { columns: 4, rows: 4, seed: 9 });
+    const b = weaveField2D(32, 32, { columns: 4, rows: 4, seed: 9 });
+    expect([...a.data]).toEqual([...b.data]);
+    const stats = field2DStats(a);
+    expect(stats.max).toBeGreaterThan(0.9);
+    expect(stats.min).toBeLessThan(0.1);
   });
 });
 

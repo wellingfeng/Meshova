@@ -293,7 +293,7 @@ function wheelSet(ctx: ScaleContext, side: -1 | 1, z: number, radius: number, tr
 
   const rim = transform(cylinder(radius * 0.56, 0.12 * ctx.sx, 36, true), {
     rotate: vec3(0, 0, Math.PI / 2),
-    translate: vec3(xOuter + side * 0.02, center.y, center.z),
+    translate: vec3(xOuter + side * 0.04, center.y, center.z),
   });
   add(parts, `beadlock_rim_${side}_${z}`, rim, STEEL, "brushedMetal", { color: STEEL });
 
@@ -451,7 +451,7 @@ export function buildGmcCanyonAt4xParts(params: Partial<GmcCanyonAt4xParams> = {
     add(parts, `tail_lamp_${side}`, partBox(ctx, vec3(0.11, 0.42, 0.026), vec3(side * 0.93, 0.88, 3.02)), RED, "glass", { tint: RED, roughness: 0.06 });
     add(parts, `door_seam_front_${side}`, partBox(ctx, vec3(0.018, 0.58, 0.02), vec3(side * 1.075, 0.96, -0.46)), BLACK, "plastic", { color: BLACK, roughness: 0.45 });
     add(parts, `door_seam_rear_${side}`, partBox(ctx, vec3(0.018, 0.56, 0.02), vec3(side * 1.075, 0.94, 0.3)), BLACK, "plastic", { color: BLACK, roughness: 0.45 });
-    add(parts, `door_handle_front_${side}`, partBox(ctx, vec3(0.035, 0.052, 0.22), vec3(side * 1.095, 1.12, -0.36)), BLACK, "plastic", { color: BLACK, roughness: 0.28 });
+    add(parts, `door_handle_front_${side}`, partBox(ctx, vec3(0.035, 0.052, 0.22), vec3(side * 1.095, 1.12, -0.33)), BLACK, "plastic", { color: BLACK, roughness: 0.28 });
     add(parts, `door_handle_rear_${side}`, partBox(ctx, vec3(0.035, 0.052, 0.22), vec3(side * 1.095, 1.1, 0.34)), BLACK, "plastic", { color: BLACK, roughness: 0.28 });
     add(parts, `mirror_${side}`, partSphere(ctx, 0.13, vec3(side * 1.13, 1.33, -0.9), vec3(1.05, 0.55, 0.65)), BLACK, "plastic", { color: BLACK, roughness: 0.18 });
     add(parts, `rock_slider_${side}`, partBox(ctx, vec3(0.12, 0.08, 3.1), vec3(side * 1.15, 0.4, 0.08)), BLACK, "metal", { color: BLACK, roughness: 0.55 });

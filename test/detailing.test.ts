@@ -8,6 +8,7 @@ import {
   triplanar,
   triplanarColor,
   terrainAutoMaterial,
+  groundBlendColorField,
   materialFromFields,
   validateMaterial,
   buildSurface,
@@ -179,5 +180,27 @@ describe("terrainAutoMaterial", () => {
     expect(flat[1]).toBeGreaterThan(flat[0]);
     // steep is rock: red ~>= green
     expect(steep[0]).toBeGreaterThanOrEqual(steep[1]);
+  });
+});
+
+describe("groundBlendColorField (RVT-style)", () => {
+  const obj = () => [0.2, 0.2, 0.2] as [number, number, number];
+  const ground = () => [0.8, 0.6, 0.3] as [number, number, number];
+
+  it("uses ground color at the contact, object color up high", () => {
+    const field = groundBlendColorField(obj, ground, { groundY: 0, fade: 1, breakup: 0 });
+    const low = field({ x: 0, y: 0, z: 0 }, { x: 0, y: 1, z: 0 });
+    const high = field({ x: 0, y: 2, z: 0 }, { x: 0, y: 1, z: 0 });
+    // contact leans toward ground (warm), top stays object (grey)
+    expect(low[0]).toBeGreaterThan(high[0]);
+    expect(high[0]).toBeCloseTo(0.2, 1);
+  });
+
+  it("strength scales the blend", () => {
+    const full = groundBlendColorField(obj, ground, { fade: 1, strength: 1, breakup: 0 });
+    const half = groundBlendColorField(obj, ground, { fade: 1, strength: 0.5, breakup: 0 });
+    const p = { x: 0, y: 0, z: 0 };
+    const n = { x: 0, y: 1, z: 0 };
+    expect(full(p, n)[0]).toBeGreaterThan(half(p, n)[0]);
   });
 });

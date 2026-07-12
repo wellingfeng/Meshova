@@ -20,7 +20,7 @@ import {
   vec3,
   vec2,
   windChannels,
-} from "/dist/index.js";
+} from "/dist/index.js?v=cloth2";
 
 const TUTORIAL_SCHEMA = [
   { key: "heightScale", label: "整体高度", min: 0.5, max: 1.8, step: 0.05, default: 1 },
@@ -535,7 +535,8 @@ const TUTORIAL_ARCHETYPES = [
       branchAngle: 52,
       leafDensity: 12,
       leafSize: 0.13,
-      leafShape: "quad",
+      leafShape: "round",
+      leafFold: 0.08,
       branchLengthProfile: [{ t: 0, value: 0.75 }, { t: 0.55, value: 1.18 }, { t: 1, value: 0.7 }],
       leafDensityProfile: [{ t: 0, value: 0.25 }, { t: 0.65, value: 1.35 }, { t: 1, value: 1.25 }],
     }),

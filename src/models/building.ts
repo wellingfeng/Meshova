@@ -11,12 +11,15 @@
  * glass windows, metal frames, tiled/concrete roof), built WITH the model so
  * material and shape stay aligned — never a baked mesh dump.
  */
+import { vec2 } from "../math/vec2.js";
 import { vec3, type Vec3 } from "../math/vec3.js";
 import { makeRng } from "../random/prng.js";
 import {
   box,
   cone,
   merge,
+  makeMesh,
+  computeNormals,
   bounds,
   triangleCount,
   transform,
@@ -28,6 +31,7 @@ import {
   type NamedPart,
   type PointCloud,
 } from "../geometry/index.js";
+import { buildWaterTowerParts } from "./water-tower.js";
 
 type RGB = [number, number, number];
 
@@ -85,6 +89,21 @@ export const BUILDING_DEFAULTS: BuildingParams = {
   seed: 7,
 };
 
+export interface BuildingQualityScore {
+  /** Overall 0..1 (higher is better). */
+  score: number;
+  /** Per-criterion breakdown 0..1. */
+  metrics: {
+    requiredParts: number;
+    roofCoverage: number;
+    roofAttachment: number;
+    facadeSemantics: number;
+    proportions: number;
+  };
+  /** Human/LLM-readable critique to feed back into the agent loop. */
+  feedback: string;
+}
+
 const WALL: RGB = [0.62, 0.6, 0.56];
 const SLAB: RGB = [0.42, 0.41, 0.39];
 const FRAME: RGB = [0.16, 0.17, 0.19];
@@ -94,6 +113,7 @@ const ROOF_COL: RGB = [0.3, 0.31, 0.33];
 const PARAPET: RGB = [0.5, 0.49, 0.47];
 const PILASTER: RGB = [0.54, 0.52, 0.49];
 const RAIL: RGB = [0.2, 0.21, 0.23];
+const PITCHED_ROOF_EAVE = 0.28;
 
 /** One facade slot: world position of the bay centre + yaw to face outward. */
 interface Slot {
@@ -253,6 +273,102 @@ export function buildBuildingParts(
   return parts;
 }
 
+/**
+ * Deterministic scorer for one procedural building. It catches assembly-level
+ * mistakes that raw mesh validity misses: missing semantic parts, roof smaller
+ * than the top cornice, roof floating/sinking, wrong material categories and
+ * implausible massing.
+ */
+export function scoreBuilding(parts: NamedPart[]): BuildingQualityScore {
+  const byName = new Map(parts.map((p) => [p.name, p]));
+  const has = (n: string) => byName.has(n);
+  const roof = byName.get("roof");
+  const slabs = byName.get("slabs");
+  const parapet = byName.get("parapet");
+  const walls = byName.get("walls");
+
+  const requiredParts =
+    (has("walls") ? 0.24 : 0) +
+    (has("slabs") ? 0.16 : 0) +
+    (has("roof") ? 0.2 : 0) +
+    (has("windows") ? 0.2 : 0) +
+    (has("door") ? 0.1 : 0) +
+    (has("window_frames") ? 0.1 : 0);
+
+  const roofAssembly = roof
+    ? parapet ? merge(roof.mesh, parapet.mesh) : roof.mesh
+    : undefined;
+  const topCornice = slabs ? topHorizontalExtent(slabs.mesh) : undefined;
+  const roofB = roofAssembly ? bounds(roofAssembly) : undefined;
+
+  let roofCoverage = 0;
+  if (topCornice && roofB) {
+    const margin = Math.min(
+      roofB.max.x - topCornice.maxX,
+      topCornice.minX - roofB.min.x,
+      roofB.max.z - topCornice.maxZ,
+      topCornice.minZ - roofB.min.z,
+    );
+    roofCoverage = clamp01((margin + 0.04) / 0.18);
+  }
+
+  let roofAttachment = 0;
+  if (topCornice && roofB) {
+    const gap = roofB.min.y - topCornice.topY;
+    roofAttachment = clamp01(1 - Math.abs(gap) / 0.22);
+  }
+
+  const windows = byName.get("windows");
+  const frames = byName.get("window_frames");
+  const wallMat = walls?.surface?.type === "concrete" ? 0.2 : 0;
+  const windowMat = windows?.surface?.type === "glass" ? 0.3 : 0;
+  const frameMat = frames?.surface?.type === "metal" ? 0.2 : 0;
+  const roofMat = roof?.surface?.type === "ceramic" || roof?.surface?.type === "concrete" ? 0.3 : 0;
+  const facadeSemantics = wallMat + windowMat + frameMat + roofMat;
+
+  let proportions = 0;
+  if (walls) {
+    const b = bounds(walls.mesh);
+    const dx = b.max.x - b.min.x;
+    const dy = b.max.y - b.min.y;
+    const dz = b.max.z - b.min.z;
+    const footprint = Math.max(dx, dz);
+    const heightRatio = footprint > 0 ? dy / footprint : 0;
+    const depthRatio = dx > 0 ? dz / dx : 0;
+    proportions = (
+      rangeScore(heightRatio, 0.7, 4.5) * 0.65 +
+      rangeScore(depthRatio, 0.35, 1.8) * 0.35
+    );
+  }
+
+  const metrics = {
+    requiredParts: clamp01(requiredParts),
+    roofCoverage,
+    roofAttachment,
+    facadeSemantics: clamp01(facadeSemantics),
+    proportions,
+  };
+  const score = clamp01(
+    metrics.requiredParts * 0.25 +
+      metrics.roofCoverage * 0.25 +
+      metrics.roofAttachment * 0.15 +
+      metrics.facadeSemantics * 0.2 +
+      metrics.proportions * 0.15,
+  );
+
+  const tips: string[] = [];
+  if (metrics.requiredParts < 1) tips.push("add required building parts: walls, slabs, windows, frames, door, roof");
+  if (metrics.roofCoverage < 0.75) tips.push("roof must cover the top cornice/eave in X and Z");
+  if (metrics.roofAttachment < 0.75) tips.push("roof base should contact the top slab, with no visible gap or deep sink");
+  if (metrics.facadeSemantics < 1) tips.push("match surfaces: concrete walls/slabs, glass windows, metal frames, ceramic/concrete roof");
+  if (metrics.proportions < 0.75) tips.push("adjust height/footprint proportions so the building mass reads plausibly");
+  const feedback = tips.length
+    ? `Score ${score.toFixed(2)}. To improve: ${tips.join("; ")}.`
+    : `Score ${score.toFixed(2)}. Building quality gate passed.`;
+
+  return { score, metrics, feedback };
+}
+
 export interface CityBlockParams {
   /** Buildings along X (street frontage). */
   cols: number;
@@ -278,6 +394,8 @@ export interface CityBlockParams {
   faceStreet: boolean;
   /** Master seed; each building derives a stable per-lot seed from it. */
   seed: number;
+  /** Fraction (0..1) of flat-roof buildings that get a rooftop water tower. */
+  waterTowers: number;
   /** Base params applied to every building (footprint, bays, features). */
   base?: Partial<BuildingParams>;
 }
@@ -295,6 +413,7 @@ export const CITY_BLOCK_DEFAULTS: CityBlockParams = {
   sidewalkWidth: 1.0,
   faceStreet: true,
   seed: 11,
+  waterTowers: 0.4,
 };
 
 const GROUND_COL: RGB = [0.22, 0.22, 0.24];
@@ -325,6 +444,14 @@ export function buildCityBlockParts(
 
   const groupOrder: string[] = [];
   const groups = new Map<string, { meshes: Mesh[]; color?: RGB; surface?: NamedPart["surface"] }>();
+
+  // Rooftop water-tower accumulation (namespaced so all towers collapse into a
+  // few material groups). Placed only on flat-roof lots, seeded per-lot.
+  const towerGroups = new Map<string, { meshes: Mesh[]; color?: RGB; surface?: NamedPart["surface"] }>();
+  const towerOrder: string[] = [];
+  const towerFrac = Math.max(0, Math.min(1, p.waterTowers));
+  const fh = p.base?.floorHeight ?? BUILDING_DEFAULTS.floorHeight;
+  const gfs = p.base?.groundFloorScale ?? BUILDING_DEFAULTS.groundFloorScale;
 
   const x0 = -((cols - 1) * p.lotX) / 2;
 
@@ -396,6 +523,42 @@ export function buildCityBlockParts(
         }
         g.meshes.push(placed);
       }
+
+      // Rooftop water tower: flat roofs only, seeded chance per lot. Placed on
+      // the roof slab, offset into a back corner so it reads as service kit.
+      if (roof === "flat" && towerFrac > 0 && lotRng.next() < towerFrac) {
+        const totalH = fh * gfs + Math.max(0, floors - 1) * fh;
+        const tRadius = Math.min(baseW, baseD) * 0.22;
+        const tRng = lotRng.fork();
+        const towerParts = buildWaterTowerParts({
+          radius: tRadius,
+          tankHeight: tRadius * 2.0,
+          legHeight: tRadius * 1.4,
+          staves: 20,
+          hoops: 4,
+          ladder: true,
+          seed: tRng.int(0, 9999),
+        });
+        // Nudge toward a back corner of the roof, rotate by yaw with the lot.
+        const ox = (tRng.next() - 0.5) * baseW * 0.35;
+        const oz = -baseD * 0.22 + (tRng.next() - 0.5) * baseD * 0.2;
+        for (const part of towerParts) {
+          const lifted = translateMesh(part.mesh, vec3(ox, totalH + 0.06, oz));
+          const placed = yaw !== 0
+            ? translateMesh(transform(lifted, { rotate: vec3(0, yaw, 0) }), vec3(tx, 0, tz))
+            : translateMesh(lifted, vec3(tx, 0, tz));
+          const key = `tower_${part.name}`;
+          let tg = towerGroups.get(key);
+          if (!tg) {
+            tg = { meshes: [] };
+            if (part.color) tg.color = part.color as RGB;
+            if (part.surface) tg.surface = part.surface;
+            towerGroups.set(key, tg);
+            towerOrder.push(key);
+          }
+          tg.meshes.push(placed);
+        }
+      }
     }
   }
 
@@ -425,6 +588,13 @@ export function buildCityBlockParts(
     if (g.surface) part.surface = g.surface;
     out.push(part);
   }
+  for (const name of towerOrder) {
+    const tg = towerGroups.get(name)!;
+    const part: NamedPart = { name, label: "屋顶水塔", mesh: merge(...tg.meshes) };
+    if (tg.color) part.color = tg.color;
+    if (tg.surface) part.surface = tg.surface;
+    out.push(part);
+  }
   return out;
 }
 
@@ -442,7 +612,7 @@ function buildRoad(
   // asphalt carriageway (slightly above ground)
   parts.push({
     name: "road",
-    mesh: transform(box(length, 0.06, roadWidth), { translate: vec3(0, 0.0, 0) }),
+    mesh: transform(box(length, 0.06, roadWidth), { translate: vec3(0, 0.03, 0) }),
     color: ROAD_COL,
     surface: { type: "concrete", params: { color: ROAD_COL, roughness: 0.9 } },
   });
@@ -450,7 +620,7 @@ function buildRoad(
   const swZ = roadWidth / 2 + sidewalkWidth / 2;
   const sidewalks: Mesh[] = [];
   for (const s of [-1, 1] as const) {
-    sidewalks.push(transform(box(length, 0.12, sidewalkWidth), { translate: vec3(0, 0.03, s * swZ) }));
+    sidewalks.push(transform(box(length, 0.12, sidewalkWidth), { translate: vec3(0, 0.06, s * swZ) }));
   }
   parts.push({ name: "sidewalks", mesh: merge(...sidewalks), color: SIDEWALK_COL, surface: { type: "concrete" } });
   // dashed centre line
@@ -459,7 +629,7 @@ function buildRoad(
   const dashLen = (length / nDash) * 0.5;
   for (let i = 0; i < nDash; i++) {
     const x = -length / 2 + (length / nDash) * (i + 0.5);
-    dashes.push(transform(box(dashLen, 0.02, 0.1), { translate: vec3(x, 0.04, 0) }));
+    dashes.push(transform(box(dashLen, 0.02, 0.1), { translate: vec3(x, 0.07, 0) }));
   }
   parts.push({ name: "road_lines", mesh: merge(...dashes), color: ROADLINE_COL, surface: { type: "plastic", params: { color: ROADLINE_COL, roughness: 0.6 } } });
   return parts;
@@ -553,6 +723,43 @@ export function scoreCityBlock(parts: NamedPart[]): CityBlockScore {
   return { score, metrics, feedback };
 }
 
+interface HorizontalExtent {
+  minX: number;
+  maxX: number;
+  minZ: number;
+  maxZ: number;
+  topY: number;
+}
+
+function topHorizontalExtent(mesh: Mesh, band = 0.14): HorizontalExtent | undefined {
+  if (mesh.positions.length === 0) return undefined;
+  const b = bounds(mesh);
+  const minY = b.max.y - band;
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minZ = Infinity;
+  let maxZ = -Infinity;
+  let count = 0;
+
+  for (const p of mesh.positions) {
+    if (p.y < minY) continue;
+    if (p.x < minX) minX = p.x;
+    if (p.x > maxX) maxX = p.x;
+    if (p.z < minZ) minZ = p.z;
+    if (p.z > maxZ) maxZ = p.z;
+    count++;
+  }
+
+  return count > 0 ? { minX, maxX, minZ, maxZ, topY: b.max.y } : undefined;
+}
+
+function rangeScore(v: number, min: number, max: number): number {
+  if (!Number.isFinite(v) || max <= min) return 0;
+  if (v >= min && v <= max) return 1;
+  const span = max - min;
+  return v < min ? clamp01(1 - (min - v) / span) : clamp01(1 - (v - max) / span);
+}
+
 function clamp01(v: number): number {
   return v < 0 ? 0 : v > 1 ? 1 : v;
 }
@@ -624,6 +831,8 @@ function addCornerPilasters(
   totalH: number,
 ): void {
   const t = 0.18; // pilaster cross-section
+  const baseY = 0.12;
+  const height = Math.max(0.01, totalH - baseY);
   // Use the average half-extent so a tapered tower still gets centred columns.
   const baseHw = p.width / 2;
   const baseHd = p.depth / 2;
@@ -635,8 +844,8 @@ function addCornerPilasters(
   for (const sx of [-1, 1] as const) {
     for (const sz of [-1, 1] as const) {
       out.push(
-        transform(box(t, totalH, t), {
-          translate: vec3(sx * hw, totalH / 2, sz * hd),
+        transform(box(t, height, t), {
+          translate: vec3(sx * hw, baseY + height / 2, sz * hd),
         }),
       );
     }
@@ -670,6 +879,8 @@ function addBalcony(
   const z0 = o.depth / 2;
   const y0 = o.baseY; // floor level of this storey
   const railH = 0.42;
+  const railBase = y0 + 0.085;
+  const railTop = railBase + railH;
   const zMid = z0 + proj / 2;
   const zOuter = z0 + proj;
   const hbw = bw / 2;
@@ -681,18 +892,18 @@ function addBalcony(
     }),
   );
   // top rail along the outer edge + two sides
-  rails.push(transform(box(bw, 0.05, 0.05), { translate: vec3(cx, y0 + railH, zOuter) }));
-  rails.push(transform(box(0.05, 0.05, proj), { translate: vec3(cx - hbw, y0 + railH, zMid) }));
-  rails.push(transform(box(0.05, 0.05, proj), { translate: vec3(cx + hbw, y0 + railH, zMid) }));
+  rails.push(transform(box(bw, 0.05, 0.05), { translate: vec3(cx, railTop, zOuter) }));
+  rails.push(transform(box(0.05, 0.05, proj), { translate: vec3(cx - hbw, railTop, zMid) }));
+  rails.push(transform(box(0.05, 0.05, proj), { translate: vec3(cx + hbw, railTop, zMid) }));
   // posts at the outer corners
   for (const sx of [-1, 1] as const) {
-    rails.push(transform(box(0.05, railH, 0.05), { translate: vec3(cx + sx * hbw, y0 + railH / 2, zOuter) }));
+    rails.push(transform(box(0.05, railH, 0.05), { translate: vec3(cx + sx * hbw, railBase + railH / 2, zOuter) }));
   }
   // vertical balusters along the outer edge (evenly spaced)
   const nbal = Math.max(2, Math.round(bw / 0.18));
   for (let b = 0; b <= nbal; b++) {
     const x = cx - hbw + (bw * b) / nbal;
-    rails.push(transform(box(0.025, railH, 0.025), { translate: vec3(x, y0 + railH / 2, zOuter) }));
+    rails.push(transform(box(0.025, railH, 0.025), { translate: vec3(x, railBase + railH / 2, zOuter) }));
   }
 }
 
@@ -723,14 +934,17 @@ function windowFrameMesh(ratio: number): Mesh {
 function windowGlassMesh(ratio: number, _lit: boolean): Mesh {
   const w = 0.5 * Math.min(1, Math.max(0.2, ratio));
   const h = 0.62 * Math.min(1, Math.max(0.2, ratio));
-  return transform(box(w, h, 0.02), { translate: vec3(0, 0, 0.01) });
+  const frameInset = 0.05;
+  return transform(box(w - frameInset, h - frameInset, 0.012), {
+    translate: vec3(0, 0, 0.018),
+  });
 }
 
 /**
  * Build the roof parts for a given style at the top of the mass.
  *  - flat: parapet ring + roof slab
  *  - hip:  4-sided pyramid (cone with 4 segments)
- *  - gable: a ridged prism (two sloped boxes)
+ *  - gable: a ridged prism with real gable ends
  */
 function buildRoof(
   type: RoofType,
@@ -740,10 +954,11 @@ function buildRoof(
   roofH: number,
 ): NamedPart[] {
   if (type === "flat") {
+    const slabHeight = 0.1;
     const slab = transform(box(w + 0.08, 0.1, d + 0.08), {
-      translate: vec3(0, topY + 0.05, 0),
+      translate: vec3(0, topY + slabHeight / 2, 0),
     });
-    const parapet = parapetRing(w, d, topY, 0.32);
+    const parapet = parapetRing(w, d, topY + slabHeight, 0.32);
     return [
       { name: "roof", mesh: slab, color: ROOF_COL, surface: { type: "concrete" } },
       { name: "parapet", mesh: parapet, color: PARAPET, surface: { type: "concrete" } },
@@ -752,28 +967,59 @@ function buildRoof(
 
   if (type === "hip") {
     // 4-sided pyramid: a cone with 4 segments, rotated 45deg to align faces.
-    const r = Math.hypot(w, d) / 2;
+    const roofW = w + PITCHED_ROOF_EAVE * 2;
+    const roofD = d + PITCHED_ROOF_EAVE * 2;
+    const r = Math.hypot(roofW, roofD) / 2;
     const pyr = transform(cone(r * 0.72, roofH, 4, true), {
       rotate: vec3(0, Math.PI / 4, 0),
-      scale: vec3(w / (r * 1.02), 1, d / (r * 1.02)),
+      scale: vec3(roofW / (r * 1.02), 1, roofD / (r * 1.02)),
       translate: vec3(0, topY + roofH / 2, 0),
     });
     return [{ name: "roof", mesh: pyr, color: ROOF_COL, surface: { type: "ceramic", params: { color: [0.42, 0.2, 0.15] } } }];
   }
 
-  // gable: two sloped slabs meeting at a ridge running along X.
-  const half = d / 2;
-  const slope = Math.atan2(roofH, half);
-  const len = Math.hypot(half, roofH);
-  const left = transform(box(w, 0.06, len), {
-    rotate: vec3(slope, 0, 0),
-    translate: vec3(0, topY + roofH / 2, -half / 2),
-  });
-  const right = transform(box(w, 0.06, len), {
-    rotate: vec3(-slope, 0, 0),
-    translate: vec3(0, topY + roofH / 2, half / 2),
-  });
-  return [{ name: "roof", mesh: merge(left, right), color: ROOF_COL, surface: { type: "ceramic", params: { color: [0.42, 0.2, 0.15] } } }];
+  // Gable roof: triangular prism. The eave covers the top floor slab/cornice so
+  // the roof reads as one cap instead of a red plate sitting on a gray shelf.
+  const roof = gableRoofMesh(w + PITCHED_ROOF_EAVE * 2, d + PITCHED_ROOF_EAVE * 2, topY, roofH);
+  return [{ name: "roof", mesh: roof, color: ROOF_COL, surface: { type: "ceramic", params: { color: [0.42, 0.2, 0.15] } } }];
+}
+
+function gableRoofMesh(w: number, d: number, baseY: number, roofH: number): Mesh {
+  const hx = w / 2;
+  const hz = d / 2;
+  const ridgeY = baseY + roofH;
+  const positions = [
+    vec3(-hx, baseY, -hz),
+    vec3(hx, baseY, -hz),
+    vec3(-hx, ridgeY, 0),
+    vec3(hx, ridgeY, 0),
+    vec3(-hx, baseY, hz),
+    vec3(hx, baseY, hz),
+  ];
+  const uvs = [
+    vec2(0, 0),
+    vec2(1, 0),
+    vec2(0, 1),
+    vec2(1, 1),
+    vec2(0, 0),
+    vec2(1, 0),
+  ];
+  const indices = [
+    // back slope
+    0, 3, 1, 0, 2, 3,
+    // front slope
+    2, 5, 3, 2, 4, 5,
+    // gable ends
+    0, 4, 2, 1, 3, 5,
+    // underside, mostly hidden by the top slab
+    0, 1, 5, 0, 5, 4,
+  ];
+  return computeNormals(makeMesh({
+    positions,
+    normals: positions.map(() => vec3(0, 1, 0)),
+    uvs,
+    indices,
+  }), 1);
 }
 
 /** A low parapet wall ring around a flat roof. */
@@ -789,4 +1035,3 @@ function parapetRing(w: number, d: number, topY: number, h: number): Mesh {
     translateMesh(box(t, h, d - t), vec3(-hw, cy, 0)),
   );
 }
-

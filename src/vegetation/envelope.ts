@@ -73,7 +73,16 @@ function envelopeScale(shape: CanopyEnvelopeShape, t: number, power: number): nu
     const upper = Math.sin(Math.PI * Math.min(1, t * 0.9));
     return Math.pow(Math.max(0.12, upper), 0.35 / Math.max(0.1, power));
   }
-  return Math.pow(Math.max(0, Math.sin(Math.PI * t)), power);
+  // Ellipsoid crown. A plain sin(pi*t) profile pinches to zero radius at the
+  // very top, so every up-reaching branch tip gets yanked back onto the trunk
+  // axis and the tips weave into a "birdcage"/basket. Keep the upper crown from
+  // collapsing: hold a real radius near the top (teardrop, not spindle) so tips
+  // stay splayed outward like a real broadleaf canopy.
+  const s = Math.pow(Math.max(0, Math.sin(Math.PI * t)), power);
+  // Above mid-height, ramp a floor up to ~0.55 of the max radius at the crown
+  // top. Below mid-height the base still tapers in (minScale handles the root).
+  const topFloor = t > 0.5 ? 0.55 * ((t - 0.5) / 0.5) : 0;
+  return Math.max(s, topFloor);
 }
 
 function lerp(a: number, b: number, t: number): number {

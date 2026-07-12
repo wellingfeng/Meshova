@@ -2,11 +2,16 @@ import { describe, expect, it } from "vitest";
 import {
   buildBuildingParts,
   buildCityBlockParts,
+  scoreBuilding,
   scoreCityBlock,
+  box,
   bounds,
   merge,
+  transform,
   triangleCount,
+  vec3,
   vertexCount,
+  zFightingReport,
   BUILDING_DEFAULTS,
   CITY_BLOCK_DEFAULTS,
   type NamedPart,
@@ -94,6 +99,41 @@ describe("procedural building", () => {
     expect(flat).toContain("parapet");
     const hip = buildBuildingParts({ roof: "hip" }).map((p) => p.name);
     expect(hip).not.toContain("parapet");
+  });
+
+  it("gable roof overhangs the top cornice", () => {
+    const width = 5;
+    const depth = 4;
+    const roof = buildBuildingParts({ roof: "gable", width, depth, floors: 2, setback: 0 })
+      .find((p) => p.name === "roof")!;
+    const b = bounds(roof.mesh);
+
+    expect(b.max.x).toBeGreaterThan(width / 2 + 0.06);
+    expect(-b.min.x).toBeGreaterThan(width / 2 + 0.06);
+    expect(b.max.z).toBeGreaterThan(depth / 2 + 0.06);
+    expect(-b.min.z).toBeGreaterThan(depth / 2 + 0.06);
+  });
+
+  it("building scorer accepts a roof that covers the cornice", () => {
+    const score = scoreBuilding(buildBuildingParts({ roof: "gable", width: 5, depth: 4, floors: 3, setback: 0 }));
+    expect(score.metrics.requiredParts).toBe(1);
+    expect(score.metrics.roofCoverage).toBeGreaterThan(0.95);
+    expect(score.metrics.roofAttachment).toBeGreaterThan(0.8);
+    expect(score.score).toBeGreaterThan(0.85);
+  });
+
+  it("building scorer penalises undersized roofs", () => {
+    const parts = buildBuildingParts({ roof: "gable", width: 5, depth: 4, floors: 3, setback: 0 });
+    const roof = parts.find((p) => p.name === "roof")!;
+    const rb = bounds(roof.mesh);
+    const badRoof = transform(box(2.0, rb.max.y - rb.min.y, 1.5), {
+      translate: vec3(0, (rb.min.y + rb.max.y) / 2, 0),
+    });
+    const badParts = parts.map((p) => p.name === "roof" ? { ...p, mesh: badRoof } : p);
+    const score = scoreBuilding(badParts);
+
+    expect(score.metrics.roofCoverage).toBeLessThan(0.5);
+    expect(score.feedback).toMatch(/roof must cover/i);
   });
 
   it("exposes sane defaults", () => {
@@ -234,6 +274,14 @@ describe("procedural city block", () => {
     expect(Math.abs((bb.min.z + bb.max.z) / 2)).toBeLessThan(0.01);
   });
 
+  it("keeps ground and road layers free of z-fighting", () => {
+    const report = zFightingReport(buildCityBlockParts(), {
+      includeSamePart: false,
+      maxTriangles: Number.POSITIVE_INFINITY,
+    });
+    expect(report.pairs).toBe(0);
+  });
+
   it("faceStreet rotates the far band so both bands line the street", () => {
     // with roads, two bands sit either side of z=0; buildings should not
     // intrude into the central corridor regardless of orientation
@@ -249,6 +297,30 @@ describe("procedural city block", () => {
   it("faceStreet stays deterministic", () => {
     const a = merged(buildCityBlockParts({ rows: 2, faceStreet: true, seed: 11 }));
     const b = merged(buildCityBlockParts({ rows: 2, faceStreet: true, seed: 11 }));
+    expect(a.positions).toEqual(b.positions);
+  });
+
+  it("waterTowers>0 adds rooftop tower groups above the buildings", () => {
+    // Force flat roofs so every eligible lot can carry a tower.
+    const block = buildCityBlockParts({
+      cols: 4, rows: 2, minFloors: 5, maxFloors: 8,
+      waterTowers: 1, base: { roof: "flat" }, seed: 11,
+    });
+    const towers = block.filter((p) => p.name.startsWith("tower_"));
+    expect(towers.length, "has tower parts").toBeGreaterThan(0);
+    // Towers sit on rooftops, so their base is well above ground level.
+    const b = bounds(merge(...towers.map((p) => p.mesh)));
+    expect(b.min.y).toBeGreaterThan(3);
+  });
+
+  it("waterTowers=0 produces no rooftop towers", () => {
+    const block = buildCityBlockParts({ waterTowers: 0, base: { roof: "flat" }, seed: 11 });
+    expect(block.some((p) => p.name.startsWith("tower_"))).toBe(false);
+  });
+
+  it("rooftop towers stay deterministic across runs", () => {
+    const a = merged(buildCityBlockParts({ cols: 3, rows: 2, waterTowers: 0.6, seed: 4 }));
+    const b = merged(buildCityBlockParts({ cols: 3, rows: 2, waterTowers: 0.6, seed: 4 }));
     expect(a.positions).toEqual(b.positions);
   });
 });

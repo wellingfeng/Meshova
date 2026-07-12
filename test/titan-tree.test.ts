@@ -47,6 +47,13 @@ describe("titan-tree (Tree_PivotPainter_Tutorial)", () => {
     expect(parts.find((p) => p.name === "foliage")).toBeUndefined();
   });
 
+  it("uses shaped blades instead of rectangular leaf cards", () => {
+    const foliage = buildTitanTreeParts({ levels: 1, branching: 1 })
+      .find((part) => part.name === "foliage")!.mesh;
+    expect(foliage.positions.length).toBeGreaterThan(4);
+    expect(new Set(foliage.uvs.map((uv) => uv.y)).size).toBeGreaterThan(2);
+  });
+
   it("defaults recurse four levels", () => {
     expect(TITAN_TREE_DEFAULTS.levels).toBe(4);
   });

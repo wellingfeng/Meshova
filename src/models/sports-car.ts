@@ -209,7 +209,7 @@ function wheelSet(ctx: ScaleContext, side: -1 | 1, z: number, radius: number): N
 
   const hub = transform(cylinder(radius * 0.18, 0.11 * ctx.sx, 24, true), {
     rotate: vec3(0, 0, Math.PI / 2),
-    translate: vec3(xOuter + side * 0.01, center.y, center.z),
+    translate: vec3(xOuter + side * 0.02, center.y, center.z),
   });
   add(parts, `hub_${side}_${z}`, hub, CHROME, "chrome");
 
@@ -221,7 +221,7 @@ function wheelSet(ctx: ScaleContext, side: -1 | 1, z: number, radius: number): N
     spokeMeshes.push(
       transform(box(0.04 * ctx.sx, radius * 0.55, 0.035 * ctx.sz), {
         rotate: vec3(a, 0, 0),
-        translate: vec3(xOuter + side * 0.055, center.y + dy, center.z + dz),
+        translate: vec3(xOuter + side * 0.085, center.y + dy, center.z + dz),
       }),
     );
   }
@@ -353,7 +353,7 @@ export function buildSportsCarParts(params: Partial<SportsCarParams> = {}): Name
   }
 
   add(parts, "rear_flat_bumper", partBox(ctx, vec3(1.82, 0.34, 0.12), vec3(0, 0.39, 2.61)), PAINT, "carPaint", { color: PAINT, seed: 30 });
-  add(parts, "rear_black_tail_bar", partBox(ctx, vec3(1.62, 0.14, 0.035), vec3(0, 0.49, 2.555)), BLACK, "plastic", { color: BLACK, roughness: 0.4 });
+  add(parts, "rear_black_tail_bar", partBox(ctx, vec3(1.62, 0.14, 0.035), vec3(0, 0.49, 2.69)), BLACK, "plastic", { color: BLACK, roughness: 0.4 });
   for (const side of [-1, 1] as const) {
     add(parts, `tail_red_${side}`, partBox(ctx, vec3(0.42, 0.09, 0.032), vec3(side * 0.45, 0.49, 2.535)), RED_LIGHT, "glass", { tint: RED_LIGHT, roughness: 0.08, thickness: 0.04 });
     add(parts, `tail_amber_${side}`, partBox(ctx, vec3(0.16, 0.07, 0.034), vec3(side * 0.74, 0.49, 2.535)), AMBER, "glass", { tint: AMBER, roughness: 0.08, thickness: 0.04 });

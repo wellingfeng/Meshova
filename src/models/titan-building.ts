@@ -103,11 +103,20 @@ function bay(kind: BayKind, w: number, h: number, t: number, sink: Sink): void {
   sink.wall.push(translateMesh(box(w, bTop, t), vec3(0, -(h - bTop) / 2, 0)));
   sink.wall.push(translateMesh(box(bSide, openH, t), vec3(-(w - bSide) / 2, 0, 0)));
   sink.wall.push(translateMesh(box(bSide, openH, t), vec3((w - bSide) / 2, 0, 0)));
-  // frame + glass/door inset slightly recessed
-  sink.frame.push(box(openW + 0.1, openH + 0.1, t * 0.5));
-  const panel = box(openW, openH, t * 0.3);
-  if (kind === "door") sink.door.push(translateMesh(panel, vec3(0, 0, t * 0.1)));
-  else sink.window.push(translateMesh(panel, vec3(0, 0, t * 0.1)));
+  // Four real frame bars, not a full backing plate. A solid plate would share
+  // the glass front plane and z-fight in the viewer.
+  const frameBar = Math.max(0.035, Math.min(openW, openH) * 0.08);
+  const frameDepth = t * 0.5;
+  const frameZ = t * 0.25;
+  const innerW = Math.max(openW - frameBar * 2, openW * 0.55);
+  const innerH = Math.max(openH - frameBar * 2, openH * 0.55);
+  sink.frame.push(translateMesh(box(openW, frameBar, frameDepth), vec3(0, (openH - frameBar) / 2, frameZ)));
+  sink.frame.push(translateMesh(box(openW, frameBar, frameDepth), vec3(0, -(openH - frameBar) / 2, frameZ)));
+  sink.frame.push(translateMesh(box(frameBar, innerH, frameDepth), vec3(-(openW - frameBar) / 2, 0, frameZ)));
+  sink.frame.push(translateMesh(box(frameBar, innerH, frameDepth), vec3((openW - frameBar) / 2, 0, frameZ)));
+  const panel = box(innerW, innerH, t * 0.12);
+  if (kind === "door") sink.door.push(translateMesh(panel, vec3(0, 0, -t * 0.02)));
+  else sink.window.push(translateMesh(panel, vec3(0, 0, -t * 0.02)));
   if (kind === "balcony") {
     // slab jutting out front
     sink.frame.push(translateMesh(box(w * 0.9, 0.08, 0.5), vec3(0, -openH / 2, t * 0.5 + 0.25)));

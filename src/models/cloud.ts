@@ -22,6 +22,7 @@ import { makeRng } from "../random/prng.js";
 import { makeNoise, fbm3 } from "../random/noise.js";
 import { metaballs } from "../geometry/metaball.js";
 import { subdivide } from "../geometry/ops.js";
+import { cleanMesh } from "../geometry/blast.js";
 import { recomputeNormals, type Mesh } from "../geometry/mesh.js";
 import type { NamedPart } from "../geometry/export.js";
 
@@ -144,6 +145,9 @@ export function buildCloudMesh(options: CloudOptions = {}): Mesh {
   if (opts.smooth > 0) mesh = subdivide(mesh, opts.smooth);
   // Noise Texture displacement: cauliflower puff.
   mesh = puffDisplace(mesh, opts);
+  // Tidy: marching-cubes + displacement can leave a few near-collinear sliver
+  // triangles at cell boundaries. Weld coincident verts and drop degenerates.
+  mesh = cleanMesh(mesh);
   return mesh;
 }
 

@@ -37,6 +37,10 @@ export interface BranchSegment {
   attachT?: number;
   /** Approximate parent surface radius at the attachment point. */
   parentRadius?: number;
+  /** Index of the parent branch in the generated branch array. Undefined for trunk children. */
+  parentIndex?: number;
+  /** Arc distance from the trunk root to this branch root. */
+  lengthFromRoot?: number;
   /** True if no children were spawned from it (leaf-bearing tip). */
   terminal: boolean;
 }
@@ -183,7 +187,7 @@ export function growBranches(
   const rng = makeRng(opts.seed ?? 1234);
   const out: BranchSegment[] = [];
   const parentLen = Math.max(1e-4, curveLength(parent));
-  spawnChildren(parent, parentLen, parentRadius, 0, initialCount(cfg), cfg, rng, out);
+  spawnChildren(parent, parentLen, parentRadius, 0, 0, undefined, initialCount(cfg), cfg, rng, out);
   return out;
 }
 
@@ -192,6 +196,8 @@ function spawnChildren(
   parentLen: number,
   parentRadius: number,
   parentDepth: number,
+  parentLengthFromRoot: number,
+  parentBranchIndex: number | undefined,
   count: number,
   cfg: GrowConfig,
   rng: Rng,
@@ -252,18 +258,34 @@ function spawnChildren(
     const fallbackCount = Math.round(count * childFalloff * Math.max(0, countProfile(depthT, profileIndex)));
     const childCount = countForLevel(cfg, childDepth, fallbackCount);
     const willRecurse = childDepth < cfg.depth && childCount >= 1;
-    out.push({
+    const branchIndex = out.length;
+    const lengthFromRoot = parentLengthFromRoot + parentLen * t;
+    const segment: BranchSegment = {
       curve,
       depth: childDepth,
       radius: childRadius,
       attachNormal: sideUnit,
       attachT: t,
       parentRadius: parentSurfaceRadius,
+      lengthFromRoot,
       terminal: !willRecurse,
-    });
+    };
+    if (parentBranchIndex !== undefined) segment.parentIndex = parentBranchIndex;
+    out.push(segment);
 
     if (willRecurse) {
-      spawnChildren(curve, len, childRadius, childDepth, childCount, cfg, branchSeed, out);
+      spawnChildren(
+        curve,
+        len,
+        childRadius,
+        childDepth,
+        lengthFromRoot,
+        branchIndex,
+        childCount,
+        cfg,
+        branchSeed,
+        out,
+      );
     }
   }
 }

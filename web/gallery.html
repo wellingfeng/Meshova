@@ -5,119 +5,182 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Meshova · 模型库</title>
 <style>
-  :root{--bg:#0d1117;--panel:#161b22;--card:#10141c;--line:#30363d;
-    --txt:#e6edf3;--mut:#9aa7b4;--acc:#58a6ff;--acc2:#7ee787;}
+  :root{--bg:#f1f3f4;--panel:#fff;--card:#fff;--line:#dfe3e6;
+    --txt:#303438;--mut:#747c84;--faint:#a0a6ac;--soft:#f3f5f6;
+    --acc:#1caad9;--acc-dim:#168db3;--acc-soft:#e7f6fb;--ok:#39a96b;
+    --r:3px;--gap:16px;}
   *{box-sizing:border-box;margin:0;padding:0;}
   html,body{min-height:100%;background:var(--bg);color:var(--txt);
-    font:14px/1.6 -apple-system,"Segoe UI","Microsoft YaHei",sans-serif;}
-  #bar{display:flex;align-items:center;gap:16px;flex-wrap:wrap;position:sticky;top:0;z-index:10;
-    background:var(--panel);border-bottom:1px solid var(--line);padding:12px 20px;}
-  #bar .brand{font-size:17px;font-weight:600;letter-spacing:.5px;}
+    font:14px/1.6 -apple-system,"Segoe UI","Microsoft YaHei",sans-serif;
+    -webkit-font-smoothing:antialiased;}
+  /* 单色线性图标：随文字色，尺寸 1em */
+  .ic-svg{width:1.05em;height:1.05em;flex:0 0 auto;vertical-align:-0.15em;color:inherit;}
+  #bar{height:54px;display:flex;align-items:center;gap:12px;flex-wrap:nowrap;position:sticky;top:0;z-index:10;
+    background:var(--panel);border-bottom:1px solid var(--line);padding:0 28px;box-shadow:0 1px 2px #0000000a;}
+  #bar .brand{font-size:19px;font-weight:700;letter-spacing:-.25px;color:var(--txt);white-space:nowrap;}
   #bar .brand span{color:var(--acc);}
-  #bar .count{color:var(--mut);font-size:12px;}
+  #bar .count{color:var(--faint);font-size:11px;font-variant-numeric:tabular-nums;white-space:nowrap;}
   #bar #matlab-link{margin-left:auto;color:var(--acc);text-decoration:none;font-size:13px;
     border:1px solid var(--acc);border-radius:6px;padding:6px 12px;transition:background .12s,color .12s;}
-  #bar #matlab-link:hover{background:var(--acc);color:#04121f;}
-  #search{flex:1;min-width:180px;max-width:420px;margin-left:auto;
-    background:#1c2330;color:var(--txt);border:1px solid var(--line);
-    border-radius:8px;padding:8px 12px;font:inherit;}
-  #search:focus{outline:none;border-color:var(--acc);}
+  #bar #matlab-link:hover{background:var(--acc);color:#fff;}
+  #search{height:34px;flex:1;min-width:180px;max-width:460px;margin-left:auto;
+    background:#f7f8f8;color:var(--txt);border:1px solid var(--line);
+    border-radius:var(--r);padding:0 12px;font:inherit;}
+  #search::placeholder{color:var(--faint);}
+  #search:focus{outline:2px solid #1caad933;outline-offset:0;border-color:var(--acc);background:#fff;}
   /* 分类：Sketchfab 风格下拉 mega 菜单（来源列 + 主题分组网格）。 */
-  #cats{position:relative;display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 20px 0;}
-  #cat-toggle{display:inline-flex;align-items:center;gap:8px;background:#1c2330;color:var(--txt);
-    border:1px solid var(--line);border-radius:8px;padding:7px 14px;font:inherit;font-size:13px;cursor:pointer;
-    user-select:none;transition:border-color .12s,background .12s;}
-  #cat-toggle:hover,#cat-toggle.open{border-color:var(--acc);background:#15263b;}
+  #cats{position:relative;display:flex;align-items:center;gap:10px;flex:0 0 auto;}
+  #cat-toggle{height:54px;display:inline-flex;align-items:center;gap:7px;background:transparent;color:var(--txt);
+    border:0;border-radius:0;padding:0 14px;font:inherit;font-size:12px;font-weight:600;cursor:pointer;
+    user-select:none;transition:color .12s,background .12s;}
+  #cat-toggle:hover,#cat-toggle.open{color:var(--acc-dim);background:var(--soft);}
   #cat-toggle .chev{color:var(--mut);transition:transform .15s;}
   #cat-toggle.open .chev{transform:rotate(180deg);}
-  #active-tag{display:none;align-items:center;gap:8px;background:#15263b;border:1px solid var(--acc);
-    color:var(--acc);border-radius:20px;padding:4px 6px 4px 12px;font-size:12px;}
+  #active-tag{display:none;align-items:center;gap:8px;background:var(--acc-soft);border:1px solid #b9e4f1;
+    color:var(--acc-dim);border-radius:12px;padding:3px 5px 3px 10px;font-size:11px;}
   #active-tag.on{display:inline-flex;}
   #active-tag .x{cursor:pointer;font-weight:700;opacity:.7;line-height:1;padding:0 4px;}
   #active-tag .x:hover{opacity:1;}
-  #megamenu{position:absolute;top:calc(100% + 6px);left:20px;z-index:20;display:none;
-    grid-template-columns:210px 1fr;min-width:min(780px,94vw);
-    background:var(--panel);border:1px solid var(--line);border-radius:12px;
-    overflow:hidden;box-shadow:0 16px 48px #000b;}
+  #megamenu{position:absolute;top:calc(100% + 1px);left:0;z-index:20;display:none;
+    grid-template-columns:220px 1fr;min-width:min(780px,94vw);
+    background:var(--panel);border:1px solid #d7dcdf;border-radius:2px;
+    overflow:hidden;box-shadow:0 14px 34px #0000002e;}
   #megamenu.open{display:grid;animation:fade .12s ease;}
-  #megamenu .side{background:linear-gradient(160deg,#1b3a5c,#12202f);padding:14px;
+  #megamenu .side{background:#27a9d2;border-right:1px solid #168db3;padding:14px 12px;
     display:flex;flex-direction:column;gap:2px;}
-  #megamenu .side .src{display:flex;align-items:center;gap:10px;color:#cfe3ff;border-radius:8px;
-    padding:9px 11px;font-size:13px;font-weight:600;cursor:pointer;transition:background .12s;}
-  #megamenu .side .src:hover{background:#ffffff1a;}
-  #megamenu .side .src.on{background:#ffffff26;color:#fff;}
-  #megamenu .side .src .ic{font-size:16px;width:20px;text-align:center;}
+  #megamenu .side .src{display:flex;align-items:center;gap:10px;color:#eaf9fd;border-radius:2px;
+    padding:9px 10px;font-size:13px;font-weight:600;cursor:pointer;transition:background .12s,color .12s;}
+  #megamenu .side .src:hover{background:#ffffff18;}
+  #megamenu .side .src.on{background:#ffffff24;color:#fff;}
+  #megamenu .side .src .ic{display:inline-flex;align-items:center;justify-content:center;
+    width:18px;font-size:16px;opacity:.9;}
   #megamenu .side .src .n{margin-left:auto;font-size:11px;font-weight:500;opacity:.7;
     font-variant-numeric:tabular-nums;}
-  #megamenu .main{padding:16px 18px;display:grid;grid-template-columns:repeat(2,1fr);
-    gap:16px 26px;max-height:min(70vh,520px);overflow:auto;align-content:start;}
-  #megamenu .grp .gt{font-size:11px;font-weight:700;letter-spacing:.6px;color:var(--acc2);
-    text-transform:uppercase;margin-bottom:4px;}
-  #megamenu .grp .it{display:flex;align-items:center;gap:9px;color:var(--txt);border-radius:6px;
+  #megamenu .main{padding:18px 20px;display:grid;grid-template-columns:repeat(2,1fr);
+    gap:15px 28px;max-height:min(70vh,520px);overflow:auto;align-content:start;}
+  #megamenu .grp .gt{font-size:11px;font-weight:700;letter-spacing:.8px;color:var(--faint);
+    text-transform:uppercase;margin-bottom:6px;}
+  #megamenu .grp .it{display:flex;align-items:center;gap:9px;color:var(--txt);border-radius:2px;
     padding:6px 8px;font-size:13px;cursor:pointer;transition:background .1s,color .1s;}
-  #megamenu .grp .it:hover{background:#1c2330;color:var(--acc);}
-  #megamenu .grp .it.on{color:var(--acc);background:#15263b;}
-  #megamenu .grp .it .ic{width:18px;text-align:center;}
+  #megamenu .grp .it:hover{background:#f0f0f0;color:var(--acc-dim);}
+  #megamenu .grp .it.on{color:var(--acc-dim);background:var(--acc-soft);}
+  #megamenu .grp .it .ic{display:inline-flex;align-items:center;justify-content:center;
+    width:18px;color:var(--mut);}
+  #megamenu .grp .it:hover .ic,#megamenu .grp .it.on .ic{color:var(--acc-dim);}
   #megamenu .grp .it .n{margin-left:auto;color:var(--mut);font-size:11px;font-variant-numeric:tabular-nums;}
-  #grid{display:grid;gap:16px;padding:18px 20px 40px;
-    grid-template-columns:repeat(auto-fill,minmax(220px,1fr));}
-  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;
-    overflow:hidden;cursor:pointer;transition:transform .12s,border-color .12s,box-shadow .12s;
-    display:flex;flex-direction:column;}
-  .card:hover{transform:translateY(-3px);border-color:var(--acc);
-    box-shadow:0 8px 24px #0009;}
-  .thumb{position:relative;aspect-ratio:4/3;background:#0a0d12;
+  #grid{display:grid;gap:var(--gap);padding:22px 28px 48px;
+    grid-template-columns:repeat(auto-fill,minmax(240px,1fr));}
+  @media(min-width:1600px){#grid{grid-template-columns:repeat(auto-fill,minmax(280px,1fr));}}
+  #gallery-loading{grid-column:1/-1;color:var(--mut);padding:48px 4px;text-align:center;}
+  .card{background:var(--card);border:1px solid #e1e4e6;border-radius:var(--r);
+    overflow:hidden;cursor:pointer;display:flex;flex-direction:column;
+    box-shadow:0 1px 2px #0000000f;transition:border-color .14s,box-shadow .14s;}
+  .card:hover{border-color:#cbd1d5;box-shadow:0 3px 10px #0000001c;}
+  .thumb{position:relative;aspect-ratio:4/3;
+    background:radial-gradient(130% 130% at 50% 32%,#fafafa 0%,#e2e2e2 70%,#d2d2d2 100%);
     display:flex;align-items:center;justify-content:center;overflow:hidden;}
-  .thumb img{width:100%;height:100%;object-fit:cover;display:block;}
-  .thumb .spin{width:26px;height:26px;border:3px solid #2a3340;border-top-color:var(--acc);
+  /* cover：模型缩略图铺满缩略区（自带浅色影棚底），与 Sketchfab 一致 */
+  .thumb img{width:100%;height:100%;object-fit:cover;display:block;
+    transition:transform .25s cubic-bezier(.2,.7,.3,1);}
+  .card:hover .thumb img{transform:scale(1.025);}
+  .thumb .spin{width:26px;height:26px;border:3px solid #d0d0d0;border-top-color:var(--acc);
     border-radius:50%;animation:sp .7s linear infinite;}
   @keyframes sp{to{transform:rotate(360deg);}}
-  .thumb .badge{position:absolute;right:8px;bottom:8px;background:#0d1117cc;
-    border:1px solid var(--line);border-radius:6px;padding:2px 7px;
-    font-size:11px;color:var(--mut);font-variant-numeric:tabular-nums;}
-  .meta{padding:10px 12px;display:flex;flex-direction:column;gap:3px;}
-  .meta .name{font-size:14px;font-weight:600;}
-  .meta .sub{font-size:11px;color:var(--mut);}
+  /* 骨架屏：等尺寸占位 + 微光扫过，消除加载时布局跳动。 */
+  .thumb .skel{position:absolute;inset:0;background:#e4e4e4;overflow:hidden;}
+  .thumb .skel::after{content:"";position:absolute;inset:0;
+    background:linear-gradient(100deg,transparent 20%,#ffffffcc 50%,transparent 80%);
+    transform:translateX(-100%);animation:shimmer 1.3s ease-in-out infinite;}
+  @keyframes shimmer{to{transform:translateX(100%);}}
+  .thumb .fallback{height:100%;width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:8px;color:var(--mut);font-size:12px;text-align:center;padding:18px;}
+  .thumb .fallback .ic-svg{width:30px;height:30px;color:var(--acc-dim);opacity:.75;}
+  .thumb .fallback .t{max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--txt);}
+  .thumb .fallback .m{color:var(--mut);}
+  /* 加载中的卡片名字/副标题也用微光条占位。 */
+  .card.loading .meta .name{color:transparent;background:#e4e4e4;border-radius:4px;
+    position:relative;overflow:hidden;width:70%;}
+  .card.loading .meta .sub{color:transparent;background:#ececec;border-radius:4px;
+    width:45%;height:12px;}
+  .card.loading .meta .sub *{display:none;}
+  /* 统计信息条：hover 从底部渐入浮现（图标 + 紧凑数字），衬深色渐变保证浅底可读。 */
+  .thumb .stats{position:absolute;left:0;right:0;bottom:0;display:flex;gap:12px;
+    padding:20px 12px 8px;
+    background:linear-gradient(to top,#000000a6 10%,transparent);
+    opacity:0;transform:translateY(6px);transition:opacity .18s,transform .18s;pointer-events:none;}
+  .card:hover .thumb .stats{opacity:1;transform:none;}
+  .thumb .stats .st{display:inline-flex;align-items:center;gap:4px;
+    font-size:11px;color:#fff;font-variant-numeric:tabular-nums;line-height:1;
+    text-shadow:0 1px 2px #0008;}
+  .thumb .stats .st .ic-svg{color:#fff;opacity:.9;}
+  /* 悬停转盘小胶囊提示。 */
+  .thumb .spinhint{position:absolute;right:8px;top:8px;display:inline-flex;align-items:center;gap:4px;
+    background:#fffffff0;border:1px solid var(--line);border-radius:2px;padding:3px 7px;font-size:10px;
+    color:var(--acc-dim);opacity:0;transform:translateY(-4px);transition:opacity .18s,transform .18s;pointer-events:none;}
+  .card:hover .thumb .spinhint{opacity:1;transform:none;}
+  .meta{padding:10px 11px 11px;display:flex;flex-direction:column;gap:2px;}
+  .meta .name{font-size:13px;font-weight:600;letter-spacing:.1px;color:var(--txt);
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .meta .sub{font-size:11px;color:var(--faint);letter-spacing:.3px;
+    display:flex;align-items:center;gap:5px;min-height:16px;}
+  .meta .sub .sub-ic{display:inline-flex;color:var(--mut);opacity:.85;}
+  .meta .sub .sub-t{color:var(--mut);}
+  .meta .sub .sub-x{color:var(--faint);}
+  .meta .sub .sub-x::before{content:"·";margin-right:5px;color:var(--faint);}
+  .asset-tags{display:flex;gap:5px;min-height:20px;margin-top:4px;overflow:hidden;}
+  .asset-tag{height:19px;max-width:92px;padding:0 6px;border:1px solid #d9e8ee;border-radius:10px;
+    background:#f2f9fb;color:#47727f;font:inherit;font-size:10px;line-height:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;}
+  .asset-tag:hover{border-color:#8fd4e8;background:var(--acc-soft);color:var(--acc2);}
+  .card.loading .asset-tags{visibility:hidden;}
   #empty{display:none;color:var(--mut);text-align:center;padding:60px 20px;grid-column:1/-1;}
   /* 单模型预览模态：点击卡片在原页弹窗内嵌渲染，关闭即返回，无跳转。 */
   #modal{position:fixed;inset:0;z-index:100;display:none;
-    background:#04070bcc;backdrop-filter:blur(3px);
+    background:#1a1a1acc;backdrop-filter:blur(3px);
     align-items:center;justify-content:center;padding:12px;}
   #modal.on{display:flex;animation:fade .15s ease;}
   @keyframes fade{from{opacity:0;}to{opacity:1;}}
   #modal .box{position:relative;width:min(1680px,98vw);height:min(1040px,97vh);
-    background:var(--panel);border:1px solid var(--line);border-radius:12px;
-    overflow:hidden;display:flex;flex-direction:column;box-shadow:0 20px 60px #000b;}
+    background:var(--panel);border:1px solid var(--line);border-radius:3px;
+    overflow:hidden;display:flex;flex-direction:column;box-shadow:0 20px 60px #0006;}
   #modal .head{display:flex;align-items:center;gap:12px;padding:10px 14px;
-    border-bottom:1px solid var(--line);background:#12161d;flex-shrink:0;}
+    border-bottom:1px solid var(--line);background:#f7f7f7;flex-shrink:0;}
   #modal .head .title{font-size:14px;font-weight:600;color:var(--txt);
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   #modal .head .sub{font-size:12px;color:var(--mut);white-space:nowrap;}
   #modal .head .grow{flex:1;}
-  #modal .head a,#modal .head button{background:#1c2330;color:var(--mut);
-    border:1px solid var(--line);border-radius:6px;padding:6px 12px;font:inherit;
+  #modal .head a,#modal .head button{background:#fff;color:var(--mut);
+    border:1px solid var(--line);border-radius:2px;padding:6px 12px;font:inherit;
     font-size:13px;cursor:pointer;text-decoration:none;transition:background .12s,color .12s,border-color .12s;}
   #modal .head a:hover,#modal .head button:hover{border-color:var(--acc);color:var(--txt);}
   #modal .head .close{font-size:16px;line-height:1;padding:6px 11px;}
-  #modal .head .close:hover{background:#3a1d1d;border-color:#ff7b72;color:#ff7b72;}
-  #modal iframe{flex:1;width:100%;border:0;background:#0a0d12;}
+  #modal .head .close:hover{background:#fdecec;border-color:#e5484d;color:#e5484d;}
+  #modal iframe{flex:1;width:100%;border:0;background:#ebebeb;}
+  @media(max-width:760px){
+    #bar{padding:0 14px;gap:6px;}
+    #bar .count{display:none;}
+    #cat-toggle{padding:0 10px;}
+    #cat-toggle-label{max-width:86px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    #search{min-width:96px;}
+    #megamenu{position:fixed;left:10px;right:10px;top:55px;min-width:0;grid-template-columns:170px 1fr;}
+    #grid{padding:14px;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));}
+  }
 </style>
 </head>
 <body>
   <header id="bar">
     <span class="brand">Mesh<span>ova</span> · 模型库</span>
     <span class="count" id="count"></span>
-    <input id="search" type="search" placeholder="搜索模型名 / 分类…" />
-  </header>
-  <div id="cats">
-    <div id="cat-toggle"><span class="ic">▦</span><span id="cat-toggle-label">全部分类</span><span class="chev">▾</span></div>
-    <div id="active-tag"><span id="active-tag-label"></span><span class="x" id="active-tag-clear">✕</span></div>
-    <div id="megamenu">
-      <div class="side" id="mega-side"></div>
-      <div class="main" id="mega-main"></div>
+    <div id="cats">
+      <div id="cat-toggle"><svg class="ic-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z"/></svg><span id="cat-toggle-label">全部分类</span><span class="chev">▾</span></div>
+      <div id="active-tag"><span id="active-tag-label"></span><span class="x" id="active-tag-clear">✕</span></div>
+      <div id="megamenu">
+        <div class="side" id="mega-side"></div>
+        <div class="main" id="mega-main"></div>
+      </div>
     </div>
-  </div>
-  <div id="grid"></div>
+    <input id="search" type="search" placeholder="搜索名称 / 标签 / 能力 / 材质…" />
+  </header>
+  <div id="grid"><div id="gallery-loading">正在加载模型库...</div></div>
   <div id="modal">
     <div class="box">
       <div class="head">
@@ -136,6 +199,27 @@
     "three/addons/": "/web/vendor/addons/"
   } }
   </script>
-  <script type="module" src="/web/gallery.js"></script>
+  <script>
+  (() => {
+    const showGalleryBootError = (msg) => {
+      if (document.querySelector(".card")) return;
+      const grid = document.getElementById("grid");
+      if (!grid) return;
+      let el = document.getElementById("gallery-loading");
+      if (!el) {
+        el = document.createElement("div");
+        el.id = "gallery-loading";
+        grid.appendChild(el);
+      }
+      el.textContent = `模型库加载失败：${msg || "未知错误"}。请先运行 pnpm build。`;
+    };
+    window.addEventListener("error", (ev) => showGalleryBootError(ev.message));
+    window.addEventListener("unhandledrejection", (ev) => {
+      const reason = ev.reason;
+      showGalleryBootError(reason?.message || reason);
+    });
+  })();
+  </script>
+  <script type="module" src="/web/gallery.js?v=autorank1"></script>
 </body>
 </html>

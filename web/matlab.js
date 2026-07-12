@@ -8,91 +8,43 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import {
   bakeMaterial,
   SBS_REPRO_NAMES,
+  SBS_PARAM_SCHEMA,
+  defaultSbsParams,
   PRESET_NAMES,
   BUILDER_NAMES,
-} from "/web/materials.js";
-
-// --- param schema for the SBS reproduction recipes (label + range) ----------
-const SBS_SCHEMA = {
-  Metal_Knurled_01: [
-    { key: "seed", label: "种子", min: 0, max: 40, step: 1, def: 3 },
-    { key: "freq", label: "滚花密度", min: 8, max: 48, step: 1, def: 26 },
-    { key: "depth", label: "凸起深度", min: 0.3, max: 2, step: 0.05, def: 1 },
-  ],
-  Tiles_01: [
-    { key: "seed", label: "种子", min: 0, max: 40, step: 1, def: 8 },
-    { key: "columns", label: "横向格数", min: 4, max: 20, step: 1, def: 10 },
-    { key: "rows", label: "纵向格数", min: 4, max: 20, step: 1, def: 10 },
-  ],
-  Stylized_01_Bricks: [
-    { key: "seed", label: "种子", min: 0, max: 40, step: 1, def: 4 },
-    { key: "columns", label: "横向砖数", min: 3, max: 12, step: 1, def: 6 },
-    { key: "rows", label: "纵向砖数", min: 4, max: 20, step: 1, def: 11 },
-  ],
-  Plastic_01: [
-    { key: "seed", label: "种子", min: 0, max: 40, step: 1, def: 6 },
-    { key: "grain", label: "颗粒密度", min: 30, max: 160, step: 5, def: 90 },
-  ],
-  Wood_Parquet_01: [
-    { key: "seed", label: "种子", min: 0, max: 40, step: 1, def: 9 },
-    { key: "planks", label: "拼花密度", min: 2, max: 12, step: 1, def: 6 },
-  ],
-  Concrete_Decorative_01: [
-    { key: "seed", label: "种子", min: 0, max: 40, step: 1, def: 12 },
-    { key: "scale", label: "斑驳频率", min: 2, max: 14, step: 0.5, def: 6 },
-  ],
-  Tiles_04: [
-    { key: "seed", label: "种子", min: 0, max: 40, step: 1, def: 5 },
-    { key: "columns", label: "横向格数", min: 4, max: 20, step: 1, def: 8 },
-    { key: "rows", label: "纵向格数", min: 4, max: 20, step: 1, def: 8 },
-  ],
-  Tiles_02: [
-    { key: "seed", label: "种子", min: 0, max: 40, step: 1, def: 6 },
-    { key: "columns", label: "横向格数", min: 4, max: 20, step: 1, def: 6 },
-    { key: "rows", label: "纵向格数", min: 4, max: 20, step: 1, def: 6 },
-  ],
-  Wall_KitchenTiles_01: [
-    { key: "seed", label: "种子", min: 0, max: 40, step: 1, def: 9 },
-    { key: "columns", label: "横向格数", min: 3, max: 16, step: 1, def: 5 },
-    { key: "rows", label: "纵向格数", min: 3, max: 16, step: 1, def: 5 },
-  ],
-  Wood_Base_01: [
-    { key: "seed", label: "种子", min: 0, max: 40, step: 1, def: 9 },
-    { key: "count", label: "木板数", min: 2, max: 10, step: 1, def: 4 },
-  ],
-  Stylized_03_Wood_Planks: [
-    { key: "seed", label: "种子", min: 0, max: 40, step: 1, def: 11 },
-    { key: "count", label: "木板数", min: 2, max: 12, step: 1, def: 6 },
-  ],
-  Wood_Parquet_02: [
-    { key: "seed", label: "种子", min: 0, max: 40, step: 1, def: 5 },
-    { key: "planks", label: "拼花密度", min: 2, max: 12, step: 1, def: 7 },
-  ],
-};
-
-// 未显式列出的 SBS 材质统一给一个种子滑块，实验室里也能微调。
-const GENERIC_SBS_SCHEMA = [{ key: "seed", label: "种子", min: 0, max: 40, step: 1, def: 5 }];
+  PRESET_PARAM_SCHEMA,
+  defaultMatParams,
+} from "/web/materials.js?v=cloth2";
 
 const CATEGORIES = [
   { id: "sbs", label: "SBS 复现", names: SBS_REPRO_NAMES },
   { id: "preset", label: "内置预设", names: PRESET_NAMES },
   { id: "builder", label: "拼接材质", names: BUILDER_NAMES },
 ];
+const DEFAULT_SHAPE = "cube";
+const DEFAULT_CAT = "sbs";
+const DEFAULT_MAT = "Stylized_01_Bricks";
 
 // --- three.js scene ----------------------------------------------------------
 const canvas = document.getElementById("canvas");
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+// alpha:true 让 three 背景透明，透出 stage 的浅色展台。
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, preserveDrawingBuffer: true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setClearColor(0x000000, 0);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.0;
+renderer.toneMappingExposure = 1.12;
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x0e1116);
+// 背景交给 CSS 展台；渐变天空仍作为 IBL 环境驱动反射。
+scene.background = null;
 
 const camera = new THREE.PerspectiveCamera(45, 1, 0.01, 100);
-camera.position.set(0, 0, 3);
+camera.position.set(2.1, 1.35, 2.55);
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
+controls.target.set(0, 0.04, 0);
 
 // procedural gradient-sky IBL so metal/rough reflect honestly (no external HDR)
 function makeEnv() {
@@ -101,7 +53,7 @@ function makeEnv() {
   const geo = new THREE.SphereGeometry(50, 32, 16);
   const mat = new THREE.ShaderMaterial({
     side: THREE.BackSide,
-    uniforms: { top: { value: new THREE.Color(0xbcd4ff) }, bot: { value: new THREE.Color(0x33383f) } },
+    uniforms: { top: { value: new THREE.Color(0xd8ecff) }, bot: { value: new THREE.Color(0x98a5b0) } },
     vertexShader: `varying vec3 vP; void main(){ vP=position; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
     fragmentShader: `varying vec3 vP; uniform vec3 top; uniform vec3 bot;
       void main(){ float t=clamp(normalize(vP).y*0.5+0.5,0.0,1.0); gl_FragColor=vec4(mix(bot,top,t),1.0);} `,
@@ -115,8 +67,23 @@ scene.environment = makeEnv();
 
 const key = new THREE.DirectionalLight(0xffffff, 2.2);
 key.position.set(3, 4, 5);
+key.castShadow = true;
+key.shadow.mapSize.set(1024, 1024);
+key.shadow.bias = -0.0005;
 scene.add(key);
-scene.add(new THREE.AmbientLight(0xffffff, 0.15));
+scene.add(new THREE.HemisphereLight(0xd8ecff, 0x58616b, 0.55));
+scene.add(new THREE.AmbientLight(0xffffff, 0.16));
+const grid = new THREE.GridHelper(7, 28, 0xe8edf3, 0xd6dde6);
+grid.material.transparent = true;
+grid.material.opacity = 0.86;
+scene.add(grid);
+const shadowFloor = new THREE.Mesh(
+  new THREE.PlaneGeometry(8, 8),
+  new THREE.ShadowMaterial({ opacity: 0.18 }),
+);
+shadowFloor.rotation.x = -Math.PI / 2;
+shadowFloor.receiveShadow = true;
+scene.add(shadowFloor);
 
 // --- shapes ------------------------------------------------------------------
 function makeShapes() {
@@ -132,13 +99,15 @@ function makeShapes() {
 const SHAPES = makeShapes();
 const SHAPE_LABELS = { sphere: "球", cube: "立方", plane: "平面", cylinder: "圆柱" };
 
-let mesh = new THREE.Mesh(SHAPES.sphere, new THREE.MeshStandardMaterial());
+let mesh = new THREE.Mesh(SHAPES[DEFAULT_SHAPE], new THREE.MeshStandardMaterial());
+mesh.castShadow = true;
+mesh.receiveShadow = true;
 scene.add(mesh);
 
 // --- state -------------------------------------------------------------------
-let currentShape = "sphere";
-let currentCat = "sbs";
-let currentMat = SBS_REPRO_NAMES[0];
+let currentShape = DEFAULT_SHAPE;
+let currentCat = DEFAULT_CAT;
+let currentMat = DEFAULT_MAT;
 let currentParams = {};
 
 const shapeRow = document.getElementById("shape-row");
@@ -148,16 +117,12 @@ const paramPanel = document.getElementById("param-panel");
 const foot = document.getElementById("foot");
 
 function schemaFor(name) {
-  if (SBS_SCHEMA[name]) return SBS_SCHEMA[name];
-  // SBS 复现类但未显式配 schema 的，回退到通用种子滑块。
-  if (SBS_REPRO_NAMES.includes(name)) return GENERIC_SBS_SCHEMA;
-  return null;
+  if (SBS_REPRO_NAMES.includes(name)) return SBS_PARAM_SCHEMA[name];
+  return PRESET_PARAM_SCHEMA[name] ?? null;
 }
 function defaultParams(name) {
-  const sc = schemaFor(name);
-  const out = {};
-  if (sc) for (const s of sc) out[s.key] = s.def;
-  return out;
+  if (SBS_REPRO_NAMES.includes(name)) return defaultSbsParams(name);
+  return defaultMatParams(name);
 }
 
 function rebuildMaterial() {
@@ -176,6 +141,9 @@ function rebuildMaterial() {
 function setShape(id) {
   currentShape = id;
   mesh.geometry = SHAPES[id];
+  const floorY = { sphere: -1, cube: -0.75, plane: -1, cylinder: -0.9 }[id] ?? -1;
+  grid.position.y = floorY;
+  shadowFloor.position.y = floorY - 0.002;
   for (const b of shapeRow.children) b.classList.toggle("active", b.dataset.id === id);
 }
 
@@ -188,7 +156,7 @@ function populateMatSelect() {
     o.textContent = n;
     matSelect.appendChild(o);
   }
-  currentMat = cat.names[0];
+  currentMat = cat.names.includes(currentMat) ? currentMat : cat.names[0];
   matSelect.value = currentMat;
 }
 
@@ -212,13 +180,21 @@ function buildParamPanel() {
     head.textContent = spec.label + " ";
     head.appendChild(valSpan);
     const input = document.createElement("input");
-    input.type = "range";
-    input.min = spec.min; input.max = spec.max; input.step = spec.step;
-    input.value = currentParams[spec.key];
+    if (spec.type === "rgb") {
+      input.type = "color";
+      input.value = "#" + currentParams[spec.key].map((channel) => Math.round(channel * 255).toString(16).padStart(2, "0")).join("");
+      valSpan.textContent = input.value;
+    } else {
+      input.type = "range";
+      input.min = spec.min; input.max = spec.max; input.step = spec.step;
+      input.value = currentParams[spec.key];
+    }
     let raf = 0;
     input.addEventListener("input", () => {
-      currentParams[spec.key] = parseFloat(input.value);
-      valSpan.textContent = String(currentParams[spec.key]);
+      currentParams[spec.key] = spec.type === "rgb"
+        ? [1, 3, 5].map((offset) => parseInt(input.value.slice(offset, offset + 2), 16) / 255)
+        : parseFloat(input.value);
+      valSpan.textContent = spec.type === "rgb" ? input.value : String(currentParams[spec.key]);
       if (raf) cancelAnimationFrame(raf);
       raf = requestAnimationFrame(rebuildMaterial);
     });
@@ -266,7 +242,7 @@ const wantCat = urlParams.get("cat");
 const wantMat = urlParams.get("mat");
 if (wantCat && CATEGORIES.some((c) => c.id === wantCat)) currentCat = wantCat;
 
-setShape("sphere");
+setShape(DEFAULT_SHAPE);
 for (const x of catRow.children) x.classList.toggle("active", x.dataset.id === currentCat);
 populateMatSelect();
 if (wantMat) {
@@ -294,5 +270,3 @@ function tick() {
   requestAnimationFrame(tick);
 }
 tick();
-
-

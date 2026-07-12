@@ -13,11 +13,16 @@
  */
 import {
   box,
+  bounds,
   merge,
+  translateMesh,
   voronoiFracture,
   stackFragments,
+  type Fragment,
+  type Mesh,
   type NamedPart,
 } from "../geometry/index.js";
+import { makeRng } from "../random/prng.js";
 
 type RGB = [number, number, number];
 
@@ -39,6 +44,12 @@ export interface TitanStackingParams {
   yawJitter: number;
   /** Bias fracture toward an impact point (0 = uniform). */
   focusBias: number;
+  /** Stone surface roughening (fraction of block diagonal). 0 = clean cut. */
+  roughen: number;
+  /** Per-piece random scale min, matching the HDA Min Scale control. */
+  minScale: number;
+  /** Per-piece random scale max, matching the HDA Max Scale control. */
+  maxScale: number;
 }
 
 export const TITAN_STACKING_DEFAULTS: TitanStackingParams = {
@@ -49,7 +60,59 @@ export const TITAN_STACKING_DEFAULTS: TitanStackingParams = {
   spread: 2.2,
   yawJitter: Math.PI,
   focusBias: 0,
+  roughen: 0.06,
+  minScale: 0.2,
+  maxScale: 1,
 };
+
+function scaleAround(mesh: Mesh, center: { x: number; y: number; z: number }, s: number): Mesh {
+  return {
+    positions: mesh.positions.map((p) => ({
+      x: center.x + (p.x - center.x) * s,
+      y: center.y + (p.y - center.y) * s,
+      z: center.z + (p.z - center.z) * s,
+    })),
+    normals: mesh.normals.slice(),
+    uvs: mesh.uvs.slice(),
+    indices: mesh.indices.slice(),
+  };
+}
+
+function scaleFragments(fragments: Fragment[], p: TitanStackingParams): Fragment[] {
+  const lo = Math.max(0.01, Math.min(p.minScale, p.maxScale));
+  const hi = Math.max(lo, Math.max(p.minScale, p.maxScale));
+  const rng = makeRng((p.stackSeed ^ 0x9e3779b9) >>> 0);
+  return fragments.map((frag) => {
+    const s = rng.range(lo, hi);
+    return { ...frag, mesh: scaleAround(frag.mesh, frag.center, s) };
+  });
+}
+
+function settleUnsupportedFragments(meshes: Mesh[], groundY = 0, tolerance = 0.04): Mesh[] {
+  const order = meshes
+    .map((mesh, index) => ({ index, mesh, bounds: bounds(mesh) }))
+    .sort((a, b) => a.bounds.min.y - b.bounds.min.y);
+  const settled: Array<{ mesh: Mesh; bounds: ReturnType<typeof bounds> }> = [];
+  const result = meshes.slice();
+
+  for (const item of order) {
+    const boxNow = item.bounds;
+    let targetY = groundY;
+    let touching = boxNow.min.y <= groundY + tolerance;
+    for (const below of settled) {
+      const overlapX = boxNow.min.x <= below.bounds.max.x && boxNow.max.x >= below.bounds.min.x;
+      const overlapZ = boxNow.min.z <= below.bounds.max.z && boxNow.max.z >= below.bounds.min.z;
+      if (!overlapX || !overlapZ || below.bounds.min.y > boxNow.min.y) continue;
+      if (boxNow.min.y <= below.bounds.max.y + tolerance) touching = true;
+      if (below.bounds.max.y <= boxNow.min.y) targetY = Math.max(targetY, below.bounds.max.y);
+    }
+    const mesh = touching ? item.mesh : translateMesh(item.mesh, { x: 0, y: targetY - boxNow.min.y, z: 0 });
+    const next = { mesh, bounds: bounds(mesh) };
+    settled.push(next);
+    result[item.index] = mesh;
+  }
+  return result;
+}
 
 export function buildTitanStackingParts(params: Partial<TitanStackingParams> = {}): NamedPart[] {
   const p: TitanStackingParams = { ...TITAN_STACKING_DEFAULTS, ...params };
@@ -60,13 +123,14 @@ export function buildTitanStackingParts(params: Partial<TitanStackingParams> = {
     cells: p.shards,
     seed: p.fractureSeed,
     focusBias: p.focusBias,
+    roughen: p.roughen,
   });
-  const placed = stackFragments(frags, {
+  const placed = settleUnsupportedFragments(stackFragments(scaleFragments(frags, p), {
     seed: p.stackSeed,
     spread: p.spread,
     yawJitter: p.yawJitter,
     groundY: 0,
-  });
+  }));
 
   // Split shards into two colour groups (alternating) so the pile reads as
   // mixed rubble rather than one flat mass.

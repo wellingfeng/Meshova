@@ -8,7 +8,7 @@
  *
  * Each branch is a tapered tube (cylinder) oriented along its growth heading;
  * children split off with a seeded cone-angle spread and shrink by `taper`.
- * Leaves are quads scattered at the tips of the last level. Same seed -> same
+ * Shaped leaves are scattered at the tips of the last level. Same seed -> same
  * tree. Branch metadata (pivot/parent/level) is attached to the trunk part so a
  * PivotPainter exporter could consume it later.
  *
@@ -16,7 +16,6 @@
  */
 import {
   cylinder,
-  plane,
   merge,
   transform,
   translateMesh,
@@ -26,6 +25,7 @@ import {
 import { vec3, add, scale, normalize, cross, length } from "../math/vec3.js";
 import type { Vec3 } from "../math/vec3.js";
 import { makeRng, type Rng } from "../random/index.js";
+import { leafMesh } from "../vegetation/leaf.js";
 
 type RGB = [number, number, number];
 
@@ -49,7 +49,7 @@ export interface TitanTreeParams {
   spread: number;
   /** Seeded wobble added to each child heading (0 = tidy). Default 0.35. */
   wobble: number;
-  /** Leaf quad size. 0 = bare. Default 0.4. */
+  /** Leaf blade length. 0 = bare. Default 0.4. */
   leafSize: number;
 }
 
@@ -100,14 +100,17 @@ function branchTube(base: Vec3, heading: Vec3, len: number, r0: number, r1: numb
   return translateMesh(oriented, base);
 }
 
-/** A leaf quad centred at `pos`, facing roughly along `heading`. */
-function leafQuad(pos: Vec3, heading: Vec3, size: number): Mesh {
-  const up = normalize(heading);
-  const pitch = Math.acos(Math.max(-1, Math.min(1, up.y)));
-  const yaw = Math.atan2(up.x, up.z);
-  const quad = plane(size, size, 1, 1);
-  const oriented = transform(quad, { rotate: vec3(pitch, yaw, 0) });
-  return translateMesh(oriented, pos);
+/** A tapered leaf blade rooted at `pos`, growing out from the branch tip. */
+function leafBlade(pos: Vec3, heading: Vec3, size: number): Mesh {
+  const { u, v, up } = basisFrom(heading);
+  const bladeAxis = normalize(add(scale(up, 0.58), scale(v, 0.82)));
+  return leafMesh(pos, u, bladeAxis, size * 0.52, size, {
+    shape: "oval",
+    segments: 7,
+    curl: 0.12,
+    fold: 0.14,
+    roundedNormals: true,
+  });
 }
 
 interface TreeAccum {
@@ -136,7 +139,7 @@ function grow(
 
   if (level >= p.levels) {
     if (p.leafSize > 0) {
-      acc.leaves.push(leafQuad(tip, heading, p.leafSize));
+      acc.leaves.push(leafBlade(tip, heading, p.leafSize));
     }
     return;
   }

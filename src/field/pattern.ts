@@ -70,6 +70,58 @@ export function cellsField2D(width: number, height: number, options: CellsField2
   });
 }
 
+export interface WeaveField2DOptions {
+  columns?: number;
+  rows?: number;
+  /** Fractional width of each strand within one cell. */
+  strandWidth?: number;
+  /** Soft edge width around each strand. */
+  softness?: number;
+  /** How much the under-strand is visually suppressed at intersections. */
+  underScale?: number;
+  /** Per-column / per-row width jitter. */
+  jitter?: number;
+  seed?: number;
+}
+
+/**
+ * Basket-weave mask / relief field. Strands run across the whole field in both
+ * directions; each cell alternates which strand sits "on top" so the weave
+ * reads like cloth, wicker or braided strips.
+ */
+export function weaveField2D(width: number, height: number, options: WeaveField2DOptions = {}): Field2D {
+  const cols = Math.max(1, options.columns ?? 8);
+  const rows = Math.max(1, options.rows ?? cols);
+  const strandWidth = clamp(options.strandWidth ?? 0.34, 0.05, 0.48);
+  const softness = clamp(options.softness ?? 0.08, 0, 0.49);
+  const underScale = clamp(options.underScale ?? 0.65, 0, 1);
+  const jitter = clamp(options.jitter ?? 0.08, 0, 0.45);
+  const seed = options.seed ?? 0;
+
+  const columnScale = new Float32Array(cols);
+  const rowScale = new Float32Array(rows);
+  for (let x = 0; x < cols; x++) columnScale[x] = 0.92 + (hashCell(x, 17, seed) - 0.5) * jitter;
+  for (let y = 0; y < rows; y++) rowScale[y] = 0.92 + (hashCell(23, y, seed) - 0.5) * jitter;
+
+  return generateField2D(width, height, (u, v) => {
+    const gx = u * cols;
+    const gy = v * rows;
+    const cx = Math.floor(gx);
+    const cy = Math.floor(gy);
+    const fu = frac(gx);
+    const fv = frac(gy);
+
+    const wU = clamp(strandWidth * columnScale[cx % cols]!, 0.08, 0.48);
+    const wV = clamp(strandWidth * rowScale[cy % rows]!, 0.08, 0.48);
+    const vert = 1 - smoothstep(wU - softness, wU + softness, Math.abs(fu - 0.5));
+    const horiz = 1 - smoothstep(wV - softness, wV + softness, Math.abs(fv - 0.5));
+    const overVertical = ((cx + cy) & 1) === 0;
+    const top = overVertical ? vert : horiz;
+    const under = overVertical ? horiz : vert;
+    return clamp(Math.max(top, under * underScale), 0, 1);
+  });
+}
+
 export type Stamp2D = (x: number, y: number) => number;
 
 export interface CircleStamp2DOptions {
