@@ -11,6 +11,14 @@ import {
   BILIBILI_MATERIAL_DEFINITIONS,
   BILIBILI_MATERIAL_PARAM_SCHEMA,
   defaultBilibiliMaterialParams,
+  STYLE_CASE_MATERIAL_NAMES,
+  STYLE_CASE_DEFINITIONS,
+  STYLE_CASE_PARAM_SCHEMA,
+  defaultStyleCaseParams,
+  PRODUCTION_STUDY_MATERIAL_NAMES,
+  PRODUCTION_STUDY_DEFINITIONS,
+  PRODUCTION_STUDY_PARAM_SCHEMA,
+  defaultProductionStudyParams,
   URBAN_MATERIAL_NAMES,
   URBAN_MATERIAL_DEFINITIONS,
   URBAN_MATERIAL_PARAM_SCHEMA,
@@ -54,9 +62,12 @@ import {
   BUILDER_NAMES,
   PRESET_PARAM_SCHEMA,
   defaultMatParams,
+  CONTENT_MATERIAL_NAMES,
+  CONTENT_MATERIAL_PARAM_SCHEMA,
+  defaultContentMaterialParams,
   MATERIAL_USE_CATEGORIES,
   materialUseCategory,
-} from "/web/materials.js?v=realtime8";
+} from "/web/materials.js?v=productionstudies1";
 
 const CATEGORIES = MATERIAL_USE_CATEGORIES;
 const DEFAULT_SHAPE = "cube";
@@ -190,6 +201,7 @@ function hideMaterialLoading(token) {
 }
 
 function schemaFor(name) {
+  if (CONTENT_MATERIAL_NAMES.includes(name)) return CONTENT_MATERIAL_PARAM_SCHEMA[name];
   if (NINTH_BATCH_MATERIAL_NAMES.includes(name)) return NINTH_BATCH_MATERIAL_PARAM_SCHEMA[name];
   if (EIGHTH_BATCH_MATERIAL_NAMES.includes(name)) return EIGHTH_BATCH_MATERIAL_PARAM_SCHEMA[name];
   if (SEVENTH_BATCH_MATERIAL_NAMES.includes(name)) return SEVENTH_BATCH_MATERIAL_PARAM_SCHEMA[name];
@@ -200,10 +212,13 @@ function schemaFor(name) {
   if (ADVANCED_MATERIAL_NAMES.includes(name)) return ADVANCED_MATERIAL_PARAM_SCHEMA[name];
   if (URBAN_MATERIAL_NAMES.includes(name)) return URBAN_MATERIAL_PARAM_SCHEMA[name];
   if (BILIBILI_MATERIAL_NAMES.includes(name)) return BILIBILI_MATERIAL_PARAM_SCHEMA[name];
+  if (STYLE_CASE_MATERIAL_NAMES.includes(name)) return STYLE_CASE_PARAM_SCHEMA[name];
+  if (PRODUCTION_STUDY_MATERIAL_NAMES.includes(name)) return PRODUCTION_STUDY_PARAM_SCHEMA[name];
   if (SBS_REPRO_NAMES.includes(name)) return SBS_PARAM_SCHEMA[name];
   return PRESET_PARAM_SCHEMA[name] ?? null;
 }
 function defaultParams(name) {
+  if (CONTENT_MATERIAL_NAMES.includes(name)) return defaultContentMaterialParams(name);
   if (NINTH_BATCH_MATERIAL_NAMES.includes(name)) return defaultNinthBatchMaterialParams(name);
   if (EIGHTH_BATCH_MATERIAL_NAMES.includes(name)) return defaultEighthBatchMaterialParams(name);
   if (SEVENTH_BATCH_MATERIAL_NAMES.includes(name)) return defaultSeventhBatchMaterialParams(name);
@@ -214,6 +229,8 @@ function defaultParams(name) {
   if (ADVANCED_MATERIAL_NAMES.includes(name)) return defaultAdvancedMaterialParams(name);
   if (URBAN_MATERIAL_NAMES.includes(name)) return defaultUrbanMaterialParams(name);
   if (BILIBILI_MATERIAL_NAMES.includes(name)) return defaultBilibiliMaterialParams(name);
+  if (STYLE_CASE_MATERIAL_NAMES.includes(name)) return defaultStyleCaseParams(name);
+  if (PRODUCTION_STUDY_MATERIAL_NAMES.includes(name)) return defaultProductionStudyParams(name);
   if (SBS_REPRO_NAMES.includes(name)) return defaultSbsParams(name);
   return defaultMatParams(name);
 }
@@ -266,7 +283,7 @@ function populateMatSelect() {
   for (const n of cat.names) {
     const o = document.createElement("option");
     o.value = n;
-    o.textContent = NINTH_BATCH_MATERIAL_DEFINITIONS[n]?.label ?? EIGHTH_BATCH_MATERIAL_DEFINITIONS[n]?.label ?? SEVENTH_BATCH_MATERIAL_DEFINITIONS[n]?.label ?? SIXTH_BATCH_MATERIAL_DEFINITIONS[n]?.label ?? FIFTH_BATCH_MATERIAL_DEFINITIONS[n]?.label ?? FOURTH_BATCH_MATERIAL_DEFINITIONS[n]?.label ?? THIRD_BATCH_MATERIAL_DEFINITIONS[n]?.label ?? ADVANCED_MATERIAL_DEFINITIONS[n]?.label ?? URBAN_MATERIAL_DEFINITIONS[n]?.label ?? BILIBILI_MATERIAL_DEFINITIONS[n]?.label ?? n;
+    o.textContent = PRODUCTION_STUDY_DEFINITIONS[n]?.label ?? STYLE_CASE_DEFINITIONS[n]?.label ?? NINTH_BATCH_MATERIAL_DEFINITIONS[n]?.label ?? EIGHTH_BATCH_MATERIAL_DEFINITIONS[n]?.label ?? SEVENTH_BATCH_MATERIAL_DEFINITIONS[n]?.label ?? SIXTH_BATCH_MATERIAL_DEFINITIONS[n]?.label ?? FIFTH_BATCH_MATERIAL_DEFINITIONS[n]?.label ?? FOURTH_BATCH_MATERIAL_DEFINITIONS[n]?.label ?? THIRD_BATCH_MATERIAL_DEFINITIONS[n]?.label ?? ADVANCED_MATERIAL_DEFINITIONS[n]?.label ?? URBAN_MATERIAL_DEFINITIONS[n]?.label ?? BILIBILI_MATERIAL_DEFINITIONS[n]?.label ?? n;
     matSelect.appendChild(o);
   }
   currentMat = cat.names.includes(currentMat) ? currentMat : cat.names[0];

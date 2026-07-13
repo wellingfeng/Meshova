@@ -35,6 +35,8 @@ export * from "./presets.js";
 export * from "./roman-presets.js";
 export * from "./sbs-repro.js";
 export * from "./bilibili-stylized-materials.js";
+export * from "./bilibili-style-cases.js";
+export * from "./production-surface-studies.js";
 export * from "./bilibili-urban-materials.js";
 export * from "./production-materials.js";
 export * from "./surface-production.js";

@@ -11,6 +11,18 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./core": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./pcg": {
+      "types": "./dist/pcg/index.d.ts",
+      "import": "./dist/pcg/index.js"
+    },
+    "./content": {
+      "types": "./dist/content/index.d.ts",
+      "import": "./dist/content/index.js"
     }
   },
   "files": [
@@ -18,7 +30,11 @@
     "src"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "node scripts/generate-content-manifest.mjs --check && tsc -p tsconfig.build.json && tsc -p tsconfig.pcg.json && tsc -p tsconfig.content.json && node scripts/build-content-browser.mjs && node scripts/check-pcg-boundaries.mjs",
+    "content:manifest": "node scripts/generate-content-manifest.mjs",
+    "check:boundaries": "node scripts/check-pcg-boundaries.mjs",
+    "audit:content-render": "node scripts/audit-content-render.mjs",
+    "audit:model-builds": "node scripts/audit-proc-model-builds.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -131,6 +147,10 @@
     "materials-38:frames": "node scripts/extract-bilibili-stylized-material-frames.mjs",
     "materials-38:verify": "node scripts/verify-bilibili-stylized-material-videos.mjs",
     "materials-38:bake": "tsx examples/bilibili-stylized-materials.ts",
+    "style-cases-26:download": "node scripts/download-bilibili-style-cases.mjs",
+    "style-cases-26:frames": "node scripts/extract-bilibili-style-case-frames.mjs",
+    "style-cases-26:bake": "tsx examples/bilibili-style-cases.ts",
+    "materials-production-studies:bake": "tsx examples/production-surface-studies.ts",
     "materials-urban:bake": "tsx examples/bilibili-urban-materials.ts",
     "materials-advanced:bake": "tsx examples/advanced-materials.ts",
     "materials-third:bake": "tsx examples/third-batch-materials.ts",

@@ -12,6 +12,13 @@ const input=process.argv[2]||"http://127.0.0.1:5199/web/tree-fit.html";
 const url=/^https?:\/\//i.test(input)||/^file:/i.test(input)?input:pathToFileURL(resolve(input)).href;
 const output=process.argv[3]||"out/tree-fit-page.png";
 await page.goto(url,{waitUntil:"networkidle"});
+if (await page.evaluate(() => "__meshovaReady" in window)) {
+  await page.evaluate(() => window.__meshovaReady);
+  await page.evaluate(() => window.__meshova?.settle?.(16));
+  if (process.env.HIDE_MESHOVA_OVERLAYS === "1") {
+    await page.addStyleTag({ content: "#critiqueBadge,#hud{display:none!important}" });
+  }
+}
 await page.waitForTimeout(500);
 await page.screenshot({path:output,fullPage:true});
 const images=await page.$$eval("img",els=>({count:els.length,loaded:els.filter(el=>el.complete&&el.naturalWidth>0).length}));

@@ -3,6 +3,7 @@ export * from "./primitives.js";
 export * from "./primitives2.js";
 export * from "./transform.js";
 export * from "./modifiers.js";
+export * from "./modifier-kernels.js";
 export * from "./ops.js";
 export * from "./blast.js";
 export * from "./topo.js";

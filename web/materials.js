@@ -5,6 +5,11 @@
  */
 import * as THREE from "three";
 import {
+  CONTENT_MATERIALS,
+  CONTENT_MATERIAL_PARAM_SCHEMA,
+  defaultContentMaterialParams,
+} from "/dist/web-content/content/index.js?v=pcg2";
+import {
   materialFromFields,
   PRESETS,
   PRESET_PARAM_SCHEMA,
@@ -17,6 +22,14 @@ import {
   BILIBILI_MATERIAL_DEFINITIONS,
   BILIBILI_MATERIAL_PARAM_SCHEMA,
   defaultBilibiliMaterialParams,
+  STYLE_CASE_MATERIALS,
+  STYLE_CASE_DEFINITIONS,
+  STYLE_CASE_PARAM_SCHEMA,
+  defaultStyleCaseParams,
+  PRODUCTION_STUDY_MATERIALS,
+  PRODUCTION_STUDY_DEFINITIONS,
+  PRODUCTION_STUDY_PARAM_SCHEMA,
+  defaultProductionStudyParams,
   URBAN_MATERIALS,
   URBAN_MATERIAL_DEFINITIONS,
   URBAN_MATERIAL_PARAM_SCHEMA,
@@ -61,7 +74,7 @@ import {
   SURFACE_LABELS,
   SURFACE_PARAM_SCHEMA,
   defaultSurfaceParams,
-} from "/dist/index.js?v=volume10";
+} from "/dist/index.js?v=productionstudies1";
 
 /** Convert a Meshova float TextureBuffer to a three DataTexture. */
 function bufferToDataTexture(tex, { srgb = false } = {}) {
@@ -224,6 +237,8 @@ export function bakeBuilderMaterial(builderName, size = 256, params = {}) {
 
 export const PRESET_NAMES = Object.keys(PRESETS);
 export const BUILDER_NAMES = Object.keys(MATERIAL_BUILDERS);
+export const CONTENT_MATERIAL_NAMES = Object.keys(CONTENT_MATERIALS);
+export { CONTENT_MATERIAL_PARAM_SCHEMA, defaultContentMaterialParams };
 export { PRESET_PARAM_SCHEMA, defaultMatParams };
 /** SBS reproduction recipe names (field presets keyed by reference folder). */
 export const SBS_REPRO_NAMES = Object.keys(SBS_REPRO);
@@ -233,6 +248,18 @@ export {
   BILIBILI_MATERIAL_DEFINITIONS,
   BILIBILI_MATERIAL_PARAM_SCHEMA,
   defaultBilibiliMaterialParams,
+};
+export const STYLE_CASE_MATERIAL_NAMES = Object.keys(STYLE_CASE_MATERIALS);
+export {
+  STYLE_CASE_DEFINITIONS,
+  STYLE_CASE_PARAM_SCHEMA,
+  defaultStyleCaseParams,
+};
+export const PRODUCTION_STUDY_MATERIAL_NAMES = Object.keys(PRODUCTION_STUDY_MATERIALS);
+export {
+  PRODUCTION_STUDY_DEFINITIONS,
+  PRODUCTION_STUDY_PARAM_SCHEMA,
+  defaultProductionStudyParams,
 };
 export const URBAN_MATERIAL_NAMES = Object.keys(URBAN_MATERIALS);
 export {
@@ -309,6 +336,8 @@ export const MATERIAL_USE_CATEGORIES = [
       "marineCorrodedSteel",
       "contactPolishedBrass", "chippedPaintedToolSteel", "seasonedCastIronCookware",
       "biofouledShipHull", "rainPatinatedCopperRoof",
+      "sciFiCircuitPanel", "rustedRoundHatch", "modularTechTiles", "industrialSlats",
+      "photovoltaicSolarPanel", "anodizedBrushedAluminum", "raisedDiamondTreadPlate", "interlockedChainmail",
     ],
   },
   {
@@ -323,6 +352,8 @@ export const MATERIAL_USE_CATEGORIES = [
       "laminatedPlywood",
       "trafficPolishedWoodStairs",
       "woodMaterialSystem",
+      "wovenRattan",
+      "exposedPlywoodEdge",
     ],
   },
   {
@@ -335,6 +366,8 @@ export const MATERIAL_USE_CATEGORIES = [
       "tidalBeachSediment",
       "compactedSnowRuts", "hangarOilStainedFloor",
       "trafficWornSafetyFloor",
+      "mossCobblestone", "fragmentedStoneMosaic", "wetPebbleGround",
+      "chippedRoadMarkingAsphalt", "polishedTerrazzoFloor",
     ],
   },
   {
@@ -349,12 +382,14 @@ export const MATERIAL_USE_CATEGORIES = [
       "crackleCeramicGlaze", "ancientWeatheredWall",
       "rainWashedConcrete", "layeredGraffitiWall",
       "rustBleedRebarConcrete",
+      "mossStoneBlocks", "rubbleStoneWall", "dressedStoneWall", "weatheredBrickWall",
+      "saltWeatheredConcrete",
     ],
   },
   {
     id: "roof-tiles",
     label: "屋顶与瓦片",
-    names: ["stylizedRoofTilesA", "stylizedRoofTilesB", "layeredRoofTiles"],
+    names: ["stylizedRoofTilesA", "stylizedRoofTilesB", "layeredRoofTiles", "mossRoofShingles"],
   },
   {
     id: "atmosphere-water",
@@ -370,6 +405,9 @@ export const MATERIAL_USE_CATEGORIES = [
       "layeredCliff", "meltingSnow", "wetMudPuddles", "coolingLava",
       "sceneAwareMossyRock", "slopeHeightTerrainBlend", "windErodedSandstone", "stylizedCellRock",
       "foldedErodedRockStrata", "deformableWetSandMud",
+      "rootedForestEarth", "weatheredCliff", "mushroomStrata", "ornamentalStrata",
+      "amethystCluster", "turquoiseOre", "goldenMarble", "overgrownSoil",
+      "mossyLayeredRock", "fernCoveredRock", "mossyRiverPebbles",
     ],
   },
   {
@@ -405,7 +443,7 @@ export const MATERIAL_USE_CATEGORIES = [
   {
     id: "objects-decoration",
     label: "器物与装饰",
-    names: ["ceramic", "lanternPaper", "ornamentalPattern", "nacreOilFilm", "holographicDiffractionFilm", "kilnFiredClay", "limescaleCeramicBasin"],
+    names: ["ceramic", "lanternPaper", "ornamentalPattern", "nacreOilFilm", "holographicDiffractionFilm", "kilnFiredClay", "limescaleCeramicBasin", "carvedStoneEmblem", "crackedDiamondInlay"],
   },
   {
     id: "character-biological",
@@ -424,7 +462,22 @@ export const MATERIAL_USE_CATEGORIES = [
   },
 ];
 
+for (const definition of Object.values(CONTENT_MATERIALS)) {
+  let category = MATERIAL_USE_CATEGORIES.find((entry) => entry.id === definition.metadata.category);
+  if (!category) {
+    category = {
+      id: definition.metadata.category,
+      label: definition.metadata.categoryLabel || definition.metadata.category,
+      names: [],
+    };
+    MATERIAL_USE_CATEGORIES.push(category);
+  }
+  if (!category.names.includes(definition.id)) category.names.push(definition.id);
+}
+
 export const ALL_MATERIAL_NAMES = [
+  ...CONTENT_MATERIAL_NAMES,
+  ...PRODUCTION_STUDY_MATERIAL_NAMES,
   ...NINTH_BATCH_MATERIAL_NAMES,
   ...EIGHTH_BATCH_MATERIAL_NAMES,
   ...SEVENTH_BATCH_MATERIAL_NAMES,
@@ -435,6 +488,7 @@ export const ALL_MATERIAL_NAMES = [
   ...ADVANCED_MATERIAL_NAMES,
   ...URBAN_MATERIAL_NAMES,
   ...BILIBILI_MATERIAL_NAMES,
+  ...STYLE_CASE_MATERIAL_NAMES,
   ...SBS_REPRO_NAMES,
   ...PRESET_NAMES,
   ...BUILDER_NAMES,
@@ -464,6 +518,17 @@ export function isBuilder(name) {
   return Object.prototype.hasOwnProperty.call(MATERIAL_BUILDERS, name);
 }
 
+export function isContentMaterial(name) {
+  return Object.prototype.hasOwnProperty.call(CONTENT_MATERIALS, name);
+}
+
+export function bakeContentMaterial(name, size = 256, params = {}) {
+  const definition = CONTENT_MATERIALS[name];
+  if (!definition) throw new Error("unknown content material: " + name);
+  const fields = definition.build({ ...definition.defaultParams, ...params });
+  return materialFromMeshovaMaterial(materialFromFields(size, fields));
+}
+
 /** True if `name` is an SBS reproduction recipe. */
 export function isSbsRepro(name) {
   return Object.prototype.hasOwnProperty.call(SBS_REPRO, name);
@@ -471,6 +536,18 @@ export function isSbsRepro(name) {
 
 export function isBilibiliMaterial(name) {
   return Object.prototype.hasOwnProperty.call(BILIBILI_MATERIALS, name);
+}
+
+export function isStyleCaseMaterial(name) {
+  return Object.prototype.hasOwnProperty.call(STYLE_CASE_MATERIALS, name);
+}
+
+export function isProductionStudyMaterial(name) {
+  return Object.prototype.hasOwnProperty.call(PRODUCTION_STUDY_MATERIALS, name);
+}
+
+export function materialDisplayName(name) {
+  return PRODUCTION_STUDY_DEFINITIONS[name]?.label ?? STYLE_CASE_DEFINITIONS[name]?.label ?? name;
 }
 
 export function isUrbanMaterial(name) {
@@ -522,6 +599,18 @@ export function bakeBilibiliMaterial(name, size = 256, params = {}) {
   if (!fn) throw new Error("unknown bilibili material: " + name);
   const m = materialFromFields(size, fn(params));
   return materialFromMeshovaMaterial(m);
+}
+
+export function bakeStyleCaseMaterial(name, size = 256, params = {}) {
+  const fn = STYLE_CASE_MATERIALS[name];
+  if (!fn) throw new Error("unknown style case material: " + name);
+  return materialFromMeshovaMaterial(materialFromFields(size, fn(params)));
+}
+
+export function bakeProductionStudyMaterial(name, size = 256, params = {}) {
+  const fn = PRODUCTION_STUDY_MATERIALS[name];
+  if (!fn) throw new Error("unknown production study material: " + name);
+  return materialFromMeshovaMaterial(materialFromFields(size, fn(params)));
 }
 
 export function bakeUrbanMaterial(name, size = 256, params = {}) {
@@ -609,9 +698,12 @@ export function bakeNinthBatchMaterial(name, size = 256, params = {}) {
 
 /** Bake any known material (preset, builder or SBS repro) by name. */
 export function bakeMaterial(name, size = 256, params = {}) {
+  if (isContentMaterial(name)) return bakeContentMaterial(name, size, params);
   if (isBuilder(name)) return bakeBuilderMaterial(name, size, params);
   if (isSbsRepro(name)) return bakeSbsReproMaterial(name, size, params);
   if (isBilibiliMaterial(name)) return bakeBilibiliMaterial(name, size, params);
+  if (isStyleCaseMaterial(name)) return bakeStyleCaseMaterial(name, size, params);
+  if (isProductionStudyMaterial(name)) return bakeProductionStudyMaterial(name, size, params);
   if (isUrbanMaterial(name)) return bakeUrbanMaterial(name, size, params);
   if (isAdvancedMaterial(name)) return bakeAdvancedMaterial(name, size, params);
   if (isThirdBatchMaterial(name)) return bakeThirdBatchMaterial(name, size, params);

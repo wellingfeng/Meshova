@@ -21,6 +21,7 @@ export * from "./recipes/index.js";
 export * from "./agent/index.js";
 export * from "./critique/index.js";
 export * from "./vision/index.js";
+export * from "./reconstruction/index.js";
 export * from "./pipeline/index.js";
 export * from "./character/index.js";
 export * from "./clothing/index.js";

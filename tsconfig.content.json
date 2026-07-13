@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "content",
+    "outDir": "dist/content",
+    "paths": {}
+  },
+  "include": ["content"],
+  "exclude": ["dist", "node_modules", "test", "src", "pcg"]
+}

@@ -7,6 +7,7 @@ const baseUrl = process.argv[2] || "http://127.0.0.1:5173";
 const query = process.argv[3] || "";
 const outputPath = resolve(process.argv[4] || "out/gallery-preview-audit.json");
 const proceduralOnly = process.argv.includes("--procedural-only");
+const materialsOnly = process.argv.includes("--materials-only");
 
 function browserExecutable() {
   const shellExe = chromium.executablePath();
@@ -69,13 +70,16 @@ page.on("pageerror", (error) => pageErrors.push(String(error)));
 
 try {
   await page.goto(`${baseUrl}/web/gallery.html`, { waitUntil: "domcontentloaded", timeout: 90000 });
+  await page.waitForSelector(".card", { state: "attached", timeout: 120000 });
   if (query) {
     await page.locator("#search").fill(query);
     await page.locator("#search").dispatchEvent("input");
   }
-  const cardSelector = proceduralOnly
-    ? ".card:visible[data-generated='false']:not([data-id^='mat:'])"
-    : ".card:visible:not([data-id^='mat:'])";
+  const cardSelector = materialsOnly
+    ? ".card:visible[data-id^='mat:']"
+    : proceduralOnly
+      ? ".card:visible[data-generated='false']:not([data-id^='mat:'])"
+      : ".card:visible:not([data-id^='mat:'])";
   const cards = page.locator(cardSelector);
   const total = await cards.count();
   const results = [];
@@ -87,13 +91,14 @@ try {
     const name = await card.getAttribute("data-name");
     const generated = await card.getAttribute("data-generated") === "true";
     const previewSource = await card.getAttribute("data-preview-source");
+    const title = await card.getAttribute("title");
     const image = card.locator(".thumb img");
     if (await image.count() === 0) {
-      results.push({ id, name, generated, previewSource, blank: true, reason: "missing-image" });
+      results.push({ id, name, generated, previewSource, title, blank: true, reason: "missing-image" });
       continue;
     }
     const metrics = await imageMetrics(image);
-    results.push({ id, name, generated, previewSource, blank: metrics.foregroundPixels < 80, ...metrics });
+    results.push({ id, name, generated, previewSource, title, blank: metrics.foregroundPixels < 80, ...metrics });
   }
   const blank = results.filter((result) => result.blank);
   const staticFallbackCount = results.filter((result) => result.previewSource === "static").length;
@@ -134,6 +139,7 @@ try {
     baseUrl,
     query,
     proceduralOnly,
+    materialsOnly,
     total,
     blankCount: blank.length,
     staticFallbackCount,

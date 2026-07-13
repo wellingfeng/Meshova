@@ -16,6 +16,10 @@
  *       JSON summary the caller reads to decide the next revision.
  *   prep-image <img>
  *       Normalize a reference image to PNG at out/meshova/ref.png.
+ *   contracts | contract <id>
+ *       List or print built-in hero reconstruction contracts.
+ *   sculpt <reference.png> [--contract id] [--hint text] [--iterations n]
+ *       Run the staged image-to-procedural-model loop with review artifacts.
  *
  * The script file must be a plain JS snippet: no imports/async, calling only
  * SCRIPT_API functions, ending with `return [ part(...), ... ]`.
@@ -36,6 +40,8 @@ import {
   scoreRenderPng,
   decodePNG,
   encodePNG,
+  HERO_RECONSTRUCTION_CONTRACTS,
+  getHeroReconstructionContract,
 } from "../dist/index.js";
 
 const ROOT = resolve(process.cwd());
@@ -95,6 +101,19 @@ const { positional, flags } = parseFlags(process.argv.slice(2));
 const cmd = positional[0];
 
 function die(msg) { console.error(msg); process.exit(2); }
+
+if (cmd === "sculpt") {
+  await import("./meshova-sculpt.mjs");
+  process.exit(process.exitCode ?? 0);
+} else if (cmd === "contracts") {
+  console.log(JSON.stringify({ contracts: Object.keys(HERO_RECONSTRUCTION_CONTRACTS) }, null, 2));
+  process.exit(0);
+} else if (cmd === "contract") {
+  const id = positional[1];
+  if (!id || !(id in HERO_RECONSTRUCTION_CONTRACTS)) die(`contract：未知合同：${id ?? ""}`);
+  console.log(JSON.stringify(getHeroReconstructionContract(id), null, 2));
+  process.exit(0);
+}
 
 /**
  * Register (or update) a generated model in out/models.json so the web gallery
@@ -253,6 +272,4 @@ if (cmd === "run") {
   process.exit(0);
 }
 
-die(`unknown subcommand: ${cmd}. Use: ref | run | prep-image`);
-
-
+die(`unknown subcommand: ${cmd}. Use: ref | run | prep-image | contracts | contract | sculpt`);

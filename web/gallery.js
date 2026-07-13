@@ -15,7 +15,8 @@ import {
   bakeSurface,
   ALL_MATERIAL_NAMES,
   MATERIAL_USE_CATEGORIES,
-} from "/web/materials.js?v=usecat4";
+  materialDisplayName,
+} from "/web/materials.js?v=productionstudies1";
 
 // 材质条目：与模型同库展示，用方块缩略图；点击跳 matlab.html 单材质渲染器。
 const galleryMaterialNames = new Set(ALL_MATERIAL_NAMES);
@@ -102,6 +103,60 @@ async function firstLoadableImage(urls) {
   return null;
 }
 
+async function backdropTextureFromImage(url) {
+  if (!url) return null;
+  try {
+    const image = await new Promise((resolve, reject) => {
+      const candidate = new Image();
+      candidate.onload = () => resolve(candidate);
+      candidate.onerror = reject;
+      candidate.src = url;
+    });
+    const source = document.createElement("canvas");
+    source.width = image.naturalWidth;
+    source.height = image.naturalHeight;
+    const context = source.getContext("2d", { willReadFrequently: true });
+    context.drawImage(image, 0, 0);
+    const averageRegions = (regions) => {
+      const sum = [0, 0, 0];
+      let pixels = 0;
+      for (const [x, y, width, height] of regions) {
+        const data = context.getImageData(x, y, width, height).data;
+        for (let offset = 0; offset < data.length; offset += 4) {
+          sum[0] += data[offset];
+          sum[1] += data[offset + 1];
+          sum[2] += data[offset + 2];
+          pixels++;
+        }
+      }
+      return sum.map((channel) => Math.round(channel / pixels));
+    };
+    const edgeWidth = Math.max(2, Math.floor(source.width * 0.14));
+    const topHeight = Math.max(2, Math.floor(source.height * 0.16));
+    const middleY = Math.floor(source.height * 0.34);
+    const middleHeight = Math.max(2, Math.floor(source.height * 0.16));
+    const top = averageRegions([[0, 0, source.width, topHeight]]);
+    const middle = averageRegions([
+      [0, middleY, edgeWidth, middleHeight],
+      [source.width - edgeWidth, middleY, edgeWidth, middleHeight],
+    ]);
+    const canvas = document.createElement("canvas");
+    canvas.width = 2;
+    canvas.height = 128;
+    const gradientContext = canvas.getContext("2d");
+    const gradient = gradientContext.createLinearGradient(0, 0, 0, canvas.height);
+    gradient.addColorStop(0, `rgb(${top.join(",")})`);
+    gradient.addColorStop(1, `rgb(${middle.join(",")})`);
+    gradientContext.fillStyle = gradient;
+    gradientContext.fillRect(0, 0, canvas.width, canvas.height);
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    return texture;
+  } catch {
+    return null;
+  }
+}
+
 // 离屏渲染：一个共享 renderer + 场景，逐个模型渲染再 toDataURL。
 // renderer 懒初始化，避免 WebGL/GPU 初始化失败时整页模型库空白。
 const THUMB = 360;
@@ -111,8 +166,9 @@ let scene = null;
 let camera = null;
 let renderContext = null;
 let renderContextError = null;
-let blankThumbPixels = null;
-const thumbCameraDir = new THREE.Vector3(0.7, 0.55, 0.9).normalize();
+const thumbTarget = new THREE.Vector3();
+const thumbCameraDirection = new THREE.Vector3(1.33, 0.5, 1.9).normalize();
+let studioEnvTarget = null;
 
 function readThumbnailPixels() {
   const pixels = new Uint8Array(canvas.width * canvas.height * 4);
@@ -120,38 +176,66 @@ function readThumbnailPixels() {
   context.readPixels(0, 0, canvas.width, canvas.height, context.RGBA, context.UNSIGNED_BYTE, pixels);
   return pixels;
 }
-// Sketchfab 风格浅色影棚背景：中心亮、四周略深的径向渐变，模型像摆在展台上。
-function makeStudioBackground() {
-  const c = document.createElement("canvas");
-  c.width = 64; c.height = 48;
-  const g = c.getContext("2d");
-  const grad = g.createRadialGradient(32, 16, 4, 32, 24, 46);
-  grad.addColorStop(0, "#fafafa");
-  grad.addColorStop(0.68, "#e2e2e2");
-  grad.addColorStop(1, "#d0d0d0");
-  g.fillStyle = grad;
-  g.fillRect(0, 0, 64, 48);
-  const tex = new THREE.CanvasTexture(c);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  return tex;
-}
-
-// 程序化渐变天空 IBL：材质方块的金属/粗糙反射才正确（无外部 HDR）。
-function makeEnv(activeRenderer) {
+// 与单模型查看器一致的程序化影棚天空：同一背景、IBL 与主光方向。
+function makeStudioEnv(activeRenderer) {
+  const preset = {
+    sunDir: [5, 8, 6],
+    sunColor: [1, 0.96, 0.86],
+    sunIntensity: 20,
+    sunRadius: 0.045,
+    glow: 0.6,
+    zenith: [0.24, 0.36, 0.62],
+    horizon: [0.58, 0.66, 0.78],
+    ground: [0.24, 0.22, 0.2],
+  };
+  const width = 512;
+  const height = 256;
+  const data = new Float32Array(width * height * 4);
+  const sun = new THREE.Vector3(...preset.sunDir).normalize();
+  const direction = new THREE.Vector3();
+  for (let y = 0; y < height; y++) {
+    const theta = (y / (height - 1)) * Math.PI;
+    const cosTheta = Math.cos(theta);
+    const sinTheta = Math.sin(theta);
+    const up = cosTheta;
+    for (let x = 0; x < width; x++) {
+      const phi = (x / width) * Math.PI * 2;
+      direction.set(sinTheta * Math.cos(phi), cosTheta, sinTheta * Math.sin(phi));
+      const gradient = up >= 0
+        ? Math.pow(1 - up, 1.2)
+        : Math.min(1, -up * 1.4);
+      const from = up >= 0 ? preset.zenith : preset.horizon;
+      const to = up >= 0 ? preset.horizon : preset.ground;
+      let red = from[0] + (to[0] - from[0]) * gradient;
+      let green = from[1] + (to[1] - from[1]) * gradient;
+      let blue = from[2] + (to[2] - from[2]) * gradient;
+      const angle = Math.acos(THREE.MathUtils.clamp(direction.dot(sun), -1, 1));
+      if (angle < preset.sunRadius) {
+        red += preset.sunColor[0] * preset.sunIntensity;
+        green += preset.sunColor[1] * preset.sunIntensity;
+        blue += preset.sunColor[2] * preset.sunIntensity;
+      } else {
+        const halo = Math.exp(-(angle - preset.sunRadius) * 22) * preset.glow;
+        red += preset.sunColor[0] * halo;
+        green += preset.sunColor[1] * halo;
+        blue += preset.sunColor[2] * halo;
+      }
+      const offset = (y * width + x) * 4;
+      data[offset] = red;
+      data[offset + 1] = green;
+      data[offset + 2] = blue;
+      data[offset + 3] = 1;
+    }
+  }
+  const texture = new THREE.DataTexture(data, width, height, THREE.RGBAFormat, THREE.FloatType);
+  texture.mapping = THREE.EquirectangularReflectionMapping;
+  texture.colorSpace = THREE.LinearSRGBColorSpace;
+  texture.needsUpdate = true;
   const pmrem = new THREE.PMREMGenerator(activeRenderer);
-  const sky = new THREE.Scene();
-  const geo = new THREE.SphereGeometry(50, 32, 16);
-  const mat = new THREE.ShaderMaterial({
-    side: THREE.BackSide,
-    uniforms: { top: { value: new THREE.Color(0xbcd4ff) }, bot: { value: new THREE.Color(0x33383f) } },
-    vertexShader: `varying vec3 vP; void main(){ vP=position; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
-    fragmentShader: `varying vec3 vP; uniform vec3 top; uniform vec3 bot;
-      void main(){ float t=clamp(normalize(vP).y*0.5+0.5,0.0,1.0); gl_FragColor=vec4(mix(bot,top,t),1.0);} `,
-  });
-  sky.add(new THREE.Mesh(geo, mat));
-  const rt = pmrem.fromScene(sky);
+  const target = pmrem.fromEquirectangular(texture);
+  texture.dispose();
   pmrem.dispose();
-  return rt.texture;
+  return target;
 }
 
 function getRenderContext() {
@@ -171,18 +255,35 @@ function getRenderContext() {
     renderer.setPixelRatio(1);
     renderer.setSize(canvas.width, canvas.height, false);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.15;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
     scene = new THREE.Scene();
-    scene.background = makeStudioBackground();
-    camera = new THREE.PerspectiveCamera(35, canvas.width / canvas.height, 0.01, 100);
-    // 浅色影棚需要更亮的补光，避免模型在浅底上偏暗、发灰。
-    const key = new THREE.DirectionalLight(0xffffff, 2.6); key.position.set(3, 5, 4);
-    const fill = new THREE.DirectionalLight(0xdfe8ff, 1.1); fill.position.set(-4, 1, -2);
-    const rim = new THREE.DirectionalLight(0xffffff, 1.2); rim.position.set(0, 3, -5);
-    scene.add(key, fill, rim, new THREE.HemisphereLight(0xffffff, 0xcfcfcf, 1.0));
-    scene.environment = makeEnv(renderer);
-    renderer.render(scene, camera);
-    blankThumbPixels = readThumbnailPixels();
+    studioEnvTarget = makeStudioEnv(renderer);
+    scene.environment = studioEnvTarget.texture;
+    scene.background = studioEnvTarget.texture;
+    scene.backgroundBlurriness = 0.35;
+    scene.backgroundIntensity = 0.5;
+    camera = new THREE.PerspectiveCamera(45, canvas.width / canvas.height, 0.01, 100);
+    const key = new THREE.DirectionalLight(0xfff4e6, 2.6); key.position.set(5, 8, 6);
+    key.castShadow = true;
+    key.shadow.mapSize.set(1024, 1024);
+    key.shadow.bias = -0.0004;
+    key.shadow.normalBias = 0.02;
+    key.shadow.radius = 4;
+    const fill = new THREE.DirectionalLight(0x9ec1ff, 0.3); fill.position.set(-6, 3, -4);
+    const rim = new THREE.DirectionalLight(0xffffff, 0.5); rim.position.set(0, 4, -8);
+    scene.add(key, key.target, fill, rim, new THREE.HemisphereLight(0xbfd4ff, 0x202830, 0.18));
+    scene.add(new THREE.GridHelper(20, 20, 0xc8c8c8, 0xdadada));
+    const shadowFloor = new THREE.Mesh(
+      new THREE.PlaneGeometry(60, 60),
+      new THREE.ShadowMaterial({ opacity: 0.28 }),
+    );
+    shadowFloor.rotation.x = -Math.PI / 2;
+    shadowFloor.receiveShadow = true;
+    scene.add(shadowFloor);
     renderContext = { canvas, renderer, scene, camera };
     return renderContext;
   } catch (err) {
@@ -191,17 +292,19 @@ function getRenderContext() {
   }
 }
 
-function thumbnailHasContent(minChangedPixels = 32) {
-  if (!canvas || !blankThumbPixels) return true;
+function thumbnailHasContent(minForegroundPixels = 80) {
+  if (!canvas) return true;
   const pixels = readThumbnailPixels();
-  let changed = 0;
+  let foregroundPixels = 0;
   for (let offset = 0; offset < pixels.length; offset += 4) {
-    const difference = Math.abs(pixels[offset] - blankThumbPixels[offset])
-      + Math.abs(pixels[offset + 1] - blankThumbPixels[offset + 1])
-      + Math.abs(pixels[offset + 2] - blankThumbPixels[offset + 2]);
-    if (difference <= 12) continue;
-    changed += 1;
-    if (changed >= minChangedPixels) return true;
+    const red = pixels[offset];
+    const green = pixels[offset + 1];
+    const blue = pixels[offset + 2];
+    const luminance = red * 0.2126 + green * 0.7152 + blue * 0.0722;
+    const saturation = Math.max(red, green, blue) - Math.min(red, green, blue);
+    if (luminance >= 198.9 && saturation <= 19.1) continue;
+    foregroundPixels += 1;
+    if (foregroundPixels >= minForegroundPixels) return true;
   }
   return false;
 }
@@ -223,16 +326,29 @@ function renderMaterialThumb(name) {
   mesh.rotation.set(0.15, 0.6, 0);
   const root = new THREE.Group();
   root.add(mesh);
-  scene.add(root);
-  frameRoot(root);
-  renderer.render(scene, camera);
-  const url = thumbnailDataUrl();
-  scene.remove(root);
-  for (const k of ["map", "normalMap", "roughnessMap", "metalnessMap", "aoMap", "emissiveMap"]) {
-    if (material[k] && material[k].dispose) material[k].dispose();
+  try {
+    attachRenderRoot(root);
+    frameRoot(root);
+    renderer.render(scene, camera);
+    try {
+      return thumbnailDataUrl();
+    } catch {
+      const background = scene.background;
+      try {
+        scene.background = new THREE.Color(0x4b5058);
+        renderer.render(scene, camera);
+        return canvas.toDataURL("image/png");
+      } finally {
+        scene.background = background;
+      }
+    }
+  } finally {
+    scene.remove(root);
+    for (const k of ["map", "normalMap", "roughnessMap", "metalnessMap", "aoMap", "emissiveMap"]) {
+      material[k]?.dispose?.();
+    }
+    material.dispose();
   }
-  material.dispose();
-  return url;
 }
 
 const textureLoader = new THREE.TextureLoader();
@@ -357,22 +473,41 @@ function viewerPartToGeo(part) {
 
 function frameRoot(root) {
   getRenderContext();
-  const bbox = new THREE.Box3().setFromObject(root);
+  const bbox = new THREE.Box3();
+  for (const child of root.children) {
+    if (!child.userData.cameraFitIgnore) bbox.expandByObject(child);
+  }
+  if (bbox.isEmpty()) bbox.setFromObject(root);
   const center = new THREE.Vector3(); bbox.getCenter(center);
   const size = new THREE.Vector3(); bbox.getSize(size);
   if (!Number.isFinite(size.x) || !Number.isFinite(size.y) || !Number.isFinite(size.z) || size.length() <= 1e-6) {
+    bbox.min.set(-0.5, 0, -0.5);
     center.set(0, 0, 0);
     size.set(1, 1, 1);
   }
-  root.position.set(-center.x, -center.y, -center.z);
-  const radius = Math.max(1e-3, size.length() * 0.5);
-  const fov = (camera.fov * Math.PI) / 180;
-  const dist = (radius / Math.sin(fov * 0.5)) * 1.18;
-  camera.near = Math.max(0.01, dist - radius * 2.4);
-  camera.far = dist + radius * 2.4;
+  root.position.set(-center.x, -bbox.min.y, -center.z);
+  thumbTarget.set(0, size.y * 0.5, 0);
+  const half = size.clone().multiplyScalar(0.5);
+  const right = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), thumbCameraDirection).normalize();
+  const up = new THREE.Vector3().crossVectors(thumbCameraDirection, right).normalize();
+  const projectedHalfWidth = Math.abs(right.x) * half.x + Math.abs(right.y) * half.y + Math.abs(right.z) * half.z;
+  const projectedHalfHeight = Math.abs(up.x) * half.x + Math.abs(up.y) * half.y + Math.abs(up.z) * half.z;
+  const projectedHalfDepth = Math.abs(thumbCameraDirection.x) * half.x + Math.abs(thumbCameraDirection.y) * half.y + Math.abs(thumbCameraDirection.z) * half.z;
+  const verticalFov = THREE.MathUtils.degToRad(camera.fov);
+  const horizontalFov = 2 * Math.atan(Math.tan(verticalFov * 0.5) * camera.aspect);
+  const fitDistance = Math.max(
+    projectedHalfWidth / Math.tan(horizontalFov * 0.5),
+    projectedHalfHeight / Math.tan(verticalFov * 0.5),
+    1e-3,
+  );
+  const distance = fitDistance * 1.14 + projectedHalfDepth;
+  camera.position.copy(thumbTarget).addScaledVector(thumbCameraDirection, distance);
+  const modelRadius = Math.max(0.001, size.length() * 0.5);
+  const cameraDistance = camera.position.distanceTo(thumbTarget);
+  camera.near = Math.max(0.05, (cameraDistance - modelRadius) * 0.5);
+  camera.far = Math.max(camera.near + 1, cameraDistance + modelRadius * 2);
   camera.updateProjectionMatrix();
-  camera.position.copy(thumbCameraDir).multiplyScalar(dist);
-  camera.lookAt(0, 0, 0);
+  camera.lookAt(thumbTarget);
 }
 
 // 建一个 proc 模型的 three 场景 root（不渲染），返回 { root, verts, tris, parts }。
@@ -389,42 +524,65 @@ async function buildProcRoot(model) {
     if (hasVColors) geo.setAttribute("color", new THREE.BufferAttribute(new Float32Array(part.colors), 3));
     const mat = materialForViewerPart(part, hasVColors);
     mat.side = THREE.DoubleSide;
-    root.add(new THREE.Mesh(geo, mat));
+    const renderMesh = new THREE.Mesh(geo, mat);
+    renderMesh.castShadow = true;
+    renderMesh.receiveShadow = true;
+    renderMesh.userData.cameraFitIgnore = part.metadata?.cameraFitIgnore === true;
+    root.add(renderMesh);
   }
   return { root, verts, tris, parts: parts.length };
 }
 
 function disposeRoot(root) {
   if (scene) scene.remove(root);
-  root.traverse((o) => { if (o.isMesh) { o.geometry.dispose(); o.material.dispose(); } });
+  root.traverse((o) => {
+    if (!o.isMesh) return;
+    o.geometry.dispose();
+    const materials = Array.isArray(o.material) ? o.material : [o.material];
+    for (const material of materials) material?.dispose?.();
+  });
+}
+
+function attachRenderRoot(root) {
+  getRenderContext();
+  for (const child of [...scene.children]) {
+    if (child.userData.galleryTransient) disposeRoot(child);
+  }
+  root.userData.galleryTransient = true;
+  scene.add(root);
 }
 
 // 为一个模型渲染缩略图，返回 { url, verts, tris, parts }。
 async function renderThumb(model) {
   getRenderContext();
   const { root, verts, tris, parts } = await buildProcRoot(model);
-  scene.add(root);
-  frameRoot(root);
-  renderer.render(scene, camera);
-  const url = thumbnailDataUrl();
-  disposeRoot(root);
-  return { url, verts, tris, parts };
+  try {
+    attachRenderRoot(root);
+    frameRoot(root);
+    renderer.render(scene, camera);
+    return { url: thumbnailDataUrl(), verts, tris, parts };
+  } finally {
+    disposeRoot(root);
+  }
 }
 
 // 悬停转盘：绕 Y 轴环绕相机渲染 count 帧，返回 dataURL 数组。root 已建好并加入场景。
 // frameRoot 先把相机框到包围盒，随后绕中心旋转相机位置。
 function renderTurntableFromRoot(root, count) {
   getRenderContext();
-  frameRoot(root); // 居中到原点、相机 lookAt(0,0,0)
-  const base = camera.position.clone();
-  const radius = Math.hypot(base.x, base.z);
-  const y = base.y;
-  const startAngle = Math.atan2(base.x, base.z);
+  frameRoot(root);
+  const offset = camera.position.clone().sub(thumbTarget);
+  const radius = Math.hypot(offset.x, offset.z);
+  const startAngle = Math.atan2(offset.x, offset.z);
   const frames = [];
   for (let i = 0; i < count; i++) {
     const a = startAngle + (i / count) * Math.PI * 2;
-    camera.position.set(Math.sin(a) * radius, y, Math.cos(a) * radius);
-    camera.lookAt(0, 0, 0);
+    camera.position.set(
+      thumbTarget.x + Math.sin(a) * radius,
+      thumbTarget.y + offset.y,
+      thumbTarget.z + Math.cos(a) * radius,
+    );
+    camera.lookAt(thumbTarget);
     renderer.render(scene, camera);
     frames.push(thumbnailDataUrl());
   }
@@ -448,7 +606,11 @@ function buildViewerModelRoot(viewerModel) {
     const hasVColors = !!geo.getAttribute("color");
     const mat = materialForViewerPart(part, hasVColors);
     mat.side = THREE.DoubleSide;
-    root.add(new THREE.Mesh(geo, mat));
+    const renderMesh = new THREE.Mesh(geo, mat);
+    renderMesh.castShadow = true;
+    renderMesh.receiveShadow = true;
+    renderMesh.userData.cameraFitIgnore = part.metadata?.cameraFitIgnore === true;
+    root.add(renderMesh);
   }
   if (root.children.length === 0) throw new Error("模型无可渲染几何");
   return { root, verts, tris, parts: partCount };
@@ -457,12 +619,14 @@ function buildViewerModelRoot(viewerModel) {
 function renderViewerModelThumb(viewerModel) {
   getRenderContext();
   const { root, verts, tris, parts } = buildViewerModelRoot(viewerModel);
-  scene.add(root);
-  frameRoot(root);
-  renderer.render(scene, camera);
-  const url = thumbnailDataUrl();
-  disposeRoot(root);
-  return { url, verts, tris, parts };
+  try {
+    attachRenderRoot(root);
+    frameRoot(root);
+    renderer.render(scene, camera);
+    return { url: thumbnailDataUrl(), verts, tris, parts };
+  } finally {
+    disposeRoot(root);
+  }
 }
 
 // ---- 单模型预览模态：内嵌 iframe 渲染，避免整页跳转 ----
@@ -535,7 +699,7 @@ for (const cat of MATERIAL_CATS) {
   for (const name of cat.names) {
     materialEntries.push({
       id: `mat:${cat.id}:${name}`,
-      model: { name },
+      model: { name: materialDisplayName(name) },
       cat: cat.label,
       isMaterial: true,
       matName: name,
@@ -587,7 +751,8 @@ modelLibrary.addMany(materialEntries);
 const entries = modelLibrary.entries;
 let activeCat = "全部";
 let activeSemanticTag = "";
-let query = "";
+const galleryParams = new URLSearchParams(location.search);
+let query = galleryParams.get("q") ?? "";
 
 // ---- Sketchfab 风格下拉 mega 菜单：左侧来源列 + 右侧主题分组网格 ----
 // 每个分类计数（含当前 entries 里实际出现的分类）。
@@ -821,6 +986,7 @@ activeTagClearEl.onclick = (ev) => {
   else selectCat("全部");
 };
 
+searchEl.value = query;
 searchEl.oninput = () => { query = searchEl.value; applyFilter(); };
 applyFilter();
 
@@ -894,6 +1060,10 @@ function stopTurntable() {
 // 懒生成一个 entry 的转盘帧（材质卡不做，无 build 来源的卡兜底跳过）。
 async function ensureTurnFrames(entry) {
   if (entry.turnFrames || entry.turnFailed || entry.isMaterial) return entry.turnFrames || null;
+  let root = null;
+  let backdrop = null;
+  let previousBackground = null;
+  let previousBackgroundIntensity = 1;
   try {
     let build;
     if (entry.generated) {
@@ -903,12 +1073,26 @@ async function ensureTurnFrames(entry) {
     } else {
       build = await buildProcRoot(entry.model);
     }
-    scene.add(build.root);
-    entry.turnFrames = renderTurntableFromRoot(build.root, TURN_FRAMES);
-    disposeRoot(build.root);
+    root = build.root;
+    attachRenderRoot(root);
+    backdrop = await backdropTextureFromImage(entry.thumbUrl);
+    if (backdrop) {
+      previousBackground = scene.background;
+      previousBackgroundIntensity = scene.backgroundIntensity;
+      scene.background = backdrop;
+      scene.backgroundIntensity = 1;
+    }
+    entry.turnFrames = renderTurntableFromRoot(root, TURN_FRAMES);
   } catch {
     entry.turnFailed = true;
     return null;
+  } finally {
+    if (backdrop) {
+      scene.background = previousBackground;
+      scene.backgroundIntensity = previousBackgroundIntensity;
+      backdrop.dispose();
+    }
+    if (root) disposeRoot(root);
   }
   return entry.turnFrames;
 }
@@ -938,14 +1122,22 @@ function wireTurntable(entry) {
 async function fillGeneratedCard(entry) {
   const thumb = entry.card.querySelector(".thumb");
   try {
+    const staticThumbUrl = await firstLoadableImage(generatedThumbCandidates(entry));
+    if (staticThumbUrl) {
+      entry.thumbUrl = staticThumbUrl;
+      entry.card.dataset.previewSource = "static";
+      thumb.innerHTML =
+        `<img src="${staticThumbUrl}" alt="${entry.model.name}" decoding="async" />` +
+        `<span class="spinhint">${svgIcon("rotate")}环视</span>`;
+      wireTurntable(entry);
+      return;
+    }
+
     const res = await fetch(outUrl(entry.file), { cache: "no-store" });
     if (!res.ok) throw new Error("模型文件不存在");
     const model = await res.json();
     let tris = Math.round(model?.meta?.tris ?? 0);
     let verts = Math.round(model?.meta?.verts ?? 0);
-    // 统一背景：优先用 gallery 深色离屏渲染，跟其余卡片一致。
-    // 离线截图（/out/shots/*.png）背景是 viewer 的 env 天空，色调不一致，
-    // 只在离屏渲染失败（几何缺失等）时兜底。
     let thumbUrl = null;
     let parts = Math.round(model?.meta?.parts ?? (Array.isArray(model?.parts) ? model.parts.length : 0));
     try {
@@ -955,10 +1147,7 @@ async function fillGeneratedCard(entry) {
       if (!tris) tris = Math.round(rendered.tris);
       if (!verts) verts = Math.round(rendered.verts);
       if (!parts) parts = rendered.parts;
-    } catch {
-      thumbUrl = await firstLoadableImage(generatedThumbCandidates(entry));
-      if (thumbUrl) entry.card.dataset.previewSource = "static";
-    }
+    } catch { /* 交给统一失败占位处理 */ }
     if (!thumbUrl) throw new Error("无缩略图");
     entry.thumbUrl = thumbUrl;
     entry.stats = { parts, tris, verts };
@@ -998,7 +1187,7 @@ async function fillShowcaseCard(entry) {
   entry.card.title = entry.title || entry.subtitle || "打开实时程序化预览";
 }
 
-// 单张缩略图渲染：按 entry 类型分派。材质方块最快，生成模型优先用离线截图，proc 模型运行时 build。
+// 单张缩略图渲染：静态截图优先，缺图时才运行时 build，避免首屏被 WebGL 重建阻塞。
 async function renderOne(entry) {
   const { card, model } = entry;
   const thumb = card.querySelector(".thumb");
@@ -1009,15 +1198,35 @@ async function renderOne(entry) {
   if (entry.isMaterial) {
     try {
       const url = renderMaterialThumb(entry.matName);
+      card.dataset.previewSource = "live";
       thumb.innerHTML = `<img src="${url}" alt="${entry.model.name}" />`;
     } catch (e) {
-      thumb.innerHTML = fallbackThumbHtml(entry, "需要 WebGL 预览");
-      card.title = e?.message || String(e);
+      const thumbUrl = await firstLoadableImage([
+        `/out/material-previews/${encodeURIComponent(entry.matName)}.png`,
+      ]);
+      if (thumbUrl) {
+        entry.thumbUrl = thumbUrl;
+        card.dataset.previewSource = "static";
+        thumb.innerHTML = `<img src="${thumbUrl}" alt="${entry.model.name}" />`;
+      } else {
+        thumb.innerHTML = fallbackThumbHtml(entry, "需要 WebGL 预览");
+        card.title = e?.message || String(e);
+      }
     }
     return;
   }
   if (entry.generated) {
     await fillGeneratedCard(entry);
+    return;
+  }
+  const staticThumbUrl = await firstLoadableImage(generatedThumbCandidates(entry));
+  if (staticThumbUrl) {
+    entry.thumbUrl = staticThumbUrl;
+    card.dataset.previewSource = "static";
+    thumb.innerHTML =
+      `<img src="${staticThumbUrl}" alt="${model.name}" decoding="async" />` +
+      `<span class="spinhint">${svgIcon("rotate")}环视</span>`;
+    wireTurntable(entry);
     return;
   }
   try {
@@ -1047,22 +1256,28 @@ async function renderOne(entry) {
   }
 }
 
-// 懒加载：只渲染进入视口的卡片。共享同一个 renderer，所以按“进入视口”顺序串行出队，
-// 首屏可见的卡片最先渲染。滚动到哪就渲染到哪，避免几百张排一条队把首屏挤到队尾。
+// 懒加载：只处理进入视口附近的卡片。静态图并发加载；实时 WebGL 渲染仍在单线程内同步提交。
+const MAX_CONCURRENT_PREVIEWS = 8;
 const renderQueue = [];
-let pumping = false;
-async function pump() {
-  if (pumping) return;
-  pumping = true;
-  while (renderQueue.length) {
+let activePreviewLoads = 0;
+function pump() {
+  while (activePreviewLoads < MAX_CONCURRENT_PREVIEWS && renderQueue.length) {
     const entry = renderQueue.shift();
     if (entry.rendered) continue;
     entry.rendered = true;
-    await renderOne(entry);
-    entry.card.classList.remove("loading"); // 渲染完成，撤下骨架
-    await new Promise((r) => requestAnimationFrame(r));
+    activePreviewLoads++;
+    renderOne(entry)
+      .catch((error) => {
+        const thumb = entry.card.querySelector(".thumb");
+        if (thumb) thumb.innerHTML = fallbackThumbHtml(entry, "暂无缩略图");
+        entry.card.title = error?.message || String(error);
+      })
+      .finally(() => {
+        entry.card.classList.remove("loading");
+        activePreviewLoads--;
+        requestAnimationFrame(pump);
+      });
   }
-  pumping = false;
 }
 
 const cardByEl = new Map(cards.map((e) => [e.card, e]));

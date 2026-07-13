@@ -44,6 +44,32 @@ import {
   type CritiqueReport,
   type VlmCritique,
 } from "../critique/index.js";
+import {
+  advanceReconstructionPass,
+  appendReviewLedger,
+  createReconstructionPassState,
+  createReviewLedger,
+  evaluateAttachmentContracts,
+  evaluateCriticalFeatures,
+  evaluateReconstructionGate,
+  reconstructionContractToPrompt,
+  RECONSTRUCTION_PHASES,
+  type AttachmentResult,
+  type CriticalFeatureResult,
+  type LookDevMode,
+  type ReconstructionContract,
+  type ReconstructionGateDecision,
+  type ReconstructionPassState,
+  type ReviewLedger,
+  type ReviewLedgerEntry,
+  type ReviewScreenshot,
+} from "../reconstruction/index.js";
+
+export interface LookDevFrame {
+  mode: LookDevMode;
+  imageBase64: string;
+  notes?: string;
+}
 
 export interface ImageRenderResult {
   /** base64 PNG (no data: prefix) of the rendered model. Required for scoring. */
@@ -55,6 +81,12 @@ export interface ImageRenderResult {
    * edge-on gets penalized. No per-view reference needed — it's geometric.
    */
   auxViewsBase64?: string[];
+  /** Diagnostic material renders under neutral, grazing, or reference light. */
+  lookDevFrames?: LookDevFrame[];
+  /** Optional external/VLM scores keyed by ReconstructionContract feature id. */
+  criticalFeatureScores?: Readonly<Record<string, number>>;
+  /** Parameters used for this render, archived in the review ledger. */
+  parameters?: Readonly<Record<string, unknown>>;
   notes?: string;
 }
 
@@ -93,6 +125,8 @@ export interface ImageLoopOptions {
    * Default 0 — enable explicitly since it costs VLM calls per milestone.
    */
   vlmCriticEveryN?: number;
+  /** Optional staged quality contract. Enables phase gates and review ledger. */
+  reconstructionContract?: ReconstructionContract;
   onStep?: (step: ImageAgentStep) => void;
 }
 
@@ -112,6 +146,12 @@ export interface ImageAgentStep {
   gate?: ReferenceCandidateDecision;
   /** Mesh critic report (geometry + proportion, and VLM axes at milestones). */
   critique?: CritiqueReport;
+  /** Required semantic identity features, when a reconstruction contract exists. */
+  criticalFeatures?: readonly CriticalFeatureResult[];
+  /** Required part-to-part contacts, when a reconstruction contract exists. */
+  attachments?: readonly AttachmentResult[];
+  /** Current staged workflow decision. */
+  reconstructionGate?: ReconstructionGateDecision;
 }
 
 export interface ImageLoopResult {
@@ -120,11 +160,14 @@ export interface ImageLoopResult {
   /** Step with the highest score (best shape match). */
   best: ImageAgentStep | null;
   target: ReferenceTarget;
+  passState?: ReconstructionPassState;
+  reviewLedger?: ReviewLedger;
 }
 
 // Built lazily (not at module load) to avoid a circular-import TDZ crash:
 // reading SCRIPT_API_REFERENCE at top level races api.js -> ../index.js barrel.
-function systemPrompt(): string {
+function systemPrompt(contract?: ReconstructionContract, phase?: ReconstructionPassState["phase"]): string {
+  const contractPrompt = contract ? `\n\n${reconstructionContractToPrompt(contract, phase)}` : "";
   return `You are a procedural 3D modeling assistant for Meshova.
 Your job: write a SINGLE JavaScript snippet (no imports, no async) that builds
 a model whose SHAPE approximates a reference photo. Getting the overall form
@@ -166,7 +209,7 @@ Rules:
   those gaps before adding new parts.
 - You will be shown the reference photo and your latest render plus a score.
   Increase silhouette overlap by fixing proportions, part placement, and counts.
-- Output ONLY one fenced \`\`\`js code block.`;
+- Output ONLY one fenced \`\`\`js code block.${contractPrompt}`;
 }
 
 function feedback(
@@ -174,6 +217,7 @@ function feedback(
   evaluation: ReferenceEvaluation | undefined,
   solidity: SolidityBreakdown | undefined,
   gate: ReferenceCandidateDecision | undefined,
+  reconstructionGate: ReconstructionGateDecision | undefined,
 ): string {
   if (!run.ok) {
     return `The script failed.\nError: ${run.error}\nReturn the corrected full snippet.`;
@@ -203,21 +247,34 @@ function feedback(
       "This revision did not replace the accepted best. Recover locked shape metrics; do not trade one solved region for another.",
     );
   }
+  if (reconstructionGate) {
+    if (reconstructionGate.accepted) {
+      lines.push(`Workflow pass ${reconstructionGate.phase} cleared.`);
+    } else {
+      lines.push(
+        `Workflow pass ${reconstructionGate.phase} blocked: ${reconstructionGate.issues.map((issue) => issue.message).join("; ")}.`,
+        "Fix this pass before working on later detail.",
+      );
+    }
+  }
   return lines.join("\n");
 }
 
 /** Run the closed image-targeted generate→render→score→revise loop. */
 export async function runImageLoop(opts: ImageLoopOptions): Promise<ImageLoopResult> {
-  const maxIterations = Math.max(1, opts.maxIterations ?? 4);
+  const contract = opts.reconstructionContract;
+  const maxIterations = Math.max(1, opts.maxIterations ?? (contract ? RECONSTRUCTION_PHASES.length : 4));
   const targetScore = opts.targetScore ?? 0.9;
   const useCritic = opts.critic ?? true;
   const vlmEveryN = Math.max(0, opts.vlmCriticEveryN ?? 0);
   const critiqueGoal = opts.hint ?? "object";
+  let passState = contract ? createReconstructionPassState(contract) : undefined;
+  let reviewLedger = contract ? createReviewLedger(contract) : undefined;
   const target = makeReferenceTarget(opts.referencePng, opts.scoreOptions);
   const refB64 = bytesToBase64(opts.referencePng);
 
   const messages: LlmMessage[] = [
-    { role: "system", content: systemPrompt() },
+    { role: "system", content: systemPrompt(contract, passState?.phase) },
     {
       role: "user",
       content: `Reference photo is attached.${opts.hint ? ` Hint: ${opts.hint}.` : ""} Write the script to approximate its shape.`,
@@ -244,9 +301,11 @@ export async function runImageLoop(opts: ImageLoopOptions): Promise<ImageLoopRes
     let evaluation: ReferenceEvaluation | undefined;
     let solidity: SolidityBreakdown | undefined;
     let combinedScore: number | undefined;
+    let renderResult: ImageRenderResult | undefined;
     if (run.ok) {
       try {
         const r = await opts.render(run.parts, i);
+        renderResult = r;
         imageBase64 = r.imageBase64;
         renderNotes = r.notes;
         evaluation = evaluateReferencePng(target, base64ToBytes(r.imageBase64), opts.evaluationOptions);
@@ -307,6 +366,33 @@ export async function runImageLoop(opts: ImageLoopOptions): Promise<ImageLoopRes
       );
     }
 
+    let criticalFeatures: readonly CriticalFeatureResult[] | undefined;
+    let attachments: readonly AttachmentResult[] | undefined;
+    let reconstructionGate: ReconstructionGateDecision | undefined;
+    const phaseBefore = passState?.phase;
+    if (contract && passState && phaseBefore) {
+      criticalFeatures = evaluateCriticalFeatures(
+        run.ok ? run.parts : [],
+        contract.criticalFeatures,
+        renderResult?.criticalFeatureScores,
+      );
+      attachments = evaluateAttachmentContracts(run.ok ? run.parts : [], contract.attachments ?? []);
+      const lookDevModes = new Set<LookDevMode>();
+      if (imageBase64 !== undefined) lookDevModes.add("reference");
+      for (const frame of renderResult?.lookDevFrames ?? []) lookDevModes.add(frame.mode);
+      reconstructionGate = evaluateReconstructionGate(contract, phaseBefore, {
+        iteration: i,
+        runOk: run.ok,
+        candidateStable: gate?.accepted === true || gate?.reason === "no-improvement",
+        ...(evaluation ? { evaluation } : {}),
+        ...(report ? { critique: report } : {}),
+        criticalFeatures,
+        attachments,
+        lookDevModes: [...lookDevModes],
+      });
+      passState = advanceReconstructionPass(passState, reconstructionGate, i);
+    }
+
     const step: ImageAgentStep = { iteration: i, script, run };
     if (imageBase64 !== undefined) step.imageBase64 = imageBase64;
     if (score !== undefined) step.score = score;
@@ -315,19 +401,56 @@ export async function runImageLoop(opts: ImageLoopOptions): Promise<ImageLoopRes
     if (combinedScore !== undefined) step.combinedScore = combinedScore;
     if (gate !== undefined) step.gate = gate;
     if (report !== undefined) step.critique = report;
+    if (criticalFeatures !== undefined) step.criticalFeatures = criticalFeatures;
+    if (attachments !== undefined) step.attachments = attachments;
+    if (reconstructionGate !== undefined) step.reconstructionGate = reconstructionGate;
     steps.push(step);
-    opts.onStep?.(step);
 
     // Rank on the combined (solidity-adjusted) score so a flat shape can't win
     // just by matching the front silhouette.
     if (gate?.accepted) best = step;
 
-    if (best?.combinedScore !== undefined && best.combinedScore >= targetScore) break;
+    if (reviewLedger && reconstructionGate && phaseBefore) {
+      const screenshots: ReviewScreenshot[] = imageBase64 === undefined
+        ? []
+        : [{ id: `step:${i}:reference`, mode: "reference", imageBase64 }];
+      for (const [index, frame] of (renderResult?.lookDevFrames ?? []).entries()) {
+        screenshots.push({
+          id: `step:${i}:lookdev:${index}`,
+          mode: frame.mode,
+          imageBase64: frame.imageBase64,
+          ...(frame.notes ? { notes: frame.notes } : {}),
+        });
+      }
+      const entry: ReviewLedgerEntry = {
+        iteration: i,
+        phase: phaseBefore,
+        script,
+        screenshots,
+        candidateAccepted: gate?.accepted === true,
+        gate: reconstructionGate,
+        criticalFeatures: criticalFeatures ?? [],
+        attachments: attachments ?? [],
+      };
+      if (renderResult?.parameters) entry.parameters = renderResult.parameters;
+      if (combinedScore !== undefined) entry.score = combinedScore;
+      reviewLedger = appendReviewLedger(reviewLedger, entry);
+    }
+    opts.onStep?.(step);
+
+    if (
+      best?.combinedScore !== undefined &&
+      best.combinedScore >= (contract?.quality?.targetScore ?? targetScore) &&
+      (passState?.completed ?? true)
+    ) break;
     if (i === maxIterations - 1) break;
 
     // Feedback turn: attach reference first, then the latest render, so the
     // model can compare the two directly.
-    let fb = feedback(run, evaluation, solidity, gate);
+    let fb = feedback(run, evaluation, solidity, gate, reconstructionGate);
+    if (contract && passState && reconstructionGate?.accepted && !passState.completed) {
+      fb += `\nNext locked workflow pass: ${passState.phase}.`;
+    }
     if (report) fb += `\n\nAutomated mesh review — address MUST FIX first:\n${formatCritique(report)}`;
     messages.push({
       role: "user",
@@ -339,10 +462,16 @@ export async function runImageLoop(opts: ImageLoopOptions): Promise<ImageLoopRes
     }
   }
 
-  return {
+  const result: ImageLoopResult = {
     success: !!best,
     steps,
     best,
     target,
   };
+  if (passState) {
+    result.passState = passState;
+    result.success = !!best && passState.completed;
+  }
+  if (reviewLedger) result.reviewLedger = reviewLedger;
+  return result;
 }

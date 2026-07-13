@@ -6,7 +6,7 @@
  * writes one PNG per view into out/shots/. An AI can read these PNGs to
  * self-evaluate and revise the generating script.
  *
- * Usage: pnpm shot [modelFile] [view1,view2,...] [material] [channels]
+ * Usage: pnpm shot [modelFile] [view1,view2,...] [material] [channels] [lookdev]
  *   pnpm shot teddy-bear.json front,side,persp
  *   pnpm shot teddy persp,front "" pbr,normal,depth,matcap
  *   pnpm shot teddy tt8                 # 8-frame turntable regression set
@@ -22,6 +22,8 @@
  * loop — one PNG per view per channel. Recognized: pbr (real PBR render),
  * lowpoly, toon, normal, depth, matcap, ao. Defaults to "pbr". The non-pbr channels map onto
  * __meshova.setDebugView() so a single pose yields aligned multi-channel images.
+ * lookdev (6th arg, comma-separated) captures reference/neutral/grazing light
+ * groups. Defaults to reference. LOOKDEV env provides the same setting.
  */
 import { chromium } from "playwright";
 import { createServer } from "node:http";
@@ -36,6 +38,15 @@ const VIEWS = (process.argv[3] || "persp,front,side,top").split(",");
 const MATERIAL = process.argv[4] || null;
 // Optional 5th arg: render channels for multi-channel VLM capture.
 const CHANNELS = (process.argv[5] || "pbr").split(",").map((c) => c.trim()).filter(Boolean);
+const LOOKDEV_INPUT = process.argv[6] || process.env.LOOKDEV || "reference";
+const LOOKDEV_ALLOWED = new Set(["reference", "neutral", "grazing"]);
+const requestedLookDev = [...new Set(LOOKDEV_INPUT.split(",").map((mode) => mode.trim()).filter(Boolean))];
+for (const mode of requestedLookDev) {
+  if (!LOOKDEV_ALLOWED.has(mode)) throw new Error(`unknown lookdev mode: ${mode}`);
+}
+const LOOKDEV_MODES = requestedLookDev.includes("reference")
+  ? ["reference", ...requestedLookDev.filter((mode) => mode !== "reference")]
+  : requestedLookDev;
 const SIZE = { width: 960, height: 720 };
 
 const MIME = {
@@ -110,7 +121,7 @@ page.on("pageerror", (e) => errors.push(String(e)));
 page.on("console", (m) => { if (m.type() === "error") errors.push(m.text()); });
 
 await page.goto(base + "/", { waitUntil: "domcontentloaded" });
-await page.addStyleTag({ content: "#critiqueBadge{display:none!important}" });
+await page.addStyleTag({ content: "#critiqueBadge,#draw-status,#hud{display:none!important}" });
 await page.waitForFunction(() => !!window.__meshova, null, { timeout: 90000 });
 await page.evaluate(() => window.__meshovaReady);
 
@@ -135,12 +146,30 @@ if (modelFile) {
 } else {
   await page.evaluate((id) => window.__meshova.loadModelById(id), modelId);
 }
+await page.evaluate(() => window.__meshova.finishBindingEdit?.());
+await page.evaluate(() => window.__meshova.setBindingOverlay?.(false));
 await page.evaluate(() => window.__meshova.setFxTime?.(1.25));
 await page.waitForTimeout(300);
 // Optional param overrides for procedural models via env: PARAMS='{"leafDensity":5}'.
+// FRAME_PARAMS can define a shared camera envelope for parameter comparisons.
+// The viewer fits that geometry first, then applies PARAMS while preserving the
+// camera. Use the `current` view token so every variant keeps identical framing.
+if (process.env.FRAME_PARAMS) {
+  const framing = JSON.parse(process.env.FRAME_PARAMS);
+  await page.evaluate((o) => window.__meshova.setParams(o), framing);
+  await page.evaluate(() => window.__meshova.setView("persp"));
+  await page.waitForTimeout(300);
+}
 if (process.env.PARAMS) {
   const overrides = JSON.parse(process.env.PARAMS);
   await page.evaluate((o) => window.__meshova.setParams(o), overrides);
+  const applied = await page.evaluate(() => window.__meshova.getParams());
+  for (const [key, expected] of Object.entries(overrides)) {
+    if (applied[key] !== expected) {
+      throw new Error(`parameter mismatch for ${key}: requested ${expected}, applied ${applied[key]}`);
+    }
+  }
+  console.log(`applied params: ${JSON.stringify(overrides)}`);
   await page.waitForTimeout(300);
 }
 if (MATERIAL) {
@@ -184,32 +213,54 @@ function expandViews(tokens) {
   return out;
 }
 
+async function applyLookDev(mode) {
+  if (mode === "reference") return;
+  await page.evaluate((lookDevMode) => {
+    window.__meshova.setPost(false);
+    window.__meshova.setFog(false);
+    window.__meshova.setDOF(false);
+    window.__meshova.setFloor("none");
+    window.__meshova.setGrid(false);
+    window.__meshova.setBackground("solid", "#777777");
+    window.__meshova.setEnvironment(lookDevMode === "neutral" ? "overcast" : "studio");
+    window.__meshova.setEnvRotation(0);
+    window.__meshova.setKeyLightDirection(
+      lookDevMode === "neutral" ? [4, 8, 5] : [9, 1.2, 2],
+    );
+  }, mode);
+  await page.waitForTimeout(120);
+}
+
 // Outer loop = pose (set once, accumulate TAA); inner loop = channel (debug
 // view swap is cheap and keeps the exact same camera, so the multi-channel
 // images are pixel-aligned — what the VLM needs to fuse them).
-for (const view of expandViews(VIEWS)) {
-  if (view.orbit !== undefined) {
-    await page.evaluate(({ az, el }) => window.__meshova.setOrbit(az, el), { az: view.orbit, el: view.elev });
-  } else if (view.name !== "current") {
-    await page.evaluate((v) => window.__meshova.setView(v), view.name);
+for (const lookDevMode of LOOKDEV_MODES) {
+  await applyLookDev(lookDevMode);
+  for (const view of expandViews(VIEWS)) {
+    if (view.orbit !== undefined) {
+      await page.evaluate(({ az, el }) => window.__meshova.setOrbit(az, el), { az: view.orbit, el: view.elev });
+    } else if (view.name !== "current") {
+      await page.evaluate((v) => window.__meshova.setView(v), view.name);
+    }
+    for (const ch of CHANNELS) {
+      const debugMode = ch === "pbr" ? "off" : ch;
+      await page.evaluate((m) => window.__meshova.setDebugView(m), debugMode);
+      // Let TAA fully accumulate so the captured frame is clean/anti-aliased —
+      // crisper silhouettes help the VLM/IoU matching downstream.
+      await page.evaluate(() => window.__meshova.settle(16));
+      await page.waitForTimeout(120);
+      const canvas = await page.$("canvas");
+      // Single-channel/reference runs keep the legacy name. Diagnostic groups
+      // add a lookdev tag; multi-channel runs add a channel tag.
+      const lookDevTag = LOOKDEV_MODES.length > 1 || lookDevMode !== "reference" ? `-${lookDevMode}` : "";
+      const chTag = CHANNELS.length > 1 || ch !== "pbr" ? `-${ch}` : "";
+      const file = join(outDir, `${modelId}${suffix}-${view.name}${lookDevTag}${chTag}.png`);
+      await canvas.screenshot({ path: file });
+      written.push(file);
+    }
+    // Restore real PBR after the pose's channels are done.
+    await page.evaluate(() => window.__meshova.setDebugView("off"));
   }
-  for (const ch of CHANNELS) {
-    const debugMode = ch === "pbr" ? "off" : ch;
-    await page.evaluate((m) => window.__meshova.setDebugView(m), debugMode);
-    // Let TAA fully accumulate so the captured frame is clean/anti-aliased —
-    // crisper silhouettes help the VLM/IoU matching downstream.
-    await page.evaluate(() => window.__meshova.settle(16));
-    await page.waitForTimeout(120);
-    const canvas = await page.$("canvas");
-    // Single-channel runs keep the legacy "<id><mat>-<view>.png" name; multi
-    // channel runs add a "-<channel>" tag so files don't collide.
-    const chTag = CHANNELS.length > 1 || ch !== "pbr" ? `-${ch}` : "";
-    const file = join(outDir, `${modelId}${suffix}-${view.name}${chTag}.png`);
-    await canvas.screenshot({ path: file });
-    written.push(file);
-  }
-  // Restore real PBR after the pose's channels are done.
-  await page.evaluate(() => window.__meshova.setDebugView("off"));
 }
 
 if (process.env.STATS === "1") {

@@ -201,13 +201,15 @@ export function buildPcgForestParts(params: Partial<PcgForestParams> = {}): Name
       windWeight: foliageWindWeights(foliage, 0.45, 0.5),
     });
   }
-  parts.push({
-    name: "tree_trunks",
-    label: "乔木树干",
-    mesh: woodMeshes.length > 0 ? merge(...woodMeshes) : merge(),
-    color: BARK,
-    surface: { type: "wood", params: { color: BARK, roughness: 0.94, grainScale: 2.2 } },
-  });
+  if (woodMeshes.length > 0) {
+    parts.push({
+      name: "tree_trunks",
+      label: "乔木树干",
+      mesh: merge(...woodMeshes),
+      color: BARK,
+      surface: { type: "wood", params: { color: BARK, roughness: 0.94, grainScale: 2.2 } },
+    });
+  }
 
   const shrubs = buildShrubCloud(ground, path, p, slope);
   if (pointCount(shrubs) > 0) {

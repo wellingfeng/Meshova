@@ -14,6 +14,7 @@
 import { runImageLoop, type ImageRenderResult } from "../agent/image-loop.js";
 import type { LlmClient } from "../agent/llm.js";
 import type { NamedPart } from "../geometry/export.js";
+import type { ReconstructionContract, ReconstructionPassState, ReviewLedger } from "../reconstruction/index.js";
 import { encodePNG } from "../texture/png.js";
 import {
   classifyByVlm,
@@ -51,6 +52,8 @@ export interface ImageToModelOptions {
    * when `render` returns auxViewsBase64 (extra angles). Default 0.5; 0 off.
    */
   solidityPenalty?: number;
+  /** Optional staged quality contract with critical-feature and LookDev gates. */
+  reconstructionContract?: ReconstructionContract;
   /**
    * Classify the surface material too. Default true. Uses the VLM classifier
    * with a feature-based fallback, then applies the confidence guard.
@@ -69,6 +72,8 @@ export interface ImageToModelResult {
   /** Chosen surface material (guarded). null if classification was disabled. */
   material: MaterialChoice | null;
   iterations: number;
+  passState?: ReconstructionPassState;
+  reviewLedger?: ReviewLedger;
 }
 
 /**
@@ -109,7 +114,6 @@ export async function imageToModel(opts: ImageToModelOptions): Promise<ImageToMo
   const loopOpts: Parameters<typeof runImageLoop>[0] = {
     client: opts.client,
     referencePng: opts.referencePng,
-    maxIterations: opts.iterations ?? 4,
     render: opts.render,
     hint: combinedHint,
     onStep: (s) => {
@@ -118,6 +122,8 @@ export async function imageToModel(opts: ImageToModelOptions): Promise<ImageToMo
       opts.onStep?.(info);
     },
   };
+  if (opts.iterations !== undefined) loopOpts.maxIterations = opts.iterations;
+  if (opts.reconstructionContract !== undefined) loopOpts.reconstructionContract = opts.reconstructionContract;
   if (opts.targetScore !== undefined) loopOpts.targetScore = opts.targetScore;
   if (opts.scoreOptions !== undefined) loopOpts.scoreOptions = opts.scoreOptions;
   if (opts.evaluationOptions !== undefined) loopOpts.evaluationOptions = opts.evaluationOptions;
@@ -132,7 +138,7 @@ export async function imageToModel(opts: ImageToModelOptions): Promise<ImageToMo
   }
 
   const best = shape.best;
-  return {
+  const result: ImageToModelResult = {
     success: shape.success,
     script: best?.script ?? "",
     parts: best?.run.parts ?? [],
@@ -140,4 +146,7 @@ export async function imageToModel(opts: ImageToModelOptions): Promise<ImageToMo
     material,
     iterations: shape.steps.length,
   };
+  if (shape.passState) result.passState = shape.passState;
+  if (shape.reviewLedger) result.reviewLedger = shape.reviewLedger;
+  return result;
 }

@@ -9,7 +9,7 @@ import { BokehPass } from "three/addons/postprocessing/BokehPass.js";
 import { ShaderPass } from "three/addons/postprocessing/ShaderPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { Reflector } from "three/addons/objects/Reflector.js";
-import { bakeMaterial, bakeSurface, bakeWaterSurface, bakeSurfaceByName, isSurface, SURFACE_NAMES, SURFACE_LABEL_MAP, PRESET_NAMES, BUILDER_NAMES, SURFACE_PARAM_SCHEMA, defaultSurfaceParams } from "/web/materials.js?v=water8";
+import { bakeMaterial, bakeSurface, bakeWaterSurface, bakeSurfaceByName, isSurface, SURFACE_NAMES, SURFACE_LABEL_MAP, PRESET_NAMES, BUILDER_NAMES, SURFACE_PARAM_SCHEMA, defaultSurfaceParams } from "/web/materials.js?v=productionstudies1";
 import {
   PRESET_PARAM_SCHEMA,
   defaultMatParams,
@@ -6388,6 +6388,7 @@ window.__meshova = {
   setAutorot: (on) => { autorot = on; },
   setWire: (on) => { wireframe = on; applyWire(); },
   setGrid: (on) => { grid.visible = !!on; const btn = document.getElementById("grid"); if (btn) btn.classList.toggle("on", grid.visible); },
+  setBindingOverlay: (on) => { bindingOverlay.visible = !!on; resetTAA(); },
   // wind: toggle GPU foliage sway / set amplitude. Screenshots call setWind(false)
   // for a frozen, deterministic frame.
   setWind: (on, strength) => {
@@ -6434,6 +6435,14 @@ window.__meshova = {
   environments: () => ENV_NAMES.slice(),
   setEnvironment: (name) => { if (ENV_PRESETS[name]) { applyEnvironment(name); if (envSel) envSel.value = name; } },
   setEnvRotation: (deg) => { applyEnvRotation(Number(deg) || 0); if (envRotEl) envRotEl.value = String(((Number(deg) || 0) % 360 + 360) % 360); },
+  setKeyLightDirection: (direction) => {
+    if (!Array.isArray(direction) || direction.length !== 3 || !direction.every(Number.isFinite)) return false;
+    SUN_DIR.set(direction[0], direction[1], direction[2]).normalize();
+    key.position.copy(SUN_DIR).multiplyScalar(12);
+    updateShadowCamera();
+    resetTAA();
+    return true;
+  },
   // Debug views for VLM semantic decomposition and stylized rendering.
   debugViews: () => ["off", "lowpoly", "toon", "normal", "matcap", "depth", "ao"],
   setDebugView: (mode) => { applyDebugView(mode); if (debugSel) debugSel.value = debugView; syncToonCtl(); },

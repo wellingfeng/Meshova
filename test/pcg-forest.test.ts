@@ -44,4 +44,13 @@ describe("procedural PCG forest", () => {
 
     expect(firstTerrain.mesh.positions).not.toEqual(secondTerrain.mesh.positions);
   });
+
+  it("never returns empty semantic parts", () => {
+    const parts = buildPcgForestParts({ candidates: 0, shrubs: 0, rocks: 0, deadwood: 0 });
+    const emptyParts = parts
+      .filter((part) => part.mesh.positions.length === 0 || part.mesh.indices.length === 0)
+      .map((part) => part.name);
+
+    expect(emptyParts).toEqual([]);
+  });
 });

@@ -13,9 +13,16 @@
     "skipLibCheck": true,
     "declaration": true,
     "sourceMap": true,
+    "noEmitOnError": true,
     "outDir": "dist",
-    "rootDir": "src"
+    "baseUrl": ".",
+    "paths": {
+      "meshova": ["src/index.ts"],
+      "meshova/core": ["src/index.ts"],
+      "meshova/pcg": ["pcg/index.ts"],
+      "meshova/content": ["content/index.ts"]
+    }
   },
-  "include": ["src"],
+  "include": ["src", "pcg", "content"],
   "exclude": ["dist", "node_modules", "test"]
 }

@@ -384,6 +384,7 @@ import {
   PATH_LIGHTS_WORKFLOW,
 } from "/dist/index.js?v=lowpoly1";
 import { SPEEDTREE_TUTORIAL_MODELS } from "/web/speedtree-tutorial-procmodels.js?v=cloth2";
+import { CONTENT_MODELS } from "/dist/web-content/content/index.js?v=pcg2";
 
 /** @typedef {{ key:string, label:string, min:number, max:number, step:number, default:number }} ParamSpec */
 
@@ -510,48 +511,7 @@ export function makeSpeedTreeLibraryModel(procedural = {}, fallbackName = "Mesho
   };
 }
 
-// ---- teddy bear, fully parameterized ----
-const teddy = {
-  id: "teddy",
-  name: "卡通小熊",
-  schema: [
-    { key: "headSize", label: "头部大小", min: 0.4, max: 1.1, step: 0.01, default: 0.75 },
-    { key: "earSize", label: "耳朵大小", min: 0.1, max: 0.5, step: 0.01, default: 0.3 },
-    { key: "bodyW", label: "身体宽度", min: 0.6, max: 1.2, step: 0.01, default: 0.85 },
-    { key: "bodyH", label: "身体高度", min: 0.8, max: 1.4, step: 0.01, default: 1.05 },
-    { key: "limb", label: "四肢粗细", min: 0.3, max: 0.7, step: 0.01, default: 0.45 },
-    { key: "snout", label: "口鼻大小", min: 0.2, max: 0.5, step: 0.01, default: 0.34 },
-  ],
-  build(p) {
-    const FUR = [0.55, 0.36, 0.18];
-    const LIGHT = [0.78, 0.6, 0.4];
-    const DARK = [0.07, 0.05, 0.04];
-    const parts = [];
-    const headY = 0.4 + p.bodyH;
-    const furP = (name, mesh, tint) => surfPart(name, mesh, "fur", { tint });
-    parts.push(furP("body", scaleMesh(sphere(1, 28, 22), vec3(p.bodyW, p.bodyH, p.bodyW * 0.94)), FUR));
-    parts.push(furP("belly", transform(sphere(0.55, 24, 18), { scale: vec3(0.7, 0.85, 0.5), translate: vec3(0, -0.05, p.bodyW * 0.65) }), LIGHT));
-    parts.push(furP("head", transform(sphere(p.headSize, 28, 22), { translate: vec3(0, headY, 0.05) }), FUR));
-    for (const side of [-1, 1]) {
-      parts.push(furP(`ear_${side}`, transform(sphere(p.earSize, 18, 14), { scale: vec3(1, 1, 0.55), translate: vec3(p.headSize * 0.66 * side, headY + p.headSize * 0.73, 0) }), FUR));
-      parts.push(furP(`ear_inner_${side}`, transform(sphere(p.earSize * 0.55, 16, 12), { scale: vec3(1, 1, 0.45), translate: vec3(p.headSize * 0.66 * side, headY + p.headSize * 0.73, 0.12) }), LIGHT));
-    }
-    parts.push(furP("muzzle", transform(sphere(p.snout, 22, 16), { scale: vec3(1.1, 0.85, 0.9), translate: vec3(0, headY - 0.12, p.headSize * 0.82) }), LIGHT));
-    parts.push(surfPart("nose", transform(box(0.16, 0.12, 0.12), { translate: vec3(0, headY - 0.06, p.headSize * 0.82 + p.snout * 0.7) }), "plastic", { color: DARK, roughness: 0.3 }));
-    // Eyes sit ON the head sphere surface so they stay visible: given the x/y
-    // offset from the head center, solve z on the sphere of radius headSize.
-    const eyeDx = p.headSize * 0.34;
-    const eyeDy = 0.16;
-    const eyeR = Math.max(0.08, p.headSize * 0.13);
-    const eyeZ = 0.05 + Math.sqrt(Math.max(0.02, p.headSize * p.headSize - eyeDx * eyeDx - eyeDy * eyeDy)) - eyeR * 0.35;
-    for (const side of [-1, 1]) {
-      parts.push(surfPart(`eye_${side}`, transform(sphere(eyeR, 14, 10), { translate: vec3(eyeDx * side, headY + eyeDy, eyeZ) }), "plastic", { color: DARK, roughness: 0.15 }));
-      parts.push(furP(`arm_${side}`, transform(sphere(0.34, 18, 14), { scale: vec3(p.limb / 0.45 * 0.55, 0.9, 0.55), rotate: vec3(0, 0, side * 0.5), translate: vec3((p.bodyW + 0.1) * side, 0.25, 0.1) }), FUR));
-      parts.push(furP(`leg_${side}`, transform(sphere(0.42, 20, 16), { scale: vec3(p.limb / 0.45 * 0.7, 0.85, 0.85), translate: vec3(0.45 * side, -0.95, 0.1) }), FUR));
-    }
-    return parts;
-  },
-};
+const teddy = CONTENT_MODELS.teddy;
 
 // ---- a procedural rock: subdivided sphere + noise displacement ----
 const rock = {
@@ -10335,6 +10295,7 @@ PROC_MODELS["assembly-woodland-edge"] = assemblyWoodlandEdge;
 PROC_MODELS["assembly-dry-rockery"] = assemblyDryRockery;
 PROC_MODELS["procedural-planet"] = proceduralPlanet;
 PROC_MODELS["garden-metropolis"] = GARDEN_METROPOLIS_MODEL;
+Object.assign(PROC_MODELS, CONTENT_MODELS);
 
 function editableWorkflow(model, key, label, kind, defaultBinding, editor = undefined) {
   return {
@@ -10671,13 +10632,14 @@ function attachCurveGraphEditor(id, label = "分叉曲线图") {
   });
   model.build = (params, context) => {
     const binding = context?.bindings?.[key] || defaultBinding;
+    const graphEdges = binding.edges || defaultBinding.edges;
     const graphPoints = bindingVec3Points(context, key, defaultBinding).map((point, index) => vec3(
       point.x,
       point.y + bindingPointAttribute(context, key, index, "height", 0),
       point.z,
     ));
     const radius = Number(params.radius ?? 0.055);
-    const pipeMeshes = (binding.edges || defaultBinding.edges).map((edge) => {
+    const pipeMeshes = graphEdges.map((edge) => {
       const from = graphPoints[Number(edge.from ?? edge[0])];
       const to = graphPoints[Number(edge.to ?? edge[1])];
       if (!from || !to) return null;
@@ -10690,13 +10652,46 @@ function attachCurveGraphEditor(id, label = "分叉曲线图") {
       return sweep(curve, { radius, sides: 10, caps: true });
     }).filter(Boolean);
     const junctions = graphPoints.map((point) => transform(sphere(radius * 2.15, 14, 10), { translate: point }));
+    const adjacency = graphPoints.map(() => []);
+    for (const edge of graphEdges) {
+      const from = Number(edge.from ?? edge[0]);
+      const to = Number(edge.to ?? edge[1]);
+      if (!adjacency[from] || !adjacency[to]) continue;
+      adjacency[from].push(to);
+      adjacency[to].push(from);
+    }
+    const target = graphPoints.length - 1;
+    const previous = new Array(graphPoints.length).fill(-1);
+    const queue = [0];
+    previous[0] = 0;
+    for (let cursor = 0; cursor < queue.length && previous[target] < 0; cursor++) {
+      const current = queue[cursor];
+      for (const next of adjacency[current]) {
+        if (previous[next] >= 0) continue;
+        previous[next] = current;
+        queue.push(next);
+      }
+    }
+    const route = [];
+    if (previous[target] >= 0) {
+      for (let current = target; current !== 0; current = previous[current]) route.push(graphPoints[current]);
+      route.push(graphPoints[0]);
+      route.reverse();
+    }
+    const routeMesh = route.length > 1
+      ? sweep(controlCurve(route, { type: "catmull-rom", closed: false, subdivisions: 8 }), {
+        radius: radius * 1.55,
+        sides: 12,
+        caps: false,
+      })
+      : null;
     const parts = originalBuild(params, context);
     return parts.map((part) => part.name === "pipe_network"
       ? { ...part, mesh: merge(...pipeMeshes) }
       : part.name === "pipe_junctions"
         ? { ...part, mesh: merge(...junctions) }
-        : part.name === "shortest_route"
-          ? { ...part, mesh: merge() }
+        : part.name === "shortest_route" && routeMesh
+          ? { ...part, mesh: routeMesh }
           : part);
   };
   model.assetMeta = {
