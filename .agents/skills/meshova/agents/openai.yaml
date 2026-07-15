@@ -1,0 +1,4 @@
+interface:
+  display_name: "Meshova"
+  short_description: "Closed-loop procedural models and PBR from text or images"
+  default_prompt: "Use $meshova to generate a deterministic procedural model from my description or reference image."

@@ -9,7 +9,9 @@ out/
 .site/
 .ultragamestudio/
 _h.mjs
-.claude/
+.claude/*
+!.claude/commands/
+!.claude/commands/meshova.md
 .omc/
 # 只读参考源，不入库
 Meshova_pcg-ref/

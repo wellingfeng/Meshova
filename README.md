@@ -54,10 +54,10 @@ pnpm view        # live viewer
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the workflow, hard invariants, and
 how to update the deterministic shape-regression baseline.
 
-## `/meshova` slash command
+## AI modeling commands
 
-Claude Code users can call `/meshova` as the unified AI modeling entry. Give it
-a text description or a local reference image. It writes a deterministic,
+Claude Code users can call `/meshova`; Codex users can call `$meshova`. Give the
+command a text description or a local reference image. It writes a deterministic,
 re-runnable procedural JS script, runs it in the Meshova sandbox, renders several
 views, reviews the result, and iterates. The result stays procedural instead of
 becoming a baked-only mesh.
@@ -65,9 +65,12 @@ becoming a baked-only mesh.
 ```text
 /meshova A cartoon corgi wearing goggles and a jetpack
 /meshova refs/chair.png Preserve the armrest silhouette and use dark leather
+$meshova A cartoon corgi wearing goggles and a jetpack
+$meshova refs/chair.png Preserve the armrest silhouette and use dark leather
 ```
 
-The command is defined in [`.claude/commands/meshova.md`](.claude/commands/meshova.md).
+The Claude Code command is defined in [`.claude/commands/meshova.md`](.claude/commands/meshova.md).
+The Codex skill is defined in [`.agents/skills/meshova/SKILL.md`](.agents/skills/meshova/SKILL.md).
 Before first use, install dependencies and build `dist/`:
 
 ```bash
