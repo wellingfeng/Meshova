@@ -108,9 +108,9 @@ export const HERO_RECONSTRUCTION_CONTRACTS: Readonly<Record<HeroReconstructionCo
       {
         id: "offroad-hardware",
         label: "越野硬件",
-        description: "Wheel flares, recovery hooks, underbody frame, and bed sport bar",
-        partNames: ["wheel_flares", "red_recovery_hooks", "underbody_frame", "bed_sport_bar"],
-        minimumCount: 4,
+        description: "Wheel flares, recovery hooks, underbody frame, and paired rock sliders",
+        partNames: ["wheel_flares", "red_recovery_hooks", "underbody_frame", "rock_slider_-1", "rock_slider_1"],
+        minimumCount: 5,
         minimumScore: 1,
       },
     ],

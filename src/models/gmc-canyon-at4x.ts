@@ -44,7 +44,7 @@ export const GMC_CANYON_AT4X_DEFAULTS: GmcCanyonAt4xParams = {
   wheelRadius: 0.39,
   rideHeight: 0.08,
   bedLength: 1.48,
-  armor: 1,
+  armor: 0.4,
   tireTread: 1,
   suspensionLift: 0.08,
 };
@@ -213,7 +213,7 @@ function grilleMesh(ctx: ScaleContext): Mesh {
 
 function wheelSet(ctx: ScaleContext, side: -1 | 1, z: number, radius: number, treadStrength: number): NamedPart[] {
   const parts: NamedPart[] = [];
-  const center = sv(ctx, side * 1.08, 0.53, z);
+  const center = vec3(side * 1.08 * ctx.sx, radius * 1.28, z * ctx.sz);
   const xOuter = side * 1.13 * ctx.sx;
 
   const tire = transform(torus(radius, radius * 0.28, 52, 16), {
@@ -328,55 +328,55 @@ export function buildGmcCanyonAt4xParts(params: Partial<GmcCanyonAt4xParams> = {
   add(parts, "hood_black_vent", partBox(ctx, vec3(0.78, 0.035, 0.42), vec3(0, 1.3, -1.92), vec3(-0.08, 0, 0)), BLACK, "plastic", { color: BLACK, roughness: 0.4 });
 
   add(parts, "crew_cab_pillars", merge(
-    partBox(ctx, vec3(1.52, 0.13, 1.18), vec3(0, 1.72, -0.22)),
-    partBox(ctx, vec3(1.72, 0.1, 0.08), vec3(0, 1.44, -0.96), vec3(-0.55, 0, 0)),
-    partBox(ctx, vec3(1.62, 0.12, 0.08), vec3(0, 1.41, 0.55), vec3(0.32, 0, 0)),
+    partBox(ctx, vec3(1.48, 0.12, 1.18), vec3(0, 1.82, -0.22)),
+    partBox(ctx, vec3(1.72, 0.1, 0.08), vec3(0, 1.5, -0.96), vec3(-0.62, 0, 0)),
+    partBox(ctx, vec3(1.58, 0.11, 0.08), vec3(0, 1.49, 0.55), vec3(0.38, 0, 0)),
     partBox(ctx, vec3(1.58, 0.08, 0.1), vec3(0, 1.18, 0.62)),
-    partBox(ctx, vec3(0.12, 0.66, 0.08), vec3(-0.88, 1.38, -0.78), vec3(-0.35, 0, 0)),
-    partBox(ctx, vec3(0.12, 0.66, 0.08), vec3(0.88, 1.38, -0.78), vec3(-0.35, 0, 0)),
-    partBox(ctx, vec3(0.1, 0.58, 0.07), vec3(-0.88, 1.35, -0.05)),
-    partBox(ctx, vec3(0.1, 0.58, 0.07), vec3(0.88, 1.35, -0.05)),
-    partBox(ctx, vec3(0.1, 0.6, 0.07), vec3(-0.88, 1.32, 0.52), vec3(0.2, 0, 0)),
-    partBox(ctx, vec3(0.1, 0.6, 0.07), vec3(0.88, 1.32, 0.52), vec3(0.2, 0, 0)),
+    partBox(ctx, vec3(0.11, 0.7, 0.08), vec3(-0.86, 1.46, -0.78), vec3(-0.42, 0, 0)),
+    partBox(ctx, vec3(0.11, 0.7, 0.08), vec3(0.86, 1.46, -0.78), vec3(-0.42, 0, 0)),
+    partBox(ctx, vec3(0.09, 0.64, 0.07), vec3(-0.84, 1.43, -0.05)),
+    partBox(ctx, vec3(0.09, 0.64, 0.07), vec3(0.84, 1.43, -0.05)),
+    partBox(ctx, vec3(0.09, 0.66, 0.07), vec3(-0.84, 1.4, 0.52), vec3(0.28, 0, 0)),
+    partBox(ctx, vec3(0.09, 0.66, 0.07), vec3(0.84, 1.4, 0.52), vec3(0.28, 0, 0)),
   ), PAINT, "carPaint", { color: PAINT, seed: 232 });
-  add(parts, "cab_black_roof", partBox(ctx, vec3(1.52, 0.055, 1.04), vec3(0, 1.755, -0.23)), BLACK, "plastic", { color: BLACK, roughness: 0.18 });
+  add(parts, "cab_black_roof", partBox(ctx, vec3(1.48, 0.055, 1.04), vec3(0, 1.855, -0.23)), BLACK, "plastic", { color: BLACK, roughness: 0.18 });
 
   add(parts, "glass_pack", quadStrip([
     [
-      sv(ctx, -0.72, 1.29, -1.03),
-      sv(ctx, 0.72, 1.29, -1.03),
-      sv(ctx, 0.58, 1.66, -0.62),
-      sv(ctx, -0.58, 1.66, -0.62),
+      sv(ctx, -0.74, 1.28, -1.03),
+      sv(ctx, 0.74, 1.28, -1.03),
+      sv(ctx, 0.56, 1.78, -0.62),
+      sv(ctx, -0.56, 1.78, -0.62),
     ],
     [
-      sv(ctx, -0.58, 1.44, 0.5),
-      sv(ctx, 0.58, 1.44, 0.5),
-      sv(ctx, 0.68, 1.66, 0.36),
-      sv(ctx, -0.68, 1.66, 0.36),
+      sv(ctx, -0.62, 1.4, 0.5),
+      sv(ctx, 0.62, 1.4, 0.5),
+      sv(ctx, 0.66, 1.78, 0.36),
+      sv(ctx, -0.66, 1.78, 0.36),
     ],
     [
       sv(ctx, -0.88, 1.25, -0.78),
-      sv(ctx, -0.72, 1.62, -0.55),
-      sv(ctx, -0.72, 1.62, -0.05),
+      sv(ctx, -0.68, 1.76, -0.55),
+      sv(ctx, -0.68, 1.76, -0.05),
       sv(ctx, -0.89, 1.24, -0.02),
     ],
     [
-      sv(ctx, 0.72, 1.62, -0.55),
+      sv(ctx, 0.68, 1.76, -0.55),
       sv(ctx, 0.88, 1.25, -0.78),
       sv(ctx, 0.89, 1.24, -0.02),
-      sv(ctx, 0.72, 1.62, -0.05),
+      sv(ctx, 0.68, 1.76, -0.05),
     ],
     [
       sv(ctx, -0.9, 1.23, 0.04),
-      sv(ctx, -0.72, 1.61, 0.0),
-      sv(ctx, -0.72, 1.58, 0.48),
+      sv(ctx, -0.68, 1.75, 0.0),
+      sv(ctx, -0.68, 1.72, 0.48),
       sv(ctx, -0.9, 1.18, 0.54),
     ],
     [
-      sv(ctx, 0.72, 1.61, 0.0),
+      sv(ctx, 0.68, 1.75, 0.0),
       sv(ctx, 0.9, 1.23, 0.04),
       sv(ctx, 0.9, 1.18, 0.54),
-      sv(ctx, 0.72, 1.58, 0.48),
+      sv(ctx, 0.68, 1.72, 0.48),
     ],
   ]), DARK_GLASS, "glass", { tint: DARK_GLASS, roughness: 0.06, thickness: 0.08 });
 
@@ -430,10 +430,10 @@ export function buildGmcCanyonAt4xParts(params: Partial<GmcCanyonAt4xParams> = {
     partBox(ctx, vec3(1.2, 0.07, 0.11), vec3(0, 0.32, 1.2)),
   ), BLACK, "metal", { color: BLACK, roughness: 0.6 });
   add(parts, "roof_rails", merge(
-    partBox(ctx, vec3(0.07, 0.05, 1.0), vec3(-0.58, 1.7975, -0.23)),
-    partBox(ctx, vec3(0.07, 0.05, 1.0), vec3(0.58, 1.7975, -0.23)),
-    partBox(ctx, vec3(1.12, 0.04, 0.06), vec3(0, 1.7975, -0.67)),
-    partBox(ctx, vec3(1.12, 0.04, 0.06), vec3(0, 1.7975, 0.2)),
+    partBox(ctx, vec3(0.06, 0.04, 0.92), vec3(-0.56, 1.9, -0.23)),
+    partBox(ctx, vec3(0.06, 0.04, 0.92), vec3(0.56, 1.9, -0.23)),
+    partBox(ctx, vec3(1.06, 0.035, 0.05), vec3(0, 1.9, -0.64)),
+    partBox(ctx, vec3(1.06, 0.035, 0.05), vec3(0, 1.9, 0.17)),
   ), BLACK, "metal", { color: BLACK, roughness: 0.42 });
 
   if (p.armor > 0.45) {
@@ -468,6 +468,11 @@ export interface PickupVehicleScore {
     vehicleSemantics: number;
     detail: number;
     solidity: number;
+    wheelArchWrap: number;
+    tireContact: number;
+    cabinSection: number;
+    surfaceContinuity: number;
+    frontContour: number;
   };
   measurements: {
     lengthToWidth: number;
@@ -534,6 +539,92 @@ function oneNamed(parts: NamedPart[], name: string): NamedPart | undefined {
 
 function ratioOrZero(a: number, b: number): number {
   return b > 1e-6 ? a / b : 0;
+}
+
+function tireContactScore(tires: ReadonlyArray<NamedPart>): number {
+  if (tires.length !== 4) return 0;
+  return average(tires.map((tire) => {
+    const tireBounds = bounds(tire.mesh);
+    const radius = dim(tireBounds).y * 0.5;
+    return clamp01(1 - Math.abs(tireBounds.min.y) / Math.max(0.02, radius * 0.18));
+  }));
+}
+
+function wheelArchWrapScore(arch: NamedPart | undefined, tires: ReadonlyArray<NamedPart>): number {
+  if (!arch || tires.length !== 4) return 0;
+  return average(tires.map((tire) => {
+    const tireBounds = bounds(tire.mesh);
+    const tireCenter = center(tireBounds);
+    const radius = dim(tireBounds).y * 0.5;
+    const near = arch.mesh.positions.filter((position) =>
+      Math.abs(position.x - tireCenter.x) <= radius * 0.55 &&
+      Math.abs(position.z - tireCenter.z) <= radius * 1.35 &&
+      position.y >= tireCenter.y - radius * 0.05
+    );
+    if (near.length === 0) return 0;
+    const angles = near.map((position) => Math.atan2(position.z - tireCenter.z, position.y - tireCenter.y));
+    const top = angles.some((angle) => Math.abs(angle) < 0.48) ? 1 : 0;
+    const left = angles.some((angle) => angle < -0.72 && angle > -1.72) ? 1 : 0;
+    const right = angles.some((angle) => angle > 0.72 && angle < 1.72) ? 1 : 0;
+    return (top + left + right) / 3;
+  }));
+}
+
+function cabinSectionScore(glass: NamedPart | undefined): number {
+  if (!glass) return 0;
+  const glassBounds = bounds(glass.mesh);
+  const height = dim(glassBounds).y;
+  const low = glass.mesh.positions.filter((position) => position.y <= glassBounds.min.y + height * 0.36);
+  const high = glass.mesh.positions.filter((position) => position.y >= glassBounds.max.y - height * 0.36);
+  if (low.length < 2 || high.length < 2) return 0;
+  const span = (points: ReadonlyArray<Vec3>) => Math.max(...points.map((point) => point.x)) - Math.min(...points.map((point) => point.x));
+  const lowWidth = span(low);
+  const highWidth = span(high);
+  return rangeScore(highWidth / Math.max(1e-6, lowWidth), 0.62, 0.9) * 0.65 +
+    rangeScore(height / Math.max(1e-6, lowWidth), 0.28, 0.65) * 0.35;
+}
+
+function surfaceContinuityScore(mesh: Mesh | undefined): number {
+  if (!mesh) return 0;
+  const meshBounds = bounds(mesh);
+  const depth = dim(meshBounds).z;
+  const widths: number[] = [];
+  for (let index = 0; index < 12; index++) {
+    const minZ = meshBounds.min.z + depth * index / 12;
+    const maxZ = meshBounds.min.z + depth * (index + 1) / 12;
+    const points = mesh.positions.filter((position) => position.z >= minZ && position.z <= maxZ);
+    if (points.length > 0) widths.push(Math.max(...points.map((point) => Math.abs(point.x))));
+  }
+  if (widths.length < 7) return 0;
+  const maxWidth = Math.max(...widths, 1e-6);
+  let curvature = 0;
+  for (let index = 1; index < widths.length - 1; index++) {
+    curvature += Math.abs(widths[index - 1]! - 2 * widths[index]! + widths[index + 1]!);
+  }
+  return clamp01(1 - curvature / ((widths.length - 2) * maxWidth) * 8);
+}
+
+function frontContourScore(parts: ReadonlyArray<NamedPart>, allBounds: { min: Vec3; max: Vec3 }): number {
+  const grille = parts.find((part) => part.name === "front_grille");
+  const bumper = parts.find((part) => part.name === "front_steel_bumper");
+  const badge = parts.find((part) => part.name === "gmc_front_badge");
+  const lamps = parts.filter((part) => /^c_lamp_/.test(part.name));
+  if (!grille || !bumper || !badge || lamps.length !== 2) return 0;
+  const grilleBounds = bounds(grille.mesh);
+  const grilleCenter = center(grilleBounds);
+  const bumperCenter = center(bounds(bumper.mesh));
+  const badgeCenter = center(bounds(badge.mesh));
+  const lampCenters = lamps.map((lamp) => center(bounds(lamp.mesh))).sort((left, right) => left.x - right.x);
+  const modelWidth = dim(allBounds).x;
+  const frontDepth = Math.abs(grilleBounds.min.z - allBounds.min.z) / dim(allBounds).z;
+  return average([
+    rangeScore(dim(grilleBounds).x / modelWidth, 0.42, 0.72),
+    clamp01(1 - Math.abs(lampCenters[0]!.x + lampCenters[1]!.x) / modelWidth),
+    lampCenters[0]!.x < grilleCenter.x && lampCenters[1]!.x > grilleCenter.x ? 1 : 0,
+    bumperCenter.y < grilleCenter.y ? 1 : 0,
+    clamp01(1 - Math.abs(badgeCenter.x - grilleCenter.x) / modelWidth * 8),
+    clamp01(1 - frontDepth * 8),
+  ]);
 }
 
 /**
@@ -607,15 +698,21 @@ export function scorePickupVehicle(parts: NamedPart[]): PickupVehicleScore {
     rangeScore(wheelRadiusRatio, 0.18, 0.26),
   ]);
 
-  const brandSignature = average([
+  const wheelArchWrap = wheelArchWrapScore(byName.get("wheel_flares"), tireParts);
+  const tireContact = tireContactScore(tireParts);
+  const cabinSection = cabinSectionScore(byName.get("glass_pack"));
+  const surfaceContinuity = surfaceContinuityScore(byName.get("lower_body_shell")?.mesh);
+  const frontContour = frontContourScore(parts, allBounds);
+
+  const brandNames = average([
     byName.has("gmc_front_badge") ? 1 : 0,
     byName.has("front_grille") ? 1 : 0,
     countNamed(parts, /^c_lamp_/) >= 2 ? 1 : 0,
     byName.has("front_skid_plate") ? 1 : 0,
     byName.has("red_recovery_hooks") ? 1 : 0,
     byName.has("wheel_flares") ? 1 : 0,
-    byName.has("bed_sport_bar") ? 1 : 0,
   ]);
+  const brandSignature = brandNames * 0.35 + frontContour * 0.65;
 
   const paintParts = parts.filter((part) => /(body|hood|cab|tailgate|bed)/.test(part.name));
   const paintGood = paintParts.filter((part) => part.surface?.type === "carPaint" || part.surface?.type === "plastic").length / Math.max(1, paintParts.length);
@@ -648,16 +745,26 @@ export function scorePickupVehicle(parts: NamedPart[]): PickupVehicleScore {
     vehicleSemantics,
     detail,
     solidity,
+    wheelArchWrap,
+    tireContact,
+    cabinSection,
+    surfaceContinuity,
+    frontContour,
   };
   const score = clamp01(
-    metrics.requiredParts * 0.14 +
-      metrics.proportions * 0.22 +
-      metrics.cabBedLayout * 0.2 +
-      metrics.wheelSystem * 0.13 +
-      metrics.brandSignature * 0.1 +
-      metrics.vehicleSemantics * 0.1 +
-      metrics.detail * 0.05 +
-      metrics.solidity * 0.06,
+    metrics.requiredParts * 0.08 +
+      metrics.proportions * 0.14 +
+      metrics.cabBedLayout * 0.12 +
+      metrics.wheelSystem * 0.1 +
+      metrics.brandSignature * 0.06 +
+      metrics.vehicleSemantics * 0.06 +
+      metrics.detail * 0.03 +
+      metrics.solidity * 0.04 +
+      metrics.wheelArchWrap * 0.1 +
+      metrics.tireContact * 0.08 +
+      metrics.cabinSection * 0.08 +
+      metrics.surfaceContinuity * 0.06 +
+      metrics.frontContour * 0.05,
   );
 
   const tips: string[] = [];
@@ -665,6 +772,11 @@ export function scorePickupVehicle(parts: NamedPart[]): PickupVehicleScore {
   if (metrics.proportions < 0.82) tips.push("fix length/width/height, wheelbase, track, tire radius");
   if (metrics.cabBedLayout < 0.8) tips.push("fix hood/cab/bed/glass proportions before adding accessories");
   if (metrics.wheelSystem < 0.9) tips.push("add four complete wheels with tires, rims, hubs, tread");
+  if (metrics.wheelArchWrap < 0.8) tips.push("wrap each tire with a geometry-verified wheel arch");
+  if (metrics.tireContact < 0.9) tips.push("put all four tire contact patches on the ground plane");
+  if (metrics.cabinSection < 0.78) tips.push("taper the cab cross-section and give the greenhouse readable height");
+  if (metrics.surfaceContinuity < 0.72) tips.push("replace slab body sections with a continuous longitudinal shell");
+  if (metrics.frontContour < 0.8) tips.push("rebuild grille, C-lamp, badge and bumper as one coherent front contour");
   if (metrics.brandSignature < 0.85) tips.push("add GMC grille, C lamps, flares, skid plate, recovery hooks");
   if (metrics.vehicleSemantics < 0.9) tips.push("use vehicle materials: carPaint, rubber tires, glass lights/windows");
   if (metrics.solidity < 0.55) tips.push("turntable silhouette collapses from some views");

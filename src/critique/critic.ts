@@ -39,6 +39,8 @@ export interface CritiqueScores {
   proportion: number;
   aesthetic: number;
   realism: number;
+  /** Mesh-only score, never inflated by VLM aesthetic/realism averages. */
+  deterministic: number;
   /** Weighted overall, 0..1. */
   overall: number;
 }
@@ -53,10 +55,38 @@ export interface CritiqueReport {
   partMetrics: Array<{ name: string; metrics: MeshMetrics }>;
 }
 
+export type VlmReviewLayer =
+  | "silhouetteProportion"
+  | "componentStructure"
+  | "spatialStructure"
+  | "formDetail"
+  | "colorPalette"
+  | "materialSurface"
+  | "lightingCamera";
+
+export interface VlmFeatureReview {
+  id: string;
+  score: number;
+  visible: boolean;
+  notes?: string;
+}
+
 /** Optional aesthetic/realism scorer (e.g. a VLM over multi-view renders). */
 export interface VlmCritique {
   aesthetic: number;
   realism: number;
+  /** Overall reference match judged from the shared multi-image evidence. */
+  visualScore?: number;
+  /** Self-reported evidence confidence, not model-generation confidence. */
+  confidence?: number;
+  layerScores?: Partial<Record<VlmReviewLayer, number>>;
+  featureReviews?: VlmFeatureReview[];
+  /** Actual provider model used after retry/fallback. */
+  providerModel?: string;
+  /** Total provider attempts spent before success. */
+  providerAttempts?: number;
+  providerFallbackUsed?: boolean;
+  summary?: string;
   issues?: CritiqueIssue[];
 }
 
@@ -1183,17 +1213,23 @@ export function critique(parts: NamedPart[], opts: CritiqueOptions): CritiqueRep
   // function/motion penalties always bite the overall score, even with no VLM
   // (where the realism axis carries no weight) — a leaking vessel or an
   // implausibly animated rigid object must score low, not just fail the pass gate.
+  const deterministicRaw = clamp01(
+    geometry * 0.55 + proportion * 0.45 - functionPenalty - motionPenalty - materialPenalty,
+  );
   const rawOverall = clamp01(
     w.geometry * geometry + w.proportion * proportion + w.aesthetic * aesthetic + w.realism * realism - functionPenalty - motionPenalty - materialPenalty,
   );
 
   const hardCount = issues.filter((i) => i.severity === "hard").length;
+  const deterministic = hardCount > 0
+    ? Math.min(deterministicRaw, Math.max(0, threshold - 0.01))
+    : deterministicRaw;
   const overall = hardCount > 0 ? Math.min(rawOverall, Math.max(0, threshold - 0.01)) : rawOverall;
   const passed = hardCount === 0 && overall >= threshold;
 
   return {
     category: rubric.category,
-    scores: { geometry, proportion, aesthetic, realism, overall },
+    scores: { geometry, proportion, aesthetic, realism, deterministic, overall },
     issues,
     passed,
     partMetrics,
@@ -1208,7 +1244,7 @@ export function critique(parts: NamedPart[], opts: CritiqueOptions): CritiqueRep
 export function formatCritique(report: CritiqueReport, maxIssues = 8): string {
   const s = report.scores;
   const head =
-    `Critique [${report.category}] overall=${s.overall.toFixed(2)} ` +
+    `Critique [${report.category}] overall=${s.overall.toFixed(2)} deterministic=${s.deterministic.toFixed(2)} ` +
     `(geometry=${s.geometry.toFixed(2)}, proportion=${s.proportion.toFixed(2)}` +
     (s.aesthetic < 1 || s.realism !== s.proportion
       ? `, aesthetic=${s.aesthetic.toFixed(2)}, realism=${s.realism.toFixed(2)}`

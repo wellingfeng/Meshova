@@ -40,6 +40,7 @@ import {
 import {
   critique,
   formatCritique,
+  formatVlmCritique,
   critiqueWithVlm,
   type CritiqueReport,
   type VlmCritique,
@@ -122,7 +123,7 @@ export interface ImageLoopOptions {
   /**
    * Run the expensive VLM aesthetic/realism review every N iterations (and on
    * the final scored iteration), folding it into the critic report. 0 disables.
-   * Default 0 — enable explicitly since it costs VLM calls per milestone.
+   * Default 1 when the reconstruction contract requires VLM review, otherwise 0.
    */
   vlmCriticEveryN?: number;
   /** Optional staged quality contract. Enables phase gates and review ledger. */
@@ -142,10 +143,14 @@ export interface ImageAgentStep {
   solidity?: SolidityBreakdown;
   /** Score after folding solidity into the shape score (what `best` ranks on). */
   combinedScore?: number;
+  /** Conservative contract score after deterministic/VLM/feature fusion. */
+  qualityScore?: number;
   /** Whether this candidate replaced the accepted best. */
   gate?: ReferenceCandidateDecision;
   /** Mesh critic report (geometry + proportion, and VLM axes at milestones). */
   critique?: CritiqueReport;
+  /** Structured multi-view VLM review used by staged visual gates. */
+  visualReview?: VlmCritique;
   /** Required semantic identity features, when a reconstruction contract exists. */
   criticalFeatures?: readonly CriticalFeatureResult[];
   /** Required part-to-part contacts, when a reconstruction contract exists. */
@@ -266,7 +271,10 @@ export async function runImageLoop(opts: ImageLoopOptions): Promise<ImageLoopRes
   const maxIterations = Math.max(1, opts.maxIterations ?? (contract ? RECONSTRUCTION_PHASES.length : 4));
   const targetScore = opts.targetScore ?? 0.9;
   const useCritic = opts.critic ?? true;
-  const vlmEveryN = Math.max(0, opts.vlmCriticEveryN ?? 0);
+  const vlmEveryN = Math.max(
+    0,
+    opts.vlmCriticEveryN ?? (contract?.quality?.requireVlmReview === true ? 1 : 0),
+  );
   const critiqueGoal = opts.hint ?? "object";
   let passState = contract ? createReconstructionPassState(contract) : undefined;
   let reviewLedger = contract ? createReviewLedger(contract) : undefined;
@@ -324,31 +332,49 @@ export async function runImageLoop(opts: ImageLoopOptions): Promise<ImageLoopRes
       }
     }
 
-    // Mesh critic: deterministic geometry + proportion every iteration, with an
-    // optional VLM aesthetic/realism pass at milestones (or on the last turn).
+    const phaseBefore = passState?.phase;
+
+    // Structured VLM review: one call judges all visual layers and critical
+    // semantic systems from the shared reference, multi-view, and lookdev set.
+    let visualReview: VlmCritique | undefined;
+    let visualReviewError: string | undefined;
+    const isLast = i === maxIterations - 1;
+    const milestone =
+      vlmEveryN > 0 && (isLast || (i + 1) % vlmEveryN === 0) && imageBase64 !== undefined;
+    if (run.ok && milestone && imageBase64 !== undefined) {
+      try {
+        const renders = [imageBase64, ...(renderResult?.auxViewsBase64 ?? [])];
+        const renderLabels = [
+          "reference-matched view",
+          ...(renderResult?.auxViewsBase64 ?? []).map((_, index) => `auxiliary view ${index + 1}`),
+        ];
+        for (const frame of renderResult?.lookDevFrames ?? []) {
+          renders.push(frame.imageBase64);
+          renderLabels.push(`${frame.mode} lookdev`);
+        }
+        visualReview = await critiqueWithVlm({
+          client: opts.client,
+          goal: critiqueGoal,
+          rendersBase64: renders,
+          renderLabels,
+          referenceBase64: refB64,
+          ...(phaseBefore ? { phase: phaseBefore } : {}),
+          criticalFeatures: contract?.criticalFeatures ?? [],
+        });
+      } catch (error) {
+        visualReviewError = error instanceof Error ? error.message : String(error);
+      }
+    }
+
+    // Mesh critic: deterministic geometry + proportion every iteration, with
+    // structured VLM axes folded in when a milestone review exists.
     let report: CritiqueReport | undefined;
     if (run.ok && useCritic) {
-      const isLast = i === maxIterations - 1;
-      const milestone =
-        vlmEveryN > 0 && (isLast || (i + 1) % vlmEveryN === 0) && imageBase64 !== undefined;
-      let vlm: VlmCritique | undefined;
-      if (milestone && imageBase64 !== undefined) {
-        try {
-          const renders = [imageBase64];
-          // Fold in extra angles when the renderer supplied them (better solidity
-          // and proportion judgment for the VLM).
-          vlm = await critiqueWithVlm({
-            client: opts.client,
-            goal: critiqueGoal,
-            rendersBase64: renders,
-            referenceBase64: refB64,
-          });
-        } catch {
-          vlm = undefined;
-        }
-      }
       try {
-        report = critique(run.parts, vlm ? { goal: critiqueGoal, vlm } : { goal: critiqueGoal });
+        report = critique(
+          run.parts,
+          visualReview ? { goal: critiqueGoal, vlm: visualReview } : { goal: critiqueGoal },
+        );
       } catch {
         report = undefined;
       }
@@ -369,12 +395,20 @@ export async function runImageLoop(opts: ImageLoopOptions): Promise<ImageLoopRes
     let criticalFeatures: readonly CriticalFeatureResult[] | undefined;
     let attachments: readonly AttachmentResult[] | undefined;
     let reconstructionGate: ReconstructionGateDecision | undefined;
-    const phaseBefore = passState?.phase;
     if (contract && passState && phaseBefore) {
+      const featureScores: Record<string, number> = {
+        ...(renderResult?.criticalFeatureScores ?? {}),
+      };
+      for (const review of visualReview?.featureReviews ?? []) {
+        const score = review.visible ? review.score : 0;
+        const existing = featureScores[review.id];
+        featureScores[review.id] = existing === undefined ? score : Math.min(existing, score);
+      }
       criticalFeatures = evaluateCriticalFeatures(
         run.ok ? run.parts : [],
         contract.criticalFeatures,
-        renderResult?.criticalFeatureScores,
+        featureScores,
+        { requireExternalScores: contract.quality?.requireVlmReview === true },
       );
       attachments = evaluateAttachmentContracts(run.ok ? run.parts : [], contract.attachments ?? []);
       const lookDevModes = new Set<LookDevMode>();
@@ -386,6 +420,7 @@ export async function runImageLoop(opts: ImageLoopOptions): Promise<ImageLoopRes
         candidateStable: gate?.accepted === true || gate?.reason === "no-improvement",
         ...(evaluation ? { evaluation } : {}),
         ...(report ? { critique: report } : {}),
+        ...(visualReview ? { visualReview } : {}),
         criticalFeatures,
         attachments,
         lookDevModes: [...lookDevModes],
@@ -401,14 +436,22 @@ export async function runImageLoop(opts: ImageLoopOptions): Promise<ImageLoopRes
     if (combinedScore !== undefined) step.combinedScore = combinedScore;
     if (gate !== undefined) step.gate = gate;
     if (report !== undefined) step.critique = report;
+    if (visualReview !== undefined) step.visualReview = visualReview;
     if (criticalFeatures !== undefined) step.criticalFeatures = criticalFeatures;
     if (attachments !== undefined) step.attachments = attachments;
     if (reconstructionGate !== undefined) step.reconstructionGate = reconstructionGate;
+    if (reconstructionGate !== undefined) step.qualityScore = Math.min(
+      combinedScore ?? 1,
+      reconstructionGate.qualityScore,
+    );
     steps.push(step);
 
     // Rank on the combined (solidity-adjusted) score so a flat shape can't win
     // just by matching the front silhouette.
-    if (gate?.accepted) best = step;
+    const candidateReplacedBest = contract
+      ? reconstructionGate?.accepted === true && (gate?.accepted === true || gate?.reason === "no-improvement")
+      : gate?.accepted === true;
+    if (candidateReplacedBest) best = step;
 
     if (reviewLedger && reconstructionGate && phaseBefore) {
       const screenshots: ReviewScreenshot[] = imageBase64 === undefined
@@ -427,20 +470,22 @@ export async function runImageLoop(opts: ImageLoopOptions): Promise<ImageLoopRes
         phase: phaseBefore,
         script,
         screenshots,
-        candidateAccepted: gate?.accepted === true,
+        candidateAccepted: candidateReplacedBest,
         gate: reconstructionGate,
         criticalFeatures: criticalFeatures ?? [],
         attachments: attachments ?? [],
       };
+      if (visualReview) entry.visualReview = visualReview;
       if (renderResult?.parameters) entry.parameters = renderResult.parameters;
-      if (combinedScore !== undefined) entry.score = combinedScore;
+      if (step.qualityScore !== undefined) entry.score = step.qualityScore;
+      else if (combinedScore !== undefined) entry.score = combinedScore;
       reviewLedger = appendReviewLedger(reviewLedger, entry);
     }
     opts.onStep?.(step);
 
     if (
-      best?.combinedScore !== undefined &&
-      best.combinedScore >= (contract?.quality?.targetScore ?? targetScore) &&
+      (best?.qualityScore ?? best?.combinedScore) !== undefined &&
+      (best?.qualityScore ?? best?.combinedScore ?? 0) >= (contract?.quality?.targetScore ?? targetScore) &&
       (passState?.completed ?? true)
     ) break;
     if (i === maxIterations - 1) break;
@@ -448,6 +493,8 @@ export async function runImageLoop(opts: ImageLoopOptions): Promise<ImageLoopRes
     // Feedback turn: attach reference first, then the latest render, so the
     // model can compare the two directly.
     let fb = feedback(run, evaluation, solidity, gate, reconstructionGate);
+    if (visualReview) fb += `\n\nVLM visual review:\n${formatVlmCritique(visualReview)}`;
+    if (visualReviewError) fb += `\n\nVLM visual review failed: ${visualReviewError}`;
     if (contract && passState && reconstructionGate?.accepted && !passState.completed) {
       fb += `\nNext locked workflow pass: ${passState.phase}.`;
     }

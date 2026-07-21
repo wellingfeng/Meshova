@@ -33,6 +33,14 @@ export interface DecomposedPart {
   size: { w: number; h: number };
   /** Coarse material category for preset selection (not pixel matching). */
   material: MaterialClass;
+  /** Semantic parent part, when this component attaches to another. */
+  parent?: string;
+  /** Visible contact/assembly relation to the parent or neighboring structure. */
+  attachment?: "embedded" | "overlap" | "socket" | "hinge" | "surface-contact" | "separate" | "unknown";
+  /** Relative depth cue inferred from the reference view. */
+  depth?: "front" | "middle" | "back" | "spans-depth" | "unknown";
+  /** Short regional color description; never a baked texture instruction. */
+  color?: string;
   /** VLM confidence this is true 3D structure (not a surface marking), 0..1. */
   confidence: number;
 }
@@ -82,6 +90,10 @@ Rules:
 - size is the part's fraction of the whole object's bounding box.
 - material is a COARSE class only (metal/plastic/wood/fabric/glass/ceramic/
   stone/rubber/skin/foliage/liquid/unknown). Do not pixel-match texture.
+- parent + attachment describe the visible assembly graph. Never leave a child
+  floating when the image shows contact, overlap, embedding, a socket, or hinge.
+- depth is front/middle/back/spans-depth/unknown relative to the reference camera.
+- color is a short regional palette description, not a texture extraction.
 - confidence is how sure you are the part is real 3D structure (0..1). Mark
   ambiguous surface markings with low confidence.
 - Respect symmetry: name mirrored parts like "left-armrest"/"right-armrest".
@@ -89,7 +101,10 @@ Return ONLY one fenced \`\`\`json code block matching this TypeScript type:
 { "object": string, "symmetry": "none"|"bilateral"|"radial",
   "parts": [ { "name": string, "description": string, "primitive": string,
     "position": {"x":number,"y":number}, "size": {"w":number,"h":number},
-    "material": string, "confidence": number } ],
+    "material": string, "parent"?: string,
+    "attachment"?: "embedded"|"overlap"|"socket"|"hinge"|"surface-contact"|"separate"|"unknown",
+    "depth"?: "front"|"middle"|"back"|"spans-depth"|"unknown",
+    "color"?: string, "confidence": number } ],
   "notes"?: string }`;
 
 /** Build the multi-image user turn from whatever channels are available. */
@@ -127,7 +142,7 @@ export function parseDecomposition(reply: string): Decomposition {
   const parts: DecomposedPart[] = partsIn.map((p, i) => {
     const pos = (p.position ?? {}) as Record<string, unknown>;
     const size = (p.size ?? {}) as Record<string, unknown>;
-    return {
+    const part: DecomposedPart = {
       name: typeof p.name === "string" && p.name ? p.name : `part-${i}`,
       description: typeof p.description === "string" ? p.description : "",
       primitive: typeof p.primitive === "string" ? p.primitive : "box",
@@ -136,6 +151,13 @@ export function parseDecomposition(reply: string): Decomposition {
       material: normalizeMaterial(p.material),
       confidence: clamp01(p.confidence, 0.5),
     };
+    if (typeof p.parent === "string" && p.parent) part.parent = p.parent;
+    const attachment = normalizeChoice(p.attachment, ["embedded", "overlap", "socket", "hinge", "surface-contact", "separate", "unknown"] as const);
+    const depth = normalizeChoice(p.depth, ["front", "middle", "back", "spans-depth", "unknown"] as const);
+    if (attachment) part.attachment = attachment;
+    if (depth) part.depth = depth;
+    if (typeof p.color === "string" && p.color) part.color = p.color;
+    return part;
   });
   const sym = o.symmetry;
   return {
@@ -153,6 +175,11 @@ function normalizeMaterial(v: unknown): MaterialClass {
   ];
   const s = String(v ?? "").toLowerCase();
   return (known as string[]).includes(s) ? (s as MaterialClass) : "unknown";
+}
+
+function normalizeChoice<const T extends readonly string[]>(value: unknown, choices: T): T[number] | undefined {
+  const normalized = String(value ?? "").toLowerCase();
+  return choices.includes(normalized) ? normalized as T[number] : undefined;
 }
 
 /** Run one decomposition pass: prompt the VLM, parse the structured result. */
@@ -180,7 +207,9 @@ export function decompositionToPrompt(d: Decomposition): string {
     lines.push(
       `- ${p.name}: ${p.description} | primitive=${p.primitive}` +
       ` pos=(${p.position.x.toFixed(2)},${p.position.y.toFixed(2)})` +
-      ` size=(${p.size.w.toFixed(2)}x${p.size.h.toFixed(2)}) material=${p.material}${conf}`,
+      ` size=(${p.size.w.toFixed(2)}x${p.size.h.toFixed(2)}) material=${p.material}` +
+      `${p.color ? ` color=${p.color}` : ""}${p.depth ? ` depth=${p.depth}` : ""}` +
+      `${p.parent ? ` parent=${p.parent} attachment=${p.attachment ?? "unknown"}` : ""}${conf}`,
     );
   }
   if (d.notes) lines.push(`Notes: ${d.notes}`);

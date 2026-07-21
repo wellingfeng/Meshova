@@ -99,6 +99,10 @@ export interface BuildingQualityScore {
     roofAttachment: number;
     facadeSemantics: number;
     proportions: number;
+    massingHierarchy: number;
+    openingDepth: number;
+    entrance: number;
+    roofFinish: number;
   };
   /** Human/LLM-readable critique to feed back into the agent loop. */
   feedback: string;
@@ -113,12 +117,22 @@ const ROOF_COL: RGB = [0.3, 0.31, 0.33];
 const PARAPET: RGB = [0.5, 0.49, 0.47];
 const PILASTER: RGB = [0.54, 0.52, 0.49];
 const RAIL: RGB = [0.2, 0.21, 0.23];
+const REVEAL: RGB = [0.1, 0.105, 0.11];
 const PITCHED_ROOF_EAVE = 0.28;
 
 /** One facade slot: world position of the bay centre + yaw to face outward. */
 interface Slot {
   pos: Vec3;
   yaw: number;
+}
+
+function perimeterBand(width: number, depth: number, height: number, centerY: number, thickness: number): Mesh {
+  return merge(
+    transform(box(width + thickness * 2, height, thickness), { translate: vec3(0, centerY, depth / 2 + thickness / 2) }),
+    transform(box(width + thickness * 2, height, thickness), { translate: vec3(0, centerY, -depth / 2 - thickness / 2) }),
+    transform(box(thickness, height, depth), { translate: vec3(width / 2 + thickness / 2, centerY, 0) }),
+    transform(box(thickness, height, depth), { translate: vec3(-width / 2 - thickness / 2, centerY, 0) }),
+  );
 }
 
 /**
@@ -204,6 +218,7 @@ export function buildBuildingParts(
 
   const bw = p.windowRatio; // bay-relative width baked into module scale below
   const frameMesh = windowFrameMesh(bw);
+  const revealMesh = windowRevealMesh(bw);
   const glassDark = windowGlassMesh(bw, false);
   const glassLit = windowGlassMesh(bw, true);
 
@@ -213,6 +228,7 @@ export function buildBuildingParts(
   } as const;
 
   const frames = copyToPoints(winPc, frameMesh, placeOpts);
+  const reveals = copyToPoints(winPc, revealMesh, placeOpts);
   // Glass split into lit / dark by variant so two materials read honestly.
   const glass = copyToPoints(winPc, [glassDark, glassLit], {
     ...placeOpts,
@@ -227,16 +243,41 @@ export function buildBuildingParts(
 
   // --- ground-floor entrance door + optional canopy ---
   const doorH = p.floorHeight * p.groundFloorScale * 0.62;
-  const door = transform(box(0.55, doorH, 0.08), {
-    translate: vec3(0, doorH / 2 + 0.06, p.depth / 2 + 0.02),
+  const doorW = Math.min(1.05, p.width * 0.24);
+  const facadeZ = p.depth / 2;
+  const door = transform(box(doorW, doorH, 0.055), {
+    translate: vec3(0, doorH / 2 + 0.1, facadeZ + 0.075),
   });
+  const entranceRecess = transform(box(doorW + 0.42, doorH + 0.16, 0.05), {
+    translate: vec3(0, doorH / 2 + 0.15, facadeZ + 0.035),
+  });
+  const entranceFrame = merge(
+    transform(box(0.12, doorH + 0.18, 0.1), { translate: vec3(-doorW / 2 - 0.12, doorH / 2 + 0.18, facadeZ + 0.17) }),
+    transform(box(0.12, doorH + 0.18, 0.1), { translate: vec3(doorW / 2 + 0.12, doorH / 2 + 0.18, facadeZ + 0.17) }),
+    transform(box(doorW + 0.36, 0.12, 0.1), { translate: vec3(0, doorH + 0.29, facadeZ + 0.17) }),
+  );
+  const entranceThreshold = transform(box(doorW + 0.5, 0.1, 0.38), {
+    translate: vec3(0, 0.08, facadeZ + 0.22),
+  });
+  const groundFloorH = p.floorHeight * p.groundFloorScale;
+  const groundFloorBase = merge(
+    perimeterBand(p.width, p.depth, 0.24, 0.18, 0.14),
+    perimeterBand(p.width, p.depth, 0.16, groundFloorH - 0.2, 0.14),
+  );
+  const crownBand = perimeterBand(topW, topD, 0.28, totalH - 0.125, 0.16);
 
   const parts: NamedPart[] = [
-    { name: "walls", mesh: merge(...walls), color: WALL, surface: { type: "concrete" } },
-    { name: "slabs", mesh: merge(...slabs), color: SLAB, surface: { type: "concrete" } },
+    { name: "walls", mesh: merge(...walls), color: WALL, surface: { type: "concrete", params: { color: WALL, roughness: 0.78, variation: 0.06, normalStrength: 0.1 } } },
+    { name: "slabs", mesh: merge(...slabs), color: SLAB, surface: { type: "concrete", params: { color: SLAB, roughness: 0.74, variation: 0.04 } } },
+    { name: "ground_floor_base", mesh: groundFloorBase, color: SLAB, surface: { type: "concrete", params: { color: SLAB, roughness: 0.72 } } },
+    { name: "crown_band", mesh: crownBand, color: PARAPET, surface: { type: "concrete", params: { color: PARAPET, roughness: 0.7 } } },
+    { name: "window_reveals", mesh: reveals, color: REVEAL, surface: { type: "concrete", params: { color: REVEAL, roughness: 0.68 } } },
     { name: "window_frames", mesh: frames, color: FRAME, surface: { type: "metal", params: { color: FRAME, roughness: 0.45 } } },
     { name: "windows", mesh: glass, color: GLASS_TINT, surface: { type: "glass", params: { tint: GLASS_TINT, roughness: 0.05 } } },
     { name: "door", mesh: door, color: DOOR, surface: { type: "metal", params: { color: DOOR, roughness: 0.3 } } },
+    { name: "entrance_recess", mesh: entranceRecess, color: REVEAL, surface: { type: "concrete", params: { color: REVEAL, roughness: 0.75 } } },
+    { name: "entrance_frame", mesh: entranceFrame, color: PILASTER, surface: { type: "concrete", params: { color: PILASTER, roughness: 0.72 } } },
+    { name: "entrance_threshold", mesh: entranceThreshold, color: SLAB, surface: { type: "concrete", params: { color: SLAB, roughness: 0.8 } } },
     ...roofParts,
   ];
 
@@ -248,26 +289,22 @@ export function buildBuildingParts(
     parts.push({ name: "balcony_rails", mesh: merge(...rails), color: RAIL, surface: { type: "metal", params: { color: RAIL, roughness: 0.4 } } });
   }
   if (p.canopy) {
-    const canopyW = 1.1;
-    const canopyProj = 0.7;
+    const canopyW = doorW + 0.7;
+    const canopyProj = 0.62;
     const canopyY = doorH + 0.18;
     const zFront = p.depth / 2;
     const slabMesh = transform(box(canopyW, 0.08, canopyProj), {
       translate: vec3(0, canopyY, zFront + canopyProj / 2),
     });
-    // Diagonal support brackets from the wall up to the canopy outer edge.
-    const brackets: Mesh[] = [];
-    const brLen = Math.hypot(canopyProj * 0.7, 0.28);
-    const brAngle = Math.atan2(0.28, canopyProj * 0.7);
+    const supports: Mesh[] = [];
     for (const sx of [-1, 1] as const) {
-      brackets.push(
-        transform(box(0.05, 0.05, brLen), {
-          rotate: vec3(brAngle, 0, 0),
-          translate: vec3(sx * canopyW * 0.38, canopyY - 0.18, zFront + canopyProj * 0.36),
+      supports.push(
+        transform(box(0.08, canopyY - 0.12, 0.08), {
+          translate: vec3(sx * canopyW * 0.4, (canopyY - 0.12) / 2 + 0.12, zFront + canopyProj * 0.82),
         }),
       );
     }
-    const canopyMesh = merge(slabMesh, ...brackets);
+    const canopyMesh = merge(slabMesh, ...supports);
     parts.push({ name: "canopy", mesh: canopyMesh, color: FRAME, surface: { type: "metal", params: { color: FRAME, roughness: 0.5 } } });
   }
   return parts;
@@ -341,19 +378,94 @@ export function scoreBuilding(parts: NamedPart[]): BuildingQualityScore {
     );
   }
 
+  const groundFloorBase = byName.get("ground_floor_base");
+  const crownBand = byName.get("crown_band");
+  let massingHierarchy = 0;
+  if (walls && groundFloorBase && crownBand) {
+    const wallBounds = bounds(walls.mesh);
+    const wallSize = dimBounds(wallBounds);
+    const baseBounds = bounds(groundFloorBase.mesh);
+    const baseSize = dimBounds(baseBounds);
+    const crownBounds = bounds(crownBand.mesh);
+    const crownSize = dimBounds(crownBounds);
+    massingHierarchy = (
+      rangeScore(baseSize.x / wallSize.x, 1.01, 1.16) * 0.25 +
+      rangeScore(baseSize.y / wallSize.y, 0.04, 0.32) * 0.2 +
+      rangeScore(crownSize.x / wallSize.x, 0.82, 1.15) * 0.2 +
+      rangeScore((crownBounds.max.y - wallBounds.min.y) / wallSize.y, 0.9, 1.08) * 0.35
+    );
+  }
+
+  const reveals = byName.get("window_reveals");
+  let openingDepth = 0;
+  if (windows && frames && reveals) {
+    const windowSize = dimBounds(bounds(windows.mesh));
+    const frameSize = dimBounds(bounds(frames.mesh));
+    const revealSize = dimBounds(bounds(reveals.mesh));
+    const xDepth = revealSize.x - windowSize.x;
+    const zDepth = revealSize.z - windowSize.z;
+    const frameOutset = Math.max(frameSize.x - windowSize.x, frameSize.z - windowSize.z);
+    openingDepth = averageScore([
+      rangeScore(Math.max(xDepth, zDepth), 0.08, 0.32),
+      rangeScore(frameOutset, 0.04, 0.24),
+      reveals.mesh.positions.length > windows.mesh.positions.length * 2 ? 1 : 0,
+    ]);
+  }
+
+  const door = byName.get("door");
+  const entranceFrame = byName.get("entrance_frame");
+  const entranceRecess = byName.get("entrance_recess");
+  const threshold = byName.get("entrance_threshold");
+  let entrance = 0;
+  if (door && entranceFrame && entranceRecess && threshold && walls) {
+    const doorBounds = bounds(door.mesh);
+    const doorSize = dimBounds(doorBounds);
+    const frameSize = dimBounds(bounds(entranceFrame.mesh));
+    const recessSize = dimBounds(bounds(entranceRecess.mesh));
+    const wallSize = dimBounds(bounds(walls.mesh));
+    const thresholdBounds = bounds(threshold.mesh);
+    entrance = averageScore([
+      rangeScore(doorSize.x / wallSize.x, 0.12, 0.32),
+      frameSize.x > doorSize.x && frameSize.y > doorSize.y ? 1 : 0,
+      recessSize.x > doorSize.x && recessSize.y > doorSize.y ? 1 : 0,
+      thresholdBounds.min.y <= 0.04 && thresholdBounds.max.z > doorBounds.max.z ? 1 : 0,
+      byName.has("canopy") ? 1 : 0.75,
+    ]);
+  }
+
+  let roofFinish = 0;
+  if (roof) {
+    const finish = parapet ? byName.get("roof_coping") : byName.get("roof_trim");
+    if (finish) {
+      const finishBounds = bounds(finish.mesh);
+      const supportBounds = bounds(parapet?.mesh ?? roof.mesh);
+      const verticalGap = Math.max(0, finishBounds.min.y - supportBounds.max.y, supportBounds.min.y - finishBounds.max.y);
+      roofFinish = clamp01(1 - verticalGap / 0.18);
+      if (parapet && byName.has("rooftop_service")) roofFinish = Math.min(1, roofFinish * 0.8 + 0.2);
+    }
+  }
+
   const metrics = {
     requiredParts: clamp01(requiredParts),
     roofCoverage,
     roofAttachment,
     facadeSemantics: clamp01(facadeSemantics),
     proportions,
+    massingHierarchy,
+    openingDepth,
+    entrance,
+    roofFinish,
   };
   const score = clamp01(
-    metrics.requiredParts * 0.25 +
-      metrics.roofCoverage * 0.25 +
-      metrics.roofAttachment * 0.15 +
-      metrics.facadeSemantics * 0.2 +
-      metrics.proportions * 0.15,
+    metrics.requiredParts * 0.12 +
+      metrics.roofCoverage * 0.12 +
+      metrics.roofAttachment * 0.1 +
+      metrics.facadeSemantics * 0.1 +
+      metrics.proportions * 0.1 +
+      metrics.massingHierarchy * 0.16 +
+      metrics.openingDepth * 0.14 +
+      metrics.entrance * 0.1 +
+      metrics.roofFinish * 0.06,
   );
 
   const tips: string[] = [];
@@ -362,6 +474,10 @@ export function scoreBuilding(parts: NamedPart[]): BuildingQualityScore {
   if (metrics.roofAttachment < 0.75) tips.push("roof base should contact the top slab, with no visible gap or deep sink");
   if (metrics.facadeSemantics < 1) tips.push("match surfaces: concrete walls/slabs, glass windows, metal frames, ceramic/concrete roof");
   if (metrics.proportions < 0.75) tips.push("adjust height/footprint proportions so the building mass reads plausibly");
+  if (metrics.massingHierarchy < 0.75) tips.push("separate base, shaft and crown with measurable massing changes");
+  if (metrics.openingDepth < 0.75) tips.push("add deep window reveals with glass behind the frame plane");
+  if (metrics.entrance < 0.8) tips.push("build a framed recessed entrance with threshold and stable canopy support");
+  if (metrics.roofFinish < 0.8) tips.push("finish the roof with coping/eave trim and plausible rooftop construction");
   const feedback = tips.length
     ? `Score ${score.toFixed(2)}. To improve: ${tips.join("; ")}.`
     : `Score ${score.toFixed(2)}. Building quality gate passed.`;
@@ -450,6 +566,10 @@ export function buildCityBlockParts(
   const towerGroups = new Map<string, { meshes: Mesh[]; color?: RGB; surface?: NamedPart["surface"] }>();
   const towerOrder: string[] = [];
   const towerFrac = Math.max(0, Math.min(1, p.waterTowers));
+  const heroOnlyParts = new Set([
+    "ground_floor_base", "crown_band", "window_reveals", "entrance_recess",
+    "entrance_frame", "entrance_threshold", "roof_coping", "roof_trim", "rooftop_service",
+  ]);
   const fh = p.base?.floorHeight ?? BUILDING_DEFAULTS.floorHeight;
   const gfs = p.base?.groundFloorScale ?? BUILDING_DEFAULTS.groundFloorScale;
 
@@ -509,6 +629,7 @@ export function buildCityBlockParts(
       const yaw = rowYaw[r]!;
 
       for (const part of parts) {
+        if (heroOnlyParts.has(part.name)) continue;
         // rotate about lot origin (Y) then translate to the lot centre
         const placed = yaw !== 0
           ? translateMesh(transform(part.mesh, { rotate: vec3(0, yaw, 0) }), vec3(tx, 0, tz))
@@ -764,6 +885,18 @@ function clamp01(v: number): number {
   return v < 0 ? 0 : v > 1 ? 1 : v;
 }
 
+function averageScore(values: ReadonlyArray<number>): number {
+  return values.length === 0 ? 0 : values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+function dimBounds(value: { min: Vec3; max: Vec3 }): { x: number; y: number; z: number } {
+  return {
+    x: Math.max(1e-6, value.max.x - value.min.x),
+    y: Math.max(1e-6, value.max.y - value.min.y),
+    z: Math.max(1e-6, value.max.z - value.min.z),
+  };
+}
+
 interface FacadeOptions {
   width: number;
   depth: number;
@@ -930,13 +1063,25 @@ function windowFrameMesh(ratio: number): Mesh {
   return merge(...bars);
 }
 
+function windowRevealMesh(ratio: number): Mesh {
+  const width = 0.5 * Math.min(1, Math.max(0.2, ratio));
+  const height = 0.62 * Math.min(1, Math.max(0.2, ratio));
+  const thickness = 0.075;
+  return merge(
+    transform(box(width + thickness * 2, thickness, 0.12), { translate: vec3(0, height / 2 + thickness / 2, 0.005) }),
+    transform(box(width + thickness * 2, thickness, 0.12), { translate: vec3(0, -height / 2 - thickness / 2, 0.005) }),
+    transform(box(thickness, height, 0.12), { translate: vec3(-width / 2 - thickness / 2, 0, 0.005) }),
+    transform(box(thickness, height, 0.12), { translate: vec3(width / 2 + thickness / 2, 0, 0.005) }),
+  );
+}
+
 /** Glass pane filling a window opening, in the XY plane facing +Z. */
 function windowGlassMesh(ratio: number, _lit: boolean): Mesh {
   const w = 0.5 * Math.min(1, Math.max(0.2, ratio));
   const h = 0.62 * Math.min(1, Math.max(0.2, ratio));
-  const frameInset = 0.05;
+  const frameInset = 0.075;
   return transform(box(w - frameInset, h - frameInset, 0.012), {
-    translate: vec3(0, 0, 0.018),
+    translate: vec3(0, 0, -0.02),
   });
 }
 
@@ -955,13 +1100,24 @@ function buildRoof(
 ): NamedPart[] {
   if (type === "flat") {
     const slabHeight = 0.1;
-    const slab = transform(box(w + 0.08, 0.1, d + 0.08), {
+    const slab = transform(box(w + 0.4, 0.1, d + 0.4), {
       translate: vec3(0, topY + slabHeight / 2, 0),
     });
-    const parapet = parapetRing(w, d, topY + slabHeight, 0.32);
+    const parapet = parapetRing(w + 0.2, d + 0.2, topY + slabHeight, 0.32);
+    const coping = perimeterBand(w + 0.24, d + 0.24, 0.06, topY + slabHeight + 0.35, 0.12);
+    const service = merge(
+      transform(box(Math.min(1.2, w * 0.28), 0.58, Math.min(1, d * 0.26)), {
+        translate: vec3(-w * 0.18, topY + 0.39, -d * 0.16),
+      }),
+      transform(box(0.18, 0.42, 0.18), {
+        translate: vec3(w * 0.2, topY + 0.31, -d * 0.2),
+      }),
+    );
     return [
       { name: "roof", mesh: slab, color: ROOF_COL, surface: { type: "concrete" } },
       { name: "parapet", mesh: parapet, color: PARAPET, surface: { type: "concrete" } },
+      { name: "roof_coping", mesh: coping, color: SLAB, surface: { type: "concrete", params: { color: SLAB, roughness: 0.7 } } },
+      { name: "rooftop_service", mesh: service, color: FRAME, surface: { type: "metal", params: { color: FRAME, roughness: 0.62 } } },
     ];
   }
 
@@ -975,13 +1131,25 @@ function buildRoof(
       scale: vec3(roofW / (r * 1.02), 1, roofD / (r * 1.02)),
       translate: vec3(0, topY + roofH / 2, 0),
     });
-    return [{ name: "roof", mesh: pyr, color: ROOF_COL, surface: { type: "ceramic", params: { color: [0.42, 0.2, 0.15] } } }];
+    const trim = perimeterBand(roofW, roofD, 0.08, topY + 0.04, 0.1);
+    return [
+      { name: "roof", mesh: pyr, color: ROOF_COL, surface: { type: "ceramic", params: { color: [0.42, 0.2, 0.15] } } },
+      { name: "roof_trim", mesh: trim, color: SLAB, surface: { type: "metal", params: { color: SLAB, roughness: 0.55 } } },
+    ];
   }
 
   // Gable roof: triangular prism. The eave covers the top floor slab/cornice so
   // the roof reads as one cap instead of a red plate sitting on a gray shelf.
   const roof = gableRoofMesh(w + PITCHED_ROOF_EAVE * 2, d + PITCHED_ROOF_EAVE * 2, topY, roofH);
-  return [{ name: "roof", mesh: roof, color: ROOF_COL, surface: { type: "ceramic", params: { color: [0.42, 0.2, 0.15] } } }];
+  const trim = merge(
+    transform(box(w + PITCHED_ROOF_EAVE * 2 + 0.12, 0.08, 0.1), { translate: vec3(0, topY + 0.04, d / 2 + PITCHED_ROOF_EAVE) }),
+    transform(box(w + PITCHED_ROOF_EAVE * 2 + 0.12, 0.08, 0.1), { translate: vec3(0, topY + 0.04, -d / 2 - PITCHED_ROOF_EAVE) }),
+    transform(box(w + 0.12, 0.08, 0.08), { translate: vec3(0, topY + roofH + 0.02, 0) }),
+  );
+  return [
+    { name: "roof", mesh: roof, color: ROOF_COL, surface: { type: "ceramic", params: { color: [0.42, 0.2, 0.15] } } },
+    { name: "roof_trim", mesh: trim, color: SLAB, surface: { type: "metal", params: { color: SLAB, roughness: 0.55 } } },
+  ];
 }
 
 function gableRoofMesh(w: number, d: number, baseY: number, roofH: number): Mesh {

@@ -1,0 +1,9713 @@
+{
+  "generatedAt": "2026-07-21T15:10:58.779Z",
+  "count": 216,
+  "models": [
+    {
+      "id": "attractor-grid",
+      "name": "吸引子柱阵",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "cells",
+          "default": 17
+        },
+        {
+          "key": "spacing",
+          "default": 0.42
+        },
+        {
+          "key": "cellSize",
+          "default": 0.28
+        },
+        {
+          "key": "minHeight",
+          "default": 0.08
+        },
+        {
+          "key": "maxHeight",
+          "default": 2.2
+        },
+        {
+          "key": "radius",
+          "default": 3.2
+        },
+        {
+          "key": "attractorX",
+          "default": 0
+        },
+        {
+          "key": "attractorZ",
+          "default": 0
+        },
+        {
+          "key": "mode",
+          "default": 0
+        },
+        {
+          "key": "curve",
+          "default": 1
+        },
+        {
+          "key": "jitter",
+          "default": 0.06
+        },
+        {
+          "key": "twist",
+          "default": 0.35
+        },
+        {
+          "key": "seed",
+          "default": 11
+        },
+        {
+          "key": "markers",
+          "default": 1
+        }
+      ]
+    },
+    {
+      "id": "barrier-run",
+      "name": "施工围挡",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "style",
+          "default": "jersey"
+        },
+        {
+          "key": "segments",
+          "default": 5
+        },
+        {
+          "key": "segLength",
+          "default": 2
+        },
+        {
+          "key": "height",
+          "default": 1
+        }
+      ]
+    },
+    {
+      "id": "bicycle",
+      "name": "自行车",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "wheelRadius",
+          "default": 0.34
+        },
+        {
+          "key": "wheelbase",
+          "default": 1.02
+        },
+        {
+          "key": "tyre",
+          "default": 0.035
+        },
+        {
+          "key": "frameTube",
+          "default": 0.022
+        },
+        {
+          "key": "spokes",
+          "default": 12
+        }
+      ]
+    },
+    {
+      "id": "bilibili-manor-castle",
+      "name": "水围庄园城堡",
+      "category": "程序化城堡",
+      "critiqueGoal": "",
+      "assetMeta": {
+        "description": "复刻《咱的各种城堡》第 1 P：水围方堡、圆角塔、石木礼堂、高瞭望塔、礼拜堂和生产型庭院。",
+        "tags": [
+          "中世纪城堡",
+          "水围庄园",
+          "半木构",
+          "程序化建筑",
+          "B站复刻"
+        ],
+        "capabilities": [
+          "种子复现",
+          "墙高调节",
+          "瞭望塔比例",
+          "菜圃密度",
+          "垛口密度",
+          "OBJ/Viewer 导出"
+        ],
+        "materialClasses": [
+          "暖灰石材",
+          "深色木构",
+          "炭灰屋瓦",
+          "水面",
+          "庭院植被"
+        ],
+        "sourceUrl": "https://www.bilibili.com/video/BV1XhZvBwEAF?p=1"
+      },
+      "schema": [
+        {
+          "key": "seed",
+          "default": 361646685
+        },
+        {
+          "key": "scale",
+          "default": 1
+        },
+        {
+          "key": "wallHeight",
+          "default": 2.1
+        },
+        {
+          "key": "watchtowerHeight",
+          "default": 7.8
+        },
+        {
+          "key": "gardenDensity",
+          "default": 1
+        },
+        {
+          "key": "detail",
+          "default": 1
+        },
+        {
+          "key": "colorVariation",
+          "default": 0.09
+        }
+      ]
+    },
+    {
+      "id": "billboard",
+      "name": "广告牌",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "panelWidth",
+          "default": 12
+        },
+        {
+          "key": "panelHeight",
+          "default": 5
+        },
+        {
+          "key": "clearance",
+          "default": 6
+        },
+        {
+          "key": "singleMast",
+          "default": 1
+        },
+        {
+          "key": "truss",
+          "default": 1
+        },
+        {
+          "key": "lights",
+          "default": 1
+        },
+        {
+          "key": "adTexture",
+          "default": ""
+        }
+      ]
+    },
+    {
+      "id": "blender-dna-helix",
+      "name": "BlenderHowtos DNA 双螺旋",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "pairs",
+          "default": 34
+        },
+        {
+          "key": "radius",
+          "default": 0.62
+        },
+        {
+          "key": "height",
+          "default": 3.2
+        },
+        {
+          "key": "turns",
+          "default": 3.2
+        },
+        {
+          "key": "strandRadius",
+          "default": 0.035
+        },
+        {
+          "key": "rungRadius",
+          "default": 0.018
+        },
+        {
+          "key": "beadRadius",
+          "default": 0.07
+        },
+        {
+          "key": "phase",
+          "default": 0
+        }
+      ]
+    },
+    {
+      "id": "blender-gradient-box",
+      "name": "BlenderHowtos 渐变盒阵",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "cols",
+          "default": 10
+        },
+        {
+          "key": "rows",
+          "default": 8
+        },
+        {
+          "key": "spacing",
+          "default": 0.36
+        },
+        {
+          "key": "minHeight",
+          "default": 0.12
+        },
+        {
+          "key": "maxHeight",
+          "default": 1.35
+        },
+        {
+          "key": "rampBias",
+          "default": 1.15
+        },
+        {
+          "key": "ripple",
+          "default": 0.16
+        }
+      ]
+    },
+    {
+      "id": "blender-howtos",
+      "name": "BlenderHowtos 四类总览",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "seed",
+          "default": 80
+        },
+        {
+          "key": "scale",
+          "default": 1
+        }
+      ]
+    },
+    {
+      "id": "blender-raining-garden",
+      "name": "BlenderHowtos 雨中花园",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "radius",
+          "default": 2.15
+        },
+        {
+          "key": "grassCount",
+          "default": 180
+        },
+        {
+          "key": "flowerCount",
+          "default": 36
+        },
+        {
+          "key": "rainCount",
+          "default": 90
+        },
+        {
+          "key": "rainHeight",
+          "default": 2.7
+        },
+        {
+          "key": "rainSlant",
+          "default": 0.32
+        },
+        {
+          "key": "seed",
+          "default": 19
+        }
+      ]
+    },
+    {
+      "id": "blender-spiral-scales",
+      "name": "BlenderHowtos 螺旋鳞片",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "count",
+          "default": 84
+        },
+        {
+          "key": "radius",
+          "default": 0.78
+        },
+        {
+          "key": "height",
+          "default": 3.1
+        },
+        {
+          "key": "turns",
+          "default": 5.2
+        },
+        {
+          "key": "scaleWidth",
+          "default": 0.18
+        },
+        {
+          "key": "scaleHeight",
+          "default": 0.34
+        },
+        {
+          "key": "scaleThickness",
+          "default": 0.035
+        },
+        {
+          "key": "phase",
+          "default": 0
+        },
+        {
+          "key": "stemRadius",
+          "default": 0.035
+        }
+      ]
+    },
+    {
+      "id": "bonsai",
+      "name": "盆景 (Houdini教程复刻)",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "height",
+          "default": 2.4
+        },
+        {
+          "key": "trunkRadius",
+          "default": 0.26
+        },
+        {
+          "key": "sway",
+          "default": 0.34
+        },
+        {
+          "key": "gnarl",
+          "default": 0.4
+        },
+        {
+          "key": "branches",
+          "default": 8
+        },
+        {
+          "key": "depth",
+          "default": 5
+        },
+        {
+          "key": "branchAngle",
+          "default": 42
+        },
+        {
+          "key": "leafDensity",
+          "default": 8
+        },
+        {
+          "key": "padSize",
+          "default": 2
+        },
+        {
+          "key": "moss",
+          "default": 40
+        },
+        {
+          "key": "seed",
+          "default": 421
+        }
+      ]
+    },
+    {
+      "id": "braid-rope",
+      "name": "编织绳",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "strands",
+          "default": 3
+        },
+        {
+          "key": "length",
+          "default": 5.2
+        },
+        {
+          "key": "braidRadius",
+          "default": 0.24
+        },
+        {
+          "key": "strandRadius",
+          "default": 0.075
+        },
+        {
+          "key": "turns",
+          "default": 5
+        },
+        {
+          "key": "segments",
+          "default": 140
+        },
+        {
+          "key": "sides",
+          "default": 9
+        },
+        {
+          "key": "irregularity",
+          "default": 0.025
+        },
+        {
+          "key": "endBands",
+          "default": 1
+        },
+        {
+          "key": "seed",
+          "default": 17
+        }
+      ]
+    },
+    {
+      "id": "buick-riviera-1965",
+      "name": "Buick Riviera 1963-1965",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "length",
+          "default": 5.3
+        },
+        {
+          "key": "width",
+          "default": 1.95
+        },
+        {
+          "key": "height",
+          "default": 1.35
+        },
+        {
+          "key": "wheelRadius",
+          "default": 0.33
+        },
+        {
+          "key": "rideHeight",
+          "default": 0.055
+        },
+        {
+          "key": "hoodLength",
+          "default": 2.05
+        },
+        {
+          "key": "deckLength",
+          "default": 1.33
+        },
+        {
+          "key": "chrome",
+          "default": 1
+        },
+        {
+          "key": "hiddenHeadlights",
+          "default": 1
+        }
+      ]
+    },
+    {
+      "id": "building",
+      "name": "程序化建筑",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "floors",
+          "default": 6
+        },
+        {
+          "key": "floorHeight",
+          "default": 1
+        },
+        {
+          "key": "width",
+          "default": 4
+        },
+        {
+          "key": "depth",
+          "default": 3
+        },
+        {
+          "key": "baysX",
+          "default": 4
+        },
+        {
+          "key": "baysZ",
+          "default": 3
+        },
+        {
+          "key": "windowRatio",
+          "default": 0.62
+        },
+        {
+          "key": "setback",
+          "default": 0
+        },
+        {
+          "key": "groundFloorScale",
+          "default": 1.35
+        },
+        {
+          "key": "roofType",
+          "default": 0
+        },
+        {
+          "key": "roofHeight",
+          "default": 1.2
+        },
+        {
+          "key": "corners",
+          "default": 1
+        },
+        {
+          "key": "balconyEvery",
+          "default": 0
+        },
+        {
+          "key": "canopy",
+          "default": 1
+        },
+        {
+          "key": "seed",
+          "default": 7
+        }
+      ]
+    },
+    {
+      "id": "bus-stop",
+      "name": "公交候车亭",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "length",
+          "default": 4.2
+        },
+        {
+          "key": "depth",
+          "default": 1.5
+        },
+        {
+          "key": "height",
+          "default": 2.4
+        },
+        {
+          "key": "bench",
+          "default": 1
+        },
+        {
+          "key": "adPanel",
+          "default": 1
+        }
+      ]
+    },
+    {
+      "id": "cartoon-mech-pilot",
+      "name": "卡通机甲驾驶员",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "height",
+          "default": 4.45
+        },
+        {
+          "key": "armSpread",
+          "default": 1
+        },
+        {
+          "key": "bootScale",
+          "default": 1
+        },
+        {
+          "key": "armorScale",
+          "default": 1
+        },
+        {
+          "key": "headsetScale",
+          "default": 1
+        }
+      ]
+    },
+    {
+      "id": "chinese-hall",
+      "name": "中式古建·殿堂",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "baysX",
+          "default": 5
+        },
+        {
+          "key": "baysZ",
+          "default": 3
+        },
+        {
+          "key": "bayWidth",
+          "default": 2.2
+        },
+        {
+          "key": "bayDepth",
+          "default": 1.9
+        },
+        {
+          "key": "columnHeight",
+          "default": 3
+        },
+        {
+          "key": "columnRadius",
+          "default": 0.16
+        },
+        {
+          "key": "baseHeight",
+          "default": 0.7
+        },
+        {
+          "key": "eaveOverhang",
+          "default": 1.25
+        },
+        {
+          "key": "roofRise",
+          "default": 0.36
+        },
+        {
+          "key": "roofConcavity",
+          "default": 0.55
+        },
+        {
+          "key": "cornerUpturn",
+          "default": 0.7
+        },
+        {
+          "key": "roofType",
+          "default": 0
+        },
+        {
+          "key": "dougong",
+          "default": 1
+        },
+        {
+          "key": "ridgeBeasts",
+          "default": 1
+        },
+        {
+          "key": "walls",
+          "default": 1
+        },
+        {
+          "key": "seed",
+          "default": 9
+        }
+      ]
+    },
+    {
+      "id": "chinese-townscaper",
+      "name": "中式城镇叠叠乐·重檐岛",
+      "category": "建筑与城市",
+      "critiqueGoal": "Chinese Townscaper island with adjacency-driven timber halls, double eaves, curved roofs and canals",
+      "assetMeta": {
+        "description": "复刻 BV1nR4y1v715：邻接占用驱动殿堂朝向，中心与交汇单元生成重檐，配套岛岸、水渠、石路和桥。",
+        "tags": [
+          "中式古建",
+          "Townscaper",
+          "重檐",
+          "飞檐",
+          "斗拱",
+          "邻接规则"
+        ],
+        "capabilities": [
+          "种子复现",
+          "邻接模块",
+          "自动重檐",
+          "自动桥路",
+          "动态水体"
+        ],
+        "materialClasses": [
+          "灰瓦",
+          "木构",
+          "石材",
+          "草土",
+          "水体"
+        ]
+      },
+      "schema": [
+        {
+          "key": "gridSize"
+        },
+        {
+          "key": "cellSize"
+        },
+        {
+          "key": "density"
+        },
+        {
+          "key": "islandRadius"
+        },
+        {
+          "key": "canalAmount"
+        },
+        {
+          "key": "doubleEaveRate"
+        },
+        {
+          "key": "roofUpturn"
+        },
+        {
+          "key": "waterHeight"
+        },
+        {
+          "key": "seed"
+        }
+      ]
+    },
+    {
+      "id": "city-district",
+      "name": "大规模城区",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "blocksX",
+          "default": 5
+        },
+        {
+          "key": "blocksZ",
+          "default": 4
+        },
+        {
+          "key": "blockX",
+          "default": 34
+        },
+        {
+          "key": "blockZ",
+          "default": 26
+        },
+        {
+          "key": "streetWidth",
+          "default": 9
+        },
+        {
+          "key": "minFloors",
+          "default": 3
+        },
+        {
+          "key": "maxFloors",
+          "default": 10
+        },
+        {
+          "key": "waterTowers",
+          "default": 0.35
+        },
+        {
+          "key": "streetTrees",
+          "default": 1
+        },
+        {
+          "key": "streetFurniture",
+          "default": 1
+        },
+        {
+          "key": "crosswalks",
+          "default": 1
+        },
+        {
+          "key": "lotJitter",
+          "default": 0.25
+        },
+        {
+          "key": "seed",
+          "default": 42
+        }
+      ]
+    },
+    {
+      "id": "city-district-roadnet",
+      "name": "路网城区·非凸街区",
+      "category": "",
+      "critiqueGoal": "procedural road network district",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "size",
+          "default": 86
+        },
+        {
+          "key": "shape",
+          "default": 1
+        },
+        {
+          "key": "targetArea",
+          "default": 1150
+        },
+        {
+          "key": "streetWidth",
+          "default": 8.5
+        },
+        {
+          "key": "sidewalkWidth",
+          "default": 1.8
+        },
+        {
+          "key": "jitter",
+          "default": 0.15
+        },
+        {
+          "key": "irregularity",
+          "default": 0.12
+        },
+        {
+          "key": "roadCurve",
+          "default": 1.75
+        },
+        {
+          "key": "roundabouts",
+          "default": 1
+        },
+        {
+          "key": "buildings",
+          "default": 26
+        },
+        {
+          "key": "heightScale",
+          "default": 0.72
+        },
+        {
+          "key": "seed",
+          "default": 42
+        }
+      ]
+    },
+    {
+      "id": "cityblock",
+      "name": "程序化街区",
+      "category": "",
+      "critiqueGoal": "city block settlement",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "cols",
+          "default": 4
+        },
+        {
+          "key": "rows",
+          "default": 2
+        },
+        {
+          "key": "lotX",
+          "default": 5.5
+        },
+        {
+          "key": "lotZ",
+          "default": 4.5
+        },
+        {
+          "key": "minFloors",
+          "default": 3
+        },
+        {
+          "key": "maxFloors",
+          "default": 12
+        },
+        {
+          "key": "ground",
+          "default": 1
+        },
+        {
+          "key": "roads",
+          "default": 1
+        },
+        {
+          "key": "roadWidth",
+          "default": 3
+        },
+        {
+          "key": "sidewalkWidth",
+          "default": 1
+        },
+        {
+          "key": "faceStreet",
+          "default": 1
+        },
+        {
+          "key": "waterTowers",
+          "default": 0.4
+        },
+        {
+          "key": "seed",
+          "default": 11
+        }
+      ]
+    },
+    {
+      "id": "cliff-panel-study",
+      "name": "崖壁方向贴片",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "width",
+          "default": 14
+        },
+        {
+          "key": "depth",
+          "default": 12
+        },
+        {
+          "key": "height",
+          "default": 6
+        },
+        {
+          "key": "resolution",
+          "default": 48
+        },
+        {
+          "key": "strata",
+          "default": 6
+        },
+        {
+          "key": "erosion",
+          "default": 0.72
+        },
+        {
+          "key": "talus",
+          "default": 0.65
+        },
+        {
+          "key": "directionBins",
+          "default": 8
+        },
+        {
+          "key": "panelScale",
+          "default": 2.5
+        },
+        {
+          "key": "seed",
+          "default": 31
+        }
+      ]
+    },
+    {
+      "id": "cloud",
+      "name": "程序化积云",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "size",
+          "default": 3.2
+        },
+        {
+          "key": "blobs",
+          "default": 14
+        },
+        {
+          "key": "flatten",
+          "default": 0.55
+        },
+        {
+          "key": "resolution",
+          "default": 48
+        },
+        {
+          "key": "iso",
+          "default": 0.5
+        },
+        {
+          "key": "smooth",
+          "default": 1
+        },
+        {
+          "key": "puff",
+          "default": 0.18
+        },
+        {
+          "key": "puffScale",
+          "default": 1.6
+        },
+        {
+          "key": "seed",
+          "default": 7
+        }
+      ]
+    },
+    {
+      "id": "cloud-sky",
+      "name": "程序化云海",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "seed",
+          "default": 11
+        }
+      ]
+    },
+    {
+      "id": "container-yard",
+      "name": "集装箱堆场",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "containers",
+          "default": 4
+        },
+        {
+          "key": "stackHeight",
+          "default": 2
+        },
+        {
+          "key": "pallets",
+          "default": 3
+        },
+        {
+          "key": "cargo",
+          "default": 1
+        },
+        {
+          "key": "seed",
+          "default": 7
+        }
+      ]
+    },
+    {
+      "id": "crazy-ivy-wall",
+      "name": "Crazy Ivy 爬墙藤蔓复刻",
+      "category": "植被",
+      "critiqueGoal": "",
+      "assetMeta": {
+        "description": "参考 BV1YL411r7Cg：多簇表面蔓延、随机分叉、墙顶悬垂、绿叶/红叶物种切换。",
+        "tags": [
+          "常春藤",
+          "墙面覆盖",
+          "悬垂藤",
+          "Crazy Ivy",
+          "程序化复刻"
+        ],
+        "capabilities": [
+          "覆盖度",
+          "悬垂量",
+          "分叉率",
+          "叶片密度",
+          "秋色变体",
+          "四级LOD"
+        ],
+        "materialClasses": [
+          "灰泥墙",
+          "木质藤茎",
+          "双面常春藤叶"
+        ]
+      },
+      "schema": [
+        {
+          "key": "width",
+          "default": 8
+        },
+        {
+          "key": "height",
+          "default": 4.2
+        },
+        {
+          "key": "coverage",
+          "default": 0.82
+        },
+        {
+          "key": "hanging",
+          "default": 0.48
+        },
+        {
+          "key": "branching",
+          "default": 0.62
+        },
+        {
+          "key": "leafSize",
+          "default": 0.18
+        },
+        {
+          "key": "leafDensity",
+          "default": 8.5
+        },
+        {
+          "key": "dryness",
+          "default": 0.06
+        },
+        {
+          "key": "autumn",
+          "default": 0
+        },
+        {
+          "key": "lod",
+          "default": 1
+        },
+        {
+          "key": "seed",
+          "default": 45
+        }
+      ]
+    },
+    {
+      "id": "csg",
+      "name": "布尔切割体",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "size",
+          "default": 1.6
+        },
+        {
+          "key": "holeR",
+          "default": 0.45
+        },
+        {
+          "key": "sphereCut",
+          "default": 1
+        },
+        {
+          "key": "mode",
+          "default": 0
+        }
+      ]
+    },
+    {
+      "id": "dragonfly",
+      "name": "机械蜻蜓",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "bodyLen",
+          "default": 3.4
+        },
+        {
+          "key": "abdomenSegs",
+          "default": 9
+        },
+        {
+          "key": "abdomenCurve",
+          "default": 0.16
+        },
+        {
+          "key": "wingLen",
+          "default": 2.8
+        },
+        {
+          "key": "wingWidth",
+          "default": 0.66
+        },
+        {
+          "key": "wingTilt",
+          "default": 0.14
+        },
+        {
+          "key": "headSize",
+          "default": 0.4
+        },
+        {
+          "key": "legLen",
+          "default": 0.78
+        },
+        {
+          "key": "holes",
+          "default": 1
+        }
+      ]
+    },
+    {
+      "id": "drawable-path-fence",
+      "name": "可绘制路径围栏",
+      "category": "程序工作流",
+      "critiqueGoal": "",
+      "assetMeta": {
+        "description": "在视口绘制曲线，实时生成沿线立柱与双层横杆。",
+        "tags": [
+          "Drawable",
+          "曲线",
+          "围栏",
+          "WorkflowPreset",
+          "非破坏"
+        ],
+        "capabilities": [
+          "视口绘制",
+          "曲线绑定",
+          "实时参数",
+          "确定性输出"
+        ],
+        "materialClasses": [
+          "木材"
+        ]
+      },
+      "schema": [
+        {
+          "key": "postSpacing",
+          "default": 0.75
+        },
+        {
+          "key": "postHeight",
+          "default": 1.25
+        },
+        {
+          "key": "railRadius",
+          "default": 0.055
+        }
+      ]
+    },
+    {
+      "id": "dress",
+      "name": "连衣裙 (程序化服装)",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "chest",
+          "default": 0.98
+        },
+        {
+          "key": "hip",
+          "default": 1.02
+        },
+        {
+          "key": "height",
+          "default": 1.8
+        },
+        {
+          "key": "waistline",
+          "default": 0
+        },
+        {
+          "key": "skirtLength",
+          "default": 0.55
+        },
+        {
+          "key": "flare",
+          "default": 0.22
+        },
+        {
+          "key": "sleeveLength",
+          "default": 0
+        },
+        {
+          "key": "neckDrop",
+          "default": 0.06
+        },
+        {
+          "key": "fabric",
+          "default": 4
+        },
+        {
+          "key": "settle",
+          "default": 0
+        }
+      ]
+    },
+    {
+      "id": "dual-grid-farm",
+      "name": "双网格农场",
+      "category": "",
+      "critiqueGoal": "stylized farming scene built from editable dual-grid terrain layers",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "cells",
+          "default": 18
+        },
+        {
+          "key": "tileSize",
+          "default": 1
+        },
+        {
+          "key": "edgeResolution",
+          "default": 6
+        },
+        {
+          "key": "grassHeight",
+          "default": 0.2
+        },
+        {
+          "key": "cropDensity",
+          "default": 0.8
+        },
+        {
+          "key": "treeCount",
+          "default": 7
+        },
+        {
+          "key": "seed",
+          "default": 2024
+        }
+      ]
+    },
+    {
+      "id": "dungeon-architect-grid",
+      "name": "Meshova Dungeon Architect",
+      "category": "程序地牢",
+      "critiqueGoal": "connected themed grid dungeon with semantic rooms, corridors, doors, entry and exit",
+      "assetMeta": {
+        "description": "布局模型、房间连接图、回环、语义 Marker、可替换 Theme。受地牢生成器工作流启发，Meshova 独立实现。",
+        "tags": [
+          "程序地牢",
+          "Grid",
+          "MST",
+          "Marker",
+          "Theme"
+        ],
+        "capabilities": [
+          "种子复现",
+          "连通房间图",
+          "回环控制",
+          "主题替换",
+          "语义部件"
+        ],
+        "materialClasses": [
+          "石材",
+          "墓穴",
+          "科幻金属"
+        ]
+      },
+      "schema": [
+        {
+          "key": "width",
+          "default": 34
+        },
+        {
+          "key": "depth",
+          "default": 26
+        },
+        {
+          "key": "roomCount",
+          "default": 12
+        },
+        {
+          "key": "minRoomSize",
+          "default": 4
+        },
+        {
+          "key": "maxRoomSize",
+          "default": 8
+        },
+        {
+          "key": "roomPadding",
+          "default": 1
+        },
+        {
+          "key": "loopChance",
+          "default": 0.18
+        },
+        {
+          "key": "wallHeight",
+          "default": 1.25
+        },
+        {
+          "key": "themeIndex",
+          "default": 0
+        },
+        {
+          "key": "seed",
+          "default": 1337
+        }
+      ]
+    },
+    {
+      "id": "easy-cliff-rock",
+      "name": "悬崖岩山群",
+      "category": "",
+      "critiqueGoal": "tall eroded cliff pillars with readable strata and ledge vegetation",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "count",
+          "default": 5
+        },
+        {
+          "key": "height",
+          "default": 8.5
+        },
+        {
+          "key": "radius",
+          "default": 1.3
+        },
+        {
+          "key": "spread",
+          "default": 6.5
+        },
+        {
+          "key": "blobs",
+          "default": 7
+        },
+        {
+          "key": "crag",
+          "default": 0.22
+        },
+        {
+          "key": "strata",
+          "default": 4
+        },
+        {
+          "key": "resolution",
+          "default": 32
+        },
+        {
+          "key": "foliageDensity",
+          "default": 0.5
+        },
+        {
+          "key": "seed",
+          "default": 19
+        }
+      ]
+    },
+    {
+      "id": "ecosystem-art-tool",
+      "name": "生态艺术工具（视频复刻）",
+      "category": "程序生态",
+      "critiqueGoal": "",
+      "assetMeta": {
+        "description": "生态层表驱动；组合地形掩码、笔刷排除、确定性散布、空间分块与 GPU 实例缓冲。",
+        "tags": [
+          "PCG",
+          "生态",
+          "ScatterTable",
+          "MaskField",
+          "HISM",
+          "视频复刻"
+        ],
+        "capabilities": [
+          "分层生态",
+          "道路避让",
+          "笔刷清除",
+          "坡度过滤",
+          "分块烘焙",
+          "种子复现"
+        ],
+        "materialClasses": [
+          "植被",
+          "木材",
+          "岩石",
+          "土壤"
+        ]
+      },
+      "schema": [
+        {
+          "key": "size",
+          "default": 54
+        },
+        {
+          "key": "resolution",
+          "default": 64
+        },
+        {
+          "key": "relief",
+          "default": 5.2
+        },
+        {
+          "key": "density",
+          "default": 0.72
+        },
+        {
+          "key": "slopeMax",
+          "default": 42
+        },
+        {
+          "key": "treeSpacing",
+          "default": 3.2
+        },
+        {
+          "key": "pathWidth",
+          "default": 2.2
+        },
+        {
+          "key": "clusterScale",
+          "default": 0.42
+        },
+        {
+          "key": "paintGap",
+          "default": 3.8
+        },
+        {
+          "key": "chunkSize",
+          "default": 14
+        },
+        {
+          "key": "season",
+          "default": 0.16
+        },
+        {
+          "key": "seed",
+          "default": 27
+        }
+      ]
+    },
+    {
+      "id": "fabcafe-houdini",
+      "name": "Fabcafe Houdini 两例总览",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "seed",
+          "default": 40
+        },
+        {
+          "key": "scale",
+          "default": 1
+        }
+      ]
+    },
+    {
+      "id": "fabcafe-twist-tower",
+      "name": "Fabcafe 扭转塔",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "height",
+          "default": 7.5
+        },
+        {
+          "key": "radius",
+          "default": 1.15
+        },
+        {
+          "key": "turns",
+          "default": 2.35
+        },
+        {
+          "key": "twist",
+          "default": 1.2
+        },
+        {
+          "key": "samples",
+          "default": 44
+        },
+        {
+          "key": "copies",
+          "default": 6
+        },
+        {
+          "key": "tubeRadius",
+          "default": 0.18
+        },
+        {
+          "key": "floors",
+          "default": 9
+        },
+        {
+          "key": "resolution",
+          "default": 34
+        },
+        {
+          "key": "seed",
+          "default": 29
+        }
+      ]
+    },
+    {
+      "id": "fabcafe-wavy-surface",
+      "name": "Fabcafe 波浪实例面",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "cols",
+          "default": 28
+        },
+        {
+          "key": "rows",
+          "default": 28
+        },
+        {
+          "key": "size",
+          "default": 7
+        },
+        {
+          "key": "waveScale",
+          "default": 2.1
+        },
+        {
+          "key": "surfaceAmp",
+          "default": 0.32
+        },
+        {
+          "key": "threshold",
+          "default": 0.34
+        },
+        {
+          "key": "blockHeight",
+          "default": 0.42
+        },
+        {
+          "key": "fill",
+          "default": 0.72
+        },
+        {
+          "key": "seed",
+          "default": 17
+        }
+      ]
+    },
+    {
+      "id": "fern",
+      "name": "程序化蕨类",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "fronds",
+          "default": 9
+        },
+        {
+          "key": "pitch",
+          "default": 0.42
+        },
+        {
+          "key": "bend",
+          "default": 1.3
+        },
+        {
+          "key": "length",
+          "default": 1.15
+        },
+        {
+          "key": "segments",
+          "default": 16
+        },
+        {
+          "key": "leafletLen",
+          "default": 0.24
+        },
+        {
+          "key": "leafletAngle",
+          "default": 0.72
+        },
+        {
+          "key": "wind",
+          "default": 0
+        },
+        {
+          "key": "windPhase",
+          "default": 0
+        }
+      ]
+    },
+    {
+      "id": "fire-escape",
+      "name": "消防逃生梯",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "floors",
+          "default": 4
+        },
+        {
+          "key": "floorHeight",
+          "default": 3.2
+        },
+        {
+          "key": "platformDepth",
+          "default": 1.2
+        },
+        {
+          "key": "width",
+          "default": 2.6
+        },
+        {
+          "key": "stairs",
+          "default": 1
+        }
+      ]
+    },
+    {
+      "id": "fire-hydrant",
+      "name": "消防栓",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "height",
+          "default": 0.75
+        },
+        {
+          "key": "radius",
+          "default": 0.11
+        },
+        {
+          "key": "outlets",
+          "default": 2
+        }
+      ]
+    },
+    {
+      "id": "forest-floor",
+      "name": "分层林地地面",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "size",
+          "default": 9
+        },
+        {
+          "key": "count",
+          "default": 700
+        },
+        {
+          "key": "spacing",
+          "default": 0.35
+        },
+        {
+          "key": "pebbleRatio",
+          "default": 0.5
+        },
+        {
+          "key": "mushRatio",
+          "default": 0.3
+        },
+        {
+          "key": "seed",
+          "default": 3
+        }
+      ]
+    },
+    {
+      "id": "freeway",
+      "name": "程序化高速",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "length",
+          "default": 64
+        },
+        {
+          "key": "bend",
+          "default": 9
+        },
+        {
+          "key": "lanesPerSide",
+          "default": 3
+        },
+        {
+          "key": "laneWidth",
+          "default": 3.5
+        },
+        {
+          "key": "medianWidth",
+          "default": 1.4
+        },
+        {
+          "key": "elevation",
+          "default": 0
+        },
+        {
+          "key": "guardrails",
+          "default": 1
+        },
+        {
+          "key": "pillars",
+          "default": 1
+        },
+        {
+          "key": "pillarSpacing",
+          "default": 12
+        },
+        {
+          "key": "deckThickness",
+          "default": 0.6
+        },
+        {
+          "key": "signGantry",
+          "default": 1
+        },
+        {
+          "key": "signSpacing",
+          "default": 36
+        },
+        {
+          "key": "lightPoles",
+          "default": 1
+        },
+        {
+          "key": "lightSpacing",
+          "default": 18
+        },
+        {
+          "key": "noiseBarrier",
+          "default": 1
+        },
+        {
+          "key": "barrierHeight",
+          "default": 2.6
+        },
+        {
+          "key": "sample",
+          "default": 1.2
+        }
+      ]
+    },
+    {
+      "id": "freeway-sign",
+      "name": "高速龙门牌",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "span",
+          "default": 12
+        },
+        {
+          "key": "postHeight",
+          "default": 6.2
+        },
+        {
+          "key": "signCount",
+          "default": 2
+        },
+        {
+          "key": "signHeight",
+          "default": 2.2
+        },
+        {
+          "key": "truss",
+          "default": 1
+        },
+        {
+          "key": "lights",
+          "default": 1
+        },
+        {
+          "key": "legend1",
+          "default": "MAIN ST"
+        },
+        {
+          "key": "legend2",
+          "default": "5TH AVE"
+        },
+        {
+          "key": "exit",
+          "default": 0
+        },
+        {
+          "key": "seed",
+          "default": 5
+        }
+      ]
+    },
+    {
+      "id": "fterrain",
+      "name": "字段地形",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "size",
+          "default": 4
+        },
+        {
+          "key": "res",
+          "default": 48
+        },
+        {
+          "key": "height",
+          "default": 0.7
+        },
+        {
+          "key": "scale",
+          "default": 1.5
+        },
+        {
+          "key": "seed",
+          "default": 5
+        }
+      ]
+    },
+    {
+      "id": "garden-metropolis",
+      "name": "湖畔花园都市群",
+      "category": "城市与建筑",
+      "critiqueGoal": "lush daylight metropolis with a central lake, park vegetation, low-rise waterfront villas, and a dense varied high-rise skyline behind them",
+      "assetMeta": {
+        "description": "中央景观湖、环湖道路、低密湖畔住宅、大量热带绿化与后景异形高层共同组成的白昼花园都市群。",
+        "tags": [
+          "都市群",
+          "花园城市",
+          "湖区",
+          "天际线",
+          "住宅",
+          "程序化城市"
+        ],
+        "capabilities": [
+          "确定性分区",
+          "实例化植被",
+          "分层城市天际线",
+          "湖岸构图",
+          "语义分件"
+        ],
+        "materialClasses": [
+          "水体",
+          "草地",
+          "玻璃幕墙",
+          "混凝土",
+          "住宅灰泥",
+          "植被"
+        ]
+      },
+      "schema": [
+        {
+          "key": "width",
+          "default": 240
+        },
+        {
+          "key": "depth",
+          "default": 190
+        },
+        {
+          "key": "lakeRadiusX",
+          "default": 38
+        },
+        {
+          "key": "lakeRadiusZ",
+          "default": 25
+        },
+        {
+          "key": "villaCount",
+          "default": 36
+        },
+        {
+          "key": "treeCount",
+          "default": 420
+        },
+        {
+          "key": "skylineCount",
+          "default": 58
+        },
+        {
+          "key": "minTowerFloors",
+          "default": 10
+        },
+        {
+          "key": "maxTowerFloors",
+          "default": 52
+        },
+        {
+          "key": "floorHeight",
+          "default": 1.28
+        },
+        {
+          "key": "seed",
+          "default": 1783
+        }
+      ]
+    },
+    {
+      "id": "gear",
+      "name": "程序化齿轮",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "teeth",
+          "default": 14
+        },
+        {
+          "key": "radius",
+          "default": 1
+        },
+        {
+          "key": "thick",
+          "default": 0.25
+        },
+        {
+          "key": "toothLen",
+          "default": 0.18
+        },
+        {
+          "key": "boreR",
+          "default": 0.25
+        }
+      ]
+    },
+    {
+      "id": "gmc-canyon-at4x",
+      "name": "GMC Canyon AT4X 皮卡",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "length",
+          "default": 5.85
+        },
+        {
+          "key": "width",
+          "default": 2.18
+        },
+        {
+          "key": "height",
+          "default": 1.92
+        },
+        {
+          "key": "wheelRadius",
+          "default": 0.47
+        },
+        {
+          "key": "rideHeight",
+          "default": 0.08
+        },
+        {
+          "key": "bedLength",
+          "default": 1.48
+        },
+        {
+          "key": "armor",
+          "default": 1
+        },
+        {
+          "key": "tireTread",
+          "default": 1
+        },
+        {
+          "key": "suspensionLift",
+          "default": 0.08
+        }
+      ]
+    },
+    {
+      "id": "grasshopper-howtos",
+      "name": "GrasshopperHowtos 九类总览",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "seed",
+          "default": 70
+        },
+        {
+          "key": "scale",
+          "default": 1
+        }
+      ]
+    },
+    {
+      "id": "grasshopper-image-field",
+      "name": "Grasshopper 图像场浮雕",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "samples",
+          "default": 18
+        },
+        {
+          "key": "size",
+          "default": 2.8
+        },
+        {
+          "key": "reliefHeight",
+          "default": 0.52
+        },
+        {
+          "key": "threshold",
+          "default": 0.42
+        },
+        {
+          "key": "gamma",
+          "default": 0.9
+        },
+        {
+          "key": "volumeResolution",
+          "default": 34
+        },
+        {
+          "key": "seed",
+          "default": 89
+        }
+      ]
+    },
+    {
+      "id": "grasshopper-landscape-contour",
+      "name": "Grasshopper 等高线地形",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "resolution",
+          "default": 52
+        },
+        {
+          "key": "size",
+          "default": 3.4
+        },
+        {
+          "key": "height",
+          "default": 0.62
+        },
+        {
+          "key": "levels",
+          "default": 9
+        },
+        {
+          "key": "lineRadius",
+          "default": 0.012
+        },
+        {
+          "key": "noiseScale",
+          "default": 3.1
+        },
+        {
+          "key": "seed",
+          "default": 61
+        }
+      ]
+    },
+    {
+      "id": "grasshopper-mesh-reaction-shell",
+      "name": "Grasshopper 曲面反应扩散壳",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "radius",
+          "default": 1.25
+        },
+        {
+          "key": "subdivisions",
+          "default": 4
+        },
+        {
+          "key": "iterations",
+          "default": 220
+        },
+        {
+          "key": "amplitude",
+          "default": 0.12
+        },
+        {
+          "key": "feed",
+          "default": 0.035
+        },
+        {
+          "key": "kill",
+          "default": 0.061
+        },
+        {
+          "key": "spots",
+          "default": 14
+        },
+        {
+          "key": "seed",
+          "default": 211
+        }
+      ]
+    },
+    {
+      "id": "grasshopper-origami-pavilion",
+      "name": "Grasshopper XPBD 折纸展亭",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "width",
+          "default": 3.8
+        },
+        {
+          "key": "depth",
+          "default": 3
+        },
+        {
+          "key": "resolution",
+          "default": 12
+        },
+        {
+          "key": "foldAngle",
+          "default": 78
+        },
+        {
+          "key": "stiffness",
+          "default": 0.94
+        },
+        {
+          "key": "iterations",
+          "default": 22
+        }
+      ]
+    },
+    {
+      "id": "grasshopper-packed-circle",
+      "name": "Grasshopper Packed Circle",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "count",
+          "default": 64
+        },
+        {
+          "key": "width",
+          "default": 3.4
+        },
+        {
+          "key": "depth",
+          "default": 2.6
+        },
+        {
+          "key": "minRadius",
+          "default": 0.055
+        },
+        {
+          "key": "maxRadius",
+          "default": 0.18
+        },
+        {
+          "key": "padding",
+          "default": 0.012
+        },
+        {
+          "key": "relax",
+          "default": 90
+        },
+        {
+          "key": "height",
+          "default": 0.16
+        },
+        {
+          "key": "seed",
+          "default": 53
+        }
+      ]
+    },
+    {
+      "id": "grasshopper-reaction-diffusion",
+      "name": "Grasshopper 反应扩散板",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "resolution",
+          "default": 48
+        },
+        {
+          "key": "size",
+          "default": 3
+        },
+        {
+          "key": "height",
+          "default": 0.32
+        },
+        {
+          "key": "iterations",
+          "default": 52
+        },
+        {
+          "key": "feed",
+          "default": 0.035
+        },
+        {
+          "key": "kill",
+          "default": 0.061
+        },
+        {
+          "key": "seed",
+          "default": 43
+        }
+      ]
+    },
+    {
+      "id": "grasshopper-ribbon-loop",
+      "name": "Grasshopper Ribbon Loop",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "radius",
+          "default": 1.25
+        },
+        {
+          "key": "width",
+          "default": 0.22
+        },
+        {
+          "key": "waves",
+          "default": 3
+        },
+        {
+          "key": "twist",
+          "default": 1.1
+        },
+        {
+          "key": "height",
+          "default": 0.42
+        },
+        {
+          "key": "segments",
+          "default": 72
+        },
+        {
+          "key": "seed",
+          "default": 73
+        }
+      ]
+    },
+    {
+      "id": "grasshopper-rock-tile",
+      "name": "Grasshopper 岩石瓦片",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "resolution",
+          "default": 40
+        },
+        {
+          "key": "size",
+          "default": 3.2
+        },
+        {
+          "key": "height",
+          "default": 0.28
+        },
+        {
+          "key": "cells",
+          "default": 5
+        },
+        {
+          "key": "gap",
+          "default": 0.08
+        },
+        {
+          "key": "roughness",
+          "default": 0.42
+        },
+        {
+          "key": "seed",
+          "default": 11
+        }
+      ]
+    },
+    {
+      "id": "grasshopper-superformula-tower",
+      "name": "Grasshopper Superformula 塔",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "height",
+          "default": 4.2
+        },
+        {
+          "key": "radius",
+          "default": 1.15
+        },
+        {
+          "key": "taper",
+          "default": 0.58
+        },
+        {
+          "key": "m",
+          "default": 7
+        },
+        {
+          "key": "n1",
+          "default": 0.34
+        },
+        {
+          "key": "n2",
+          "default": 1.15
+        },
+        {
+          "key": "n3",
+          "default": 1.15
+        },
+        {
+          "key": "twist",
+          "default": 1.05
+        },
+        {
+          "key": "bulge",
+          "default": 0.12
+        },
+        {
+          "key": "segments",
+          "default": 72
+        }
+      ]
+    },
+    {
+      "id": "grasshopper-voronoi-pipe",
+      "name": "Grasshopper Voronoi 管网",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "cells",
+          "default": 5
+        },
+        {
+          "key": "size",
+          "default": 3.2
+        },
+        {
+          "key": "radius",
+          "default": 0.035
+        },
+        {
+          "key": "height",
+          "default": 0.18
+        },
+        {
+          "key": "jitter",
+          "default": 0.92
+        },
+        {
+          "key": "edgeWidth",
+          "default": 0.07
+        },
+        {
+          "key": "seed",
+          "default": 23
+        }
+      ]
+    },
+    {
+      "id": "grasshopper-voxel-bunny",
+      "name": "Grasshopper Voxel Bunny",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "resolution",
+          "default": 34
+        },
+        {
+          "key": "size",
+          "default": 1.1
+        },
+        {
+          "key": "earLength",
+          "default": 0.86
+        },
+        {
+          "key": "smoothness",
+          "default": 0.14
+        },
+        {
+          "key": "seed",
+          "default": 83
+        }
+      ]
+    },
+    {
+      "id": "grasshopper-waffle-pattern",
+      "name": "Grasshopper Waffle 切片",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "width",
+          "default": 3.4
+        },
+        {
+          "key": "depth",
+          "default": 2.6
+        },
+        {
+          "key": "slicesX",
+          "default": 8
+        },
+        {
+          "key": "slicesZ",
+          "default": 7
+        },
+        {
+          "key": "height",
+          "default": 1.25
+        },
+        {
+          "key": "thickness",
+          "default": 0.055
+        },
+        {
+          "key": "wave",
+          "default": 0.32
+        },
+        {
+          "key": "seed",
+          "default": 31
+        }
+      ]
+    },
+    {
+      "id": "hard-surface-kit",
+      "name": "硬表面工业设备",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "width",
+          "default": 3
+        },
+        {
+          "key": "height",
+          "default": 1.25
+        },
+        {
+          "key": "depth",
+          "default": 2
+        },
+        {
+          "key": "bevel",
+          "default": 0.08
+        },
+        {
+          "key": "panelCols",
+          "default": 3
+        },
+        {
+          "key": "panelRows",
+          "default": 2
+        },
+        {
+          "key": "ventCols",
+          "default": 3
+        },
+        {
+          "key": "ventRows",
+          "default": 5
+        },
+        {
+          "key": "bolts",
+          "default": 14
+        },
+        {
+          "key": "pipes",
+          "default": 4
+        },
+        {
+          "key": "greebles",
+          "default": 24
+        },
+        {
+          "key": "seed",
+          "default": 31
+        }
+      ]
+    },
+    {
+      "id": "hong-kong-cyber-house",
+      "name": "香港赛博街屋",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "floors",
+          "default": 9
+        },
+        {
+          "key": "width",
+          "default": 8.4
+        },
+        {
+          "key": "depth",
+          "default": 6.2
+        },
+        {
+          "key": "floorHeight",
+          "default": 0.92
+        },
+        {
+          "key": "bays",
+          "default": 5
+        },
+        {
+          "key": "signDensity",
+          "default": 0.88
+        },
+        {
+          "key": "neonAmount",
+          "default": 0.9
+        },
+        {
+          "key": "balconyDepth",
+          "default": 0.62
+        },
+        {
+          "key": "utilityDensity",
+          "default": 0.78
+        },
+        {
+          "key": "seed",
+          "default": 71
+        }
+      ]
+    },
+    {
+      "id": "hoodie",
+      "name": "卫衣 (程序化服装)",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "chest",
+          "default": 0.98
+        },
+        {
+          "key": "height",
+          "default": 1.8
+        },
+        {
+          "key": "chestEase",
+          "default": 0.12
+        },
+        {
+          "key": "bodyLength",
+          "default": 1.05
+        },
+        {
+          "key": "sleeveLength",
+          "default": 0.95
+        },
+        {
+          "key": "hoodScale",
+          "default": 1
+        },
+        {
+          "key": "pocket",
+          "default": 1
+        },
+        {
+          "key": "fabric",
+          "default": 0
+        },
+        {
+          "key": "settle",
+          "default": 0
+        }
+      ]
+    },
+    {
+      "id": "houdini-cave",
+      "name": "Houdini 程序化山洞",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "width",
+          "default": 12
+        },
+        {
+          "key": "height",
+          "default": 4
+        },
+        {
+          "key": "depth",
+          "default": 8
+        },
+        {
+          "key": "wallThickness",
+          "default": 0.34
+        },
+        {
+          "key": "entranceWidth",
+          "default": 2.78
+        },
+        {
+          "key": "entranceHeight",
+          "default": 3.32
+        },
+        {
+          "key": "entranceOffsetZ",
+          "default": 1
+        },
+        {
+          "key": "roughness",
+          "default": 0.58
+        },
+        {
+          "key": "surfaceDetail",
+          "default": 0.16
+        },
+        {
+          "key": "resolution",
+          "default": 56
+        },
+        {
+          "key": "entranceRocks",
+          "default": 3
+        },
+        {
+          "key": "seed",
+          "default": 19
+        }
+      ]
+    },
+    {
+      "id": "houdini-howtos",
+      "name": "HoudiniHowtos 七类总览",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "seed",
+          "default": 100
+        },
+        {
+          "key": "scale",
+          "default": 1
+        }
+      ]
+    },
+    {
+      "id": "houdini-howtos-bsp-dungeon",
+      "name": "HoudiniHowtos BSP 地牢",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "width",
+          "default": 13.5
+        },
+        {
+          "key": "depth",
+          "default": 9.5
+        },
+        {
+          "key": "iterations",
+          "default": 4
+        },
+        {
+          "key": "roomFill",
+          "default": 0.7
+        },
+        {
+          "key": "corridorWidth",
+          "default": 0.78
+        },
+        {
+          "key": "wallHeight",
+          "default": 0.72
+        },
+        {
+          "key": "floorThickness",
+          "default": 0.08
+        },
+        {
+          "key": "seed",
+          "default": 64
+        }
+      ]
+    },
+    {
+      "id": "houdini-howtos-curve-graph",
+      "name": "HoudiniHowtos 曲线图管网",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "cols",
+          "default": 4
+        },
+        {
+          "key": "rows",
+          "default": 3
+        },
+        {
+          "key": "spacing",
+          "default": 1.25
+        },
+        {
+          "key": "radius",
+          "default": 0.055
+        },
+        {
+          "key": "jitter",
+          "default": 0.18
+        },
+        {
+          "key": "seed",
+          "default": 21
+        }
+      ]
+    },
+    {
+      "id": "houdini-howtos-field",
+      "name": "HoudiniHowtos 场与等值面",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "resolution",
+          "default": 48
+        },
+        {
+          "key": "size",
+          "default": 3
+        },
+        {
+          "key": "height",
+          "default": 0.34
+        },
+        {
+          "key": "iterations",
+          "default": 48
+        },
+        {
+          "key": "showBlob",
+          "default": 1
+        },
+        {
+          "key": "seed",
+          "default": 12
+        }
+      ]
+    },
+    {
+      "id": "houdini-howtos-gradational-crystal",
+      "name": "HoudiniHowtos 渐变晶簇",
+      "category": "",
+      "critiqueGoal": "faceted transmissive crystal cluster with readable height gradients and seeded composition",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "sides",
+          "default": 6
+        },
+        {
+          "key": "count",
+          "default": 17
+        },
+        {
+          "key": "height",
+          "default": 3.8
+        },
+        {
+          "key": "radius",
+          "default": 0.58
+        },
+        {
+          "key": "tipRatio",
+          "default": 0.28
+        },
+        {
+          "key": "spread",
+          "default": 2.5
+        },
+        {
+          "key": "lean",
+          "default": 0.34
+        },
+        {
+          "key": "twist",
+          "default": 0.08
+        },
+        {
+          "key": "hueShift",
+          "default": 0
+        },
+        {
+          "key": "roughness",
+          "default": 0.035
+        },
+        {
+          "key": "ior",
+          "default": 2.4
+        },
+        {
+          "key": "dispersion",
+          "default": 4
+        },
+        {
+          "key": "seed",
+          "default": 145
+        }
+      ]
+    },
+    {
+      "id": "houdini-howtos-growth-urchin",
+      "name": "HoudiniHowtos 放射生长体",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "spines",
+          "default": 72
+        },
+        {
+          "key": "coreRadius",
+          "default": 0.48
+        },
+        {
+          "key": "spineLength",
+          "default": 1.28
+        },
+        {
+          "key": "spineRadius",
+          "default": 0.026
+        },
+        {
+          "key": "segments",
+          "default": 9
+        },
+        {
+          "key": "seed",
+          "default": 55
+        }
+      ]
+    },
+    {
+      "id": "houdini-howtos-sci-fi-panel",
+      "name": "HoudiniHowtos Sci-Fi 面板",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "width",
+          "default": 3.4
+        },
+        {
+          "key": "depth",
+          "default": 2.2
+        },
+        {
+          "key": "thickness",
+          "default": 0.16
+        },
+        {
+          "key": "cols",
+          "default": 5
+        },
+        {
+          "key": "rows",
+          "default": 4
+        },
+        {
+          "key": "greebles",
+          "default": 18
+        },
+        {
+          "key": "seed",
+          "default": 44
+        }
+      ]
+    },
+    {
+      "id": "houdini-howtos-voronoi-vase",
+      "name": "HoudiniHowtos Voronoi 花瓶",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "segments",
+          "default": 72
+        },
+        {
+          "key": "rows",
+          "default": 44
+        },
+        {
+          "key": "height",
+          "default": 2.7
+        },
+        {
+          "key": "radius",
+          "default": 0.82
+        },
+        {
+          "key": "neck",
+          "default": 0.56
+        },
+        {
+          "key": "bulge",
+          "default": 0.3
+        },
+        {
+          "key": "twist",
+          "default": 0.16
+        },
+        {
+          "key": "cells",
+          "default": 34
+        },
+        {
+          "key": "edgeWidth",
+          "default": 0.045
+        },
+        {
+          "key": "relief",
+          "default": 0.055
+        },
+        {
+          "key": "cellInset",
+          "default": 0.38
+        },
+        {
+          "key": "seed",
+          "default": 72
+        }
+      ]
+    },
+    {
+      "id": "houdini-howtos-weave-pot",
+      "name": "HoudiniHowtos 编织罐",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "segments",
+          "default": 56
+        },
+        {
+          "key": "rows",
+          "default": 32
+        },
+        {
+          "key": "height",
+          "default": 2.4
+        },
+        {
+          "key": "radiusBottom",
+          "default": 0.62
+        },
+        {
+          "key": "radiusTop",
+          "default": 0.92
+        },
+        {
+          "key": "bulge",
+          "default": 0.18
+        },
+        {
+          "key": "relief",
+          "default": 0.045
+        },
+        {
+          "key": "weaveColumns",
+          "default": 18
+        },
+        {
+          "key": "weaveRows",
+          "default": 10
+        },
+        {
+          "key": "seed",
+          "default": 33
+        }
+      ]
+    },
+    {
+      "id": "houdini-lake-house",
+      "name": "Houdini 湖边小屋",
+      "category": "建筑",
+      "critiqueGoal": "Houdini-style weathered lake house with readable modular construction, pier and roof silhouette",
+      "assetMeta": {
+        "description": "依据 Houdini 17.5 Lake_House_Modeling.hip 的节点网络与模块分类独立重写：2×3×2 模块网格、木构立面、屋顶装饰、支撑、外楼梯、石码头与概率塔楼。",
+        "tags": [
+          "Houdini复刻",
+          "湖边小屋",
+          "模块化建筑",
+          "码头",
+          "程序化建模"
+        ],
+        "capabilities": [
+          "种子复现",
+          "楼层与开间",
+          "屋顶概率装饰",
+          "塔楼概率",
+          "栈桥长度",
+          "水位结构"
+        ],
+        "materialClasses": [
+          "风化木材",
+          "石材",
+          "木瓦",
+          "玻璃",
+          "水体",
+          "金属"
+        ],
+        "sourceStudy": "Lake_House_Modeling.hip · bank_house_v03 · Houdini 17.5 · BV1i44y1F7gu"
+      },
+      "schema": [
+        {
+          "key": "floors",
+          "default": 2
+        },
+        {
+          "key": "baysX",
+          "default": 4
+        },
+        {
+          "key": "baysZ",
+          "default": 3
+        },
+        {
+          "key": "bayWidth",
+          "default": 2
+        },
+        {
+          "key": "floorHeight",
+          "default": 3
+        },
+        {
+          "key": "roofPitch",
+          "default": 0.72
+        },
+        {
+          "key": "roofWindowProbability",
+          "default": 0.6
+        },
+        {
+          "key": "chimneyProbability",
+          "default": 0.1
+        },
+        {
+          "key": "towerProbability",
+          "default": 0.6
+        },
+        {
+          "key": "walkwayLength",
+          "default": 5.5
+        },
+        {
+          "key": "pierHeight",
+          "default": 1.9
+        },
+        {
+          "key": "lakeSize",
+          "default": 16
+        },
+        {
+          "key": "weathering",
+          "default": 0.45
+        },
+        {
+          "key": "seed",
+          "default": 2983
+        }
+      ]
+    },
+    {
+      "id": "image-remesh",
+      "name": "图像重网格",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "mode",
+          "default": 0
+        },
+        {
+          "key": "source",
+          "default": 0
+        },
+        {
+          "key": "size",
+          "default": 2.25
+        },
+        {
+          "key": "resolution",
+          "default": 18
+        },
+        {
+          "key": "samples",
+          "default": 80
+        },
+        {
+          "key": "reliefHeight",
+          "default": 0.55
+        },
+        {
+          "key": "seed",
+          "default": 47
+        }
+      ]
+    },
+    {
+      "id": "interior-room",
+      "name": "程序化室内房间",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "width",
+          "default": 7
+        },
+        {
+          "key": "depth",
+          "default": 5.2
+        },
+        {
+          "key": "wallHeight",
+          "default": 3
+        },
+        {
+          "key": "furnitureScale",
+          "default": 1
+        },
+        {
+          "key": "chairs",
+          "default": 4
+        },
+        {
+          "key": "shelves",
+          "default": 4
+        },
+        {
+          "key": "clutter",
+          "default": 14
+        },
+        {
+          "key": "doorOpen",
+          "default": 0.35
+        },
+        {
+          "key": "drawerOpen",
+          "default": 0.25
+        },
+        {
+          "key": "seed",
+          "default": 23
+        }
+      ]
+    },
+    {
+      "id": "intersection",
+      "name": "任意角路口",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "layout",
+          "default": 1
+        },
+        {
+          "key": "branchAngle",
+          "default": 55
+        },
+        {
+          "key": "roadHalfWidth",
+          "default": 5
+        },
+        {
+          "key": "armLength",
+          "default": 10
+        },
+        {
+          "key": "lanes",
+          "default": 2
+        },
+        {
+          "key": "crosswalks",
+          "default": 1
+        },
+        {
+          "key": "sidewalks",
+          "default": 1
+        }
+      ]
+    },
+    {
+      "id": "ivy-lowpoly-vol23",
+      "name": "低模常春藤 VOL23 复刻",
+      "category": "植被",
+      "critiqueGoal": "",
+      "assetMeta": {
+        "description": "从 UE5 VOL23 资产规律重建：五类剪影、三裂叶、活枯双态、四级 LOD；全部为程序化几何。",
+        "tags": [
+          "常春藤",
+          "低模",
+          "藤蔓",
+          "LOD",
+          "程序化复刻"
+        ],
+        "capabilities": [
+          "五类生长构型",
+          "种子变体",
+          "活枯混合",
+          "风权重",
+          "四级LOD"
+        ],
+        "materialClasses": [
+          "树皮",
+          "双面叶片"
+        ]
+      },
+      "schema": [
+        {
+          "key": "form",
+          "default": 0
+        },
+        {
+          "key": "width",
+          "default": 2.2
+        },
+        {
+          "key": "height",
+          "default": 2.8
+        },
+        {
+          "key": "strands",
+          "default": 4
+        },
+        {
+          "key": "branches",
+          "default": 2
+        },
+        {
+          "key": "leafSize",
+          "default": 0.16
+        },
+        {
+          "key": "leafDensity",
+          "default": 7.5
+        },
+        {
+          "key": "lushness",
+          "default": 1
+        },
+        {
+          "key": "dryness",
+          "default": 0.08
+        },
+        {
+          "key": "lod",
+          "default": 0
+        },
+        {
+          "key": "seed",
+          "default": 23
+        }
+      ]
+    },
+    {
+      "id": "ivy-lowpoly-vol23-kit",
+      "name": "低模常春藤 VOL23 套件",
+      "category": "植被",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "variants",
+          "default": 10
+        },
+        {
+          "key": "columns",
+          "default": 5
+        },
+        {
+          "key": "scale",
+          "default": 1
+        },
+        {
+          "key": "lushness",
+          "default": 1
+        },
+        {
+          "key": "dryness",
+          "default": 0.12
+        },
+        {
+          "key": "lod",
+          "default": 1
+        },
+        {
+          "key": "seed",
+          "default": 23
+        }
+      ]
+    },
+    {
+      "id": "ivy-ruins",
+      "name": "藤蔓石柱废墟",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "columns",
+          "default": 3
+        },
+        {
+          "key": "columnRadius",
+          "default": 0.45
+        },
+        {
+          "key": "ivyPerColumn",
+          "default": 6
+        },
+        {
+          "key": "leafDensity",
+          "default": 9
+        },
+        {
+          "key": "lushness",
+          "default": 1
+        },
+        {
+          "key": "seed",
+          "default": 7
+        }
+      ]
+    },
+    {
+      "id": "japanese-street-building",
+      "name": "日式模块化街屋",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "floors",
+          "default": 5
+        },
+        {
+          "key": "width",
+          "default": 7.2
+        },
+        {
+          "key": "depth",
+          "default": 5.2
+        },
+        {
+          "key": "floorHeight",
+          "default": 1.05
+        },
+        {
+          "key": "bayWidth",
+          "default": 1.2
+        },
+        {
+          "key": "signDensity",
+          "default": 0.95
+        },
+        {
+          "key": "balconyDensity",
+          "default": 0.75
+        },
+        {
+          "key": "utilityDensity",
+          "default": 0.55
+        },
+        {
+          "key": "roofClutter",
+          "default": 1
+        },
+        {
+          "key": "seed",
+          "default": 23
+        }
+      ]
+    },
+    {
+      "id": "kowloon-cyber-courtyard",
+      "name": "九龙城·夜雨赛博天井",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "floors",
+          "default": 10
+        },
+        {
+          "key": "courtyardWidth",
+          "default": 8.2
+        },
+        {
+          "key": "courtyardDepth",
+          "default": 10.6
+        },
+        {
+          "key": "buildingDepth",
+          "default": 4.4
+        },
+        {
+          "key": "floorHeight",
+          "default": 0.9
+        },
+        {
+          "key": "alleyWidth",
+          "default": 1.35
+        },
+        {
+          "key": "signDensity",
+          "default": 0.94
+        },
+        {
+          "key": "neonAmount",
+          "default": 1
+        },
+        {
+          "key": "utilityDensity",
+          "default": 0.9
+        },
+        {
+          "key": "wetness",
+          "default": 0.95
+        },
+        {
+          "key": "rainAmount",
+          "default": 0.72
+        },
+        {
+          "key": "seed",
+          "default": 113
+        }
+      ]
+    },
+    {
+      "id": "lunar-crater-surface",
+      "name": "月球陨石坑表面",
+      "category": "地形",
+      "critiqueGoal": "Moon-like crater field with readable bowls, raised broken rims, ejecta and multi-scale surface detail",
+      "assetMeta": {
+        "description": "复刻 BV18QZWYBEYr：分层散布大小陨石坑，噪声破坏坑缘，并叠加喷射纹与微地形。",
+        "tags": [
+          "月球",
+          "陨石坑",
+          "高度场",
+          "Houdini复刻"
+        ],
+        "capabilities": [
+          "种子复现",
+          "大小坑分层",
+          "坑缘破碎",
+          "实时参数化"
+        ],
+        "materialClasses": [
+          "月壤",
+          "岩石"
+        ]
+      },
+      "schema": [
+        {
+          "key": "size",
+          "default": 120
+        },
+        {
+          "key": "resolution",
+          "default": 160
+        },
+        {
+          "key": "largeCraters",
+          "default": 18
+        },
+        {
+          "key": "smallCraters",
+          "default": 240
+        },
+        {
+          "key": "relief",
+          "default": 1
+        },
+        {
+          "key": "rimSharpness",
+          "default": 0.72
+        },
+        {
+          "key": "irregularity",
+          "default": 0.14
+        },
+        {
+          "key": "roughness",
+          "default": 0.65
+        },
+        {
+          "key": "seed",
+          "default": 2025
+        }
+      ]
+    },
+    {
+      "id": "manhole-cover",
+      "name": "井盖",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "radius",
+          "default": 0.32
+        },
+        {
+          "key": "thickness",
+          "default": 0.04
+        },
+        {
+          "key": "spokes",
+          "default": 12
+        },
+        {
+          "key": "frame",
+          "default": 1
+        },
+        {
+          "key": "proud",
+          "default": 1
+        }
+      ]
+    },
+    {
+      "id": "masked-region-grove",
+      "name": "可绘制区域林地",
+      "category": "程序工作流",
+      "critiqueGoal": "",
+      "assetMeta": {
+        "description": "绘制区域后，用 MaskField 裁剪候选点，ScatterTable 混合乔木、灌木、岩石。",
+        "tags": [
+          "Drawable",
+          "区域",
+          "MaskField",
+          "ScatterTable",
+          "植被"
+        ],
+        "capabilities": [
+          "区域绑定",
+          "多物种散布",
+          "密度控制",
+          "种子复现"
+        ],
+        "materialClasses": [
+          "植被",
+          "土壤",
+          "岩石",
+          "木材"
+        ]
+      },
+      "schema": [
+        {
+          "key": "density",
+          "default": 0.62
+        },
+        {
+          "key": "spacing",
+          "default": 0.72
+        },
+        {
+          "key": "treeScale",
+          "default": 1
+        },
+        {
+          "key": "seed",
+          "default": 17
+        }
+      ]
+    },
+    {
+      "id": "material-stack",
+      "name": "施工物料堆",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "pallets",
+          "default": 3
+        },
+        {
+          "key": "cargo",
+          "default": "mixed"
+        },
+        {
+          "key": "palletSize",
+          "default": 1.2
+        },
+        {
+          "key": "stack",
+          "default": 1
+        },
+        {
+          "key": "straps",
+          "default": 1
+        },
+        {
+          "key": "seed",
+          "default": 11
+        }
+      ]
+    },
+    {
+      "id": "meadow",
+      "name": "程序化草地",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "blades",
+          "default": 60
+        },
+        {
+          "key": "rocks",
+          "default": 6
+        },
+        {
+          "key": "bladeH",
+          "default": 0.4
+        },
+        {
+          "key": "seed",
+          "default": 7
+        }
+      ]
+    },
+    {
+      "id": "messenger-toon-planet",
+      "name": "卡通信使·球形街区",
+      "category": "风格复刻",
+      "critiqueGoal": "",
+      "assetMeta": {
+        "description": "基于 Messenger Web 游戏视觉语言原创重写的球形街区：低饱和色块、三段卡渲、深灰描边、团块植被与微缩建筑。",
+        "tags": [
+          "球形世界",
+          "卡渲",
+          "粗描边",
+          "低多边形",
+          "Web 风格研究"
+        ],
+        "capabilities": [
+          "径向贴附",
+          "程序化街区",
+          "语义部件",
+          "种子复现"
+        ],
+        "materialClasses": [
+          "卡通地表",
+          "灰泥建筑",
+          "植被",
+          "街区设施"
+        ],
+        "sourceStudy": "https://messenger.abeto.co/"
+      },
+      "schema": [
+        {
+          "key": "radius",
+          "default": 5.2
+        },
+        {
+          "key": "buildingCount",
+          "default": 14
+        },
+        {
+          "key": "treeCount",
+          "default": 22
+        },
+        {
+          "key": "propDensity",
+          "default": 0.8
+        },
+        {
+          "key": "colorVariation",
+          "default": 0.055
+        },
+        {
+          "key": "seed",
+          "default": 2607
+        }
+      ]
+    },
+    {
+      "id": "midnight-horse",
+      "name": "午夜黑马",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "scale",
+          "default": 1
+        },
+        {
+          "key": "bodyLength",
+          "default": 3.6
+        },
+        {
+          "key": "bodyWidth",
+          "default": 1
+        },
+        {
+          "key": "legLength",
+          "default": 1.22
+        },
+        {
+          "key": "neckArch",
+          "default": 1
+        },
+        {
+          "key": "maneLength",
+          "default": 0.42
+        },
+        {
+          "key": "tailLength",
+          "default": 1
+        },
+        {
+          "key": "stride",
+          "default": 0.12
+        }
+      ]
+    },
+    {
+      "id": "modular-rescue-rover",
+      "name": "模块化远征救援车",
+      "category": "载具",
+      "critiqueGoal": "",
+      "assetMeta": {
+        "description": "高扭矩动力、多人驾驶舱、救援指挥后舱组成的确定性模块化远征车。",
+        "tags": [
+          "救援载具",
+          "语义装配",
+          "程序化建模",
+          "功能元数据"
+        ],
+        "capabilities": [
+          "稳定模块 ID",
+          "无人机起降位",
+          "医疗装备锚点",
+          "参数化车身"
+        ]
+      },
+      "schema": [
+        {
+          "key": "length",
+          "default": 5.4
+        },
+        {
+          "key": "width",
+          "default": 2.08
+        },
+        {
+          "key": "height",
+          "default": 1.92
+        },
+        {
+          "key": "wheelBase",
+          "default": 3.25
+        },
+        {
+          "key": "wheelRadius",
+          "default": 0.44
+        },
+        {
+          "key": "rideHeight",
+          "default": 0.25
+        },
+        {
+          "key": "seed",
+          "default": 73
+        }
+      ]
+    },
+    {
+      "id": "mountain-village",
+      "name": "山村聚落",
+      "category": "",
+      "critiqueGoal": "mountain village settlement",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "size",
+          "default": 12
+        },
+        {
+          "key": "resolution",
+          "default": 128
+        },
+        {
+          "key": "height",
+          "default": 1.6
+        },
+        {
+          "key": "noiseScale",
+          "default": 1.05
+        },
+        {
+          "key": "roads",
+          "default": 9
+        },
+        {
+          "key": "buildings",
+          "default": 190
+        },
+        {
+          "key": "trees",
+          "default": 60
+        },
+        {
+          "key": "seed",
+          "default": 21
+        }
+      ]
+    },
+    {
+      "id": "multilevel-interchange",
+      "name": "参考视频复刻·多层立体交通",
+      "category": "",
+      "critiqueGoal": "three-level urban interchange with signalized crossroads, cloverleaf loops, directional ramps, lane markings, bridge piers, and traffic lights",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "span",
+          "default": 190
+        },
+        {
+          "key": "mainElevation",
+          "default": 11
+        },
+        {
+          "key": "crossElevation",
+          "default": 6
+        },
+        {
+          "key": "lanesPerSide",
+          "default": 4
+        },
+        {
+          "key": "rampWidth",
+          "default": 4.2
+        },
+        {
+          "key": "loopRadius",
+          "default": 28
+        },
+        {
+          "key": "trafficSignals",
+          "default": 1
+        },
+        {
+          "key": "streetLights",
+          "default": 1
+        },
+        {
+          "key": "landscaping",
+          "default": 1
+        }
+      ]
+    },
+    {
+      "id": "mushroom",
+      "name": "程序化蘑菇",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "capR",
+          "default": 0.8
+        },
+        {
+          "key": "capH",
+          "default": 0.5
+        },
+        {
+          "key": "stemR",
+          "default": 0.22
+        },
+        {
+          "key": "stemH",
+          "default": 0.9
+        },
+        {
+          "key": "spots",
+          "default": 7
+        },
+        {
+          "key": "seed",
+          "default": 3
+        }
+      ]
+    },
+    {
+      "id": "newsstand",
+      "name": "报刊亭",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "width",
+          "default": 2.6
+        },
+        {
+          "key": "depth",
+          "default": 1.8
+        },
+        {
+          "key": "height",
+          "default": 2.4
+        },
+        {
+          "key": "awning",
+          "default": 1
+        },
+        {
+          "key": "dispensers",
+          "default": 2
+        }
+      ]
+    },
+    {
+      "id": "night-metropolis",
+      "name": "夜间都市天际线",
+      "category": "城市",
+      "critiqueGoal": "large dense night metropolis skyline with central high-rise cluster, luminous windows, road grid, and distant mountains",
+      "assetMeta": {
+        "description": "数百栋中高层建筑组成的夜间都市群，含中心商务区、冷暖窗光、道路灯带与外围远山。",
+        "tags": [
+          "都市天际线",
+          "夜景",
+          "程序化城市",
+          "摩天楼",
+          "城市群"
+        ],
+        "capabilities": [
+          "确定性布局",
+          "中心高度场",
+          "实例化楼体",
+          "程序化窗光",
+          "夜景渲染预设"
+        ],
+        "materialClasses": [
+          "深色玻璃",
+          "混凝土",
+          "金属",
+          "自发光窗户",
+          "湿地面"
+        ]
+      },
+      "schema": [
+        {
+          "key": "blocksX",
+          "default": 8
+        },
+        {
+          "key": "blocksZ",
+          "default": 7
+        },
+        {
+          "key": "blockSize",
+          "default": 38
+        },
+        {
+          "key": "streetWidth",
+          "default": 10
+        },
+        {
+          "key": "lotsPerBlock",
+          "default": 3
+        },
+        {
+          "key": "density",
+          "default": 0.82
+        },
+        {
+          "key": "minFloors",
+          "default": 7
+        },
+        {
+          "key": "maxFloors",
+          "default": 48
+        },
+        {
+          "key": "centerBoost",
+          "default": 1.35
+        },
+        {
+          "key": "litWindowRatio",
+          "default": 0.72
+        },
+        {
+          "key": "mountains",
+          "default": 1
+        },
+        {
+          "key": "seed",
+          "default": 2026
+        }
+      ]
+    },
+    {
+      "id": "officechair",
+      "name": "黑色办公椅",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "seatW",
+          "default": 1.65
+        },
+        {
+          "key": "seatD",
+          "default": 1.35
+        },
+        {
+          "key": "backH",
+          "default": 2.2
+        },
+        {
+          "key": "backW",
+          "default": 1.22
+        },
+        {
+          "key": "armSpread",
+          "default": 1.24
+        },
+        {
+          "key": "baseR",
+          "default": 0.86
+        },
+        {
+          "key": "tilt"
+        }
+      ]
+    },
+    {
+      "id": "pagoda",
+      "name": "Houdini式宝塔",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "floors",
+          "default": 7
+        },
+        {
+          "key": "width",
+          "default": 2.3
+        },
+        {
+          "key": "floorH",
+          "default": 0.58
+        },
+        {
+          "key": "taper",
+          "default": 0.38
+        },
+        {
+          "key": "eave",
+          "default": 0.22
+        },
+        {
+          "key": "density",
+          "default": 5
+        },
+        {
+          "key": "seed",
+          "default": 9
+        }
+      ]
+    },
+    {
+      "id": "pants",
+      "name": "长裤 (程序化服装)",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "hip",
+          "default": 1.02
+        },
+        {
+          "key": "height",
+          "default": 1.8
+        },
+        {
+          "key": "length",
+          "default": 1
+        },
+        {
+          "key": "legOpening",
+          "default": 0
+        },
+        {
+          "key": "thighEase",
+          "default": 0.03
+        },
+        {
+          "key": "hipEase",
+          "default": 0.04
+        },
+        {
+          "key": "fabric",
+          "default": 1
+        },
+        {
+          "key": "settle",
+          "default": 0
+        }
+      ]
+    },
+    {
+      "id": "park-bench",
+      "name": "长椅",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "length",
+          "default": 1.8
+        },
+        {
+          "key": "slats",
+          "default": 5
+        },
+        {
+          "key": "backrest",
+          "default": 1
+        },
+        {
+          "key": "armrests",
+          "default": 1
+        }
+      ]
+    },
+    {
+      "id": "pcg-biome-river",
+      "name": "PCG 湿地河道",
+      "category": "",
+      "critiqueGoal": "calm wetland river with dense reeds, lily pads, broadleaf shrubs, rocks and driftwood",
+      "assetMeta": {
+        "description": "复刻 UE PCG Biome River 的分层生态散布：水体、岸带、水草、睡莲、灌丛、岩石、枯木。",
+        "tags": [
+          "UE5 PCG",
+          "河道",
+          "湿地",
+          "水草",
+          "生态散布"
+        ],
+        "capabilities": [
+          "Spline 河道",
+          "密度分层",
+          "确定性种子",
+          "实时参数"
+        ],
+        "materialClasses": [
+          "水体",
+          "土壤",
+          "植被",
+          "岩石",
+          "木材"
+        ]
+      },
+      "schema": [
+        {
+          "key": "size",
+          "default": 30
+        },
+        {
+          "key": "resolution",
+          "default": 64
+        },
+        {
+          "key": "riverWidth",
+          "default": 3.4
+        },
+        {
+          "key": "meander",
+          "default": 3.2
+        },
+        {
+          "key": "reeds",
+          "default": 150
+        },
+        {
+          "key": "dryReeds",
+          "default": 54
+        },
+        {
+          "key": "waterLilies",
+          "default": 42
+        },
+        {
+          "key": "shrubs",
+          "default": 28
+        },
+        {
+          "key": "rocks",
+          "default": 18
+        },
+        {
+          "key": "snags",
+          "default": 7
+        },
+        {
+          "key": "seed",
+          "default": 53
+        }
+      ]
+    },
+    {
+      "id": "pcg-boulders",
+      "name": "PCG 岩石阵",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "size",
+          "default": 16
+        },
+        {
+          "key": "relief",
+          "default": 1.6
+        },
+        {
+          "key": "count",
+          "default": 900
+        },
+        {
+          "key": "spacing",
+          "default": 1.4
+        },
+        {
+          "key": "bigRatio",
+          "default": 0.3
+        },
+        {
+          "key": "seed",
+          "default": 3
+        }
+      ]
+    },
+    {
+      "id": "pcg-brick-wall",
+      "name": "PCG 程序化砖墙",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "length",
+          "default": 6.4
+        },
+        {
+          "key": "height",
+          "default": 3.3
+        },
+        {
+          "key": "depth",
+          "default": 0.36
+        },
+        {
+          "key": "columns",
+          "default": 15
+        },
+        {
+          "key": "rows",
+          "default": 17
+        },
+        {
+          "key": "curveDepth",
+          "default": 0.48
+        },
+        {
+          "key": "brickScale",
+          "default": 0.94
+        },
+        {
+          "key": "mortar",
+          "default": 0.01
+        },
+        {
+          "key": "stagger",
+          "default": 1
+        },
+        {
+          "key": "jitter",
+          "default": 0.02
+        },
+        {
+          "key": "seed",
+          "default": 21
+        }
+      ]
+    },
+    {
+      "id": "pcg-cartoon-house",
+      "name": "PCG 卡通小房子",
+      "category": "风格复刻",
+      "critiqueGoal": "mint tiled cartoon cottage with cross gables, timber framing, bay windows and chimneys",
+      "assetMeta": {
+        "description": "参考 UE PCG 模块化建筑视频原创重写：L 形体块、十字山墙、薄荷瓦顶、深棕木构、凸窗与可调烟囱。",
+        "tags": [
+          "PCG",
+          "卡通房屋",
+          "十字山墙",
+          "木构立面",
+          "程序化建筑"
+        ],
+        "capabilities": [
+          "参数化体块",
+          "种子变体",
+          "语义部件",
+          "程序化 PBR"
+        ],
+        "materialClasses": [
+          "卡通灰泥",
+          "薄荷瓦",
+          "木构",
+          "玻璃",
+          "石材"
+        ],
+        "sourceStudy": "https://www.bilibili.com/video/BV1b3j4zmEkq/"
+      },
+      "schema": [
+        {
+          "key": "width",
+          "default": 5.8
+        },
+        {
+          "key": "depth",
+          "default": 3.8
+        },
+        {
+          "key": "wallHeight",
+          "default": 2.5
+        },
+        {
+          "key": "roofPitch",
+          "default": 0.78
+        },
+        {
+          "key": "wingScale",
+          "default": 0.48
+        },
+        {
+          "key": "roofRows",
+          "default": 9
+        },
+        {
+          "key": "timberDensity",
+          "default": 0.82
+        },
+        {
+          "key": "chimneyCount",
+          "default": 2
+        },
+        {
+          "key": "windowCount",
+          "default": 7
+        },
+        {
+          "key": "seed",
+          "default": 23
+        }
+      ]
+    },
+    {
+      "id": "pcg-cell-map",
+      "name": "PCG 六边格群岛",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "rings",
+          "default": 6
+        },
+        {
+          "key": "cellSize",
+          "default": 0.72
+        },
+        {
+          "key": "clusters",
+          "default": 6
+        },
+        {
+          "key": "jitter",
+          "default": 0.12
+        },
+        {
+          "key": "relief",
+          "default": 1.8
+        },
+        {
+          "key": "seed",
+          "default": 12
+        }
+      ]
+    },
+    {
+      "id": "pcg-colonnade",
+      "name": "PCG 林荫大道",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "length",
+          "default": 26
+        },
+        {
+          "key": "curve",
+          "default": 2.5
+        },
+        {
+          "key": "spacing",
+          "default": 2.2
+        },
+        {
+          "key": "width",
+          "default": 3.2
+        },
+        {
+          "key": "lampEvery",
+          "default": 4
+        },
+        {
+          "key": "seed",
+          "default": 5
+        }
+      ]
+    },
+    {
+      "id": "pcg-forest",
+      "name": "程序化混交森林",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "size",
+          "default": 56
+        },
+        {
+          "key": "resolution",
+          "default": 72
+        },
+        {
+          "key": "relief",
+          "default": 5.5
+        },
+        {
+          "key": "candidates",
+          "default": 720
+        },
+        {
+          "key": "slopeMax",
+          "default": 40
+        },
+        {
+          "key": "clumping",
+          "default": 0.34
+        },
+        {
+          "key": "spacing",
+          "default": 3.1
+        },
+        {
+          "key": "coniferLine",
+          "default": 0.64
+        },
+        {
+          "key": "pathWidth",
+          "default": 2.4
+        },
+        {
+          "key": "shrubs",
+          "default": 0.7
+        },
+        {
+          "key": "rocks",
+          "default": 0.38
+        },
+        {
+          "key": "deadwood",
+          "default": 0.3
+        },
+        {
+          "key": "canopy",
+          "default": 1
+        },
+        {
+          "key": "seed",
+          "default": 11
+        }
+      ]
+    },
+    {
+      "id": "pcg-palisade-wall",
+      "name": "PCG 木栅城墙",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "length",
+          "default": 30
+        },
+        {
+          "key": "bend",
+          "default": 4.5
+        },
+        {
+          "key": "height",
+          "default": 3.2
+        },
+        {
+          "key": "thickness",
+          "default": 0.48
+        },
+        {
+          "key": "segmentLength",
+          "default": 0.48
+        },
+        {
+          "key": "enclosure",
+          "default": 1
+        },
+        {
+          "key": "gateWidth",
+          "default": 3.2
+        },
+        {
+          "key": "terrain",
+          "default": 0.35
+        },
+        {
+          "key": "banners",
+          "default": 6
+        },
+        {
+          "key": "seed",
+          "default": 27
+        }
+      ]
+    },
+    {
+      "id": "pcg-pathfinding",
+      "name": "PCG 地表寻路",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "size",
+          "default": 120
+        },
+        {
+          "key": "resolution",
+          "default": 65
+        },
+        {
+          "key": "terrainRelief",
+          "default": 18
+        },
+        {
+          "key": "mountainHeight",
+          "default": 22
+        },
+        {
+          "key": "slopePreferenceDeg",
+          "default": 12
+        },
+        {
+          "key": "slopeLimitDeg",
+          "default": 38
+        },
+        {
+          "key": "pathSmoothness",
+          "default": 3
+        },
+        {
+          "key": "pathLift",
+          "default": 0.55
+        },
+        {
+          "key": "pathRadius",
+          "default": 0.55
+        },
+        {
+          "key": "seed",
+          "default": 19
+        }
+      ]
+    },
+    {
+      "id": "pcg-plaza",
+      "name": "PCG 圆形广场",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "radius",
+          "default": 9
+        },
+        {
+          "key": "cell",
+          "default": 1.6
+        },
+        {
+          "key": "ringGap",
+          "default": 2.4
+        },
+        {
+          "key": "jitter",
+          "default": 0.25
+        },
+        {
+          "key": "treeRatio",
+          "default": 0.5
+        },
+        {
+          "key": "seed",
+          "default": 9
+        }
+      ]
+    },
+    {
+      "id": "pcg-river-valley",
+      "name": "PCG 蜿蜒侵蚀河谷",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "size",
+          "default": 26
+        },
+        {
+          "key": "resolution",
+          "default": 56
+        },
+        {
+          "key": "riverWidth",
+          "default": 1.2
+        },
+        {
+          "key": "riverDepth",
+          "default": 0.8
+        },
+        {
+          "key": "meander",
+          "default": 3.4
+        },
+        {
+          "key": "relief",
+          "default": 3.6
+        },
+        {
+          "key": "seed",
+          "default": 21
+        }
+      ]
+    },
+    {
+      "id": "pcg-rock-cluster",
+      "name": "PCG 岩石群落（教程复刻）",
+      "category": "程序工作流",
+      "critiqueGoal": "",
+      "assetMeta": {
+        "description": "主石作为群落核心，伴生石与碎石按距离环聚，尺寸向外衰减，随机旋转缩放。",
+        "tags": [
+          "PCG",
+          "岩石",
+          "群落",
+          "距离衰减",
+          "确定性散布"
+        ],
+        "capabilities": [
+          "群落中心采样",
+          "分层资产选择",
+          "环形散布",
+          "尺寸衰减",
+          "种子复现"
+        ],
+        "materialClasses": [
+          "岩石",
+          "土壤"
+        ]
+      },
+      "schema": [
+        {
+          "key": "clusterCount",
+          "default": 5
+        },
+        {
+          "key": "rocksPerCluster",
+          "default": 22
+        },
+        {
+          "key": "areaSize",
+          "default": 14
+        },
+        {
+          "key": "clusterRadius",
+          "default": 2
+        },
+        {
+          "key": "heroScale",
+          "default": 1
+        },
+        {
+          "key": "falloff",
+          "default": 1.35
+        },
+        {
+          "key": "roughness",
+          "default": 0.16
+        },
+        {
+          "key": "includeGround",
+          "default": 1
+        },
+        {
+          "key": "seed",
+          "default": 17
+        }
+      ]
+    },
+    {
+      "id": "pcg-snow-scene",
+      "name": "PCG 自定义积雪场景",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "size",
+          "default": 8
+        },
+        {
+          "key": "coverage",
+          "default": 0.78
+        },
+        {
+          "key": "snowDepth",
+          "default": 0.11
+        },
+        {
+          "key": "treeHeight",
+          "default": 4.2
+        },
+        {
+          "key": "seed",
+          "default": 23
+        }
+      ]
+    },
+    {
+      "id": "pcg-spline-curb-sidewalk",
+      "name": "PCG 样条路缘与人行道",
+      "category": "基建",
+      "critiqueGoal": "clean spline-following road edge with staggered curb courses, transverse cap stones, and readable sidewalk paving",
+      "assetMeta": {
+        "description": "复刻 UE5 PCG 教程的样条采样、点变换、静态网格实例化套路，并扩展为道路、分层路缘砖、压顶砖和错缝人行道铺装。",
+        "tags": [
+          "B站复刻",
+          "UE5 PCG",
+          "样条线",
+          "路缘",
+          "人行道",
+          "程序化基建"
+        ],
+        "capabilities": [
+          "样条弯曲",
+          "路缘分层",
+          "半砖错缝",
+          "双侧生成",
+          "GPU 实例",
+          "种子复现"
+        ],
+        "materialClasses": [
+          "沥青",
+          "砖",
+          "石材",
+          "混凝土"
+        ],
+        "sourceUrl": "https://www.bilibili.com/video/BV1FCyeYUEB7/"
+      },
+      "schema": [
+        {
+          "key": "length",
+          "default": 34
+        },
+        {
+          "key": "bend",
+          "default": 7
+        },
+        {
+          "key": "roadWidth",
+          "default": 7
+        },
+        {
+          "key": "sidewalkWidth",
+          "default": 2.4
+        },
+        {
+          "key": "curbWidth",
+          "default": 0.38
+        },
+        {
+          "key": "curbHeight",
+          "default": 0.5
+        },
+        {
+          "key": "curbCourses",
+          "default": 2
+        },
+        {
+          "key": "curbBlockLength",
+          "default": 0.82
+        },
+        {
+          "key": "sidewalkTileLength",
+          "default": 0.9
+        },
+        {
+          "key": "sidewalkTileWidth",
+          "default": 0.62
+        },
+        {
+          "key": "gap",
+          "default": 0.055
+        },
+        {
+          "key": "jitter",
+          "default": 0.035
+        },
+        {
+          "key": "bothSides",
+          "default": 0
+        },
+        {
+          "key": "seed",
+          "default": 170
+        }
+      ]
+    },
+    {
+      "id": "pcg-vegetation",
+      "name": "PCG 植被地形",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "size",
+          "default": 18
+        },
+        {
+          "key": "relief",
+          "default": 3
+        },
+        {
+          "key": "count",
+          "default": 1400
+        },
+        {
+          "key": "slopeMax",
+          "default": 42
+        },
+        {
+          "key": "clumping",
+          "default": 0.55
+        },
+        {
+          "key": "spacing",
+          "default": 0.7
+        },
+        {
+          "key": "roadWidth",
+          "default": 1.4
+        },
+        {
+          "key": "treeRatio",
+          "default": 0.35
+        },
+        {
+          "key": "seed",
+          "default": 7
+        }
+      ]
+    },
+    {
+      "id": "pcg-world",
+      "name": "PCG 生物群系世界",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "size",
+          "default": 12
+        },
+        {
+          "key": "resolution",
+          "default": 112
+        },
+        {
+          "key": "height",
+          "default": 2.9
+        },
+        {
+          "key": "noiseScale",
+          "default": 1.05
+        },
+        {
+          "key": "ridgeStrength",
+          "default": 0.28
+        },
+        {
+          "key": "islandFalloff",
+          "default": 2.3
+        },
+        {
+          "key": "terraceStrength",
+          "default": 0.82
+        },
+        {
+          "key": "terraceSteps",
+          "default": 11
+        },
+        {
+          "key": "iterations",
+          "default": 3
+        },
+        {
+          "key": "waterLevel",
+          "default": 0.3
+        },
+        {
+          "key": "slopeLevel",
+          "default": 0.72
+        },
+        {
+          "key": "resources",
+          "default": 30
+        },
+        {
+          "key": "seed",
+          "default": 7
+        }
+      ]
+    },
+    {
+      "id": "polygon-island",
+      "name": "多边形岛屿(biome)",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "size",
+          "default": 12
+        },
+        {
+          "key": "points",
+          "default": 900
+        },
+        {
+          "key": "height",
+          "default": 2.2
+        },
+        {
+          "key": "seaLevel",
+          "default": 0.2
+        },
+        {
+          "key": "islandFactor",
+          "default": 0.72
+        },
+        {
+          "key": "jitter",
+          "default": 0.62
+        },
+        {
+          "key": "rivers",
+          "default": 8
+        },
+        {
+          "key": "seed",
+          "default": 7
+        }
+      ]
+    },
+    {
+      "id": "procedural-building",
+      "name": "程序化建筑·室内外一体",
+      "category": "",
+      "critiqueGoal": "integrated procedural building with exterior, rooms, stairs, roof and fitted furniture",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "width",
+          "default": 13.5
+        },
+        {
+          "key": "depth",
+          "default": 9.5
+        },
+        {
+          "key": "footprintShape",
+          "default": 0
+        },
+        {
+          "key": "floors",
+          "default": 4
+        },
+        {
+          "key": "floorHeight",
+          "default": 3
+        },
+        {
+          "key": "facadeModule",
+          "default": 2.3
+        },
+        {
+          "key": "roomColumns",
+          "default": 3
+        },
+        {
+          "key": "corridorWidth",
+          "default": 1.65
+        },
+        {
+          "key": "roofStyle",
+          "default": 1
+        },
+        {
+          "key": "furnitureDensity",
+          "default": 0.88
+        },
+        {
+          "key": "exteriorDetails",
+          "default": 1
+        },
+        {
+          "key": "revealInterior",
+          "default": 0
+        },
+        {
+          "key": "seed",
+          "default": 41
+        }
+      ]
+    },
+    {
+      "id": "procedural-cactus",
+      "name": "程序化仙人掌",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "height",
+          "default": 4.8
+        },
+        {
+          "key": "radius",
+          "default": 0.42
+        },
+        {
+          "key": "ribs",
+          "default": 12
+        },
+        {
+          "key": "ribDepth",
+          "default": 0.18
+        },
+        {
+          "key": "armCount",
+          "default": 5
+        },
+        {
+          "key": "armLength",
+          "default": 1.45
+        },
+        {
+          "key": "armLift",
+          "default": 1.55
+        },
+        {
+          "key": "bend",
+          "default": 0.18
+        },
+        {
+          "key": "spinesPerRib",
+          "default": 9
+        },
+        {
+          "key": "flowerCount",
+          "default": 5
+        },
+        {
+          "key": "baseRadius",
+          "default": 1.5
+        },
+        {
+          "key": "seed",
+          "default": 19
+        }
+      ]
+    },
+    {
+      "id": "procedural-game-map",
+      "name": "程序化游戏地图",
+      "category": "",
+      "critiqueGoal": "live procedural gameplay map with roads, zones, spawns and cover",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "size",
+          "default": 180
+        },
+        {
+          "key": "boundarySides",
+          "default": 14
+        },
+        {
+          "key": "boundaryJitter",
+          "default": 0.16
+        },
+        {
+          "key": "targetBlockArea",
+          "default": 950
+        },
+        {
+          "key": "minBlockArea",
+          "default": 280
+        },
+        {
+          "key": "streetWidth",
+          "default": 8.5
+        },
+        {
+          "key": "streetTaper",
+          "default": 0.84
+        },
+        {
+          "key": "roadCurveAmount",
+          "default": 2.4
+        },
+        {
+          "key": "maxBuildings",
+          "default": 34
+        },
+        {
+          "key": "propDensity",
+          "default": 0.8
+        },
+        {
+          "key": "gameplayMarkers",
+          "default": 1
+        },
+        {
+          "key": "streetProps",
+          "default": 1
+        },
+        {
+          "key": "seed",
+          "default": 91
+        }
+      ]
+    },
+    {
+      "id": "procedural-planet",
+      "name": "程序化星球",
+      "category": "地形",
+      "critiqueGoal": "Earth-like procedural planet with readable continents, oceans, mountain ranges, polar snow and atmosphere",
+      "assetMeta": {
+        "description": "复刻 Sebastian Lague Solar System Episode 02：均匀球面、分形大陆、山脉遮罩、独立海洋与大气层。",
+        "tags": [
+          "星球",
+          "大陆",
+          "海洋",
+          "山脉",
+          "Sebastian Lague"
+        ],
+        "capabilities": [
+          "种子复现",
+          "球面无接缝噪声",
+          "参数化海陆",
+          "纬度生态着色"
+        ],
+        "materialClasses": [
+          "地表",
+          "海洋",
+          "大气"
+        ]
+      },
+      "schema": [
+        {
+          "key": "radius",
+          "default": 4
+        },
+        {
+          "key": "subdivisions",
+          "default": 5
+        },
+        {
+          "key": "continentScale",
+          "default": 1.2
+        },
+        {
+          "key": "continentBias",
+          "default": 0.055
+        },
+        {
+          "key": "continentHeight",
+          "default": 0.45
+        },
+        {
+          "key": "oceanDepth",
+          "default": 0.34
+        },
+        {
+          "key": "oceanFloor",
+          "default": 0.32
+        },
+        {
+          "key": "mountainScale",
+          "default": 4.2
+        },
+        {
+          "key": "mountainHeight",
+          "default": 0.28
+        },
+        {
+          "key": "roughness",
+          "default": 0.04
+        },
+        {
+          "key": "oceanLevel",
+          "default": 0
+        },
+        {
+          "key": "snowLine",
+          "default": 0.72
+        },
+        {
+          "key": "atmosphere",
+          "default": 0.12
+        },
+        {
+          "key": "seed",
+          "default": 42
+        }
+      ]
+    },
+    {
+      "id": "procedural-river",
+      "name": "程序化河流",
+      "category": "",
+      "critiqueGoal": "spline-carved mountain river with gravel banks, boulders, foam and riparian forest",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "size",
+          "default": 24
+        },
+        {
+          "key": "resolution",
+          "default": 72
+        },
+        {
+          "key": "riverWidth",
+          "default": 1.8
+        },
+        {
+          "key": "riverDepth",
+          "default": 0.75
+        },
+        {
+          "key": "meander",
+          "default": 3.8
+        },
+        {
+          "key": "relief",
+          "default": 3.6
+        },
+        {
+          "key": "bankRocks",
+          "default": 78
+        },
+        {
+          "key": "riverBoulders",
+          "default": 7
+        },
+        {
+          "key": "trees",
+          "default": 108
+        },
+        {
+          "key": "flowStreaks",
+          "default": 24
+        },
+        {
+          "key": "seed",
+          "default": 27
+        }
+      ]
+    },
+    {
+      "id": "procedural-silo",
+      "name": "程序化筒仓",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "radius",
+          "default": 5.2
+        },
+        {
+          "key": "height",
+          "default": 22
+        },
+        {
+          "key": "levels",
+          "default": 14
+        },
+        {
+          "key": "modulesPerLevel",
+          "default": 14
+        },
+        {
+          "key": "balconyDepth",
+          "default": 1.15
+        },
+        {
+          "key": "cutawayAngle",
+          "default": 1.45
+        },
+        {
+          "key": "stairTurns",
+          "default": 4.2
+        },
+        {
+          "key": "servicePipes",
+          "default": 8
+        },
+        {
+          "key": "moduleDensity",
+          "default": 0.78
+        },
+        {
+          "key": "seed",
+          "default": 41
+        }
+      ]
+    },
+    {
+      "id": "procedural-vehicle",
+      "name": "通用程序化载具",
+      "category": "载具",
+      "critiqueGoal": "",
+      "assetMeta": {
+        "description": "基于车身截面放样与语义部件装配的通用程序化载具生成器。",
+        "tags": [
+          "载具",
+          "Houdini 思路",
+          "程序化建模",
+          "车型生成器"
+        ],
+        "capabilities": [
+          "五类车型",
+          "低冠双曲率车顶",
+          "玻璃切面内嵌",
+          "确定性生成"
+        ]
+      },
+      "schema": [
+        {
+          "key": "style",
+          "default": "SUV"
+        },
+        {
+          "key": "length",
+          "default": 4.8
+        },
+        {
+          "key": "width",
+          "default": 1.92
+        },
+        {
+          "key": "height",
+          "default": 1.68
+        },
+        {
+          "key": "wheelBase",
+          "default": 2.82
+        },
+        {
+          "key": "wheelRadius",
+          "default": 0.36
+        },
+        {
+          "key": "wheelWidth",
+          "default": 0.24
+        },
+        {
+          "key": "rideHeight",
+          "default": 0.16
+        },
+        {
+          "key": "cabinPosition",
+          "default": 0
+        },
+        {
+          "key": "roofRoundness",
+          "default": 0.34
+        },
+        {
+          "key": "hoodSlope",
+          "default": 0.52
+        },
+        {
+          "key": "detail",
+          "default": 1
+        },
+        {
+          "key": "seed",
+          "default": 17
+        }
+      ]
+    },
+    {
+      "id": "procedural-waterwheel",
+      "name": "程序化水车",
+      "category": "机械构造",
+      "critiqueGoal": "coherent timber waterwheel with linked trough, paddles, axle, frame and visible water path",
+      "assetMeta": {
+        "description": "按 Houdini 水车规划课拆解：外轮、内轮、轮辐、轮轴、叶板、支架、曲线水槽全部参数联动。",
+        "tags": [
+          "Houdini",
+          "水车",
+          "程序化机械",
+          "曲线水槽",
+          "参数联动"
+        ],
+        "capabilities": [
+          "轮圈分段",
+          "径向阵列",
+          "弯折叶板",
+          "曲线木槽",
+          "水流示意"
+        ],
+        "materialClasses": [
+          "木材",
+          "铁件",
+          "水体"
+        ],
+        "sourceStudy": "https://www.bilibili.com/video/BV1nwKZ6UECd/"
+      },
+      "schema": [
+        {
+          "key": "radius",
+          "default": 2.35
+        },
+        {
+          "key": "wheelWidth",
+          "default": 0.95
+        },
+        {
+          "key": "ringThickness",
+          "default": 0.24
+        },
+        {
+          "key": "spokeCount",
+          "default": 8
+        },
+        {
+          "key": "paddleCount",
+          "default": 16
+        },
+        {
+          "key": "paddleLength",
+          "default": 0.52
+        },
+        {
+          "key": "paddleBend",
+          "default": 25
+        },
+        {
+          "key": "wheelAngle",
+          "default": 12
+        },
+        {
+          "key": "axleLength",
+          "default": 2.8
+        },
+        {
+          "key": "axleRadius",
+          "default": 0.16
+        },
+        {
+          "key": "troughPlanks",
+          "default": 12
+        },
+        {
+          "key": "troughSlope",
+          "default": 0.16
+        },
+        {
+          "key": "water",
+          "default": 1
+        }
+      ]
+    },
+    {
+      "id": "pylon",
+      "name": "高压输电塔",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "height",
+          "default": 24
+        },
+        {
+          "key": "baseWidth",
+          "default": 3
+        },
+        {
+          "key": "topWidth",
+          "default": 1.1
+        },
+        {
+          "key": "levels",
+          "default": 6
+        },
+        {
+          "key": "crossArms",
+          "default": 3
+        },
+        {
+          "key": "armSpan",
+          "default": 4.5
+        },
+        {
+          "key": "strut",
+          "default": 0.18
+        }
+      ]
+    },
+    {
+      "id": "railway",
+      "name": "程序化铁路",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "length",
+          "default": 40
+        },
+        {
+          "key": "bend",
+          "default": 6
+        },
+        {
+          "key": "gauge",
+          "default": 1.435
+        },
+        {
+          "key": "sleeperSpacing",
+          "default": 0.6
+        },
+        {
+          "key": "concreteSleepers",
+          "default": 0
+        },
+        {
+          "key": "sample",
+          "default": 0.8
+        }
+      ]
+    },
+    {
+      "id": "random-dungeon",
+      "name": "随机地牢",
+      "category": "",
+      "critiqueGoal": "seeded branching dungeon with connected rooms, corridors, loops and readable entry/exit",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "roomCount",
+          "default": 22
+        },
+        {
+          "key": "minRoomSize",
+          "default": 4
+        },
+        {
+          "key": "maxRoomSize",
+          "default": 9
+        },
+        {
+          "key": "corridorWidth",
+          "default": 2
+        },
+        {
+          "key": "branchiness",
+          "default": 0.68
+        },
+        {
+          "key": "loopChance",
+          "default": 0.22
+        },
+        {
+          "key": "cellSize",
+          "default": 0.72
+        },
+        {
+          "key": "wallHeight",
+          "default": 0.8
+        },
+        {
+          "key": "seed",
+          "default": 147
+        }
+      ]
+    },
+    {
+      "id": "raycast-asteroid-garden",
+      "name": "径向投射晶体小行星",
+      "category": "程序工作流",
+      "critiqueGoal": "",
+      "assetMeta": {
+        "description": "球壳候选点沿径向投向任意粗糙网格，生成全表面法线对齐晶簇。",
+        "tags": [
+          "PCG",
+          "径向射线",
+          "小行星",
+          "晶体",
+          "HSV调试"
+        ],
+        "capabilities": [
+          "逐点射线方向",
+          "任意旋转网格",
+          "HSV属性可视化",
+          "法线对齐"
+        ],
+        "materialClasses": [
+          "岩石",
+          "金属",
+          "晶体"
+        ]
+      },
+      "schema": [
+        {
+          "key": "radius",
+          "default": 4.2
+        },
+        {
+          "key": "roughness",
+          "default": 0.55
+        },
+        {
+          "key": "samples",
+          "default": 52
+        },
+        {
+          "key": "crystalScale",
+          "default": 0.58
+        },
+        {
+          "key": "debugMarkers",
+          "default": 1
+        },
+        {
+          "key": "seed",
+          "default": 33
+        }
+      ]
+    },
+    {
+      "id": "raycast-cliff-lights",
+      "name": "横向投射岩壁灯阵",
+      "category": "程序工作流",
+      "critiqueGoal": "",
+      "assetMeta": {
+        "description": "平面候选点横向命中粗糙岩壁，灯架自动贴合局部表面法线。",
+        "tags": [
+          "PCG",
+          "横向射线",
+          "岩壁",
+          "灯阵",
+          "法线对齐"
+        ],
+        "capabilities": [
+          "World Ray Hit Query",
+          "非地形表面",
+          "实例变体",
+          "确定性撒点"
+        ],
+        "materialClasses": [
+          "岩石",
+          "金属",
+          "发光体"
+        ]
+      },
+      "schema": [
+        {
+          "key": "width",
+          "default": 10
+        },
+        {
+          "key": "height",
+          "default": 7
+        },
+        {
+          "key": "columns",
+          "default": 12
+        },
+        {
+          "key": "rows",
+          "default": 8
+        },
+        {
+          "key": "density",
+          "default": 0.62
+        },
+        {
+          "key": "roughness",
+          "default": 0.38
+        },
+        {
+          "key": "lampScale",
+          "default": 0.72
+        },
+        {
+          "key": "seed",
+          "default": 27
+        }
+      ]
+    },
+    {
+      "id": "raycast-roof-garden",
+      "name": "射线投射屋顶花园",
+      "category": "程序工作流",
+      "critiqueGoal": "",
+      "assetMeta": {
+        "description": "候选点向下投射到双坡屋面，花盆与植被自动继承命中法线。",
+        "tags": [
+          "PCG",
+          "射线投射",
+          "屋顶",
+          "植被",
+          "法线对齐"
+        ],
+        "capabilities": [
+          "World Ray Hit Query",
+          "属性保留",
+          "法线对齐",
+          "确定性撒点"
+        ],
+        "materialClasses": [
+          "瓦片",
+          "陶土",
+          "植被"
+        ]
+      },
+      "schema": [
+        {
+          "key": "width",
+          "default": 9
+        },
+        {
+          "key": "depth",
+          "default": 7
+        },
+        {
+          "key": "wallHeight",
+          "default": 4.2
+        },
+        {
+          "key": "roofPitch",
+          "default": 22
+        },
+        {
+          "key": "columns",
+          "default": 13
+        },
+        {
+          "key": "rows",
+          "default": 10
+        },
+        {
+          "key": "density",
+          "default": 0.7
+        },
+        {
+          "key": "plantScale",
+          "default": 0.62
+        },
+        {
+          "key": "seed",
+          "default": 14
+        }
+      ]
+    },
+    {
+      "id": "realistic-spline-path",
+      "name": "写实岩石样条路径",
+      "category": "",
+      "critiqueGoal": "continuous walkable sandstone pads with irregular edges, landmark spires, and sparse desert vegetation",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "length",
+          "default": 34
+        },
+        {
+          "key": "width",
+          "default": 4.2
+        },
+        {
+          "key": "meander",
+          "default": 4.8
+        },
+        {
+          "key": "elevation",
+          "default": 2.2
+        },
+        {
+          "key": "padSpacing",
+          "default": 2.35
+        },
+        {
+          "key": "padThickness",
+          "default": 0.9
+        },
+        {
+          "key": "edgeDensity",
+          "default": 0.82
+        },
+        {
+          "key": "spireDensity",
+          "default": 0.18
+        },
+        {
+          "key": "vegetationDensity",
+          "default": 0.42
+        },
+        {
+          "key": "seed",
+          "default": 42
+        }
+      ]
+    },
+    {
+      "id": "reference-dog",
+      "name": "参考黄犬",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "scale",
+          "default": 1
+        },
+        {
+          "key": "bodyLength",
+          "default": 2.95
+        },
+        {
+          "key": "bodyWidth",
+          "default": 0.68
+        },
+        {
+          "key": "legLength",
+          "default": 0.86
+        },
+        {
+          "key": "neckArch",
+          "default": 0.72
+        },
+        {
+          "key": "maneLength",
+          "default": 0
+        },
+        {
+          "key": "tailLength",
+          "default": 0.82
+        },
+        {
+          "key": "stride",
+          "default": 0.06
+        }
+      ]
+    },
+    {
+      "id": "remesh",
+      "name": "体素重网格",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "res",
+          "default": 30
+        },
+        {
+          "key": "shapeMix",
+          "default": 0.75
+        },
+        {
+          "key": "raw",
+          "default": 0
+        }
+      ]
+    },
+    {
+      "id": "residential-community",
+      "name": "程序化完整小区",
+      "category": "城市与建筑",
+      "critiqueGoal": "",
+      "assetMeta": {
+        "description": "总装Grammar统一生成入口、围墙、环路、住宅楼、会所、停车、游乐、绿化与北侧高架高速。",
+        "tags": [
+          "PCG",
+          "小区",
+          "总装Grammar",
+          "住宅",
+          "高速",
+          "确定性"
+        ],
+        "capabilities": [
+          "语义布局",
+          "模块化围墙",
+          "住宅楼阵列",
+          "公共设施",
+          "高架高速",
+          "参数化重建"
+        ],
+        "materialClasses": [
+          "混凝土",
+          "玻璃",
+          "金属",
+          "植被",
+          "沥青"
+        ]
+      },
+      "schema": [
+        {
+          "key": "siteWidth",
+          "default": 112
+        },
+        {
+          "key": "siteDepth",
+          "default": 84
+        },
+        {
+          "key": "towerRows",
+          "default": 2
+        },
+        {
+          "key": "towersPerRow",
+          "default": 4
+        },
+        {
+          "key": "towerFloors",
+          "default": 15
+        },
+        {
+          "key": "floorVariation",
+          "default": 3
+        },
+        {
+          "key": "wallHeight",
+          "default": 2.1
+        },
+        {
+          "key": "treeDensity",
+          "default": 0.72
+        },
+        {
+          "key": "includeFreeway",
+          "default": 1
+        },
+        {
+          "key": "freewayElevation",
+          "default": 8
+        },
+        {
+          "key": "seed",
+          "default": 37
+        }
+      ]
+    },
+    {
+      "id": "rice-field",
+      "name": "程序化稻田",
+      "category": "",
+      "critiqueGoal": "tropical procedural rice paddies with irregular terraces, irrigation water, planted rows and palms",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "columns",
+          "default": 6
+        },
+        {
+          "key": "rows",
+          "default": 5
+        },
+        {
+          "key": "plotSize",
+          "default": 4.2
+        },
+        {
+          "key": "channelWidth",
+          "default": 0.42
+        },
+        {
+          "key": "terraceHeight",
+          "default": 0.18
+        },
+        {
+          "key": "irregularity",
+          "default": 0.28
+        },
+        {
+          "key": "coverage",
+          "default": 0.9
+        },
+        {
+          "key": "riceDensity",
+          "default": 9
+        },
+        {
+          "key": "riceHeight",
+          "default": 0.72
+        },
+        {
+          "key": "maturity",
+          "default": 0.38
+        },
+        {
+          "key": "flooded",
+          "default": 0.68
+        },
+        {
+          "key": "palmCount",
+          "default": 9
+        },
+        {
+          "key": "seed",
+          "default": 2026
+        }
+      ]
+    },
+    {
+      "id": "river-lake",
+      "name": "PCG 河流湖泊回水",
+      "category": "",
+      "critiqueGoal": "mountain river entering an irregular lake with a continuous shoreline and monotonic backwater profile",
+      "assetMeta": {
+        "description": "复刻 Houdini PCG 河流入湖：湖面高程反向约束上游水面，河床保持顺坡，入口连续加宽。",
+        "tags": [
+          "Houdini",
+          "PCG",
+          "河流",
+          "湖泊",
+          "回水"
+        ],
+        "capabilities": [
+          "回水剖面",
+          "顺坡河床",
+          "连续入湖",
+          "确定性种子"
+        ],
+        "materialClasses": [
+          "水体",
+          "湿岸",
+          "岩石地形"
+        ],
+        "source": "BV1ndiWBfEXo"
+      },
+      "schema": [
+        {
+          "key": "size",
+          "default": 36
+        },
+        {
+          "key": "resolution",
+          "default": 88
+        },
+        {
+          "key": "riverWidth",
+          "default": 1.25
+        },
+        {
+          "key": "riverDepth",
+          "default": 0.82
+        },
+        {
+          "key": "meander",
+          "default": 4.2
+        },
+        {
+          "key": "relief",
+          "default": 5.2
+        },
+        {
+          "key": "lakeRadiusX",
+          "default": 7.4
+        },
+        {
+          "key": "lakeRadiusZ",
+          "default": 5.4
+        },
+        {
+          "key": "lakeLevel",
+          "default": 0.72
+        },
+        {
+          "key": "backwater",
+          "default": 1
+        },
+        {
+          "key": "flowStreaks",
+          "default": 24
+        },
+        {
+          "key": "seed",
+          "default": 96
+        }
+      ]
+    },
+    {
+      "id": "road",
+      "name": "程序化道路",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "seed",
+          "default": 27
+        },
+        {
+          "key": "halfWidth",
+          "default": 3
+        },
+        {
+          "key": "lanes",
+          "default": 2
+        },
+        {
+          "key": "curve",
+          "default": 6
+        },
+        {
+          "key": "length",
+          "default": 42
+        },
+        {
+          "key": "sample",
+          "default": 1.5
+        },
+        {
+          "key": "widthSub",
+          "default": 4
+        },
+        {
+          "key": "shoulder",
+          "default": 0.8
+        },
+        {
+          "key": "curbH",
+          "default": 0.2
+        },
+        {
+          "key": "showLines",
+          "default": 1
+        },
+        {
+          "key": "guardrails",
+          "default": 0
+        },
+        {
+          "key": "vegetation",
+          "default": 1
+        },
+        {
+          "key": "roadsideWidth",
+          "default": 5
+        },
+        {
+          "key": "vegSpacing",
+          "default": 2.75
+        },
+        {
+          "key": "vegDensity",
+          "default": 0.95
+        },
+        {
+          "key": "vegScale",
+          "default": 1
+        },
+        {
+          "key": "keepAway",
+          "default": 3
+        }
+      ]
+    },
+    {
+      "id": "road-network",
+      "name": "参数化路网",
+      "category": "",
+      "critiqueGoal": "standalone procedural road network",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "size",
+          "default": 86
+        },
+        {
+          "key": "shape",
+          "default": 2
+        },
+        {
+          "key": "targetArea",
+          "default": 900
+        },
+        {
+          "key": "minAreaRatio",
+          "default": 0.26
+        },
+        {
+          "key": "streetWidth",
+          "default": 8
+        },
+        {
+          "key": "streetTaper",
+          "default": 0.84
+        },
+        {
+          "key": "sidewalkWidth",
+          "default": 1.8
+        },
+        {
+          "key": "lanes",
+          "default": 2
+        },
+        {
+          "key": "jitter",
+          "default": 0.16
+        },
+        {
+          "key": "irregularity",
+          "default": 0.1
+        },
+        {
+          "key": "roadCurve",
+          "default": 2
+        },
+        {
+          "key": "roundabouts",
+          "default": 1
+        },
+        {
+          "key": "showBlocks",
+          "default": 1
+        },
+        {
+          "key": "seed",
+          "default": 42
+        }
+      ]
+    },
+    {
+      "id": "rock",
+      "name": "程序化石头",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "size",
+          "default": 1
+        },
+        {
+          "key": "detail",
+          "default": 2
+        },
+        {
+          "key": "rough",
+          "default": 0.3
+        },
+        {
+          "key": "freq",
+          "default": 2
+        },
+        {
+          "key": "seed",
+          "default": 7
+        }
+      ]
+    },
+    {
+      "id": "rock-formation",
+      "name": "岩层 / 岩壁",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "mode",
+          "default": 0
+        },
+        {
+          "key": "radius",
+          "default": 1.5
+        },
+        {
+          "key": "height",
+          "default": 1.5
+        },
+        {
+          "key": "blobs",
+          "default": 5
+        },
+        {
+          "key": "crag",
+          "default": 0.2
+        },
+        {
+          "key": "strata",
+          "default": 0
+        },
+        {
+          "key": "resolution",
+          "default": 40
+        },
+        {
+          "key": "seed",
+          "default": 3
+        }
+      ]
+    },
+    {
+      "id": "rock-pile",
+      "name": "风格化岩石群",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "type",
+          "default": 0
+        },
+        {
+          "key": "count",
+          "default": 30
+        },
+        {
+          "key": "radius",
+          "default": 1.7
+        },
+        {
+          "key": "decentralize",
+          "default": 0.55
+        },
+        {
+          "key": "tallness",
+          "default": 0.35
+        },
+        {
+          "key": "flatness",
+          "default": 0.15
+        },
+        {
+          "key": "wideness",
+          "default": 0.2
+        },
+        {
+          "key": "jitter",
+          "default": 0.4
+        },
+        {
+          "key": "rough",
+          "default": 0.18
+        },
+        {
+          "key": "seed",
+          "default": 7
+        }
+      ]
+    },
+    {
+      "id": "roman-town",
+      "name": "传统罗马街区",
+      "category": "城市与建筑",
+      "critiqueGoal": "",
+      "assetMeta": {
+        "description": "暖色风化灰泥街墙、圆拱底商、百叶窗、陶瓦坡屋顶、屋顶露台与玄武岩窄街。",
+        "tags": [
+          "罗马",
+          "街区",
+          "围合院落",
+          "陶瓦",
+          "Sampietrini",
+          "程序化城市"
+        ],
+        "capabilities": [
+          "立面模块槽",
+          "围合街坊",
+          "种子变体",
+          "语义分件",
+          "程序化PBR"
+        ],
+        "materialClasses": [
+          "风化灰泥",
+          "陶瓦",
+          "玄武岩块石",
+          "木材",
+          "锻铁"
+        ]
+      },
+      "schema": [
+        {
+          "key": "blocksX",
+          "default": 3
+        },
+        {
+          "key": "blocksZ",
+          "default": 3
+        },
+        {
+          "key": "blockSize",
+          "default": 21
+        },
+        {
+          "key": "streetWidth",
+          "default": 4.2
+        },
+        {
+          "key": "minFloors",
+          "default": 4
+        },
+        {
+          "key": "maxFloors",
+          "default": 6
+        },
+        {
+          "key": "shopDensity",
+          "default": 0.62
+        },
+        {
+          "key": "shutterDensity",
+          "default": 0.72
+        },
+        {
+          "key": "balconyDensity",
+          "default": 0.24
+        },
+        {
+          "key": "roofTerraceDensity",
+          "default": 0.42
+        },
+        {
+          "key": "piazza",
+          "default": 1
+        },
+        {
+          "key": "seed",
+          "default": 1703
+        }
+      ]
+    },
+    {
+      "id": "roof-generator",
+      "name": "屋顶生成器",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "style",
+          "default": 2
+        },
+        {
+          "key": "width",
+          "default": 5.2
+        },
+        {
+          "key": "depth",
+          "default": 3.6
+        },
+        {
+          "key": "wallHeight",
+          "default": 1.6
+        },
+        {
+          "key": "roofHeight",
+          "default": 1.15
+        },
+        {
+          "key": "overhang",
+          "default": 0.34
+        },
+        {
+          "key": "dormers",
+          "default": 2
+        },
+        {
+          "key": "chimney",
+          "default": 1
+        },
+        {
+          "key": "rafters",
+          "default": 1
+        },
+        {
+          "key": "seed",
+          "default": 31
+        }
+      ]
+    },
+    {
+      "id": "rooftop-kit",
+      "name": "屋顶设备包",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "roofWidth",
+          "default": 9
+        },
+        {
+          "key": "roofDepth",
+          "default": 7
+        },
+        {
+          "key": "hvacUnits",
+          "default": 3
+        },
+        {
+          "key": "parapet",
+          "default": 0.9
+        },
+        {
+          "key": "waterTank",
+          "default": 1
+        },
+        {
+          "key": "accessHut",
+          "default": 1
+        }
+      ]
+    },
+    {
+      "id": "roots",
+      "name": "根系 / 板根",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "mode",
+          "default": 0
+        },
+        {
+          "key": "count",
+          "default": 7
+        },
+        {
+          "key": "collarRadius",
+          "default": 0.4
+        },
+        {
+          "key": "length",
+          "default": 2.6
+        },
+        {
+          "key": "radius",
+          "default": 0.13
+        },
+        {
+          "key": "branches",
+          "default": 3
+        },
+        {
+          "key": "wander",
+          "default": 0.5
+        },
+        {
+          "key": "seed",
+          "default": 7
+        }
+      ]
+    },
+    {
+      "id": "roundabout-traffic",
+      "name": "参考图复刻·六臂交通环岛",
+      "category": "",
+      "critiqueGoal": "reference-style six-arm urban roundabout with complete traffic dressing and vehicles",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "islandRadius",
+          "default": 15
+        },
+        {
+          "key": "roadWidth",
+          "default": 14
+        },
+        {
+          "key": "armLength",
+          "default": 52
+        },
+        {
+          "key": "vehicleCount",
+          "default": 38
+        },
+        {
+          "key": "treeCount",
+          "default": 32
+        },
+        {
+          "key": "streetFurniture",
+          "default": 1
+        },
+        {
+          "key": "seed",
+          "default": 178
+        }
+      ]
+    },
+    {
+      "id": "scaffolding",
+      "name": "施工脚手架",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "bays",
+          "default": 4
+        },
+        {
+          "key": "lifts",
+          "default": 3
+        },
+        {
+          "key": "bayWidth",
+          "default": 2.4
+        },
+        {
+          "key": "liftHeight",
+          "default": 2
+        },
+        {
+          "key": "depth",
+          "default": 1.2
+        },
+        {
+          "key": "tube",
+          "default": 0.05
+        },
+        {
+          "key": "planks",
+          "default": 1
+        }
+      ]
+    },
+    {
+      "id": "scatter-path-lights",
+      "name": "可绘制路径灯带",
+      "category": "程序工作流",
+      "critiqueGoal": "",
+      "assetMeta": {
+        "description": "沿绘制路径生成步道，通过 MaskField 和 ScatterTable 布置路灯、长椅、矮桩。",
+        "tags": [
+          "Drawable",
+          "曲线",
+          "MaskField",
+          "ScatterTable",
+          "场景布置"
+        ],
+        "capabilities": [
+          "路径绑定",
+          "设施混合",
+          "资产槽思路",
+          "种子复现"
+        ],
+        "materialClasses": [
+          "石材",
+          "金属",
+          "玻璃",
+          "木材"
+        ]
+      },
+      "schema": [
+        {
+          "key": "pathWidth",
+          "default": 0.9
+        },
+        {
+          "key": "propSpacing",
+          "default": 1.35
+        },
+        {
+          "key": "propOffset",
+          "default": 0.8
+        },
+        {
+          "key": "seed",
+          "default": 29
+        }
+      ]
+    },
+    {
+      "id": "sidefx-modular-house",
+      "name": "SideFX 模块化房屋",
+      "category": "",
+      "critiqueGoal": "Houdini-style procedural modular house with semantic facade slots",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "floors",
+          "default": 2
+        },
+        {
+          "key": "baysX",
+          "default": 6
+        },
+        {
+          "key": "baysZ",
+          "default": 3
+        },
+        {
+          "key": "bayWidth",
+          "default": 1.1
+        },
+        {
+          "key": "floorHeight",
+          "default": 1.15
+        },
+        {
+          "key": "layout",
+          "default": 1
+        },
+        {
+          "key": "wingBays",
+          "default": 3
+        },
+        {
+          "key": "wingDepthBays",
+          "default": 3
+        },
+        {
+          "key": "roofPitch",
+          "default": 0.72
+        },
+        {
+          "key": "roofOverhang",
+          "default": 0.28
+        },
+        {
+          "key": "balconyDensity",
+          "default": 0.18
+        },
+        {
+          "key": "shutterDensity",
+          "default": 0.65
+        },
+        {
+          "key": "seed",
+          "default": 42
+        }
+      ]
+    },
+    {
+      "id": "sidefx-solaris-market",
+      "name": "SideFX Solaris 市集",
+      "category": "",
+      "critiqueGoal": "Solaris-style market scene with stalls, shelves, instanced jars and background context",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "stalls",
+          "default": 2
+        },
+        {
+          "key": "shelfRows",
+          "default": 3
+        },
+        {
+          "key": "jarsPerShelf",
+          "default": 10
+        },
+        {
+          "key": "propDensity",
+          "default": 0.82
+        },
+        {
+          "key": "backgroundBuildings",
+          "default": 3
+        },
+        {
+          "key": "sandRelief",
+          "default": 0.28
+        },
+        {
+          "key": "seed",
+          "default": 205
+        }
+      ]
+    },
+    {
+      "id": "skirt",
+      "name": "半身裙 (程序化服装)",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "hip",
+          "default": 1.02
+        },
+        {
+          "key": "height",
+          "default": 1.8
+        },
+        {
+          "key": "length",
+          "default": 0.55
+        },
+        {
+          "key": "flare",
+          "default": 0.16
+        },
+        {
+          "key": "hipEase",
+          "default": 0.04
+        },
+        {
+          "key": "fabric",
+          "default": 1
+        },
+        {
+          "key": "settle",
+          "default": 0
+        }
+      ]
+    },
+    {
+      "id": "smooth",
+      "name": "平滑细分体",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "iterations",
+          "default": 2
+        },
+        {
+          "key": "size",
+          "default": 1
+        },
+        {
+          "key": "twist",
+          "default": 3
+        }
+      ]
+    },
+    {
+      "id": "speedtree-custom-lineup",
+      "name": "SpeedTree-lite 新树型对比",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "heightScale",
+          "default": 1
+        },
+        {
+          "key": "leafScale",
+          "default": 0.75
+        },
+        {
+          "key": "spacing",
+          "default": 3.4
+        },
+        {
+          "key": "seedOffset",
+          "default": 0
+        }
+      ]
+    },
+    {
+      "id": "speedtree-guided-canopy",
+      "name": "SpeedTree-lite 引导树冠",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": []
+    },
+    {
+      "id": "speedtree-species-lineup",
+      "name": "SpeedTree-lite 树种对比",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "heightScale",
+          "default": 1
+        },
+        {
+          "key": "leafScale",
+          "default": 0.75
+        },
+        {
+          "key": "spacing",
+          "default": 3.2
+        },
+        {
+          "key": "seedOffset",
+          "default": 0
+        }
+      ]
+    },
+    {
+      "id": "sphere",
+      "name": "材质预览球",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "radius",
+          "default": 1
+        },
+        {
+          "key": "detail",
+          "default": 64
+        }
+      ]
+    },
+    {
+      "id": "spline-stone-wall",
+      "name": "样条石砌围墙",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "length",
+          "default": 18
+        },
+        {
+          "key": "bend",
+          "default": 3.2
+        },
+        {
+          "key": "height",
+          "default": 2.4
+        },
+        {
+          "key": "thickness",
+          "default": 0.72
+        },
+        {
+          "key": "segmentLength",
+          "default": 0.72
+        },
+        {
+          "key": "enclosure",
+          "default": 0
+        },
+        {
+          "key": "gateWidth",
+          "default": 0
+        },
+        {
+          "key": "terrain",
+          "default": 0.8
+        },
+        {
+          "key": "detail",
+          "default": 5
+        },
+        {
+          "key": "seed",
+          "default": 41
+        }
+      ]
+    },
+    {
+      "id": "sports-car",
+      "name": "红色T-top跑车",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "length",
+          "default": 5.8
+        },
+        {
+          "key": "width",
+          "default": 2.08
+        },
+        {
+          "key": "height",
+          "default": 1.28
+        },
+        {
+          "key": "wheelRadius",
+          "default": 0.34
+        },
+        {
+          "key": "rideHeight",
+          "default": 0.04
+        },
+        {
+          "key": "spoiler",
+          "default": 0.75
+        },
+        {
+          "key": "roofGlass",
+          "default": 1
+        }
+      ]
+    },
+    {
+      "id": "spring",
+      "name": "程序化弹簧",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "radius",
+          "default": 0.6
+        },
+        {
+          "key": "height",
+          "default": 2
+        },
+        {
+          "key": "turns",
+          "default": 6
+        },
+        {
+          "key": "wire",
+          "default": 0.08
+        },
+        {
+          "key": "sides",
+          "default": 10
+        }
+      ]
+    },
+    {
+      "id": "street-lamp",
+      "name": "街灯",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "height",
+          "default": 6.5
+        },
+        {
+          "key": "style",
+          "default": "cobra"
+        },
+        {
+          "key": "armReach",
+          "default": 2.2
+        },
+        {
+          "key": "base",
+          "default": 1
+        }
+      ]
+    },
+    {
+      "id": "street-tree",
+      "name": "行道树",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "trunkHeight",
+          "default": 2.2
+        },
+        {
+          "key": "canopyRadius",
+          "default": 2
+        },
+        {
+          "key": "clusters",
+          "default": 8
+        },
+        {
+          "key": "pit",
+          "default": 1
+        },
+        {
+          "key": "seed",
+          "default": 7
+        }
+      ]
+    },
+    {
+      "id": "streetscene",
+      "name": "程序化街景",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "length",
+          "default": 26
+        },
+        {
+          "key": "roadHalfWidth",
+          "default": 3.2
+        },
+        {
+          "key": "sidewalkWidth",
+          "default": 2
+        },
+        {
+          "key": "spacing",
+          "default": 3
+        },
+        {
+          "key": "jitter",
+          "default": 0.35
+        },
+        {
+          "key": "bothSides",
+          "default": 1
+        },
+        {
+          "key": "ground",
+          "default": 1
+        },
+        {
+          "key": "gantries",
+          "default": 1
+        },
+        {
+          "key": "materialStacks",
+          "default": 1
+        },
+        {
+          "key": "coneRun",
+          "default": 1
+        },
+        {
+          "key": "workZones",
+          "default": 1
+        },
+        {
+          "key": "seed",
+          "default": 21
+        }
+      ]
+    },
+    {
+      "id": "stylized-humanoid",
+      "name": "CharacterKit风格化人形",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "height",
+          "default": 0.08
+        },
+        {
+          "key": "shoulderWidth",
+          "default": 0.15
+        },
+        {
+          "key": "waist"
+        },
+        {
+          "key": "legLength",
+          "default": 0.18
+        },
+        {
+          "key": "armLength",
+          "default": 0.05
+        },
+        {
+          "key": "headSize",
+          "default": 0.08
+        },
+        {
+          "key": "jawWidth"
+        },
+        {
+          "key": "noseBridge",
+          "default": 0.25
+        },
+        {
+          "key": "chibi",
+          "default": 0.06
+        },
+        {
+          "key": "eyeSize",
+          "default": 0.22
+        }
+      ]
+    },
+    {
+      "id": "stylized-lakeside-village",
+      "name": "风格化湖畔村落",
+      "category": "风格化场景",
+      "critiqueGoal": "",
+      "assetMeta": {
+        "description": "复刻参考片的中世纪木构湖畔村落：低模树岩、暖红瓦顶、木码头、水井、围栏和昼夜灯光。",
+        "tags": [
+          "风格化场景",
+          "低多边形",
+          "湖畔村落",
+          "木构建筑",
+          "B站复刻"
+        ],
+        "capabilities": [
+          "种子复现",
+          "植被密度",
+          "昼夜切换",
+          "面色差",
+          "OBJ/Viewer 导出"
+        ],
+        "materialClasses": [
+          "风格化草地",
+          "木材",
+          "瓦片",
+          "水面",
+          "发光材质"
+        ],
+        "sourceUrl": "https://www.bilibili.com/video/BV18U4y1L7AV"
+      },
+      "schema": [
+        {
+          "key": "seed",
+          "default": 673285036
+        },
+        {
+          "key": "treeDensity",
+          "default": 1
+        },
+        {
+          "key": "night",
+          "default": 0
+        },
+        {
+          "key": "colorVariation",
+          "default": 0.1
+        }
+      ]
+    },
+    {
+      "id": "stylized-ocean-environment",
+      "name": "风格化广阔海洋环境",
+      "category": "地形与环境",
+      "critiqueGoal": "",
+      "assetMeta": {
+        "description": "复刻俯视风格化海洋：多岛地形、程序化岸线、水体、棕榈、积云、船与鱼跃。",
+        "tags": [
+          "海洋",
+          "风格化",
+          "岛屿",
+          "Gerstner 波",
+          "昼夜循环"
+        ],
+        "capabilities": [
+          "高细分海面",
+          "动态岸线泡沫",
+          "船尾迹",
+          "鱼跃水花",
+          "昼夜循环"
+        ],
+        "materialClasses": [
+          "水体",
+          "沙地",
+          "草地",
+          "植被",
+          "云层",
+          "木材"
+        ]
+      },
+      "schema": [
+        {
+          "key": "worldSize",
+          "default": 140
+        },
+        {
+          "key": "islandScale",
+          "default": 1
+        },
+        {
+          "key": "islandCount",
+          "default": 3
+        },
+        {
+          "key": "palmCount",
+          "default": 9
+        },
+        {
+          "key": "cloudCount",
+          "default": 4
+        },
+        {
+          "key": "waveHeight",
+          "default": 0.22
+        },
+        {
+          "key": "foamStrength",
+          "default": 0.82
+        },
+        {
+          "key": "seed",
+          "default": 812
+        }
+      ]
+    },
+    {
+      "id": "stylized-rock-island",
+      "name": "风格化浮岛岩",
+      "category": "自然",
+      "critiqueGoal": "",
+      "assetMeta": {
+        "description": "复刻 Houdini 风格化岩石：分块竖崖、内收底部、阶梯顶台与黄绿草盖。",
+        "tags": [
+          "岩石",
+          "浮岛",
+          "风格化",
+          "Houdini",
+          "程序化复刻"
+        ],
+        "capabilities": [
+          "分块崖壁",
+          "锥化底部",
+          "阶梯台地",
+          "草地顶盖",
+          "种子变体"
+        ],
+        "materialClasses": [
+          "冷灰岩石",
+          "深色岩缝",
+          "草地"
+        ]
+      },
+      "schema": [
+        {
+          "key": "size",
+          "default": 6.4
+        },
+        {
+          "key": "cliffHeight",
+          "default": 3.8
+        },
+        {
+          "key": "chunksPerSide",
+          "default": 8
+        },
+        {
+          "key": "terraces",
+          "default": 2
+        },
+        {
+          "key": "jaggedness",
+          "default": 0.34
+        },
+        {
+          "key": "grassInset",
+          "default": 0.12
+        },
+        {
+          "key": "seed",
+          "default": 18
+        }
+      ]
+    },
+    {
+      "id": "stylized-tactical-island",
+      "name": "风格化战术悬浮岛",
+      "category": "风格化场景",
+      "critiqueGoal": "",
+      "assetMeta": {
+        "description": "参考 Super Senso 的低多边形视觉语言重写：悬浮战术岛、分层峭壁、贯岛河瀑、道路棋盘、针叶林和青绿能量设施。",
+        "tags": [
+          "风格化场景",
+          "Low Poly",
+          "悬浮岛",
+          "战术地图",
+          "科幻设施"
+        ],
+        "capabilities": [
+          "种子复现",
+          "森林密度",
+          "岛屿尺度",
+          "能量强度",
+          "面级色差"
+        ],
+        "materialClasses": [
+          "风格化草地",
+          "岩石",
+          "水面",
+          "金属",
+          "发光材质"
+        ],
+        "sourceUrl": "https://waldobronchart.com/project/super-senso-game/"
+      },
+      "schema": [
+        {
+          "key": "seed",
+          "default": 2718
+        },
+        {
+          "key": "islandScale",
+          "default": 1
+        },
+        {
+          "key": "forestDensity",
+          "default": 1
+        },
+        {
+          "key": "energy",
+          "default": 0.8
+        },
+        {
+          "key": "colorVariation",
+          "default": 0.1
+        }
+      ]
+    },
+    {
+      "id": "surface-sketch-vine",
+      "name": "表面绘制藤蔓",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "wallWidth",
+          "default": 6.5
+        },
+        {
+          "key": "wallHeight",
+          "default": 5.4
+        },
+        {
+          "key": "strokeOffset",
+          "default": 0.04
+        },
+        {
+          "key": "strokeWander",
+          "default": 0.7
+        },
+        {
+          "key": "vineRadius",
+          "default": 0.045
+        },
+        {
+          "key": "leafSize",
+          "default": 0.15
+        },
+        {
+          "key": "seed",
+          "default": 9
+        }
+      ]
+    },
+    {
+      "id": "suspension-bridge",
+      "name": "程序化悬索桥",
+      "category": "",
+      "critiqueGoal": "long wooden suspension bridge with repeated roofed towers, sagging deck, main cables and vertical hangers",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "seed",
+          "default": 83
+        },
+        {
+          "key": "spanLength",
+          "default": 90
+        },
+        {
+          "key": "towerCount",
+          "default": 6
+        },
+        {
+          "key": "bridgeWidth",
+          "default": 3.8
+        },
+        {
+          "key": "towerHeight",
+          "default": 5.2
+        },
+        {
+          "key": "valleyDepth",
+          "default": 5.5
+        },
+        {
+          "key": "pathBend",
+          "default": 3.2
+        },
+        {
+          "key": "towerJitter",
+          "default": 0.35
+        },
+        {
+          "key": "deckSag",
+          "default": 0.024
+        },
+        {
+          "key": "cableSag",
+          "default": 0.11
+        },
+        {
+          "key": "plankSpacing",
+          "default": 0.58
+        },
+        {
+          "key": "hangerSpacing",
+          "default": 2.1
+        }
+      ]
+    },
+    {
+      "id": "terrain-island",
+      "name": "程序化岛屿地貌",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "size",
+          "default": 10
+        },
+        {
+          "key": "resolution",
+          "default": 64
+        },
+        {
+          "key": "height",
+          "default": 2.2
+        },
+        {
+          "key": "noiseScale",
+          "default": 1.25
+        },
+        {
+          "key": "islandFalloff",
+          "default": 1.55
+        },
+        {
+          "key": "seaLevel",
+          "default": 0.05
+        },
+        {
+          "key": "riverWidth",
+          "default": 0.46
+        },
+        {
+          "key": "riverDepth",
+          "default": 0.55
+        },
+        {
+          "key": "cliffStrength",
+          "default": 0.65
+        },
+        {
+          "key": "rocks",
+          "default": 26
+        },
+        {
+          "key": "trees",
+          "default": 52
+        },
+        {
+          "key": "seed",
+          "default": 43
+        }
+      ]
+    },
+    {
+      "id": "terrain-layered",
+      "name": "坡度分层地形",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "size",
+          "default": 24
+        },
+        {
+          "key": "relief",
+          "default": 6
+        },
+        {
+          "key": "snowLine",
+          "default": 0.72
+        },
+        {
+          "key": "grassSlope",
+          "default": 0.8
+        },
+        {
+          "key": "breakup",
+          "default": 0.5
+        },
+        {
+          "key": "seed",
+          "default": 12
+        }
+      ]
+    },
+    {
+      "id": "titan-adboard",
+      "name": "泰坦广告牌",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "width",
+          "default": 6
+        },
+        {
+          "key": "height",
+          "default": 3
+        },
+        {
+          "key": "postHeight",
+          "default": 4
+        },
+        {
+          "key": "tilt",
+          "default": 0.08
+        },
+        {
+          "key": "twinPosts",
+          "default": 1
+        }
+      ]
+    },
+    {
+      "id": "titan-building",
+      "name": "泰坦建筑",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "width",
+          "default": 12
+        },
+        {
+          "key": "depth",
+          "default": 9
+        },
+        {
+          "key": "floors",
+          "default": 4
+        },
+        {
+          "key": "floorHeight",
+          "default": 3
+        },
+        {
+          "key": "bayWidth",
+          "default": 2
+        },
+        {
+          "key": "roof",
+          "default": 1
+        }
+      ]
+    },
+    {
+      "id": "titan-cable",
+      "name": "泰坦电缆",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "poles",
+          "default": 4
+        },
+        {
+          "key": "span",
+          "default": 12
+        },
+        {
+          "key": "poleHeight",
+          "default": 6
+        },
+        {
+          "key": "sag",
+          "default": 0.16
+        },
+        {
+          "key": "subCables",
+          "default": 2
+        },
+        {
+          "key": "metalPoles",
+          "default": 0
+        }
+      ]
+    },
+    {
+      "id": "titan-cloth",
+      "name": "泰坦布料",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "width",
+          "default": 4
+        },
+        {
+          "key": "depth",
+          "default": 4
+        },
+        {
+          "key": "resolution",
+          "default": 40
+        },
+        {
+          "key": "pinMode",
+          "default": 4
+        },
+        {
+          "key": "sag",
+          "default": 1.6
+        },
+        {
+          "key": "wrinkle",
+          "default": 0.12
+        },
+        {
+          "key": "seed",
+          "default": 3
+        },
+        {
+          "key": "physics",
+          "default": 1
+        },
+        {
+          "key": "simSteps",
+          "default": 90
+        },
+        {
+          "key": "stiffness",
+          "default": 0.9
+        },
+        {
+          "key": "colliderRadius",
+          "default": 1.2
+        },
+        {
+          "key": "groundY",
+          "default": 0
+        }
+      ]
+    },
+    {
+      "id": "titan-fence",
+      "name": "泰坦栅栏",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "length",
+          "default": 40
+        },
+        {
+          "key": "bend",
+          "default": 5
+        },
+        {
+          "key": "postSpacing",
+          "default": 2.2
+        },
+        {
+          "key": "height",
+          "default": 1.5
+        },
+        {
+          "key": "rails",
+          "default": 3
+        },
+        {
+          "key": "lean",
+          "default": 0.04
+        },
+        {
+          "key": "metal",
+          "default": 0
+        },
+        {
+          "key": "seed",
+          "default": 7
+        }
+      ]
+    },
+    {
+      "id": "titan-platform",
+      "name": "泰坦平台",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "length",
+          "default": 8
+        },
+        {
+          "key": "width",
+          "default": 5
+        },
+        {
+          "key": "height",
+          "default": 0.6
+        },
+        {
+          "key": "plankWidth",
+          "default": 0.5
+        },
+        {
+          "key": "border",
+          "default": 1
+        },
+        {
+          "key": "railHeight",
+          "default": 1
+        }
+      ]
+    },
+    {
+      "id": "titan-rail",
+      "name": "泰坦轨道",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "length",
+          "default": 48
+        },
+        {
+          "key": "bend",
+          "default": 8
+        },
+        {
+          "key": "segmentLength",
+          "default": 6
+        },
+        {
+          "key": "concreteSleepers",
+          "default": 0
+        }
+      ]
+    },
+    {
+      "id": "titan-shrub",
+      "name": "泰坦灌木",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "branches",
+          "default": 7
+        },
+        {
+          "key": "height",
+          "default": 1.4
+        },
+        {
+          "key": "spread",
+          "default": 0.7
+        },
+        {
+          "key": "leavesPerBranch",
+          "default": 14
+        },
+        {
+          "key": "dryRatio",
+          "default": 0.2
+        },
+        {
+          "key": "bend",
+          "default": 0.15
+        },
+        {
+          "key": "seed",
+          "default": 11
+        }
+      ]
+    },
+    {
+      "id": "titan-stacking",
+      "name": "泰坦碎石堆",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "shards",
+          "default": 12
+        },
+        {
+          "key": "fractureSeed",
+          "default": 5
+        },
+        {
+          "key": "stackSeed",
+          "default": 2
+        },
+        {
+          "key": "spread",
+          "default": 2.2
+        },
+        {
+          "key": "minScale",
+          "default": 0.2
+        },
+        {
+          "key": "maxScale",
+          "default": 1
+        },
+        {
+          "key": "focusBias",
+          "default": 0
+        },
+        {
+          "key": "roughen",
+          "default": 0.06
+        }
+      ]
+    },
+    {
+      "id": "titan-train",
+      "name": "泰坦火车",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "wagons",
+          "default": 3
+        },
+        {
+          "key": "carLength",
+          "default": 8
+        },
+        {
+          "key": "carWidth",
+          "default": 2.6
+        },
+        {
+          "key": "carHeight",
+          "default": 2.8
+        },
+        {
+          "key": "damage",
+          "default": 0
+        },
+        {
+          "key": "seed",
+          "default": 7
+        }
+      ]
+    },
+    {
+      "id": "titan-tree",
+      "name": "泰坦树",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "levels",
+          "default": 4
+        },
+        {
+          "key": "trunkLength",
+          "default": 3
+        },
+        {
+          "key": "branching",
+          "default": 3
+        },
+        {
+          "key": "spread",
+          "default": 0.6
+        },
+        {
+          "key": "leafSize",
+          "default": 0.4
+        },
+        {
+          "key": "seed",
+          "default": 11
+        }
+      ]
+    },
+    {
+      "id": "toll-station",
+      "name": "高速收费站",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "lanes",
+          "default": 5
+        },
+        {
+          "key": "laneWidth",
+          "default": 3.5
+        },
+        {
+          "key": "canopyDepth",
+          "default": 8
+        },
+        {
+          "key": "clearance",
+          "default": 5.5
+        },
+        {
+          "key": "booths",
+          "default": 1
+        }
+      ]
+    },
+    {
+      "id": "tower",
+      "name": "程序化塔",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "floors",
+          "default": 7
+        },
+        {
+          "key": "width",
+          "default": 1.2
+        },
+        {
+          "key": "floorH",
+          "default": 0.7
+        },
+        {
+          "key": "taper",
+          "default": 0.05
+        }
+      ]
+    },
+    {
+      "id": "tower-crane",
+      "name": "塔式起重机",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "mastHeight",
+          "default": 30
+        },
+        {
+          "key": "mastWidth",
+          "default": 0.9
+        },
+        {
+          "key": "jibLength",
+          "default": 22
+        },
+        {
+          "key": "counterJibLength",
+          "default": 8
+        },
+        {
+          "key": "trolley",
+          "default": 0.7
+        },
+        {
+          "key": "hookDrop",
+          "default": 12
+        },
+        {
+          "key": "strut",
+          "default": 0.16
+        }
+      ]
+    },
+    {
+      "id": "townscaper-harbour",
+      "name": "Townscaper灵感·彩色港湾",
+      "category": "建筑与城市",
+      "critiqueGoal": "Townscaper-inspired organic quad-grid harbour with adjacency-driven roofs, arches, bridges and animated water",
+      "assetMeta": {
+        "description": "有机四边网格驱动的彩色港湾。高度、密度、运河改变后，墙体、屋顶、窗、拱券、连廊和临水支柱自动重算。",
+        "tags": [
+          "Townscaper",
+          "有机网格",
+          "邻接规则",
+          "彩色港湾",
+          "程序化水体"
+        ],
+        "capabilities": [
+          "种子复现",
+          "参数化占用",
+          "自动屋顶",
+          "自动拱桥",
+          "动态水体"
+        ],
+        "materialClasses": [
+          "彩色灰泥",
+          "陶瓦",
+          "玻璃",
+          "木材",
+          "水体"
+        ]
+      },
+      "schema": [
+        {
+          "key": "gridSize"
+        },
+        {
+          "key": "cellSize"
+        },
+        {
+          "key": "density"
+        },
+        {
+          "key": "maxFloors"
+        },
+        {
+          "key": "floorHeight"
+        },
+        {
+          "key": "irregularity"
+        },
+        {
+          "key": "canalWidth"
+        },
+        {
+          "key": "archDensity"
+        },
+        {
+          "key": "roofPitch"
+        },
+        {
+          "key": "palette"
+        },
+        {
+          "key": "waveHeight"
+        },
+        {
+          "key": "seed"
+        }
+      ]
+    },
+    {
+      "id": "traffic-cone",
+      "name": "交通路锥",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "height",
+          "default": 0.7
+        },
+        {
+          "key": "baseWidth",
+          "default": 0.18
+        },
+        {
+          "key": "collars",
+          "default": 2
+        }
+      ]
+    },
+    {
+      "id": "traffic-signal",
+      "name": "交通信号灯",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "mastHeight",
+          "default": 6.2
+        },
+        {
+          "key": "armReach",
+          "default": 5.5
+        },
+        {
+          "key": "heads",
+          "default": 2
+        },
+        {
+          "key": "pedestrian",
+          "default": 1
+        },
+        {
+          "key": "streetSign",
+          "default": 1
+        }
+      ]
+    },
+    {
+      "id": "trashcan",
+      "name": "垃圾桶",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "radius",
+          "default": 0.28
+        },
+        {
+          "key": "height",
+          "default": 0.8
+        },
+        {
+          "key": "lid",
+          "default": 1
+        },
+        {
+          "key": "frame",
+          "default": 1
+        }
+      ]
+    },
+    {
+      "id": "triplanar-boulder",
+      "name": "三平面巨石",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "size",
+          "default": 1.6
+        },
+        {
+          "key": "detail",
+          "default": 2
+        },
+        {
+          "key": "rough",
+          "default": 0.32
+        },
+        {
+          "key": "texScale",
+          "default": 2.2
+        },
+        {
+          "key": "seed",
+          "default": 9
+        }
+      ]
+    },
+    {
+      "id": "tshirt",
+      "name": "T 恤 (程序化服装)",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "chest",
+          "default": 0.98
+        },
+        {
+          "key": "height",
+          "default": 1.8
+        },
+        {
+          "key": "chestEase",
+          "default": 0.06
+        },
+        {
+          "key": "bodyLength",
+          "default": 1
+        },
+        {
+          "key": "sleeveLength",
+          "default": 0.32
+        },
+        {
+          "key": "neckDrop",
+          "default": 0.05
+        },
+        {
+          "key": "fabric",
+          "default": 0
+        },
+        {
+          "key": "settle",
+          "default": 0
+        }
+      ]
+    },
+    {
+      "id": "tunnel-portal",
+      "name": "隧道洞口",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "openingHalfWidth",
+          "default": 6
+        },
+        {
+          "key": "wallHeight",
+          "default": 4
+        },
+        {
+          "key": "facadeDepth",
+          "default": 1.2
+        },
+        {
+          "key": "boreDepth",
+          "default": 14
+        },
+        {
+          "key": "margin",
+          "default": 2.5
+        }
+      ]
+    },
+    {
+      "id": "ue5-pcg-cave",
+      "name": "UE5 PCG 程序化山洞",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "length",
+          "default": 28
+        },
+        {
+          "key": "width",
+          "default": 20
+        },
+        {
+          "key": "tunnelRadius",
+          "default": 2.35
+        },
+        {
+          "key": "verticalStretch",
+          "default": 1.22
+        },
+        {
+          "key": "branchCount",
+          "default": 2
+        },
+        {
+          "key": "irregularity",
+          "default": 0.42
+        },
+        {
+          "key": "surfaceDetail",
+          "default": 0.12
+        },
+        {
+          "key": "wallThickness",
+          "default": 0.34
+        },
+        {
+          "key": "resolution",
+          "default": 52
+        },
+        {
+          "key": "floorRocks",
+          "default": 28
+        },
+        {
+          "key": "wallRocks",
+          "default": 52
+        },
+        {
+          "key": "ceilingRocks",
+          "default": 16
+        },
+        {
+          "key": "seed",
+          "default": 25
+        }
+      ]
+    },
+    {
+      "id": "umbrella-table",
+      "name": "遮阳伞石桌",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "tableRadius",
+          "default": 0.55
+        },
+        {
+          "key": "umbrellaRadius",
+          "default": 1.5
+        },
+        {
+          "key": "stools",
+          "default": 4
+        }
+      ]
+    },
+    {
+      "id": "veg-authored-broadleaf",
+      "name": "分层阔叶树",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "height",
+          "default": 4.4
+        },
+        {
+          "key": "trunkRadius",
+          "default": 0.28
+        },
+        {
+          "key": "crownWidth",
+          "default": 4.2
+        },
+        {
+          "key": "crownDepth",
+          "default": 3.1
+        },
+        {
+          "key": "primaryBranches",
+          "default": 8
+        },
+        {
+          "key": "secondaryBranches",
+          "default": 4
+        },
+        {
+          "key": "twigBranches",
+          "default": 3
+        },
+        {
+          "key": "primaryAngle",
+          "default": 68
+        },
+        {
+          "key": "secondaryAngle",
+          "default": 52
+        },
+        {
+          "key": "twigAngle",
+          "default": 36
+        },
+        {
+          "key": "spread",
+          "default": 1.08
+        },
+        {
+          "key": "gnarl",
+          "default": 0.14
+        },
+        {
+          "key": "leafDensity",
+          "default": 10
+        },
+        {
+          "key": "leafSize",
+          "default": 0.17
+        },
+        {
+          "key": "featureCount",
+          "default": 10
+        },
+        {
+          "key": "seed",
+          "default": 41
+        }
+      ]
+    },
+    {
+      "id": "veg-authoring-lineup",
+      "name": "新树木技术对比",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "heightScale",
+          "default": 1
+        },
+        {
+          "key": "leafScale",
+          "default": 0.9
+        },
+        {
+          "key": "spacing",
+          "default": 3.5
+        },
+        {
+          "key": "seedOffset",
+          "default": 0
+        }
+      ]
+    },
+    {
+      "id": "veg-column-cypress",
+      "name": "柱形柏树",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "height",
+          "default": 5.8
+        },
+        {
+          "key": "trunkRadius",
+          "default": 0.16
+        },
+        {
+          "key": "crownRadius",
+          "default": 0.72
+        },
+        {
+          "key": "primaryBranches",
+          "default": 12
+        },
+        {
+          "key": "secondaryBranches",
+          "default": 3
+        },
+        {
+          "key": "twigBranches",
+          "default": 2
+        },
+        {
+          "key": "gnarl",
+          "default": 0.06
+        },
+        {
+          "key": "leafDensity",
+          "default": 11
+        },
+        {
+          "key": "leafSize",
+          "default": 0.11
+        },
+        {
+          "key": "seed",
+          "default": 97
+        }
+      ]
+    },
+    {
+      "id": "veg-conifer",
+      "name": "程序化针叶树",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "height",
+          "default": 5
+        },
+        {
+          "key": "trunkRadius",
+          "default": 0.16
+        },
+        {
+          "key": "whorls",
+          "default": 9
+        },
+        {
+          "key": "perWhorl",
+          "default": 6
+        },
+        {
+          "key": "needleDensity",
+          "default": 5
+        },
+        {
+          "key": "seed",
+          "default": 1
+        }
+      ]
+    },
+    {
+      "id": "veg-grass",
+      "name": "程序化草地",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "blades",
+          "default": 320
+        },
+        {
+          "key": "area",
+          "default": 2.4
+        },
+        {
+          "key": "height",
+          "default": 0.45
+        },
+        {
+          "key": "bend",
+          "default": 0.22
+        },
+        {
+          "key": "seed",
+          "default": 5
+        }
+      ]
+    },
+    {
+      "id": "veg-growing-tree",
+      "name": "生长树",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "growth",
+          "default": 1
+        },
+        {
+          "key": "height",
+          "default": 5
+        },
+        {
+          "key": "trunkRadius",
+          "default": 0.3
+        },
+        {
+          "key": "branchCount",
+          "default": 8
+        },
+        {
+          "key": "depth",
+          "default": 3
+        },
+        {
+          "key": "branchAngle",
+          "default": 48
+        },
+        {
+          "key": "gnarl",
+          "default": 0.14
+        },
+        {
+          "key": "leafDensity",
+          "default": 9
+        },
+        {
+          "key": "leafSize",
+          "default": 0.18
+        },
+        {
+          "key": "depthDelay",
+          "default": 0.6
+        },
+        {
+          "key": "heightDelay",
+          "default": 0.5
+        },
+        {
+          "key": "leafStart",
+          "default": 0.55
+        },
+        {
+          "key": "seed",
+          "default": 7
+        }
+      ]
+    },
+    {
+      "id": "veg-palm",
+      "name": "程序化棕榈树",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "height",
+          "default": 5
+        },
+        {
+          "key": "trunkRadius",
+          "default": 0.14
+        },
+        {
+          "key": "fronds",
+          "default": 9
+        },
+        {
+          "key": "frondLength",
+          "default": 1.8
+        },
+        {
+          "key": "lean",
+          "default": 0.4
+        },
+        {
+          "key": "seed",
+          "default": 1
+        }
+      ]
+    },
+    {
+      "id": "veg-shrub",
+      "name": "程序化灌木",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "height",
+          "default": 1.5
+        },
+        {
+          "key": "stems",
+          "default": 6
+        },
+        {
+          "key": "spread",
+          "default": 0.25
+        },
+        {
+          "key": "leafDensity",
+          "default": 11
+        },
+        {
+          "key": "leafSize",
+          "default": 0.12
+        },
+        {
+          "key": "seed",
+          "default": 11
+        }
+      ]
+    },
+    {
+      "id": "veg-stylized-tree",
+      "name": "风格化树 (Blender复刻)",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "height",
+          "default": 4.4
+        },
+        {
+          "key": "trunkRadius",
+          "default": 0.26
+        },
+        {
+          "key": "gnarl",
+          "default": 0.18
+        },
+        {
+          "key": "branchAngle",
+          "default": 46
+        },
+        {
+          "key": "l0count",
+          "default": 6
+        },
+        {
+          "key": "l0children",
+          "default": 4
+        },
+        {
+          "key": "phototropism",
+          "default": 0.42
+        },
+        {
+          "key": "gravity",
+          "default": 0.06
+        },
+        {
+          "key": "radiusTaper",
+          "default": 0.4
+        },
+        {
+          "key": "leafDensity",
+          "default": 5
+        },
+        {
+          "key": "leafSize",
+          "default": 0.2
+        },
+        {
+          "key": "leafShape",
+          "default": 0
+        },
+        {
+          "key": "leafCurl",
+          "default": 0.16
+        },
+        {
+          "key": "seed",
+          "default": 614
+        }
+      ]
+    },
+    {
+      "id": "veg-tree",
+      "name": "程序化树",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "height",
+          "default": 4.2
+        },
+        {
+          "key": "trunkRadius",
+          "default": 0.28
+        },
+        {
+          "key": "branchCount",
+          "default": 7
+        },
+        {
+          "key": "depth",
+          "default": 3
+        },
+        {
+          "key": "branchAngle",
+          "default": 48
+        },
+        {
+          "key": "gnarl",
+          "default": 0.12
+        },
+        {
+          "key": "leafDensity",
+          "default": 9
+        },
+        {
+          "key": "leafSize",
+          "default": 0.18
+        },
+        {
+          "key": "seed",
+          "default": 7
+        }
+      ]
+    },
+    {
+      "id": "veg-trellis-fruit",
+      "name": "棚架果树",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "height",
+          "default": 3.6
+        },
+        {
+          "key": "trunkRadius",
+          "default": 0.18
+        },
+        {
+          "key": "frameWidth",
+          "default": 3.6
+        },
+        {
+          "key": "gridSpacing",
+          "default": 0.6
+        },
+        {
+          "key": "trellisPull",
+          "default": 0.82
+        },
+        {
+          "key": "primaryBranches",
+          "default": 6
+        },
+        {
+          "key": "secondaryBranches",
+          "default": 4
+        },
+        {
+          "key": "twigBranches",
+          "default": 2
+        },
+        {
+          "key": "spread",
+          "default": 1.05
+        },
+        {
+          "key": "gnarl",
+          "default": 0.08
+        },
+        {
+          "key": "leafDensity",
+          "default": 8
+        },
+        {
+          "key": "leafSize",
+          "default": 0.13
+        },
+        {
+          "key": "fruitCount",
+          "default": 12
+        },
+        {
+          "key": "fruitSize",
+          "default": 0.07
+        },
+        {
+          "key": "seed",
+          "default": 73
+        }
+      ]
+    },
+    {
+      "id": "viaduct",
+      "name": "高架桥",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "length",
+          "default": 80
+        },
+        {
+          "key": "halfWidth",
+          "default": 6
+        },
+        {
+          "key": "clearance",
+          "default": 8
+        },
+        {
+          "key": "rampFraction",
+          "default": 0.28
+        },
+        {
+          "key": "pierSpacing",
+          "default": 12
+        },
+        {
+          "key": "pierRadius",
+          "default": 0.9
+        },
+        {
+          "key": "pierShape",
+          "default": 0
+        },
+        {
+          "key": "pierTaper",
+          "default": 1
+        },
+        {
+          "key": "deckThickness",
+          "default": 0.9
+        },
+        {
+          "key": "barriers",
+          "default": 1
+        },
+        {
+          "key": "abutments",
+          "default": 1
+        },
+        {
+          "key": "sample",
+          "default": 1.2
+        }
+      ]
+    },
+    {
+      "id": "vine",
+      "name": "程序化藤蔓",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "mode",
+          "default": 0
+        },
+        {
+          "key": "length",
+          "default": 3
+        },
+        {
+          "key": "radius",
+          "default": 0.06
+        },
+        {
+          "key": "wander",
+          "default": 0.5
+        },
+        {
+          "key": "branches",
+          "default": 3
+        },
+        {
+          "key": "branchDepth",
+          "default": 2
+        },
+        {
+          "key": "leafDensity",
+          "default": 6
+        },
+        {
+          "key": "leafSize",
+          "default": 0.13
+        },
+        {
+          "key": "seed",
+          "default": 5
+        }
+      ]
+    },
+    {
+      "id": "vine-covered-rock",
+      "name": "藤蔓覆盖裂隙岩柱",
+      "category": "自然",
+      "critiqueGoal": "",
+      "assetMeta": {
+        "description": "参考 BV12w411a7ne：竖向裂隙岩柱、表面吸附藤蔓、顶冠垂藤、基部环形密叶。",
+        "tags": [
+          "岩石",
+          "藤蔓",
+          "常春藤",
+          "PCG",
+          "程序化复刻"
+        ],
+        "capabilities": [
+          "岩柱数量",
+          "覆盖度",
+          "叶片尺寸",
+          "垂藤长度",
+          "基部扩散",
+          "四级LOD"
+        ],
+        "materialClasses": [
+          "风化岩石",
+          "木质藤茎",
+          "双面藤叶",
+          "土壤"
+        ]
+      },
+      "schema": [
+        {
+          "key": "rockCount",
+          "default": 5
+        },
+        {
+          "key": "width",
+          "default": 5.4
+        },
+        {
+          "key": "height",
+          "default": 5.8
+        },
+        {
+          "key": "coverage",
+          "default": 1
+        },
+        {
+          "key": "leafSize",
+          "default": 0.22
+        },
+        {
+          "key": "hangingLength",
+          "default": 1.7
+        },
+        {
+          "key": "groundSpread",
+          "default": 1.45
+        },
+        {
+          "key": "lod",
+          "default": 1
+        },
+        {
+          "key": "seed",
+          "default": 73
+        }
+      ]
+    },
+    {
+      "id": "vine-slope",
+      "name": "PCG 坡度选藤",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "size",
+          "default": 14
+        },
+        {
+          "key": "relief",
+          "default": 4.5
+        },
+        {
+          "key": "count",
+          "default": 160
+        },
+        {
+          "key": "flatMax",
+          "default": 18
+        },
+        {
+          "key": "midMax",
+          "default": 52
+        },
+        {
+          "key": "spacing",
+          "default": 1.1
+        },
+        {
+          "key": "vineScale",
+          "default": 0.35
+        },
+        {
+          "key": "seed",
+          "default": 9
+        }
+      ]
+    },
+    {
+      "id": "watabou-city",
+      "name": "Watabou复刻·河谷城市数据",
+      "category": "",
+      "critiqueGoal": "Watabou Bridge UE PCG data visualization with S-river, roads, fields, trees and settlement footprints",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "size"
+        },
+        {
+          "key": "riverWidth"
+        },
+        {
+          "key": "roadDensity"
+        },
+        {
+          "key": "fieldDensity"
+        },
+        {
+          "key": "treeDensity"
+        },
+        {
+          "key": "rockDensity"
+        },
+        {
+          "key": "buildingDensity"
+        },
+        {
+          "key": "seed"
+        }
+      ]
+    },
+    {
+      "id": "water-tower",
+      "name": "屋顶木水塔",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "radius",
+          "default": 1.6
+        },
+        {
+          "key": "tankHeight",
+          "default": 3.2
+        },
+        {
+          "key": "staves",
+          "default": 24
+        },
+        {
+          "key": "hoops",
+          "default": 4
+        },
+        {
+          "key": "legHeight",
+          "default": 2.4
+        },
+        {
+          "key": "roofPitch",
+          "default": 0.55
+        },
+        {
+          "key": "ladder",
+          "default": 1
+        },
+        {
+          "key": "seed",
+          "default": 9
+        }
+      ]
+    },
+    {
+      "id": "waterfall",
+      "name": "程序化瀑布",
+      "category": "",
+      "critiqueGoal": "layered realtime waterfall with cliff, plunge pool, spray and mist",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "width",
+          "default": 6.8
+        },
+        {
+          "key": "height",
+          "default": 8.5
+        },
+        {
+          "key": "depth",
+          "default": 3.4
+        },
+        {
+          "key": "sheetCount",
+          "default": 4
+        },
+        {
+          "key": "turbulence",
+          "default": 0.42
+        },
+        {
+          "key": "flowSpeed",
+          "default": 1.25
+        },
+        {
+          "key": "rockCount",
+          "default": 34
+        },
+        {
+          "key": "particleCount",
+          "default": 180
+        },
+        {
+          "key": "mistCount",
+          "default": 72
+        },
+        {
+          "key": "foamCount",
+          "default": 96
+        },
+        {
+          "key": "seed",
+          "default": 17
+        }
+      ]
+    },
+    {
+      "id": "wfc-rooftop",
+      "name": "WFC屋顶",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "cols",
+          "default": 6
+        },
+        {
+          "key": "rows",
+          "default": 5
+        },
+        {
+          "key": "cell",
+          "default": 2.4
+        },
+        {
+          "key": "parapet",
+          "default": 0.9
+        },
+        {
+          "key": "equipmentDensity",
+          "default": 0.35
+        },
+        {
+          "key": "seed",
+          "default": 11
+        }
+      ]
+    },
+    {
+      "id": "wind-turbine",
+      "name": "风力发电机",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "towerHeight",
+          "default": 28
+        },
+        {
+          "key": "towerRadius",
+          "default": 1.1
+        },
+        {
+          "key": "blades",
+          "default": 3
+        },
+        {
+          "key": "bladeLength",
+          "default": 16
+        },
+        {
+          "key": "bladeChord",
+          "default": 1.4
+        },
+        {
+          "key": "tipChordRatio",
+          "default": 0.32
+        },
+        {
+          "key": "bladeTwist",
+          "default": 0.55
+        },
+        {
+          "key": "airfoilThickness",
+          "default": 0.16
+        },
+        {
+          "key": "rotorPhase",
+          "default": 0
+        }
+      ]
+    },
+    {
+      "id": "wineglass",
+      "name": "程序化酒杯",
+      "category": "",
+      "critiqueGoal": "",
+      "assetMeta": {},
+      "schema": [
+        {
+          "key": "bowlR",
+          "default": 0.45
+        },
+        {
+          "key": "bowlH",
+          "default": 1.05
+        },
+        {
+          "key": "rimIn",
+          "default": 0.22
+        },
+        {
+          "key": "belly",
+          "default": 1
+        },
+        {
+          "key": "stemR",
+          "default": 0.045
+        },
+        {
+          "key": "stemH",
+          "default": 0.62
+        },
+        {
+          "key": "footR",
+          "default": 0.42
+        },
+        {
+          "key": "sides",
+          "default": 48
+        },
+        {
+          "key": "wine",
+          "default": 0.45
+        }
+      ]
+    },
+    {
+      "id": "xianxia-mountains",
+      "name": "仙侠云海峰林",
+      "category": "自然",
+      "critiqueGoal": "cinematic Chinese xianxia quartz-sandstone pillar mountains rising through layered cloud sea",
+      "assetMeta": {
+        "description": "按参考图复刻张家界式仙侠柱峰：截顶岩柱、纵向裂隙、峰壁松林、冷色远峰与分层体积云海。",
+        "tags": [
+          "仙侠",
+          "张家界",
+          "柱峰",
+          "云海",
+          "松树",
+          "参考图复刻"
+        ],
+        "capabilities": [
+          "多层景深",
+          "截顶柱峰",
+          "岩壁裂隙",
+          "附岩植被",
+          "体积云",
+          "种子变体"
+        ],
+        "materialClasses": [
+          "石英砂岩",
+          "苔草",
+          "松木",
+          "松针",
+          "云雾"
+        ]
+      },
+      "schema": [
+        {
+          "key": "peakCount",
+          "default": 10
+        },
+        {
+          "key": "height",
+          "default": 19
+        },
+        {
+          "key": "spread",
+          "default": 28
+        },
+        {
+          "key": "cliffRoughness",
+          "default": 0.38
+        },
+        {
+          "key": "treeDensity",
+          "default": 0.68
+        },
+        {
+          "key": "cloudCount",
+          "default": 8
+        },
+        {
+          "key": "seed",
+          "default": 71
+        }
+      ]
+    }
+  ]
+}

@@ -82,8 +82,18 @@ pnpm exec playwright install chromium
 Its closed loop is:
 
 ```text
-prompt/image -> restricted JS -> sandbox -> multi-view render -> score/review -> revise
+image -> VLM semantic contract -> restricted JS -> sandbox -> multi-view render
+      -> deterministic score + structured VLM review -> staged gate -> accept/revise
 ```
+
+`sculpt` first extracts semantic parts, regional color, depth order, and visible
+attachment relations. Every locked pass then reviews silhouette/proportion,
+component structure, spatial structure, form detail, color palette, material
+response, and lighting/camera from the shared reference + multi-view + neutral/
+grazing evidence. A failed critical feature or required layer blocks promotion;
+rejected candidates never replace the accepted best.
+The archived quality score is conservative: the minimum of deterministic mesh
+quality, VLM visual score, and the weakest required critical feature.
 
 Generated scripts, renders, review data, and optional OBJ/MTL files go under
 `out/meshova/<id>/`. Successful runs also publish viewer data to `out/<id>.json`
@@ -103,8 +113,12 @@ The slash command uses the same CLI backend, which is also available directly:
 
 `run` accepts `--views`, `--material`, `--title`, `--ref`, `--obj`,
 `--no-render`, and `--no-publish`. `sculpt` accepts `--name`, `--contract`,
-`--hint`, `--iterations`, and `--target`; configure it with `OPENAI_API_KEY`,
-and optionally `OPENAI_MODEL` or `OPENAI_ENDPOINT`.
+`--hint`, `--iterations`, `--target`, and `--vlm-every`. Structured VLM review
+runs every iteration by default; `--no-vlm` disables decomposition/review gates for diagnostic
+runs. Configure it with `OPENAI_API_KEY`, and optionally `OPENAI_MODEL`,
+`OPENAI_ENDPOINT`/`OPENAI_BASE_URL`, `OPENAI_FALLBACK_MODELS`,
+`OPENAI_TIMEOUT_MS`, or `OPENAI_MAX_RETRIES`. The ledger records the actual
+model used after retry/fallback.
 
 ## Example: copy-to-points flow
 

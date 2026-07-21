@@ -92,7 +92,7 @@ function evaluation(highestPassedStage: ReferenceEvaluation["highestPassedStage"
 
 const passingCritique = {
   category: "chair",
-  scores: { geometry: 0.9, proportion: 0.9, aesthetic: 0.9, realism: 0.9, overall: 0.9 },
+  scores: { geometry: 0.9, proportion: 0.9, aesthetic: 0.9, realism: 0.9, deterministic: 0.9, overall: 0.9 },
   issues: [],
   passed: true,
   partMetrics: [],
@@ -189,6 +189,70 @@ describe("重建质量合同", () => {
     expect(blocked.issues.map((issue) => issue.code)).toContain("feature");
   });
 
+  it("VLM 分层分数硬门禁造型、空间、色彩、材质与灯光", () => {
+    const guarded: ReconstructionContract = {
+      ...contract,
+      quality: {
+        ...contract.quality,
+        requireVlmReview: true,
+        minimumVlmScore: 0.7,
+        minimumVlmConfidence: 0.6,
+        minimumVlmLayerScore: 0.65,
+      },
+    };
+    const visualReview = {
+      visualScore: 0.82,
+      confidence: 0.9,
+      aesthetic: 0.8,
+      realism: 0.8,
+      layerScores: {
+        silhouetteProportion: 0.8,
+        componentStructure: 0.8,
+        spatialStructure: 0.8,
+        formDetail: 0.8,
+        colorPalette: 0.8,
+        materialSurface: 0.8,
+        lightingCamera: 0.8,
+      },
+    };
+    expect(evaluateReconstructionGate(guarded, "shape", evidence({ visualReview })).accepted).toBe(true);
+    const conservative = evaluateReconstructionGate(guarded, "shape", evidence({
+      visualReview,
+      critique: {
+        ...passingCritique,
+        scores: { ...passingCritique.scores, deterministic: 0.76 },
+      },
+      criticalFeatures: [{
+        ...evidence().criticalFeatures[0]!,
+        score: 0.71,
+        passed: false,
+      }],
+    }));
+    expect(conservative.qualityScore).toBeCloseTo(0.71);
+    expect(conservative.qualityComponents).toEqual({
+      deterministic: 0.76,
+      visual: 0.82,
+      criticalFeatures: 0.71,
+    });
+    expect(evaluateReconstructionGate(guarded, "shape", evidence()).issues.map((issue) => issue.code)).toContain("vision");
+    const badColor = {
+      ...visualReview,
+      layerScores: { ...visualReview.layerScores, colorPalette: 0.4 },
+    };
+    const materialGate = evaluateReconstructionGate(guarded, "material", evidence({ visualReview: badColor }));
+    expect(materialGate.accepted).toBe(false);
+    expect(materialGate.issues.some((issue) => issue.message.includes("colorPalette"))).toBe(true);
+  });
+
+  it("VLM 必需时关键特征不能只靠部件命名通过", () => {
+    const parts: NamedPart[] = [{ name: "backrest", mesh: box() }];
+    const missing = evaluateCriticalFeatures(parts, contract.criticalFeatures, {}, { requireExternalScores: true });
+    expect(missing[0]?.passed).toBe(false);
+    expect(missing[0]?.finding).toContain("no visual review score");
+    const reviewed = evaluateCriticalFeatures(parts, contract.criticalFeatures, { backrest: 0.9 }, { requireExternalScores: true });
+    expect(reviewed[0]?.passed).toBe(true);
+  });
+
   it("把装配槽和动作信息接到语义部件", () => {
     const attachment = attachmentContractFromAssemblySlot({
       id: "seat-back",
@@ -261,6 +325,29 @@ describe("重建质量合同", () => {
     expect(result.reviewLedger?.entries).toHaveLength(1);
     expect(result.reviewLedger?.entries[0]?.phase).toBe("blockout");
     expect(result.success).toBe(false);
+
+    const progressiveContract: ReconstructionContract = {
+      ...contract,
+      id: "progressive-chair",
+      criticalFeatures: [],
+      attachments: [],
+      quality: { minimumGeometryScore: 0, requireCriticPass: false },
+    };
+    const progressive = await runContractImageLoop({
+      client: new MockLlmClient([
+        "```js\nreturn [part('body', box(1, 1, 1))];\n```",
+        "```js\nreturn [part('body', box(1, 1, 1))];\n```",
+      ]),
+      referencePng,
+      maxIterations: 2,
+      targetScore: 2,
+      scoreOptions: { gridSize: 16, renderBg: [13, 17, 23] },
+      reconstructionContract: progressiveContract,
+      render: async () => ({ imageBase64: Buffer.from(renderPng).toString("base64") }),
+    });
+    expect(progressive.steps[1]?.gate?.reason).toBe("no-improvement");
+    expect(progressive.steps[1]?.reconstructionGate?.accepted).toBe(true);
+    expect(progressive.best?.iteration).toBe(1);
   });
 
   it("两个旗舰合同覆盖真实模型关键特征和连接", () => {

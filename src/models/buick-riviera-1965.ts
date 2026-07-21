@@ -213,48 +213,64 @@ function makeDeck(ctx: ScaleContext, deckLength: number): Mesh {
 function makeHardtopGlass(ctx: ScaleContext): Mesh {
   return quadStrip([
     [
-      sv(ctx, -0.75, 0.89, -0.68),
-      sv(ctx, 0.75, 0.89, -0.68),
-      sv(ctx, 0.6, 1.18, -0.22),
-      sv(ctx, -0.6, 1.18, -0.22),
+      sv(ctx, -0.76, 0.88, -0.68),
+      sv(ctx, 0.76, 0.88, -0.68),
+      sv(ctx, 0.54, 1.25, -0.22),
+      sv(ctx, -0.54, 1.25, -0.22),
     ],
     [
-      sv(ctx, -0.6, 1.17, 0.72),
-      sv(ctx, 0.6, 1.17, 0.72),
+      sv(ctx, -0.56, 1.24, 0.72),
+      sv(ctx, 0.56, 1.24, 0.72),
       sv(ctx, 0.78, 0.86, 1.14),
       sv(ctx, -0.78, 0.86, 1.14),
     ],
     [
       sv(ctx, -0.84, 0.86, -0.42),
-      sv(ctx, -0.64, 1.16, -0.18),
-      sv(ctx, -0.64, 1.16, 0.72),
+      sv(ctx, -0.58, 1.23, -0.18),
+      sv(ctx, -0.58, 1.23, 0.72),
       sv(ctx, -0.87, 0.85, 0.98),
     ],
     [
-      sv(ctx, 0.64, 1.16, -0.18),
+      sv(ctx, 0.58, 1.23, -0.18),
       sv(ctx, 0.84, 0.86, -0.42),
       sv(ctx, 0.87, 0.85, 0.98),
-      sv(ctx, 0.64, 1.16, 0.72),
+      sv(ctx, 0.58, 1.23, 0.72),
     ],
   ]);
 }
 
+function makeHardtopRoofCap(ctx: ScaleContext): Mesh {
+  const sections = [
+    [sv(ctx, -0.56, 1.23, -0.2), sv(ctx, 0, 1.3, -0.2), sv(ctx, 0.56, 1.23, -0.2)],
+    [sv(ctx, -0.6, 1.25, 0.34), sv(ctx, 0, 1.33, 0.34), sv(ctx, 0.6, 1.25, 0.34)],
+    [sv(ctx, -0.56, 1.2, 0.82), sv(ctx, 0, 1.27, 0.82), sv(ctx, 0.56, 1.2, 0.82)],
+  ];
+  const quads: Array<[Vec3, Vec3, Vec3, Vec3]> = [];
+  for (let index = 0; index < sections.length - 1; index++) {
+    const current = sections[index]!;
+    const next = sections[index + 1]!;
+    quads.push([current[0]!, current[1]!, next[1]!, next[0]!]);
+    quads.push([current[1]!, current[2]!, next[2]!, next[1]!]);
+  }
+  return quadStrip(quads);
+}
+
 function makeHardtopFrame(ctx: ScaleContext): Mesh {
   return merge(
-    partBox(ctx, vec3(1.24, 0.045, 1.0), vec3(0, 1.225, 0.28)),
-    partBox(ctx, vec3(1.28, 0.052, 0.075), vec3(0, 1.08, -0.43), vec3(-0.58, 0, 0)),
-    partBox(ctx, vec3(1.26, 0.05, 0.08), vec3(0, 1.03, 0.95), vec3(0.56, 0, 0)),
-    partBox(ctx, vec3(0.055, 0.52, 0.065), vec3(-0.79, 0.98, -0.45), vec3(-0.42, 0, 0)),
-    partBox(ctx, vec3(0.055, 0.52, 0.065), vec3(0.79, 0.98, -0.45), vec3(-0.42, 0, 0)),
-    partBox(ctx, vec3(0.075, 0.54, 0.08), vec3(-0.83, 0.98, 0.98), vec3(0.4, 0, 0)),
-    partBox(ctx, vec3(0.075, 0.54, 0.08), vec3(0.83, 0.98, 0.98), vec3(0.4, 0, 0)),
+    makeHardtopRoofCap(ctx),
+    partBox(ctx, vec3(1.18, 0.045, 0.075), vec3(0, 1.16, -0.43), vec3(-0.66, 0, 0)),
+    partBox(ctx, vec3(1.16, 0.045, 0.08), vec3(0, 1.1, 0.95), vec3(0.62, 0, 0)),
+    partBox(ctx, vec3(0.05, 0.54, 0.065), vec3(-0.76, 1.02, -0.45), vec3(-0.48, 0, 0)),
+    partBox(ctx, vec3(0.05, 0.54, 0.065), vec3(0.76, 1.02, -0.45), vec3(-0.48, 0, 0)),
+    partBox(ctx, vec3(0.065, 0.56, 0.08), vec3(-0.8, 1.02, 0.98), vec3(0.44, 0, 0)),
+    partBox(ctx, vec3(0.065, 0.56, 0.08), vec3(0.8, 1.02, 0.98), vec3(0.44, 0, 0)),
   );
 }
 
 function wheelSet(ctx: ScaleContext, side: -1 | 1, z: number, radius: number): NamedPart[] {
   const parts: NamedPart[] = [];
   const xOuter = side * 1.0 * ctx.sx;
-  const center = sv(ctx, side * 0.95, 0.33, z);
+  const center = vec3(side * 0.95 * ctx.sx, radius * 1.2, z * ctx.sz);
   const tire = transform(torus(radius, radius * 0.2, 52, 14), {
     rotate: vec3(0, 0, Math.PI / 2),
     translate: center,
@@ -293,6 +309,16 @@ function wheelSet(ctx: ScaleContext, side: -1 | 1, z: number, radius: number): N
   }
   add(parts, `radial_hubcap_fins_${side}_${z}`, merge(...fins), CHROME, "chrome");
   return parts;
+}
+
+function wheelArchLips(ctx: ScaleContext, z: number): Mesh {
+  return merge(...([-1, 1] as const).map((side) =>
+    transform(torus(0.405, 0.018, 44, 8), {
+      rotate: vec3(0, 0, Math.PI / 2),
+      scale: vec3(0.5 * ctx.sx, 1.08 * ctx.sy, 1.08 * ctx.sz),
+      translate: sv(ctx, side * 0.97, 0.4, z),
+    })
+  ));
 }
 
 function frontClamshell(ctx: ScaleContext, side: -1 | 1, closed: number): Mesh {
@@ -355,6 +381,93 @@ function countNamed(parts: NamedPart[], pattern: RegExp): number {
 
 function ratioOrZero(a: number, b: number): number {
   return b > 1e-6 ? a / b : 0;
+}
+
+function tireContactScore(tires: ReadonlyArray<NamedPart>): number {
+  if (tires.length !== 4) return 0;
+  return average(tires.map((tire) => {
+    const tireBounds = bounds(tire.mesh);
+    const radius = dim(tireBounds).y * 0.5;
+    return clamp01(1 - Math.abs(tireBounds.min.y) / Math.max(0.02, radius * 0.18));
+  }));
+}
+
+function wheelArchWrapScore(arches: ReadonlyArray<NamedPart>, tires: ReadonlyArray<NamedPart>): number {
+  if (arches.length === 0 || tires.length !== 4) return 0;
+  const archPoints = arches.flatMap((arch) => arch.mesh.positions);
+  return average(tires.map((tire) => {
+    const tireBounds = bounds(tire.mesh);
+    const tireCenter = center(tireBounds);
+    const radius = dim(tireBounds).y * 0.5;
+    const near = archPoints.filter((position) =>
+      Math.abs(position.x - tireCenter.x) <= radius * 0.55 &&
+      Math.abs(position.z - tireCenter.z) <= radius * 1.35 &&
+      position.y >= tireCenter.y - radius * 0.05
+    );
+    if (near.length === 0) return 0;
+    const angles = near.map((position) => Math.atan2(position.z - tireCenter.z, position.y - tireCenter.y));
+    const top = angles.some((angle) => Math.abs(angle) < 0.48) ? 1 : 0;
+    const left = angles.some((angle) => angle < -0.72 && angle > -1.72) ? 1 : 0;
+    const right = angles.some((angle) => angle > 0.72 && angle < 1.72) ? 1 : 0;
+    return (top + left + right) / 3;
+  }));
+}
+
+function cabinSectionScore(glass: NamedPart | undefined): number {
+  if (!glass) return 0;
+  const glassBounds = bounds(glass.mesh);
+  const height = dim(glassBounds).y;
+  const low = glass.mesh.positions.filter((position) => position.y <= glassBounds.min.y + height * 0.36);
+  const high = glass.mesh.positions.filter((position) => position.y >= glassBounds.max.y - height * 0.36);
+  if (low.length < 2 || high.length < 2) return 0;
+  const span = (points: ReadonlyArray<Vec3>) => Math.max(...points.map((point) => point.x)) - Math.min(...points.map((point) => point.x));
+  const lowWidth = span(low);
+  const highWidth = span(high);
+  return rangeScore(highWidth / Math.max(1e-6, lowWidth), 0.58, 0.86) * 0.65 +
+    rangeScore(height / Math.max(1e-6, lowWidth), 0.24, 0.58) * 0.35;
+}
+
+function surfaceContinuityScore(mesh: Mesh | undefined): number {
+  if (!mesh) return 0;
+  const meshBounds = bounds(mesh);
+  const depth = dim(meshBounds).z;
+  const widths: number[] = [];
+  for (let index = 0; index < 12; index++) {
+    const minZ = meshBounds.min.z + depth * index / 12;
+    const maxZ = meshBounds.min.z + depth * (index + 1) / 12;
+    const points = mesh.positions.filter((position) => position.z >= minZ && position.z <= maxZ);
+    if (points.length > 0) widths.push(Math.max(...points.map((point) => Math.abs(point.x))));
+  }
+  if (widths.length < 7) return 0;
+  const maxWidth = Math.max(...widths, 1e-6);
+  let curvature = 0;
+  for (let index = 1; index < widths.length - 1; index++) {
+    curvature += Math.abs(widths[index - 1]! - 2 * widths[index]! + widths[index + 1]!);
+  }
+  return clamp01(1 - curvature / ((widths.length - 2) * maxWidth) * 8);
+}
+
+function frontContourScore(parts: ReadonlyArray<NamedPart>, allBounds: { min: Vec3; max: Vec3 }): number {
+  const grille = parts.find((part) => part.name === "front_center_grille");
+  const bumper = parts.find((part) => part.name === "front_chrome_bumper");
+  const badge = parts.find((part) => part.name === "front_buick_trishield_badge");
+  const lamps = parts.filter((part) => /^ribbed_clamshell_headlight_/.test(part.name));
+  if (!grille || !bumper || !badge || lamps.length !== 2) return 0;
+  const grilleBounds = bounds(grille.mesh);
+  const grilleCenter = center(grilleBounds);
+  const bumperCenter = center(bounds(bumper.mesh));
+  const badgeCenter = center(bounds(badge.mesh));
+  const lampCenters = lamps.map((lamp) => center(bounds(lamp.mesh))).sort((left, right) => left.x - right.x);
+  const modelWidth = dim(allBounds).x;
+  const frontDepth = Math.abs(grilleBounds.min.z - allBounds.min.z) / dim(allBounds).z;
+  return average([
+    rangeScore(dim(grilleBounds).x / modelWidth, 0.18, 0.42),
+    clamp01(1 - Math.abs(lampCenters[0]!.x + lampCenters[1]!.x) / modelWidth),
+    lampCenters[0]!.x < grilleCenter.x && lampCenters[1]!.x > grilleCenter.x ? 1 : 0,
+    bumperCenter.y < grilleCenter.y ? 1 : 0,
+    clamp01(1 - Math.abs(badgeCenter.x - grilleCenter.x) / modelWidth * 8),
+    clamp01(1 - frontDepth * 8),
+  ]);
 }
 
 export function buildBuickRiviera1965Parts(params: Partial<BuickRiviera1965Params> = {}): NamedPart[] {
@@ -428,12 +541,10 @@ export function buildBuickRiviera1965Parts(params: Partial<BuickRiviera1965Param
   }
 
   add(parts, "front_wheel_knife_arches", merge(
-    partBox(ctx, vec3(0.052, 0.08, 0.84), vec3(-0.97, 0.52, frontZ)),
-    partBox(ctx, vec3(0.052, 0.08, 0.84), vec3(0.97, 0.52, frontZ)),
+    wheelArchLips(ctx, frontZ),
   ), CHROME, "chrome");
   add(parts, "rear_wheel_knife_arches", merge(
-    partBox(ctx, vec3(0.052, 0.08, 0.84), vec3(-0.97, 0.52, rearZ)),
-    partBox(ctx, vec3(0.052, 0.08, 0.84), vec3(0.97, 0.52, rearZ)),
+    wheelArchLips(ctx, rearZ),
   ), CHROME, "chrome");
 
   add(parts, "underbody_shadow_frame", merge(
@@ -478,6 +589,11 @@ export interface ClassicCoupeVehicleScore {
     vehicleSemantics: number;
     detail: number;
     solidity: number;
+    wheelArchWrap: number;
+    tireContact: number;
+    cabinSection: number;
+    surfaceContinuity: number;
+    frontContour: number;
   };
   measurements: {
     lengthToWidth: number;
@@ -563,7 +679,13 @@ export function scoreClassicCoupeVehicle(parts: NamedPart[]): ClassicCoupeVehicl
     rangeScore(wheelRadiusRatio, 0.18, 0.27),
   ]);
 
-  const brandSignature = average([
+  const wheelArchWrap = wheelArchWrapScore(parts.filter((part) => /wheel_knife_arches$/.test(part.name)), tireParts);
+  const tireContact = tireContactScore(tireParts);
+  const cabinSection = cabinSectionScore(byName.get("pillarless_greenhouse_glass"));
+  const surfaceContinuity = surfaceContinuityScore(byName.get("razor_edge_lower_body")?.mesh);
+  const frontContour = frontContourScore(parts, allBounds);
+
+  const brandNames = average([
     byName.has("front_buick_trishield_badge") ? 1 : 0,
     byName.has("rear_buick_trishield_badge") ? 1 : 0,
     countNamed(parts, /^ribbed_clamshell_headlight_/) >= 2 ? 1 : 0,
@@ -572,6 +694,7 @@ export function scoreClassicCoupeVehicle(parts: NamedPart[]): ClassicCoupeVehicl
     countNamed(parts, /^lower_rocker_chrome_/) >= 2 ? 1 : 0,
     byName.has("thin_window_chrome_surround") ? 1 : 0,
   ]);
+  const brandSignature = brandNames * 0.35 + frontContour * 0.65;
 
   const paintParts = parts.filter((part) => /(body|hood|deck|roof|clamshell)/.test(part.name));
   const paintGood = paintParts.filter((part) => part.surface?.type === "carPaint").length / Math.max(1, paintParts.length);
@@ -605,16 +728,26 @@ export function scoreClassicCoupeVehicle(parts: NamedPart[]): ClassicCoupeVehicl
     vehicleSemantics,
     detail,
     solidity,
+    wheelArchWrap,
+    tireContact,
+    cabinSection,
+    surfaceContinuity,
+    frontContour,
   };
   const score = clamp01(
-    metrics.requiredParts * 0.13 +
-      metrics.proportions * 0.23 +
-      metrics.coupeLayout * 0.21 +
-      metrics.wheelSystem * 0.12 +
-      metrics.brandSignature * 0.12 +
-      metrics.vehicleSemantics * 0.1 +
-      metrics.detail * 0.04 +
-      metrics.solidity * 0.05,
+    metrics.requiredParts * 0.08 +
+      metrics.proportions * 0.14 +
+      metrics.coupeLayout * 0.12 +
+      metrics.wheelSystem * 0.1 +
+      metrics.brandSignature * 0.06 +
+      metrics.vehicleSemantics * 0.06 +
+      metrics.detail * 0.03 +
+      metrics.solidity * 0.04 +
+      metrics.wheelArchWrap * 0.1 +
+      metrics.tireContact * 0.08 +
+      metrics.cabinSection * 0.08 +
+      metrics.surfaceContinuity * 0.06 +
+      metrics.frontContour * 0.05,
   );
 
   const tips: string[] = [];
@@ -622,6 +755,11 @@ export function scoreClassicCoupeVehicle(parts: NamedPart[]): ClassicCoupeVehicl
   if (metrics.proportions < 0.84) tips.push("fix long-low coupe proportions, wheelbase, tire radius, track");
   if (metrics.coupeLayout < 0.82) tips.push("fix long hood, short deck, two-door hardtop glass before detail");
   if (metrics.wheelSystem < 0.88) tips.push("add four complete whitewall wheels with chrome hubcaps");
+  if (metrics.wheelArchWrap < 0.8) tips.push("wrap each tire with a geometry-verified knife-edge wheel arch");
+  if (metrics.tireContact < 0.9) tips.push("put all four tire contact patches on the ground plane");
+  if (metrics.cabinSection < 0.78) tips.push("taper and crown the pillarless greenhouse instead of using a box cabin");
+  if (metrics.surfaceContinuity < 0.72) tips.push("replace slab body sections with a continuous long-low shell");
+  if (metrics.frontContour < 0.8) tips.push("rebuild grille, clamshell lamps, badge and bumper as one Riviera front contour");
   if (metrics.brandSignature < 0.86) tips.push("add Riviera cues: clamshell lamps, knife-edge bodyline, chrome rocker, tri-shield");
   if (metrics.vehicleSemantics < 0.9) tips.push("use carPaint, chrome, rubber, glass surfaces consistently");
   if (metrics.solidity < 0.55) tips.push("turntable silhouette collapses from some views");

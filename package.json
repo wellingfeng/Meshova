@@ -30,8 +30,8 @@
     "src"
   ],
   "scripts": {
-    "build": "node scripts/generate-content-manifest.mjs --check && tsc -p tsconfig.build.json && tsc -p tsconfig.pcg.json && tsc -p tsconfig.content.json && node scripts/build-content-browser.mjs && node scripts/check-pcg-boundaries.mjs",
-    "content:manifest": "node scripts/generate-content-manifest.mjs",
+    "build": "node scripts/generate-content-manifest.mjs --check && tsc -p tsconfig.build.json && tsc -p tsconfig.pcg.json && tsc -p tsconfig.content.json && node scripts/build-content-browser.mjs && node scripts/extract-proc-manifest.mjs && node scripts/check-pcg-boundaries.mjs",
+    "manifest:proc": "node scripts/extract-proc-manifest.mjs",
     "check:boundaries": "node scripts/check-pcg-boundaries.mjs",
     "audit:content-render": "node scripts/audit-content-render.mjs",
     "audit:model-builds": "node scripts/audit-proc-model-builds.mjs",

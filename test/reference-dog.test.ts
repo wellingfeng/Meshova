@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   buildReferenceDogParts,
   scoreDogAnatomy,
+  transform,
   triangleCount,
+  vec3,
 } from "../src/index.js";
 
 describe("reference dog procedural template", () => {
@@ -38,5 +40,13 @@ describe("reference dog procedural template", () => {
     expect(badScore.score).toBeLessThan(goodScore.score);
     expect(badScore.metrics.requiredParts).toBeLessThan(1);
     expect(badScore.metrics.groundContact).toBeLessThan(goodScore.metrics.groundContact);
+  });
+
+  it("penalizes paws that no longer support the body", () => {
+    const good = buildReferenceDogParts();
+    const bad = good.map((part) => /_paw_/.test(part.name)
+      ? { ...part, mesh: transform(part.mesh, { translate: vec3(0, 0, 1.8) }) }
+      : part);
+    expect(scoreDogAnatomy(bad).metrics.loadBalance).toBeLessThan(scoreDogAnatomy(good).metrics.loadBalance);
   });
 });

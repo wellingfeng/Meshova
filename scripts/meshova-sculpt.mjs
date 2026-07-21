@@ -4,6 +4,7 @@ import { readFile, writeFile, stat, mkdir } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { basename, extname, join, normalize, resolve } from "node:path";
 import {
+  decomposeImage,
   getHeroReconstructionContract,
   makeOpenAICompatibleClient,
   runImageLoop,
@@ -50,15 +51,45 @@ function safeId(value) {
   return value.toLowerCase().replace(/[^a-z0-9_-]+/g, "-").replace(/^-+|-+$/g, "") || "sculpt";
 }
 
-function genericContract(name, subject) {
+function genericContract(name, subject, decomposition) {
+  const rankedParts = [...(decomposition?.parts ?? [])]
+    .filter((part) => part.confidence >= 0.5)
+    .sort((first, second) =>
+      second.confidence * second.size.w * second.size.h -
+      first.confidence * first.size.w * first.size.h)
+    .slice(0, 5);
+  const criticalFeatures = rankedParts.length > 0
+    ? rankedParts.map((part) => ({
+      id: `feature:${safeId(part.name)}`,
+      label: part.name.replace(/[-_]+/g, " "),
+      description: [
+        part.description,
+        `reference position=(${part.position.x.toFixed(2)}, ${part.position.y.toFixed(2)})`,
+        `relative size=(${part.size.w.toFixed(2)} × ${part.size.h.toFixed(2)})`,
+        `material=${part.material}`,
+        part.color ? `color=${part.color}` : "",
+        part.depth ? `depth=${part.depth}` : "",
+        part.parent ? `parent=${part.parent}, attachment=${part.attachment ?? "unknown"}` : "",
+      ].filter(Boolean).join("; "),
+      partNames: [part.name],
+      minimumScore: 0.72,
+    }))
+    : [{
+      id: "feature:overall-identity",
+      label: "整体识别特征",
+      description: `The rendered object must preserve the identity-defining silhouette, component layout, and spatial relationships of ${subject}.`,
+      minimumScore: 0.72,
+    }];
+  const partCount = decomposition?.parts.length ?? 0;
   return {
     version: 1,
     id: `sculpt:${name}`,
     subject,
-    complexity: "complex",
+    complexity: partCount <= 3 ? "simple" : partCount <= 7 ? "moderate" : "complex",
     intendedUse: "game-ready",
     referenceViews: ["front", "side", "persp"],
-    criticalFeatures: [],
+    assumptions: decomposition?.notes ? [decomposition.notes] : [],
+    criticalFeatures,
     attachments: [],
     actions: [],
     quality: {
@@ -66,6 +97,10 @@ function genericContract(name, subject) {
       minimumGeometryScore: 0.62,
       requireCriticPass: true,
       requiredLookDevModes: ["reference", "neutral", "grazing"],
+      requireVlmReview: true,
+      minimumVlmScore: 0.7,
+      minimumVlmConfidence: 0.55,
+      minimumVlmLayerScore: 0.65,
     },
   };
 }
@@ -119,12 +154,37 @@ if (extname(referencePath).toLowerCase() !== ".png") fail("sculpt：当前只接
 
 const apiKey = process.env.OPENAI_API_KEY;
 if (!apiKey) fail("sculpt：缺少 OPENAI_API_KEY");
-const endpoint = process.env.OPENAI_ENDPOINT || "https://api.openai.com/v1/chat/completions";
+const baseUrl = process.env.OPENAI_BASE_URL?.replace(/\/$/, "");
+const endpoint = process.env.OPENAI_ENDPOINT || (baseUrl ? `${baseUrl}/chat/completions` : "https://api.openai.com/v1/chat/completions");
 const model = process.env.OPENAI_MODEL || "gpt-4o";
+const fallbackModels = (process.env.OPENAI_FALLBACK_MODELS || (model.startsWith("gpt-5") ? "gpt-5.4,gpt-4.1" : "gpt-4.1"))
+  .split(",")
+  .map((value) => value.trim())
+  .filter((value) => value && value !== model);
 const referencePng = new Uint8Array(await readFile(referencePath));
 const name = safeId(String(flags.name || basename(referencePath, extname(referencePath))));
 const hint = String(flags.hint || name);
 const contractId = flags.contract ? String(flags.contract) : null;
+const iterations = flags.iterations ? Math.max(1, Number.parseInt(String(flags.iterations), 10)) : undefined;
+const targetScore = flags.target ? Number.parseFloat(String(flags.target)) : undefined;
+const vlmEveryN = flags["no-vlm"]
+  ? 0
+  : flags["vlm-every"]
+    ? Math.max(1, Number.parseInt(String(flags["vlm-every"]), 10))
+    : 1;
+const outDir = join(ROOT, "out", "meshova", name);
+await mkdir(outDir, { recursive: true });
+
+const client = makeOpenAICompatibleClient({
+  endpoint,
+  apiKey,
+  model,
+  fallbackModels,
+  timeoutMs: Number(process.env.OPENAI_TIMEOUT_MS || 120000),
+  maxRetries: Number(process.env.OPENAI_MAX_RETRIES || 2),
+  fetchImpl: globalThis.fetch,
+});
+let decomposition;
 let contract;
 if (contractId) {
   try {
@@ -132,21 +192,40 @@ if (contractId) {
   } catch {
     fail(`sculpt：未知旗舰合同：${contractId}`);
   }
+} else if (!flags["no-vlm"]) {
+  try {
+    decomposition = await decomposeImage({
+      client,
+      images: { reference: Buffer.from(referencePng).toString("base64") },
+      hint,
+      maxParts: 12,
+    });
+    await writeFile(join(outDir, "decomposition.json"), JSON.stringify(decomposition, null, 2));
+  } catch (error) {
+    console.error(`sculpt：VLM 语义分解失败，退回整体识别门禁：${error instanceof Error ? error.message : String(error)}`);
+  }
+  contract = genericContract(name, hint, decomposition);
 } else {
   contract = genericContract(name, hint);
 }
-const iterations = flags.iterations ? Math.max(1, Number.parseInt(String(flags.iterations), 10)) : undefined;
-const targetScore = flags.target ? Number.parseFloat(String(flags.target)) : undefined;
-const outDir = join(ROOT, "out", "meshova", name);
-await mkdir(outDir, { recursive: true });
+if (flags["no-vlm"]) {
+  contract = {
+    ...contract,
+    quality: { ...(contract.quality ?? {}), requireVlmReview: false },
+  };
+} else {
+  contract = {
+    ...contract,
+    quality: {
+      minimumVlmScore: 0.7,
+      minimumVlmConfidence: 0.55,
+      minimumVlmLayerScore: 0.65,
+      ...(contract.quality ?? {}),
+      requireVlmReview: true,
+    },
+  };
+}
 await writeFile(join(outDir, "contract.json"), JSON.stringify(contract, null, 2));
-
-const client = makeOpenAICompatibleClient({
-  endpoint,
-  apiKey,
-  model,
-  fetchImpl: globalThis.fetch,
-});
 const { server, port } = await startServer();
 const fullExe = fullChromiumPath();
 const browser = await chromium.launch({
@@ -222,6 +301,7 @@ try {
     hint,
     render,
     reconstructionContract: contract,
+    vlmCriticEveryN: vlmEveryN,
     scoreOptions: { renderBg: [13, 17, 23] },
     onStep: (step) => {
       const phase = step.reconstructionGate?.phase ?? "free";
@@ -247,7 +327,8 @@ try {
     iterations: result.steps.length,
     phase: result.passState?.phase ?? null,
     completed: result.passState?.completed ?? null,
-    bestScore: result.best?.combinedScore ?? null,
+    bestScore: result.best?.qualityScore ?? result.best?.combinedScore ?? null,
+    vlmModel: result.best?.visualReview?.providerModel ?? null,
     output: `out/meshova/${name}`,
     pageErrors,
   }, null, 2));

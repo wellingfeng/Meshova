@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   buildMidnightHorseParts,
   scoreHorseAnatomy,
+  transform,
   triangleCount,
+  vec3,
 } from "../src/index.js";
 
 describe("midnight horse procedural template", () => {
@@ -47,5 +49,16 @@ describe("midnight horse procedural template", () => {
     expect(score.metrics.continuousSkin).toBe(0);
     expect(score.metrics.sideSilhouette).toBeLessThan(0.5);
     expect(score.score).toBeLessThan(0.72);
+  });
+
+  it("penalizes feet moved outside the limb load lines", () => {
+    const good = buildMidnightHorseParts();
+    const unbalanced = good.map((part) => /_hoof_/.test(part.name)
+      ? { ...part, mesh: transform(part.mesh, { translate: vec3(0, 0, 2.2) }) }
+      : part);
+    const goodScore = scoreHorseAnatomy(good);
+    const badScore = scoreHorseAnatomy(unbalanced);
+    expect(badScore.metrics.loadBalance).toBeLessThan(goodScore.metrics.loadBalance);
+    expect(badScore.score).toBeLessThan(goodScore.score);
   });
 });

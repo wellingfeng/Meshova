@@ -20,7 +20,6 @@ import {
   transform,
   type Mesh,
   type NamedPart,
-  triangleCount,
 } from "../geometry/index.js";
 
 type RGB = [number, number, number];
@@ -86,12 +85,12 @@ export const HORSE_QUADRUPED_PRESET: QuadrupedPreset = {
 
 export const REFERENCE_DOG_DEFAULTS: QuadrupedBuildParams = {
   scale: 1,
-  bodyLength: 2.95,
-  bodyWidth: 0.68,
-  legLength: 0.86,
-  neckArch: 0.72,
+  bodyLength: 2.55,
+  bodyWidth: 0.72,
+  legLength: 0.78,
+  neckArch: 0.52,
   maneLength: 0,
-  tailLength: 0.82,
+  tailLength: 0.72,
   stride: 0.06,
 };
 
@@ -313,19 +312,19 @@ function buildBodySkin(preset: QuadrupedPreset, params: QuadrupedBuildParams): M
   const bodyY = leg + 0.58 * s;
   const arch = params.neckArch;
   const sections: SkinSection[] = [
-    { center: vec3(0, bodyY + 0.88 * s, -half - 0.78 * s), rx: 0.08 * s, ry: 0.1 * s, topPinch: 0.02 },
-    { center: vec3(0, bodyY + 0.93 * s, -half - 0.58 * s), rx: 0.13 * s, ry: 0.17 * s, topPinch: 0.03 },
-    { center: vec3(0, bodyY + 1.03 * s, -half - 0.34 * s), rx: 0.2 * s, ry: 0.28 * s, topPinch: 0.05 },
+    { center: vec3(0, bodyY + 0.84 * s, -half - 0.95 * s), rx: 0.09 * s, ry: 0.1 * s, topPinch: 0.02 },
+    { center: vec3(0, bodyY + 0.89 * s, -half - 0.72 * s), rx: 0.14 * s, ry: 0.17 * s, topPinch: 0.03 },
+    { center: vec3(0, bodyY + 0.99 * s, -half - 0.46 * s), rx: 0.21 * s, ry: 0.28 * s, topPinch: 0.05 },
     { center: vec3(0, bodyY + 1.0 * s, -half - 0.06 * s), rx: 0.23 * s, ry: 0.3 * s, topPinch: 0.06 },
     { center: vec3(0, bodyY + (0.82 + 0.12 * arch) * s, -half + 0.25 * s), rx: 0.27 * s, ry: 0.34 * s },
     { center: vec3(0, bodyY + (0.68 + 0.14 * arch) * s, -half + 0.58 * s), rx: 0.31 * s, ry: 0.42 * s },
-    { center: vec3(0, bodyY + 0.42 * s, -half + 0.9 * s), rx: width * 0.42, ry: 0.55 * s, topPinch: 0.16 },
-    { center: vec3(0, bodyY + 0.18 * s, -half + 1.18 * s), rx: width * 0.52, ry: 0.68 * s, topPinch: 0.16, bellySwell: 0.16 },
-    { center: vec3(0, bodyY + 0.02 * s, -half + 1.66 * s), rx: width * 0.56, ry: 0.72 * s, topPinch: 0.12, bellySwell: 0.18 },
-    { center: vec3(0, bodyY - 0.02 * s, -half + 2.24 * s), rx: width * 0.55, ry: 0.69 * s, topPinch: 0.1, bellySwell: 0.16 },
-    { center: vec3(0, bodyY + 0.02 * s, -half + 2.82 * s), rx: width * 0.5, ry: 0.64 * s, topPinch: 0.1, bellySwell: 0.12 },
-    { center: vec3(0, bodyY + 0.08 * s, -half + 3.32 * s), rx: width * 0.42, ry: 0.56 * s, topPinch: 0.12 },
-    { center: vec3(0, bodyY + 0.02 * s, half - 0.1 * s), rx: width * 0.3, ry: 0.36 * s, topPinch: 0.12 },
+    { center: vec3(0, bodyY + 0.38 * s, -half + 0.9 * s), rx: width * 0.46, ry: 0.52 * s, topPinch: 0.16 },
+    { center: vec3(0, bodyY + 0.16 * s, -half + 1.18 * s), rx: width * 0.54, ry: 0.6 * s, topPinch: 0.16, bellySwell: 0.1 },
+    { center: vec3(0, bodyY + 0.02 * s, -half + 1.66 * s), rx: width * 0.53, ry: 0.58 * s, topPinch: 0.12, bellySwell: 0.1 },
+    { center: vec3(0, bodyY - 0.02 * s, -half + 2.24 * s), rx: width * 0.47, ry: 0.51 * s, topPinch: 0.1, bellySwell: 0.07 },
+    { center: vec3(0, bodyY + 0.02 * s, -half + 2.82 * s), rx: width * 0.43, ry: 0.47 * s, topPinch: 0.1, bellySwell: 0.05 },
+    { center: vec3(0, bodyY + 0.08 * s, -half + 3.32 * s), rx: width * 0.46, ry: 0.49 * s, topPinch: 0.12 },
+    { center: vec3(0, bodyY + 0.04 * s, half - 0.1 * s), rx: width * 0.32, ry: 0.32 * s, topPinch: 0.12 },
   ];
   if (!preset.hasMane) {
     sections[4] = { ...sections[4]!, ry: sections[4]!.ry * 0.92 };
@@ -341,19 +340,19 @@ function buildDogBodySkin(params: QuadrupedBuildParams): Mesh {
   const bodyY = leg + 0.58 * s;
   const arch = params.neckArch;
   const sections: SkinSection[] = [
-    { center: vec3(0, bodyY + 0.5 * s, -half - 0.82 * s), rx: 0.052 * s, ry: 0.05 * s, topPinch: 0.02 },
-    { center: vec3(0, bodyY + 0.52 * s, -half - 0.64 * s), rx: 0.105 * s, ry: 0.085 * s, topPinch: 0.04 },
-    { center: vec3(0, bodyY + 0.59 * s, -half - 0.45 * s), rx: 0.17 * s, ry: 0.15 * s, topPinch: 0.06 },
-    { center: vec3(0, bodyY + 0.64 * s, -half - 0.22 * s), rx: 0.24 * s, ry: 0.22 * s, topPinch: 0.08 },
-    { center: vec3(0, bodyY + (0.35 + arch * 0.1) * s, -half + 0.12 * s), rx: 0.24 * s, ry: 0.23 * s, topPinch: 0.08 },
-    { center: vec3(0, bodyY + 0.12 * s, -half + 0.43 * s), rx: width * 0.45, ry: 0.48 * s, topPinch: 0.12, bellySwell: 0.18 },
-    { center: vec3(0, bodyY - 0.02 * s, -half + 0.85 * s), rx: width * 0.55, ry: 0.54 * s, topPinch: 0.11, bellySwell: 0.2 },
-    { center: vec3(0, bodyY - 0.04 * s, -half + 1.3 * s), rx: width * 0.55, ry: 0.48 * s, topPinch: 0.1, bellySwell: 0.12 },
-    { center: vec3(0, bodyY + 0.0 * s, -half + 1.78 * s), rx: width * 0.49, ry: 0.4 * s, topPinch: 0.1, bellySwell: 0.06 },
-    { center: vec3(0, bodyY + 0.08 * s, -half + 2.22 * s), rx: width * 0.4, ry: 0.34 * s, topPinch: 0.11 },
-    { center: vec3(0, bodyY + 0.12 * s, half - 0.16 * s), rx: width * 0.28, ry: 0.24 * s, topPinch: 0.12 },
-    { center: vec3(0, bodyY + 0.16 * s, half + 0.04 * s), rx: width * 0.16, ry: 0.14 * s, topPinch: 0.1 },
-    { center: vec3(0, bodyY + 0.17 * s, half + 0.18 * s), rx: width * 0.08, ry: 0.07 * s, topPinch: 0.05 },
+    { center: vec3(0, bodyY + 0.31 * s, -half - 0.7 * s), rx: 0.07 * s, ry: 0.055 * s, topPinch: 0.02 },
+    { center: vec3(0, bodyY + 0.33 * s, -half - 0.54 * s), rx: 0.14 * s, ry: 0.1 * s, topPinch: 0.04 },
+    { center: vec3(0, bodyY + 0.38 * s, -half - 0.36 * s), rx: 0.2 * s, ry: 0.17 * s, topPinch: 0.08 },
+    { center: vec3(0, bodyY + 0.41 * s, -half - 0.16 * s), rx: 0.25 * s, ry: 0.21 * s, topPinch: 0.1 },
+    { center: vec3(0, bodyY + (0.2 + arch * 0.06) * s, -half + 0.08 * s), rx: 0.23 * s, ry: 0.22 * s, topPinch: 0.1 },
+    { center: vec3(0, bodyY + 0.1 * s, -half + 0.34 * s), rx: width * 0.5, ry: 0.43 * s, topPinch: 0.14, bellySwell: 0.08 },
+    { center: vec3(0, bodyY - 0.01 * s, -half + 0.68 * s), rx: width * 0.57, ry: 0.48 * s, topPinch: 0.12, bellySwell: 0.11 },
+    { center: vec3(0, bodyY - 0.03 * s, -half + 1.02 * s), rx: width * 0.49, ry: 0.4 * s, topPinch: 0.11, bellySwell: 0.07 },
+    { center: vec3(0, bodyY + 0.03 * s, -half + 1.36 * s), rx: width * 0.42, ry: 0.32 * s, topPinch: 0.1, bellySwell: 0.02 },
+    { center: vec3(0, bodyY + 0.1 * s, -half + 1.72 * s), rx: width * 0.46, ry: 0.35 * s, topPinch: 0.12 },
+    { center: vec3(0, bodyY + 0.14 * s, half - 0.18 * s), rx: width * 0.48, ry: 0.37 * s, topPinch: 0.13 },
+    { center: vec3(0, bodyY + 0.16 * s, half + 0.02 * s), rx: width * 0.26, ry: 0.2 * s, topPinch: 0.1 },
+    { center: vec3(0, bodyY + 0.16 * s, half + 0.15 * s), rx: width * 0.1, ry: 0.09 * s, topPinch: 0.05 },
   ];
   return orientedSkin(sections, 34);
 }
@@ -388,9 +387,9 @@ function legSections(
       ]
     : [
         vec3(x, topY, anchorZ),
-        vec3(x * 0.98, leg * 0.92, anchorZ + 0.18 * s),
-        vec3(x * 0.94, kneeY, anchorZ + 0.04 * s),
-        vec3(x * 0.9, fetlockY, footZ + 0.02 * s),
+        vec3(x * 0.98, leg * 0.92, anchorZ + 0.12 * s),
+        vec3(x * 0.94, kneeY, anchorZ - 0.04 * s),
+        vec3(x * 0.9, fetlockY, footZ + 0.06 * s),
         vec3(x * 0.9, 0.13 * s, footZ - 0.01 * s),
       ];
   return {
@@ -410,14 +409,14 @@ function legSections(
 
 function buildPaw(center: Vec3, side: -1 | 1, s: number): Mesh {
   const pad = transform(sphere(1, 16, 8), {
-    scale: vec3(0.14 * s, 0.055 * s, 0.2 * s),
-    translate: vec3(center.x, center.y + 0.055 * s, center.z),
+    scale: vec3(0.115 * s, 0.045 * s, 0.16 * s),
+    translate: vec3(center.x, center.y + 0.045 * s, center.z),
   });
   const toes: Mesh[] = [];
   for (const offset of [-0.055, 0, 0.055]) {
     toes.push(transform(sphere(1, 10, 6), {
-      scale: vec3(0.046 * s, 0.035 * s, 0.07 * s),
-      translate: vec3(center.x + side * offset * s, center.y + 0.09 * s, center.z - 0.11 * s),
+      scale: vec3(0.04 * s, 0.03 * s, 0.058 * s),
+      translate: vec3(center.x + side * offset * 0.82 * s, center.y + 0.07 * s, center.z - 0.09 * s),
     }));
   }
   return mergeMeshes([pad, ...toes]);
@@ -441,15 +440,15 @@ function dogLegSections(
   const centers = front
     ? [
         vec3(x, topY, anchorZ),
-        vec3(x * 0.98, leg * 0.82, anchorZ + 0.02 * s),
-        vec3(x * 0.94, leg * 0.48, footZ + 0.04 * s),
+        vec3(x * 0.98, leg * 0.82, anchorZ + 0.1 * s),
+        vec3(x * 0.94, leg * 0.48, footZ - 0.06 * s),
         vec3(x * 0.88, 0.15 * s, footZ),
       ]
     : [
         vec3(x, topY, anchorZ),
-        vec3(x * 0.98, leg * 0.86, anchorZ + 0.2 * s),
-        vec3(x * 0.94, leg * 0.56, anchorZ + 0.08 * s),
-        vec3(x * 0.88, leg * 0.26, footZ + 0.06 * s),
+        vec3(x * 0.98, leg * 0.86, anchorZ + 0.12 * s),
+        vec3(x * 0.94, leg * 0.56, anchorZ - 0.03 * s),
+        vec3(x * 0.88, leg * 0.26, footZ + 0.08 * s),
         vec3(x * 0.86, 0.15 * s, footZ),
       ];
   return {
@@ -532,12 +531,12 @@ function buildFloppyEar(side: -1 | 1, params: QuadrupedBuildParams): Mesh {
   const s = params.scale;
   const half = params.bodyLength * s * 0.5;
   const bodyY = params.legLength * s + 0.58 * s;
-  const root = vec3(side * 0.2 * s, bodyY + 0.72 * s, -half - 0.2 * s);
+  const root = vec3(side * 0.2 * s, bodyY + 0.5 * s, -half - 0.2 * s);
   return orientedSkin([
     { center: root, rx: 0.035 * s, ry: 0.08 * s, topPinch: 0.02 },
-    { center: vec3(side * 0.24 * s, bodyY + 0.56 * s, -half - 0.18 * s), rx: 0.06 * s, ry: 0.12 * s, topPinch: 0.04 },
-    { center: vec3(side * 0.25 * s, bodyY + 0.36 * s, -half - 0.14 * s), rx: 0.052 * s, ry: 0.12 * s, topPinch: 0.04 },
-    { center: vec3(side * 0.22 * s, bodyY + 0.2 * s, -half - 0.1 * s), rx: 0.02 * s, ry: 0.045 * s, topPinch: 0.02 },
+    { center: vec3(side * 0.24 * s, bodyY + 0.38 * s, -half - 0.18 * s), rx: 0.06 * s, ry: 0.12 * s, topPinch: 0.04 },
+    { center: vec3(side * 0.25 * s, bodyY + 0.22 * s, -half - 0.14 * s), rx: 0.052 * s, ry: 0.1 * s, topPinch: 0.04 },
+    { center: vec3(side * 0.22 * s, bodyY + 0.1 * s, -half - 0.1 * s), rx: 0.02 * s, ry: 0.04 * s, topPinch: 0.02 },
   ], 12);
 }
 
@@ -548,13 +547,13 @@ function buildDogMouthParts(params: QuadrupedBuildParams, nose: RGB, tongue: RGB
   const parts: NamedPart[] = [];
   addPart(parts, "nose", transform(sphere(1, 16, 8), {
     scale: vec3(0.075 * s, 0.055 * s, 0.055 * s),
-    translate: vec3(0, bodyY + 0.57 * s, -half - 0.82 * s),
+    translate: vec3(0, bodyY + 0.36 * s, -half - 0.7 * s),
   }), nose, "rubber", { color: nose, roughness: 0.38 });
   for (const side of [-1, 1] as const) {
     const mouth = [
-      vec3(side * 0.035 * s, bodyY + 0.49 * s, -half - 0.72 * s),
-      vec3(side * 0.08 * s, bodyY + 0.48 * s, -half - 0.58 * s),
-      vec3(side * 0.11 * s, bodyY + 0.52 * s, -half - 0.45 * s),
+      vec3(side * 0.035 * s, bodyY + 0.3 * s, -half - 0.65 * s),
+      vec3(side * 0.08 * s, bodyY + 0.29 * s, -half - 0.52 * s),
+      vec3(side * 0.11 * s, bodyY + 0.33 * s, -half - 0.38 * s),
     ];
     addPart(parts, `mouth_${side}`, segmentedTube(mouth, {
       radius: 0.014 * s,
@@ -566,7 +565,7 @@ function buildDogMouthParts(params: QuadrupedBuildParams, nose: RGB, tongue: RGB
   addPart(parts, "tongue", transform(sphere(1, 12, 6), {
     scale: vec3(0.055 * s, 0.026 * s, 0.13 * s),
     rotate: vec3(0.18, 0, 0),
-    translate: vec3(0, bodyY + 0.475 * s, -half - 0.58 * s),
+    translate: vec3(0, bodyY + 0.285 * s, -half - 0.52 * s),
   }), tongue, "plastic", { color: tongue, roughness: 0.58 });
   return parts;
 }
@@ -635,7 +634,7 @@ export function buildQuadrupedParts(
   }
 
   for (const side of [-1, 1] as const) {
-    const eyeY = preset.bodyProfile === "dog" ? bodyY + 0.63 * s : bodyY + 1.04 * s;
+    const eyeY = preset.bodyProfile === "dog" ? bodyY + 0.4 * s : bodyY + 1.0 * s;
     const eyeZ = preset.bodyProfile === "dog" ? -half - 0.36 * s : -half - 0.3 * s;
     const eyeX = preset.bodyProfile === "dog" ? side * 0.15 * s : side * 0.16 * s;
     addPart(parts, `eye_${side}`, transform(sphere(0.045 * s, 10, 8), {
@@ -682,7 +681,11 @@ export interface QuadrupedAnatomyScore {
     requiredParts: number;
     continuousSkin: number;
     sideSilhouette: number;
+    bodyMasses: number;
     limbLayout: number;
+    jointChains: number;
+    footOrientation: number;
+    loadBalance: number;
     groundContact: number;
     materialMatch: number;
     detail: number;
@@ -734,6 +737,110 @@ function meanZ(parts: ReadonlyArray<NamedPart>): number {
   return total / parts.length;
 }
 
+function meanNumber(values: ReadonlyArray<number>): number {
+  return values.length === 0 ? 0 : values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+function countNamed(parts: ReadonlyArray<NamedPart>, pattern: RegExp): number {
+  return parts.filter((part) => pattern.test(part.name)).length;
+}
+
+function profileSpan(mesh: Mesh, normalizedZ: number): { x: number; y: number } {
+  const meshBounds = bounds(mesh);
+  const depth = Math.max(1e-6, meshBounds.max.z - meshBounds.min.z);
+  const targetZ = meshBounds.min.z + depth * normalizedZ;
+  const band = depth * 0.055;
+  const points = mesh.positions.filter((position) => Math.abs(position.z - targetZ) <= band);
+  if (points.length === 0) return { x: 0, y: 0 };
+  const xs = points.map((position) => position.x);
+  const ys = points.map((position) => position.y);
+  return {
+    x: Math.max(...xs) - Math.min(...xs),
+    y: Math.max(...ys) - Math.min(...ys),
+  };
+}
+
+function bodyMassScore(mesh: Mesh, preset: QuadrupedPreset): number {
+  const chest = profileSpan(mesh, preset.bodyProfile === "dog" ? 0.35 : 0.42);
+  const waist = profileSpan(mesh, preset.bodyProfile === "dog" ? 0.64 : 0.76);
+  const pelvis = profileSpan(mesh, preset.bodyProfile === "dog" ? 0.86 : 0.91);
+  if (chest.x <= 1e-6 || waist.x <= 1e-6 || pelvis.x <= 1e-6) return 0;
+  const chestWaist = chest.x / waist.x;
+  const pelvisWaist = pelvis.x / waist.x;
+  const chestHeightRatio = chest.y / Math.max(chest.x, 1e-6);
+  return preset.bodyProfile === "dog"
+    ? (rangeScore(chestWaist, 1.18, 2.1) * 0.42 + rangeScore(pelvisWaist, 1.08, 1.8) * 0.33 + rangeScore(chestHeightRatio, 0.8, 1.8) * 0.25)
+    : (rangeScore(chestWaist, 1.02, 1.55) * 0.42 + rangeScore(pelvisWaist, 0.92, 1.48) * 0.33 + rangeScore(chestHeightRatio, 0.85, 1.75) * 0.25);
+}
+
+function centerAtHeight(mesh: Mesh, normalizedY: number): Vec3 | undefined {
+  const meshBounds = bounds(mesh);
+  const height = Math.max(1e-6, meshBounds.max.y - meshBounds.min.y);
+  const targetY = meshBounds.min.y + height * normalizedY;
+  const band = height * 0.075;
+  const points = mesh.positions.filter((position) => Math.abs(position.y - targetY) <= band);
+  if (points.length > 0) return average(points);
+  const nearest = [...mesh.positions]
+    .sort((left, right) => Math.abs(left.y - targetY) - Math.abs(right.y - targetY))
+    .slice(0, Math.min(16, mesh.positions.length));
+  return nearest.length > 0 ? average(nearest) : undefined;
+}
+
+function jointChainScore(part: NamedPart, rear: boolean, preset: QuadrupedPreset): number {
+  const centers = [0.88, 0.64, 0.38, 0.12]
+    .map((height) => centerAtHeight(part.mesh, height))
+    .filter((center): center is Vec3 => center !== undefined);
+  if (centers.length < 4) return 0;
+  const legHeight = dim(bounds(part.mesh)).y;
+  const zValues = centers.map((center) => center.z);
+  const bend = (Math.max(...zValues) - Math.min(...zValues)) / legHeight;
+  const deltas = zValues.slice(1).map((value, index) => value - zValues[index]!);
+  const reversals = deltas.slice(1).filter((value, index) => value * deltas[index]! < -legHeight * legHeight * 0.0004).length;
+  const bendScore = rear
+    ? rangeScore(bend, preset.bodyProfile === "dog" ? 0.09 : 0.08, preset.bodyProfile === "dog" ? 0.58 : 0.5)
+    : rangeScore(bend, 0.02, preset.bodyProfile === "dog" ? 0.38 : 0.3);
+  return bendScore * 0.72 + (rear ? clamp01(reversals) : 1) * 0.28;
+}
+
+function footShapeScore(feet: ReadonlyArray<NamedPart>, preset: QuadrupedPreset): number {
+  if (feet.length === 0) return 0;
+  return meanNumber(feet.map((footPart) => {
+    const size = dim(bounds(footPart.mesh));
+    const depthWidth = size.z / size.x;
+    const heightDepth = size.y / size.z;
+    return rangeScore(depthWidth, preset.footKind === "hoof" ? 1.15 : 1.05, preset.footKind === "hoof" ? 2.25 : 2.1) * 0.65 +
+      rangeScore(heightDepth, 0.16, preset.footKind === "hoof" ? 0.62 : 0.72) * 0.35;
+  }));
+}
+
+function loadBalanceScore(
+  bodySkin: NamedPart | undefined,
+  legs: ReadonlyArray<NamedPart>,
+  feet: ReadonlyArray<NamedPart>,
+): number {
+  if (!bodySkin || legs.length !== 4 || feet.length !== 4) return 0;
+  const bodyBounds = bounds(bodySkin.mesh);
+  const bodySize = dim(bodyBounds);
+  const footCenters = feet.map((footPart) => average(footPart.mesh.positions));
+  const bodyCenterZ = (bodyBounds.min.z + bodyBounds.max.z) * 0.5;
+  const supportMinZ = Math.min(...footCenters.map((center) => center.z));
+  const supportMaxZ = Math.max(...footCenters.map((center) => center.z));
+  const supportContainsBody = bodyCenterZ >= supportMinZ && bodyCenterZ <= supportMaxZ ? 1 : 0;
+  const offsets = legs.map((legPart) => {
+    const root = centerAtHeight(legPart.mesh, 0.9) ?? average(legPart.mesh.positions);
+    const front = /^front_/.test(legPart.name);
+    const side = legPart.name.endsWith("_-1") ? -1 : 1;
+    const footPart = feet.find((candidate) =>
+      candidate.name.startsWith(front ? "front_" : "rear_") && candidate.name.endsWith(`_${side}`)
+    );
+    if (!footPart) return 0;
+    const footCenter = average(footPart.mesh.positions);
+    const horizontalOffset = Math.hypot(footCenter.x - root.x, footCenter.z - root.z) / bodySize.z;
+    return rangeScore(horizontalOffset, 0.005, 0.16);
+  });
+  return meanNumber(offsets) * 0.72 + supportContainsBody * 0.28;
+}
+
 export function scoreQuadrupedAnatomy(
   parts: NamedPart[],
   preset: QuadrupedPreset = HORSE_QUADRUPED_PRESET,
@@ -766,6 +873,7 @@ export function scoreQuadrupedAnatomy(
         skinProjection.smoothness * 0.2
       )
     : 0;
+  const bodyMasses = bodySkin ? bodyMassScore(bodySkin.mesh, preset) : 0;
 
   const frontLegs = parts.filter((part) => /^front_leg_/.test(part.name));
   const rearLegs = parts.filter((part) => /^rear_leg_/.test(part.name));
@@ -782,13 +890,20 @@ export function scoreQuadrupedAnatomy(
     return Math.min(left, right) / 2;
   })();
   const legHeight = dim(combinedBounds([...frontLegs, ...rearLegs])).y;
+  const jointChains = meanNumber([...frontLegs, ...rearLegs].map((part) =>
+    jointChainScore(part, /^rear_leg_/.test(part.name), preset)
+  ));
+  const footOrientation = footShapeScore(feet, preset);
+  const loadBalance = loadBalanceScore(bodySkin, [...frontLegs, ...rearLegs], feet);
   const limbLayout = (
-    clamp01(frontLegs.length / 2) * 0.22 +
-    clamp01(rearLegs.length / 2) * 0.22 +
-    clamp01(feet.length / 4) * 0.18 +
-    (frontZ < rearZ ? 0.18 : 0) +
-    clamp01(sideSeparation) * 0.1 +
-    rangeScore(legHeight / bodyD.y, 0.7, 1.5) * 0.1
+    clamp01(frontLegs.length / 2) * 0.12 +
+    clamp01(rearLegs.length / 2) * 0.12 +
+    clamp01(feet.length / 4) * 0.1 +
+    (frontZ < rearZ ? 0.1 : 0) +
+    clamp01(sideSeparation) * 0.08 +
+    rangeScore(legHeight / bodyD.y, 0.7, 1.5) * 0.08 +
+    jointChains * 0.22 +
+    loadBalance * 0.18
   );
 
   const lowFeet = feet.filter((part) => bounds(part.mesh).min.y < allB.min.y + allD.y * 0.035).length;
@@ -840,36 +955,55 @@ export function scoreQuadrupedAnatomy(
       : (byName.get("tail")?.surface?.type === preset.coatSurface ? 0.5 : 0));
   const materialMatch = coatGood * 0.58 + hairGood * 0.27 + noPlush * 0.15;
 
-  const tris = parts.reduce((sum, part) => sum + triangleCount(part.mesh), 0);
-  const detail = clamp01(parts.length / 18) * 0.25 + clamp01(tris / 4200) * 0.75;
+  const semanticFeatures = [
+    countNamed(parts, /^eye_/) >= 2,
+    countNamed(parts, /^ear_/) >= 2,
+    byName.has("tail"),
+    preset.hasMane ? byName.has("mane") : byName.has("nose"),
+    preset.hasMouth ? countNamed(parts, /^mouth_/) >= 2 && byName.has("tongue") : true,
+  ];
+  const detail = semanticFeatures.filter(Boolean).length / semanticFeatures.length * 0.55 +
+    bodyMasses * 0.2 + jointChains * 0.15 + footOrientation * 0.1;
 
   const metrics = {
     requiredParts,
     continuousSkin,
     sideSilhouette,
+    bodyMasses,
     limbLayout,
+    jointChains,
+    footOrientation,
+    loadBalance,
     groundContact,
     materialMatch,
     detail,
   };
   const score = clamp01(
-    metrics.requiredParts * 0.14 +
-      metrics.continuousSkin * 0.22 +
-      metrics.sideSilhouette * 0.24 +
-      metrics.limbLayout * 0.16 +
-      metrics.groundContact * 0.1 +
-      metrics.materialMatch * 0.08 +
-      metrics.detail * 0.06,
+    metrics.requiredParts * 0.1 +
+      metrics.continuousSkin * 0.16 +
+      metrics.sideSilhouette * 0.16 +
+      metrics.bodyMasses * 0.14 +
+      metrics.limbLayout * 0.12 +
+      metrics.jointChains * 0.1 +
+      metrics.footOrientation * 0.06 +
+      metrics.loadBalance * 0.08 +
+      metrics.groundContact * 0.04 +
+      metrics.materialMatch * 0.02 +
+      metrics.detail * 0.02,
   );
 
   const tips: string[] = [];
   if (metrics.requiredParts < 1) tips.push(`missing quadruped skin, legs, ${foot}s, face details or tail`);
   if (metrics.continuousSkin < 0.78) tips.push("use one continuous body/neck/head skin with stable side projection");
   if (metrics.sideSilhouette < 0.78) tips.push("fix side silhouette: head reach, neck rise, body length, croup");
-  if (metrics.limbLayout < 0.9) tips.push("fix four-limb layout and front/rear stance");
+  if (metrics.bodyMasses < 0.75) tips.push("separate shoulder/ribcage, waist and pelvis masses");
+  if (metrics.jointChains < 0.72) tips.push("fix shoulder/elbow/carpus and hip/stifle/hock joint chains");
+  if (metrics.footOrientation < 0.75) tips.push(`orient ${foot}s forward with plausible width, depth and height`);
+  if (metrics.loadBalance < 0.78) tips.push("align feet under limb roots and keep body center inside support polygon");
+  if (metrics.limbLayout < 0.78) tips.push("fix four-limb layout and front/rear stance");
   if (metrics.groundContact < 0.88) tips.push(`put all four ${foot}s on ground with readable stance spread`);
   if (metrics.materialMatch < 0.9) tips.push("use shortCoat/blackCoat for skin, hair only for mane/tail, rubber for nose/hooves");
-  if (metrics.detail < 0.72) tips.push("increase skin/limb resolution");
+  if (metrics.detail < 0.72) tips.push("add semantic face, joint, foot and tail forms instead of raw tessellation");
   const feedback = tips.length
     ? `Score ${score.toFixed(2)}. To improve: ${tips.join("; ")}.`
     : `Score ${score.toFixed(2)}. Quadruped anatomy gate passed.`;

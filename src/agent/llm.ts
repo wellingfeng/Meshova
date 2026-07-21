@@ -21,9 +21,17 @@ export interface LlmMessage {
   imagesBase64?: string[];
 }
 
+export interface LlmCompletionMetadata {
+  model: string;
+  attempts: number;
+  fallbackUsed: boolean;
+}
+
 export interface LlmClient {
   /** Return the assistant's text completion for the given conversation. */
   complete(messages: LlmMessage[]): Promise<string>;
+  /** Metadata for the latest successful completion, when the adapter exposes it. */
+  completionMetadata?(): LlmCompletionMetadata | undefined;
 }
 
 /** Extract a single ```...``` code block, or return the whole text trimmed. */
@@ -52,6 +60,10 @@ export class MockLlmClient implements LlmClient {
   get callCount(): number {
     return this.calls;
   }
+
+  completionMetadata(): LlmCompletionMetadata {
+    return { model: "mock", attempts: 1, fallbackUsed: false };
+  }
 }
 
 /**
@@ -71,6 +83,14 @@ export interface OpenAICompatibleOptions {
   endpoint: string;
   apiKey: string;
   model: string;
+  /** Models tried after the primary model exhausts retryable failures. */
+  fallbackModels?: readonly string[];
+  /** Per-request timeout. Default 120 seconds. */
+  timeoutMs?: number;
+  /** Retries per model after the first request. Default 2. */
+  maxRetries?: number;
+  /** Initial exponential-backoff delay. Default 750ms. */
+  retryDelayMs?: number;
   /** Pass the platform fetch (globalThis.fetch in browser/Node 18+). */
   fetchImpl: (input: string, init?: unknown) => Promise<{
     ok: boolean;
@@ -81,43 +101,93 @@ export interface OpenAICompatibleOptions {
 }
 
 export function makeOpenAICompatibleClient(opts: OpenAICompatibleOptions): LlmClient {
-  return {
+  const models = [...new Set([opts.model, ...(opts.fallbackModels ?? [])].filter(Boolean))];
+  const timeoutMs = Math.max(1, opts.timeoutMs ?? 120_000);
+  const maxRetries = Math.max(0, Math.floor(opts.maxRetries ?? 2));
+  const retryDelayMs = Math.max(0, opts.retryDelayMs ?? 750);
+  let lastCompletion: LlmCompletionMetadata | undefined;
+  const runtime = globalThis as unknown as {
+    AbortController: new () => { abort(): void; signal: { aborted: boolean } };
+    setTimeout(handler: () => void, delay: number): unknown;
+    clearTimeout(timer: unknown): void;
+  };
+
+  const client: LlmClient = {
+    completionMetadata(): LlmCompletionMetadata | undefined {
+      return lastCompletion;
+    },
     async complete(messages: LlmMessage[]): Promise<string> {
-      const body = {
-        model: opts.model,
-        messages: messages.map((m) => {
-          // Gather single + multi image fields into one ordered list.
-          const imgs = [
-            ...(m.imageBase64 ? [m.imageBase64] : []),
-            ...(m.imagesBase64 ?? []),
-          ];
-          if (imgs.length > 0) {
-            return {
-              role: m.role,
-              content: [
-                { type: "text", text: m.content },
-                ...imgs.map((b64) => ({
-                  type: "image_url",
-                  image_url: { url: `data:image/png;base64,${b64}` },
-                })),
-              ],
+      let attempts = 0;
+      let lastError: Error | undefined;
+      for (const [modelIndex, model] of models.entries()) {
+        for (let retry = 0; retry <= maxRetries; retry++) {
+          attempts += 1;
+          const controller = new runtime.AbortController();
+          const timer = runtime.setTimeout(() => controller.abort(), timeoutMs);
+          try {
+            const body = {
+              model,
+              messages: messages.map((message) => {
+                const images = [
+                  ...(message.imageBase64 ? [message.imageBase64] : []),
+                  ...(message.imagesBase64 ?? []),
+                ];
+                if (images.length === 0) return { role: message.role, content: message.content };
+                return {
+                  role: message.role,
+                  content: [
+                    { type: "text", text: message.content },
+                    ...images.map((imageBase64) => ({
+                      type: "image_url",
+                      image_url: { url: `data:image/png;base64,${imageBase64}` },
+                    })),
+                  ],
+                };
+              }),
             };
+            const response = await opts.fetchImpl(opts.endpoint, {
+              method: "POST",
+              headers: {
+                "content-type": "application/json",
+                authorization: `Bearer ${opts.apiKey}`,
+              },
+              body: JSON.stringify(body),
+              signal: controller.signal,
+            });
+            if (!response.ok) {
+              const detail = await response.text();
+              const error = new Error(`LLM HTTP ${response.status} [${model}]: ${detail}`);
+              const retryable = response.status === 408 || response.status === 409 || response.status === 425 ||
+                response.status === 429 || response.status >= 500;
+              const modelUnavailable = response.status === 404;
+              if (!retryable && !modelUnavailable) throw error;
+              lastError = error;
+              if (retry < maxRetries && retryable) {
+                await new Promise<void>((resolve) => runtime.setTimeout(resolve, retryDelayMs * 2 ** retry));
+                continue;
+              }
+              break;
+            }
+            const json = (await response.json()) as { choices?: { message?: { content?: string } }[] };
+            lastCompletion = { model, attempts, fallbackUsed: modelIndex > 0 };
+            return json.choices?.[0]?.message?.content ?? "";
+          } catch (error) {
+            const normalized = error instanceof Error ? error : new Error(String(error));
+            const aborted = controller.signal.aborted;
+            if (!aborted && /^LLM HTTP (?!408|409|425|429|5\d\d)/.test(normalized.message)) throw normalized;
+            lastError = aborted ? new Error(`LLM timeout after ${timeoutMs}ms [${model}]`) : normalized;
+            if (retry < maxRetries) {
+              await new Promise<void>((resolve) => runtime.setTimeout(resolve, retryDelayMs * 2 ** retry));
+              continue;
+            }
+            break;
+          } finally {
+            runtime.clearTimeout(timer);
           }
-          return { role: m.role, content: m.content };
-        }),
-      };
-      const resp = await opts.fetchImpl(opts.endpoint, {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          authorization: `Bearer ${opts.apiKey}`,
-        },
-        body: JSON.stringify(body),
-      });
-      if (!resp.ok) throw new Error(`LLM HTTP ${resp.status}: ${await resp.text()}`);
-      const json = (await resp.json()) as { choices?: { message?: { content?: string } }[] };
-      return json.choices?.[0]?.message?.content ?? "";
+        }
+      }
+      throw lastError ?? new Error("LLM completion failed without a response");
     },
   };
+  return client;
 }
-

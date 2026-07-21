@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   bounds,
+  box,
   buildBuickRiviera1965Parts,
   scoreClassicCoupeVehicle,
   triangleCount,
+  transform,
+  vec3,
 } from "../src/index.js";
 
 describe("Buick Riviera 1963-1965 procedural coupe", () => {
@@ -41,5 +44,19 @@ describe("Buick Riviera 1963-1965 procedural coupe", () => {
     const maxZ = Math.max(...mergedBounds.map((b) => b.max.z));
     expect(maxX - minX).toBeGreaterThan(1.95);
     expect(maxZ - minZ).toBeGreaterThan(5.3);
+  });
+
+  it("rejects fake arch names and floating whitewall tires", () => {
+    const good = buildBuickRiviera1965Parts();
+    const bad = good.map((part) => {
+      if (/wheel_knife_arches$/.test(part.name)) return { ...part, mesh: box(0.1, 0.1, 0.1) };
+      if (/^tire_/.test(part.name)) return { ...part, mesh: transform(part.mesh, { translate: vec3(0, 0.4, 0) }) };
+      return part;
+    });
+    const goodScore = scoreClassicCoupeVehicle(good);
+    const badScore = scoreClassicCoupeVehicle(bad);
+    expect(badScore.metrics.wheelArchWrap).toBeLessThan(goodScore.metrics.wheelArchWrap);
+    expect(badScore.metrics.tireContact).toBeLessThan(goodScore.metrics.tireContact);
+    expect(badScore.score).toBeLessThan(goodScore.score);
   });
 });

@@ -1,4 +1,4 @@
-import type { CritiqueReport } from "../critique/critic.js";
+import type { CritiqueReport, VlmCritique, VlmReviewLayer } from "../critique/critic.js";
 import type { NamedPart } from "../geometry/export.js";
 import { bounds, type Bounds } from "../geometry/mesh.js";
 import type { AssemblySlot } from "../models/assembly.js";
@@ -67,6 +67,12 @@ export interface ReconstructionQualityContract {
   minimumGeometryScore?: number;
   requireCriticPass?: boolean;
   requiredLookDevModes?: readonly LookDevMode[];
+  /** Require one structured multi-view VLM review before every pass advances. */
+  requireVlmReview?: boolean;
+  minimumVlmScore?: number;
+  minimumVlmConfidence?: number;
+  minimumVlmLayerScore?: number;
+  minimumVlmLayers?: Partial<Record<VlmReviewLayer, number>>;
 }
 
 export interface ReconstructionContract {
@@ -114,13 +120,14 @@ export interface ReconstructionEvidence {
   candidateStable: boolean;
   evaluation?: ReferenceEvaluation;
   critique?: CritiqueReport;
+  visualReview?: VlmCritique;
   criticalFeatures: readonly CriticalFeatureResult[];
   attachments: readonly AttachmentResult[];
   lookDevModes: readonly LookDevMode[];
 }
 
 export interface ReconstructionGateIssue {
-  code: "run" | "candidate" | "stage" | "geometry" | "critique" | "feature" | "attachment" | "lookdev";
+  code: "run" | "candidate" | "stage" | "geometry" | "critique" | "vision" | "feature" | "attachment" | "lookdev";
   message: string;
 }
 
@@ -128,6 +135,13 @@ export interface ReconstructionGateDecision {
   phase: ReconstructionPhase;
   accepted: boolean;
   nextPhase: ReconstructionPhase | null;
+  /** Conservative quality: minimum of deterministic, VLM, and critical-feature scores. */
+  qualityScore: number;
+  qualityComponents: {
+    deterministic: number;
+    visual?: number;
+    criticalFeatures?: number;
+  };
   issues: readonly ReconstructionGateIssue[];
 }
 
@@ -154,6 +168,7 @@ export interface ReviewLedgerEntry {
   score?: number;
   candidateAccepted: boolean;
   gate: ReconstructionGateDecision;
+  visualReview?: VlmCritique;
   criticalFeatures: readonly CriticalFeatureResult[];
   attachments: readonly AttachmentResult[];
 }
@@ -225,6 +240,23 @@ export function validateReconstructionContract(contract: ReconstructionContract)
     if (!action.partName.trim()) issues.push({ path: "actions.partName", message: "action partName must not be empty" });
     if (!finiteTuple(action.pivot)) issues.push({ path: `actions.${action.partName}.pivot`, message: "pivot must be a finite vec3 tuple" });
   }
+  const qualityScores: Array<[string, number | undefined]> = [
+    ["quality.targetScore", contract.quality?.targetScore],
+    ["quality.minimumGeometryScore", contract.quality?.minimumGeometryScore],
+    ["quality.minimumVlmScore", contract.quality?.minimumVlmScore],
+    ["quality.minimumVlmConfidence", contract.quality?.minimumVlmConfidence],
+    ["quality.minimumVlmLayerScore", contract.quality?.minimumVlmLayerScore],
+  ];
+  for (const [path, score] of qualityScores) {
+    if (score !== undefined && (score < 0 || score > 1)) {
+      issues.push({ path, message: "score must be within 0..1" });
+    }
+  }
+  for (const [layer, score] of Object.entries(contract.quality?.minimumVlmLayers ?? {})) {
+    if (score !== undefined && (score < 0 || score > 1)) {
+      issues.push({ path: `quality.minimumVlmLayers.${layer}`, message: "score must be within 0..1" });
+    }
+  }
   return issues;
 }
 
@@ -243,6 +275,7 @@ export function evaluateCriticalFeatures(
   parts: readonly NamedPart[],
   targets: readonly CriticalFeatureTarget[],
   externalScores: Readonly<Record<string, number>> = {},
+  options: { requireExternalScores?: boolean } = {},
 ): CriticalFeatureResult[] {
   return targets.map((target) => {
     const expected = (target.partNames ?? []).map(normalizeName);
@@ -255,7 +288,8 @@ export function evaluateCriticalFeatures(
     const minimumCount = target.minimumCount ?? 1;
     const inferredScore = expected.length === 0 ? 0 : clamp01(matchedParts.length / minimumCount);
     const external = externalScores[target.id];
-    const score = clamp01(Number.isFinite(external) ? external! : inferredScore);
+    const hasExternalScore = Number.isFinite(external);
+    const score = clamp01(hasExternalScore ? external! : options.requireExternalScores ? 0 : inferredScore);
     const threshold = target.minimumScore ?? 0.7;
     const passed = score >= threshold;
     return {
@@ -265,7 +299,9 @@ export function evaluateCriticalFeatures(
       threshold,
       passed,
       matchedParts,
-      finding: passed
+      finding: !hasExternalScore && options.requireExternalScores
+        ? `${target.label} has no visual review score`
+        : passed
         ? `${target.label} passed (${score.toFixed(3)})`
         : `${target.label} failed (${score.toFixed(3)} < ${threshold.toFixed(3)})`,
     };
@@ -335,6 +371,53 @@ function requireStage(
   }
 }
 
+const PHASE_VLM_LAYERS: Record<ReconstructionPhase, readonly VlmReviewLayer[]> = {
+  blockout: ["silhouetteProportion"],
+  structure: ["componentStructure", "spatialStructure"],
+  shape: ["silhouetteProportion", "formDetail", "spatialStructure"],
+  material: ["colorPalette", "materialSurface"],
+  lookdev: ["materialSurface", "lightingCamera"],
+};
+
+function requireVisualReview(
+  contract: ReconstructionContract,
+  phase: ReconstructionPhase,
+  evidence: ReconstructionEvidence,
+  issues: ReconstructionGateIssue[],
+): void {
+  if (contract.quality?.requireVlmReview !== true) return;
+  const review = evidence.visualReview;
+  if (!review) {
+    issues.push({ code: "vision", message: "missing structured VLM visual review" });
+    return;
+  }
+  const minimumScore = contract.quality.minimumVlmScore ?? 0.7;
+  if (review.visualScore === undefined || review.visualScore < minimumScore) {
+    issues.push({
+      code: "vision",
+      message: `VLM visual score must reach ${minimumScore.toFixed(2)}`,
+    });
+  }
+  const minimumConfidence = contract.quality.minimumVlmConfidence ?? 0.55;
+  if (review.confidence === undefined || review.confidence < minimumConfidence) {
+    issues.push({
+      code: "vision",
+      message: `VLM evidence confidence must reach ${minimumConfidence.toFixed(2)}`,
+    });
+  }
+  const defaultLayerScore = contract.quality.minimumVlmLayerScore ?? 0.65;
+  for (const layer of PHASE_VLM_LAYERS[phase]) {
+    const threshold = contract.quality.minimumVlmLayers?.[layer] ?? defaultLayerScore;
+    const score = review.layerScores?.[layer];
+    if (score === undefined || score < threshold) {
+      issues.push({
+        code: "vision",
+        message: `${layer} VLM score must reach ${threshold.toFixed(2)}`,
+      });
+    }
+  }
+}
+
 export function evaluateReconstructionGate(
   contract: ReconstructionContract,
   phase: ReconstructionPhase,
@@ -384,12 +467,28 @@ export function evaluateReconstructionGate(
       issues.push({ code: "critique", message: "final critic did not pass" });
     }
   }
+  requireVisualReview(contract, phase, evidence, issues);
 
   const index = RECONSTRUCTION_PHASES.indexOf(phase);
+  const qualityComponents: ReconstructionGateDecision["qualityComponents"] = {
+    deterministic: evidence.critique?.scores.deterministic ?? 0,
+  };
+  if (contract.quality?.requireVlmReview === true) {
+    qualityComponents.visual = evidence.visualReview?.visualScore ?? 0;
+  }
+  const requiredFeatures = contract.criticalFeatures.filter((feature) => feature.required !== false);
+  if (index >= RECONSTRUCTION_PHASES.indexOf("shape") && requiredFeatures.length > 0) {
+    qualityComponents.criticalFeatures = Math.min(...requiredFeatures.map((feature) =>
+      evidence.criticalFeatures.find((result) => result.id === feature.id)?.score ?? 0
+    ));
+  }
+  const qualityScore = Math.min(...Object.values(qualityComponents));
   return {
     phase,
     accepted: issues.length === 0,
     nextPhase: index >= RECONSTRUCTION_PHASES.length - 1 ? null : RECONSTRUCTION_PHASES[index + 1]!,
+    qualityScore,
+    qualityComponents,
     issues,
   };
 }

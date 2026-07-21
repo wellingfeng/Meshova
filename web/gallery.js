@@ -6,7 +6,6 @@
  * index.html?model=<id> 进入单模型预览。
  */
 import * as THREE from "three";
-import { PROC_MODELS, defaultParams } from "/web/procmodels.js?v=pcgriver1";
 import { isGalleryModelVisible } from "/web/model-visibility.js?v=howtos1";
 import { createRankedModelLibrary } from "/web/model-ranking.js?v=aesthetic2";
 import { catOf, normalizeModelName } from "/web/gallery-categories.js?v=usecat4";
@@ -17,6 +16,40 @@ import {
   MATERIAL_USE_CATEGORIES,
   materialDisplayName,
 } from "/web/materials.js?v=productionstudies1";
+
+// 轻量模型元数据，避免 gallery 首屏加载 500KB+ 的 procmodels.js。
+let procManifest = null;
+let procModelsById = null;
+let procModelsPromise = null;
+
+async function loadProcManifest() {
+  if (procManifest) return procManifest;
+  const response = await fetch("/web/procmodels-manifest.json");
+  if (!response.ok) throw new Error(`manifest 加载失败: ${response.status}`);
+  procManifest = await response.json();
+  return procManifest;
+}
+
+async function loadProcModels() {
+  if (procModelsById) return procModelsById;
+  if (procModelsPromise) return procModelsPromise;
+  procModelsPromise = import("/web/procmodels.js?v=pcgriver1")
+    .then((module) => {
+      procModelsById = new Map(Object.entries(module.PROC_MODELS || {}));
+      return procModelsById;
+    })
+    .catch((error) => {
+      procModelsPromise = null;
+      throw error;
+    });
+  return procModelsPromise;
+}
+
+function defaultParams(model) {
+  const p = {};
+  for (const s of model.schema || []) p[s.key] = s.default;
+  return p;
+}
 
 // 材质条目：与模型同库展示，用方块缩略图；点击跳 matlab.html 单材质渲染器。
 const galleryMaterialNames = new Set(ALL_MATERIAL_NAMES);
@@ -32,20 +65,20 @@ function outUrl(path) {
   return new URL(`../out/${normalized}`, import.meta.url).href;
 }
 
-function isGeneratedLibraryEntry(m) {
-  if (!m || !m.id || !m.file || PROC_MODELS[m.id] || !isGalleryModelVisible(m.id)) return false;
+function isGeneratedLibraryEntry(m, procIds) {
+  if (!m || !m.id || !m.file || procIds?.has(m.id) || !isGalleryModelVisible(m.id)) return false;
   const id = String(m.id);
   return m.category === "meshova" || m.category === "BlenderHowtos复刻" || m.category === "HoudiniHowtos复刻" || id.startsWith("blender-howtos-") || id.startsWith("houdini-howtos") || id.startsWith("speedtree-") || id.startsWith("terrain-") || id.startsWith("veg-") || id.startsWith("mech-") || id.startsWith("rt-") || id.startsWith("ruin-") || m.category === "地形" || m.category === "植被" || m.category === "机械" || m.category === "建筑" || m.category === "程序工作流";
 }
 
-async function loadGeneratedEntries() {
+async function loadGeneratedEntries(procIds) {
   try {
     const res = await fetch(outUrl("models.json"), { cache: "no-store" });
     if (!res.ok) return [];
     const data = await res.json();
     const models = Array.isArray(data.models) ? data.models : [];
     return models
-      .filter(isGeneratedLibraryEntry)
+      .filter((m) => isGeneratedLibraryEntry(m, procIds))
       .map((m) => ({
         id: m.id,
         model: {
@@ -512,8 +545,17 @@ function frameRoot(root) {
 
 // 建一个 proc 模型的 three 场景 root（不渲染），返回 { root, verts, tris, parts }。
 async function buildProcRoot(model) {
-  const params = model.defaultParams ? model.defaultParams() : defaultParams(model);
-  const parts = await model.build(params);
+  let activeModel = model;
+  if (typeof activeModel.build !== "function") {
+    const map = await loadProcModels();
+    const real = map.get(activeModel.id);
+    if (!real || typeof real.build !== "function") {
+      throw new Error(`模型 ${activeModel.id} 无 build 函数`);
+    }
+    activeModel = real;
+  }
+  const params = activeModel.defaultParams ? activeModel.defaultParams() : defaultParams(activeModel);
+  const parts = await activeModel.build(params);
   const root = new THREE.Group();
   let verts = 0, tris = 0;
   for (const part of parts) {
@@ -684,13 +726,17 @@ const countEl = document.getElementById("count");
 const searchEl = document.getElementById("search");
 grid.innerHTML = "";
 
-const generatedEntries = await loadGeneratedEntries();
-const procEntries = Object.entries(PROC_MODELS)
-  .filter(([id]) => isGalleryModelVisible(id))
-  .map(([id, model]) => ({
-    id,
-    model: { ...model, name: normalizeModelName(model.name || id, id) },
-    cat: catOf(id, model),
+const manifest = await loadProcManifest();
+const procModels = Array.isArray(manifest.models) ? manifest.models : [];
+const procIds = new Set(procModels.map((m) => m.id).filter(Boolean));
+
+const generatedEntries = await loadGeneratedEntries(procIds);
+const procEntries = procModels
+  .filter((model) => isGalleryModelVisible(model.id))
+  .map((model) => ({
+    id: model.id,
+    model: { ...model, name: normalizeModelName(model.name || model.id, model.id) },
+    cat: catOf(model.id, model),
     generated: false,
   }));
 // 材质条目：按实际用途展平，标记 isMaterial，与模型同库排在末尾。

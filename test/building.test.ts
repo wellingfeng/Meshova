@@ -136,6 +136,22 @@ describe("procedural building", () => {
     expect(score.feedback).toMatch(/roof must cover/i);
   });
 
+  it("requires base/crown hierarchy, deep openings, entrance, and roof finish", () => {
+    const good = buildBuildingParts({ roof: "flat", floors: 6, canopy: true });
+    const stripped = good.filter((part) => ![
+      "ground_floor_base", "crown_band", "window_reveals", "entrance_recess",
+      "entrance_frame", "entrance_threshold", "roof_coping", "rooftop_service",
+    ].includes(part.name));
+    const goodScore = scoreBuilding(good);
+    const badScore = scoreBuilding(stripped);
+    expect(badScore.metrics.massingHierarchy).toBe(0);
+    expect(badScore.metrics.openingDepth).toBe(0);
+    expect(badScore.metrics.entrance).toBe(0);
+    expect(badScore.metrics.roofFinish).toBe(0);
+    expect(badScore.score).toBeLessThan(goodScore.score);
+    expect(zFightingReport(good, { includeSamePart: false, maxTriangles: Number.POSITIVE_INFINITY }).pairs).toBe(0);
+  });
+
   it("exposes sane defaults", () => {
     expect(BUILDING_DEFAULTS.floors).toBeGreaterThan(0);
     expect(BUILDING_DEFAULTS.roof).toBe("flat");

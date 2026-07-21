@@ -330,6 +330,10 @@ function placeBuilding(
   tz: number,
   yaw: number,
 ): void {
+  const heroOnlyParts = new Set([
+    "ground_floor_base", "crown_band", "window_reveals", "entrance_recess",
+    "entrance_frame", "entrance_threshold", "roof_coping", "roof_trim", "rooftop_service",
+  ]);
   const buildingSeed = rng.int(0, 9999);
   const parts = buildBuildingParts({
     width: p.lotWidth * 0.94,
@@ -348,6 +352,7 @@ function placeBuilding(
       : translateMesh(mesh, vec3(tx, 0, tz));
 
   for (const part of parts) {
+    if (heroOnlyParts.has(part.name)) continue;
     const { color, surface } = repaint(part, pal);
     bag.add(part.name, place(part.mesh), color, surface);
   }

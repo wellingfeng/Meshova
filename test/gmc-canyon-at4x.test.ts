@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   bounds,
+  box,
   buildGmcCanyonAt4xParts,
   scorePickupVehicle,
   triangleCount,
+  transform,
+  vec3,
 } from "../src/index.js";
 
 describe("GMC Canyon AT4X procedural pickup", () => {
@@ -38,5 +41,19 @@ describe("GMC Canyon AT4X procedural pickup", () => {
     const maxZ = Math.max(...mergedBounds.map((b) => b.max.z));
     expect(maxX - minX).toBeGreaterThan(2.3);
     expect(maxZ - minZ).toBeGreaterThan(6.1);
+  });
+
+  it("rejects named wheel-arch and tire-contact geometry cheats", () => {
+    const good = buildGmcCanyonAt4xParts();
+    const bad = good.map((part) => {
+      if (part.name === "wheel_flares") return { ...part, mesh: box(0.1, 0.1, 0.1) };
+      if (/^tire_/.test(part.name)) return { ...part, mesh: transform(part.mesh, { translate: vec3(0, 0.5, 0) }) };
+      return part;
+    });
+    const goodScore = scorePickupVehicle(good);
+    const badScore = scorePickupVehicle(bad);
+    expect(badScore.metrics.wheelArchWrap).toBeLessThan(goodScore.metrics.wheelArchWrap);
+    expect(badScore.metrics.tireContact).toBeLessThan(goodScore.metrics.tireContact);
+    expect(badScore.score).toBeLessThan(goodScore.score);
   });
 });

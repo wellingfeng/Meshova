@@ -19,6 +19,7 @@ import {
   formatCritique,
   parseVlmCritique,
   critiqueWithVlm,
+  makeOpenAICompatibleClient,
   MockLlmClient,
   vec3,
   buildFireEscapeParts,
@@ -27,6 +28,7 @@ import {
   buildStreetTreeParts,
   type Mesh,
   type NamedPart,
+  type LlmClient,
 } from "../src/index.js";
 
 describe("geometry metrics (A tier)", () => {
@@ -370,8 +372,24 @@ describe("VLM critic (B/C tier)", () => {
   const reply = [
     "```json",
     JSON.stringify({
+      visualScore: 0.48,
+      confidence: 0.86,
       aesthetic: 0.55,
       realism: 0.4,
+      layerScores: {
+        silhouetteProportion: 0.72,
+        componentStructure: 0.58,
+        spatialStructure: 0.41,
+        formDetail: 0.5,
+        colorPalette: 0.66,
+        materialSurface: 0.39,
+        lightingCamera: 0.7,
+      },
+      featureReviews: [
+        { id: "seat-system", score: 0.42, visible: true, notes: "seat floats above base" },
+        { id: "hidden-back", score: 0.1, visible: false },
+      ],
+      summary: "Structure and material need another pass.",
       issues: [
         { axis: "realism", severity: "hard", part: "seat", finding: "seat too high", suggestion: "lower the seat" },
         { axis: "aesthetic", severity: "soft", finding: "legs too thin", suggestion: "thicken legs" },
@@ -385,6 +403,12 @@ describe("VLM critic (B/C tier)", () => {
     const v = parseVlmCritique(reply);
     expect(v.aesthetic).toBeCloseTo(0.55);
     expect(v.realism).toBeCloseTo(0.4);
+    expect(v.visualScore).toBeCloseTo(0.48);
+    expect(v.confidence).toBeCloseTo(0.86);
+    expect(v.layerScores?.spatialStructure).toBeCloseTo(0.41);
+    expect(v.featureReviews?.[0]?.id).toBe("seat-system");
+    expect(v.featureReviews?.[1]?.visible).toBe(false);
+    expect(v.summary).toContain("Structure");
     expect(v.issues).toHaveLength(3);
     expect(v.issues[0]!.part).toBe("seat");
     // Unknown axis falls back to "realism", unknown severity to "soft".
@@ -408,6 +432,65 @@ describe("VLM critic (B/C tier)", () => {
     // The hard VLM issue should surface in the report and block passing.
     expect(report.issues.some((i) => i.severity === "hard" && i.part === "seat")).toBe(true);
     expect(report.passed).toBe(false);
+  });
+
+  it("retries by model and records the actual fallback judge", async () => {
+    const requestedModels: string[] = [];
+    const client = makeOpenAICompatibleClient({
+      endpoint: "https://example.invalid/chat/completions",
+      apiKey: "test",
+      model: "primary-vision",
+      fallbackModels: ["fallback-vision"],
+      maxRetries: 0,
+      retryDelayMs: 0,
+      fetchImpl: async (_input, init) => {
+        const model = JSON.parse((init as { body: string }).body).model as string;
+        requestedModels.push(model);
+        if (model === "primary-vision") {
+          return {
+            ok: false,
+            status: 503,
+            text: async () => "busy",
+            json: async () => ({}),
+          };
+        }
+        return {
+          ok: true,
+          status: 200,
+          text: async () => "",
+          json: async () => ({ choices: [{ message: { content: reply } }] }),
+        };
+      },
+    });
+    const review = await critiqueWithVlm({ client, goal: "chair", rendersBase64: ["PNG"] });
+    expect(requestedModels).toEqual(["primary-vision", "fallback-vision"]);
+    expect(review.providerModel).toBe("fallback-vision");
+    expect(review.providerAttempts).toBe(2);
+    expect(review.providerFallbackUsed).toBe(true);
+  });
+
+  it("sends reference, multi-view labels, phase, and critical systems in one review", async () => {
+    let captured: Parameters<LlmClient["complete"]>[0] | undefined;
+    const client: LlmClient = {
+      async complete(messages) {
+        captured = messages;
+        return reply;
+      },
+    };
+    await critiqueWithVlm({
+      client,
+      goal: "a dining chair",
+      referenceBase64: "REF",
+      rendersBase64: ["FRONT", "SIDE", "GRAZE"],
+      renderLabels: ["reference-matched view", "side", "grazing lookdev"],
+      phase: "structure",
+      criticalFeatures: [{ id: "seat-system", label: "座椅系统", description: "seat attached to base" }],
+    });
+    expect(captured?.[0]?.content).toContain("spatialStructure");
+    expect(captured?.[0]?.content).toContain("Current locked pass: structure");
+    expect(captured?.[0]?.content).toContain("seat-system");
+    expect(captured?.[1]?.imagesBase64).toEqual(["REF", "FRONT", "SIDE", "GRAZE"]);
+    expect(captured?.[1]?.content).toContain("grazing lookdev");
   });
 });
 

@@ -67,7 +67,8 @@ describe("VLM decomposition parsing", () => {
       symmetry: "bilateral",
       parts: [
         { name: "seat", description: "flat cushion", primitive: "box",
-          position: { x: 0.5, y: 0.45 }, size: { w: 0.6, h: 0.15 }, material: "fabric", confidence: 0.95 },
+          position: { x: 0.5, y: 0.45 }, size: { w: 0.6, h: 0.15 }, material: "fabric",
+          depth: "middle", color: "warm charcoal", parent: "base", attachment: "socket", confidence: 0.95 },
         { name: "painted-stripe", description: "color band on backrest", primitive: "box",
           position: { x: 0.5, y: 0.7 }, size: { w: 0.5, h: 0.05 }, material: "fabric", confidence: 0.2 },
       ],
@@ -82,6 +83,10 @@ describe("VLM decomposition parsing", () => {
     expect(d.symmetry).toBe("bilateral");
     expect(d.parts.length).toBe(2);
     expect(d.parts[0]!.name).toBe("seat");
+    expect(d.parts[0]!.depth).toBe("middle");
+    expect(d.parts[0]!.color).toBe("warm charcoal");
+    expect(d.parts[0]!.parent).toBe("base");
+    expect(d.parts[0]!.attachment).toBe("socket");
     expect(d.notes).toBe("tall backrest");
   });
 
@@ -112,6 +117,8 @@ describe("VLM decomposition parsing", () => {
     expect(text).toContain("painted-stripe");
     expect(text).toContain("low-confidence");   // the 0.2-confidence part
     expect(text).toContain("symmetry: bilateral");
+    expect(text).toContain("depth=middle");
+    expect(text).toContain("parent=base attachment=socket");
   });
 
   it("runs end-to-end through a MockLlmClient", async () => {
