@@ -24,7 +24,7 @@ let procModelsPromise = null;
 
 async function loadProcManifest() {
   if (procManifest) return procManifest;
-  const response = await fetch("/web/procmodels-manifest.json");
+  const response = await fetch(new URL("/web/procmodels-manifest.json", import.meta.url));
   if (!response.ok) throw new Error(`manifest 加载失败: ${response.status}`);
   procManifest = await response.json();
   return procManifest;
