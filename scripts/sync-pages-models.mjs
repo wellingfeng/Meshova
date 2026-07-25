@@ -22,24 +22,10 @@ function assertInsideRoot(path) {
 }
 
 function isGeneratedLibraryEntry(model, procModelIds, visibleModelIds) {
+  // 全量发布：只要有 id + file、未被程序模型覆盖、且在可见集合内即发布，
+  // 与 web/gallery.js 的入库判定保持一致（不再按分类/前缀白名单收窄）。
   if (!model?.id || !model?.file || procModelIds.has(model.id) || !visibleModelIds.has(model.id)) return false;
-  const id = String(model.id);
-  return model.category === "meshova" ||
-    model.category === "BlenderHowtos复刻" ||
-    model.category === "HoudiniHowtos复刻" ||
-    id.startsWith("blender-howtos-") ||
-    id.startsWith("houdini-howtos") ||
-    id.startsWith("speedtree-") ||
-    id.startsWith("terrain-") ||
-    id.startsWith("veg-") ||
-    id.startsWith("mech-") ||
-    id.startsWith("rt-") ||
-    id.startsWith("ruin-") ||
-    model.category === "地形" ||
-    model.category === "植被" ||
-    model.category === "机械" ||
-    model.category === "建筑" ||
-    model.category === "程序工作流";
+  return true;
 }
 
 function mimeType(path) {

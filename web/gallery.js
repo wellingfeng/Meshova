@@ -66,9 +66,9 @@ function outUrl(path) {
 }
 
 function isGeneratedLibraryEntry(m, procIds) {
+  // 全量发布：只要有 id + file、未被程序模型覆盖、且未在隐藏列表即入库。
   if (!m || !m.id || !m.file || procIds?.has(m.id) || !isGalleryModelVisible(m.id)) return false;
-  const id = String(m.id);
-  return m.category === "meshova" || m.category === "BlenderHowtos复刻" || m.category === "HoudiniHowtos复刻" || id.startsWith("blender-howtos-") || id.startsWith("houdini-howtos") || id.startsWith("speedtree-") || id.startsWith("terrain-") || id.startsWith("veg-") || id.startsWith("mech-") || id.startsWith("rt-") || id.startsWith("ruin-") || m.category === "地形" || m.category === "植被" || m.category === "机械" || m.category === "建筑" || m.category === "程序工作流";
+  return true;
 }
 
 async function loadGeneratedEntries(procIds) {
